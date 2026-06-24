@@ -1,0 +1,325 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* 主色调 - 提高对比度 */
+  --primary-color: #818cf8;      /* 靛蓝 - 主操作 */
+  --success-color: #34d399;      /* 翠绿 - 涨/盈利 */
+  --danger-color: #f87171;       /* 浅红 - 跌/亏损 */
+  --warning-color: #fbbf24;      /* 琥珀 - 警告 */
+  --info-color: #38bdf8;         /* 天蓝 - 信息 */
+
+  /* 文字颜色 - 确保 WCAG AA (4.5:1) 以上 */
+  --text-primary: #ffffff;       /* 主文字 - 纯白 */
+  --text-secondary: #e5e7eb;     /* 次要文字 - 浅灰 (对比度 ~7:1) */
+  --text-muted: #d1d5db;         /* 弱化文字 - 浅灰 (对比度 ~5.5:1) */
+
+  /* 背景色 */
+  --bg-primary: #0f0f23;         /* 主背景 - 深黑 */
+  --bg-secondary: #1f1f3a;       /* 次要背景 - 深紫灰 */
+  --bg-card: #1a1a2e;            /* 卡片背景 */
+  --bg-hover: #252545;           /* 悬停状态 */
+
+  /* 边框 */
+  --border-color: #374151;       /* 边框 - 灰色 */
+  --border-light: #4b5563;       /* 浅边框 */
+
+  /* 滚动条 */
+  --scrollbar-track: #1a1a2e;
+  --scrollbar-thumb: #4b5563;
+  --scrollbar-thumb-hover: #6b7280;
+
+  /* 标签颜色 - 统一颜色系统 */
+  --tag-stock: #5a6bff;
+  --tag-fund: #36cfc9;
+  --tag-bond: #6b7280;
+  --tag-gold: #fbbf24;
+  --tag-etf: #36cfc9;
+  --tag-semiconductor: #818cf8;
+
+  /* 字体重量层次 */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}
+
+body {
+  margin: 0;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* 文字颜色 */
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* 卡片样式 */
+.card {
+  @apply rounded-lg border p-4;
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+/* 卡片圆角差异化 */
+.card-sm { border-radius: 8px; }
+.card-md { border-radius: 10px; }
+.card-lg { border-radius: 12px; }
+
+/* 渐变背景 */
+.gradient-bg {
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+/* K线图颜色 */
+.kline-up {
+  color: var(--danger-color);
+}
+
+.kline-down {
+  color: var(--success-color);
+}
+
+/* 链接 */
+a {
+  color: var(--primary-color);
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #a5b4fc;
+}
+
+/* 按钮增强 */
+.ant-btn-primary {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+}
+
+.ant-btn-primary:hover {
+  background-color: #6366f1 !important;
+  border-color: #6366f1 !important;
+}
+
+/* 输入框 */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-input-number,
+.ant-select-selector {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-input-number-input,
+.ant-select-selection-item,
+.ant-select-selection-placeholder,
+.ant-input::placeholder {
+  color: var(--text-primary) !important;
+}
+
+.ant-select-selection-placeholder,
+.ant-input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.ant-select-dropdown {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.ant-select-item {
+  color: var(--text-secondary) !important;
+}
+
+.ant-select-item-option-active,
+.ant-select-item-option-selected {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+/* 表格 */
+.ant-table {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-table-thead > tr > th {
+  background: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.ant-table-tbody > tr > td {
+  background: var(--bg-card) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: var(--bg-hover) !important;
+}
+
+.ant-table-placeholder > td,
+.ant-table-placeholder:hover > td {
+  background: var(--bg-card) !important;
+}
+
+.ant-empty-description {
+  color: var(--text-muted) !important;
+}
+
+.ant-table-summary > tr > td {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* 新增资产行样式 */
+.new-asset-row > td {
+  background: rgba(115, 216, 151, 0.08) !important;
+}
+
+/* 标签 */
+.ant-tag {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+/* 模态框 */
+.ant-modal-content {
+  background: var(--bg-card) !important;
+}
+
+.ant-modal-header {
+  background: var(--bg-card) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.ant-modal-title {
+  color: var(--text-primary) !important;
+}
+
+.ant-modal-close-x {
+  color: var(--text-secondary) !important;
+}
+
+.ant-modal-body,
+.ant-form-item-label > label,
+.ant-tabs-tab,
+.ant-tabs-tab-btn,
+.ant-popover-title,
+.ant-popover-inner-content {
+  color: var(--text-primary) !important;
+}
+
+.ant-popover-inner {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.ant-tabs-tab:not(.ant-tabs-tab-active) .ant-tabs-tab-btn {
+  color: var(--text-secondary) !important;
+}
+
+.ant-card {
+  color: var(--text-primary);
+}
+
+.operations-page,
+.operations-page .ant-card,
+.operations-page .ant-table-wrapper,
+.operations-page .ant-table-container,
+.operations-page .ant-descriptions,
+.operations-page .ant-collapse,
+.operations-page .ant-segmented {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.operations-page .ant-table-wrapper {
+  overflow-x: auto;
+}
+
+.operations-page .ant-card-body,
+.operations-page .ant-modal-body {
+  min-width: 0;
+}
+
+.operations-page .ant-segmented {
+  overflow-x: auto;
+}
+
+.operations-page .ant-segmented-group {
+  min-width: max-content;
+}
+
+@media (max-width: 480px) {
+  .operations-page {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .operations-page p,
+  .operations-page h1,
+  .operations-page span {
+    overflow-wrap: anywhere;
+  }
+
+  .operations-page .operations-action-bar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .operations-page .operations-action-bar .ant-space-item,
+  .operations-page .operations-action-bar .ant-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .operations-page .ant-card-body {
+    padding: 12px;
+  }
+
+  .operations-page .ant-statistic-content {
+    font-size: 20px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .operations-page .ant-modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

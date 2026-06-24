@@ -1,0 +1,955 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 用户
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String
+  name         String
+  riskLevel    Int          @default(3) // 1-5 风险等级
+  settings     String       @default("{}") // JSON设置
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  positions    Position[]
+  transactions Transaction[]
+  portfolios   Portfolio[]
+  alerts       Alert[]
+  snapshots    DailySnapshot[]
+  advices      Advice[]
+  adviceInputSnapshots AdviceInputSnapshot[]
+  positionSnapshots    PositionSnapshot[]
+  alertRules           AlertRule[]
+  alertEvents          AlertEvent[]
+  operations           Operation[]
+}
+
+// 资产主表
+model Asset {
+  id          String   @id @default(uuid())
+  symbol      String   @unique // 代码：AAPL, 600519.SS
+  name        String   // 名称
+  type        String   // stock, fund, bond, gold, cash, crypto, etf, reit
+  currency    String   @default("CNY")
+  exchange    String?  // 交易所：SH, SZ, HK, US
+  sector      String?  // 行业
+  industry    String?  // 细分行业
+  riskLevel   Int?     // 1-5
+  lastPrice   Float?
+  lastUpdated DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  positions     Position[]
+  transactions  Transaction[]
+  priceHistory  PriceHistory[]
+  assetTags     AssetTag[]
+  adviceActions AdviceAction[]
+  marketSnapshots MarketSnapshot[]
+  positionSnapshots PositionSnapshot[]
+  alertRules       AlertRule[]
+  alertEvents      AlertEvent[]
+}
+
+// 仓位
+model Position {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  quantity     Float    // 数量
+  avgCost      Float    // 平均成本
+  currentPrice Float?   // 当前价格
+  marketValue  Float?   // 市值
+  costBasis    Float?   // 成本
+  unrealizedPnl Float?  // 浮动盈亏
+  realizedPnl  Float    @default(0) // 已实现盈亏
+  positionType String   @default("long") // long, short
+  status       String   @default("open") // open, closed, pending
+  stopLoss     Float?   // 止损收益率阈值（百分比，如 -5 表示亏损 5%）
+  takeProfit   Float?   // 止盈收益率阈值（百分比，如 5 表示盈利 5%）
+  tags         String   @default("[]") // JSON数组
+  labels       String   @default("[]") // JSON数组
+  notes        String?
+  source       String?  // manual, import
+  openKey      String?  @unique // open position uniqueness key: userId:assetId, null for closed positions
+  openedAt     DateTime @default(now())
+  closedAt     DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transactions Transaction[]
+  snapshots    PositionSnapshot[]
+}
+
+// 交易记录
+model Transaction {
+  id             String   @id @default(uuid())
+  positionId     String?
+  position       Position? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assetId        String
+  asset          Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  type           String   // buy, sell, dividend, split, transfer, fee
+  quantity       Float
+  price          Float
+  fee            Float    @default(0)
+  amount         Float
+  broker         String?
+  confirmationNo String?
+  status         String   @default("confirmed") // pending, confirmed, cancelled
+  executedAt     DateTime
+  notes          String?
+  source         String?  // manual, imported, advice_confirmed
+  adviceActionId String?
+  adviceAction   AdviceAction? @relation(fields: [adviceActionId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, executedAt])
+  @@index([assetId, executedAt])
+}
+
+// 建议批次
+model Advice {
+  id                 String   @id @default(uuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adviceInputSnapshotId String?
+  adviceInputSnapshot   AdviceInputSnapshot? @relation(fields: [adviceInputSnapshotId], references: [id], onDelete: SetNull)
+  generatedAt        DateTime @default(now())
+  schemaVersion      String   @default("v1")
+  summaryText        String?
+  disclaimerText     String?
+  inputSnapshotJson  String   @default("{}")
+  recommendationJson String   @default("{}")
+  rationaleText      String?
+  riskLevel          String   @default("medium")
+  status             String   @default("proposed") // proposed, accepted, rejected, partially_executed, expired
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  actions AdviceAction[]
+
+  @@index([userId, generatedAt])
+  @@index([adviceInputSnapshotId])
+}
+
+// 建议动作
+model AdviceAction {
+  id                String   @id @default(uuid())
+  adviceId          String
+  advice            Advice   @relation(fields: [adviceId], references: [id], onDelete: Cascade)
+  assetId           String?
+  asset             Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  actionType        String   // buy, sell, hold, rebalance, grid_order, dca
+  suggestedQuantity Float?
+  suggestedAmount   Float?
+  suggestedPrice    Float?
+  targetPositionPct Float?
+  confidence        Float?
+  reason            String?
+  status            String   @default("proposed") // proposed, accepted, rejected, executed, skipped
+  executedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  transactions Transaction[]
+  execution    AdviceExecution?
+
+  @@index([adviceId])
+  @@index([assetId])
+}
+
+model AdviceExecution {
+  id                String   @id @default(uuid())
+  adviceActionId    String   @unique
+  adviceAction      AdviceAction @relation(fields: [adviceActionId], references: [id], onDelete: Cascade)
+  decision          String   // accepted, rejected, modified, expired
+  overrideJson      String   @default("{}")
+  executedAt        DateTime?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model AdviceInputSnapshot {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capturedAt           DateTime @default(now())
+  portfolioSnapshotJson String  @default("{}")
+  positionSnapshotJson  String  @default("[]")
+  marketSnapshotJson    String  @default("[]")
+  constraintsJson       String  @default("{}")
+  promptVersion         String?
+  createdAt             DateTime @default(now())
+
+  advices Advice[]
+
+  @@index([userId, capturedAt])
+}
+
+model PositionSnapshot {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId      String
+  position        Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  assetId         String
+  asset           Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  capturedAt      DateTime @default(now())
+  quantity        Float
+  avgCost         Float
+  currentPrice    Float?
+  marketValue     Float?
+  costBasis       Float?
+  actualWeightPct Float?
+  costWeightPct   Float?
+  createdAt       DateTime @default(now())
+
+  @@index([userId, capturedAt])
+  @@index([positionId, capturedAt])
+  @@index([assetId, capturedAt])
+}
+
+model MarketSnapshot {
+  id              String   @id @default(uuid())
+  assetId         String
+  asset           Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  capturedAt      DateTime @default(now())
+  price           Float?
+  currency        String?
+  source          String?
+  confidenceScore Float?   @default(0)
+  dayChangePct    Float?
+  valuationJson   String   @default("{}")
+  technicalJson   String   @default("{}")
+  createdAt       DateTime @default(now())
+
+  alertEvents AlertEvent[]
+
+  @@index([assetId, capturedAt])
+}
+
+// 价格历史（时序数据）
+model PriceHistory {
+  id         String   @id @default(uuid())
+  assetId    String
+  asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  timestamp  DateTime
+  openPrice  Float?
+  highPrice  Float?
+  lowPrice   Float?
+  closePrice Float
+  volume     Float?
+  source     String?  // yahoo, eastmoney, sina
+  isValid    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@index([assetId, timestamp])
+}
+
+// 标签
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  color     String    @default("#5a6bff")
+  category  String?   // 地域：港股、美股；行业：科技；概念：新能源
+  createdAt DateTime  @default(now())
+
+  assetTags AssetTag[]
+}
+
+// 资产-标签关联
+model AssetTag {
+  id       String   @id @default(uuid())
+  assetId  String
+  asset    Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  tagId    String
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([assetId, tagId])
+}
+
+// 投资组合
+model Portfolio {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String   // 永久组合、全天候组合
+  type         String   // permanent, all_weather, custom
+  description  String?
+  config       String   @default("{}") // JSON配置
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  allocations  PortfolioAllocation[]
+}
+
+// 组合配置
+model PortfolioAllocation {
+  id           String   @id @default(uuid())
+  portfolioId  String
+  portfolio    Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  assetType    String?  // stock, bond, gold, cash
+  tagId        String?  // 标签
+  targetRatio  Float    // 目标比例
+  minRatio     Float?   // 最小比例
+  maxRatio     Float?   // 最大比例
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// 策略
+model Strategy {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  type        String   // momentum, mean_reversion, trend_following, custom
+  parameters  String   @default("{}") // JSON参数
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  backtests   Backtest[]
+  versions    StrategyVersion[]
+}
+
+model StrategyVersion {
+  id                 String   @id @default(uuid())
+  strategyId         String
+  strategy           Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  strategyKey        String
+  schemaVersion      String
+  signalStrategyId   String
+  signalVersion      String
+  thresholdHash      String
+  entryPolicyId      String
+  entryPolicyVersion String
+  exitPolicyId       String
+  exitPolicyVersion  String
+  holdingDays        Int?
+  sizingPolicyId     String
+  sizingVersion      String
+  portfolioPolicyId  String
+  portfolioVersion   String
+  costModelId        String
+  costModelVersion   String
+  constraintId       String
+  constraintVersion  String
+  engineVersion      String
+  versionBundleJson  String   @default("{}")
+  auditHash          String
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([strategyId, auditHash])
+  @@index([strategyKey, auditHash])
+  @@index([signalStrategyId, signalVersion])
+}
+
+// 回测
+model Backtest {
+  id            String   @id @default(uuid())
+  strategyId    String
+  strategy      Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  name          String?
+  startDate     DateTime
+  endDate       DateTime
+  initialCapital Float
+  finalCapital   Float?
+  totalReturn    Float?
+  annualizedReturn Float?
+  maxDrawdown    Float?
+  sharpeRatio    Float?
+  winRate        Float?
+  tradesCount    Int?
+  status         String   @default("pending") // pending, running, completed, failed
+  progress       Int      @default(0)
+  createdAt      DateTime @default(now())
+  completedAt    DateTime?
+
+  results BacktestResult[]
+  signals TradeSignal[]
+}
+
+// 回测结果
+model BacktestResult {
+  id             String   @id @default(uuid())
+  backtestId     String
+  backtest       Backtest @relation(fields: [backtestId], references: [id], onDelete: Cascade)
+  periodStart    DateTime
+  periodEnd      DateTime
+  totalReturn    Float?
+  annualizedReturn Float?
+  maxDrawdown    Float?
+  sharpeRatio    Float?
+  winRate        Float?
+  profitFactor   Float?
+  tradesCount    Int?
+  equityCurve    String   @default("[]") // JSON数组
+  monthlyReturns String   @default("[]") // JSON数组
+  reviewReportJson String @default("{}")
+  createdAt      DateTime @default(now())
+}
+
+// 交易信号
+model TradeSignal {
+  id          String   @id @default(uuid())
+  backtestId  String?
+  backtest    Backtest? @relation(fields: [backtestId], references: [id], onDelete: SetNull)
+  assetSymbol String
+  signalType  String   // buy, sell, hold
+  action      String   // buy, sell, maintain
+  quantity    Float?
+  price       Float?
+  confidence  Int      // 0-100
+  reason      String?
+  executed    Boolean  @default(false)
+  executedAt  DateTime?
+  createdAt   DateTime @default(now())
+}
+
+// 每日快照
+model DailySnapshot {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          DateTime
+  totalValue    Float
+  cashBalance   Float
+  positionsCount Int
+  topGainers    String   @default("[]") // JSON
+  topLosers     String   @default("[]") // JSON
+  allocation    String   @default("{}") // JSON
+  pnlDay        Float?
+  pnlPercent    Float?
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+// 告警
+model Alert {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // price, risk, rebalance
+  title       String
+  message     String
+  severity    String   // info, warning, danger
+  status      String   @default("active") // active, acknowledged, resolved
+  assetSymbol String?
+  triggeredAt DateTime?
+  acknowledgedAt DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model AlertRule {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assetId           String?
+  asset             Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  ruleType          String   // price_above, price_below, position_deviation, drawdown, valuation_percentile
+  thresholdValue    Float?
+  comparisonConfigJson String @default("{}")
+  enabled           Boolean  @default(true)
+  lastTriggeredAt   DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  events AlertEvent[]
+
+  @@index([userId, ruleType])
+  @@index([assetId, ruleType])
+}
+
+model AlertEvent {
+  id               String   @id @default(uuid())
+  alertRuleId      String
+  alertRule        AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assetId          String?
+  asset            Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  operationId      String?
+  operation        Operation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+  marketSnapshotId String?
+  marketSnapshot   MarketSnapshot? @relation(fields: [marketSnapshotId], references: [id], onDelete: SetNull)
+  message          String
+  severity         String   // info, warning, danger
+  status           String   @default("unread") // unread, read, dismissed
+  triggeredAt      DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  @@index([userId, status, triggeredAt])
+  @@index([assetId, triggeredAt])
+}
+
+// 投资建议
+model Suggestion {
+  id         String   @id @default(uuid())
+  userId     String
+  period     String   // daily, weekly
+  date       DateTime
+  content    String   // JSON内容
+  createdAt  DateTime @default(now())
+
+  @@index([userId, period, date])
+}
+
+model Operation {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentOperationId String?
+  parentOperation   Operation? @relation("OperationToChildren", fields: [parentOperationId], references: [id], onDelete: SetNull)
+  type            String   // refresh_prices, check_alerts, generate_daily_advice, run_backtest, generate_backtest_report
+  status          String   @default("queued") // queued, running, completed/succeeded, failed, cancelling, cancelled, partial
+  requestedAt     DateTime @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  progressPct     Int      @default(0)
+  progressCurrent Int?
+  progressTotal   Int?
+  progressMessage String?
+  cancelRequested Boolean  @default(false)
+  createdBy       String   @default("user") // user, scheduler, system, agent
+  idempotencyKey  String?
+  leaseOwner      String?
+  leaseToken      String?
+  leaseExpiresAt  DateTime?
+  heartbeatAt     DateTime?
+  inputJson       String   @default("{}")
+  resultJson      String   @default("{}")
+  errorJson       String   @default("{}")
+  errorSummary    String?
+  recoveryJson    String   @default("{}")
+  artifactRefsJson String  @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  alertEvents AlertEvent[]
+  childOperations Operation[] @relation("OperationToChildren")
+  tasks OperationTask[]
+
+  @@index([userId, type, status])
+  @@index([status, requestedAt])
+  @@index([type, status, leaseExpiresAt])
+  @@index([leaseOwner, leaseToken])
+  @@index([parentOperationId, type, requestedAt])
+  @@unique([type, idempotencyKey])
+}
+
+model OperationTask {
+  id              String   @id @default(uuid())
+  operationId     String
+  operation       Operation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  name            String
+  taskType        String?
+  chunkIndex      Int?
+  status          String   @default("queued") // queued, running, completed/succeeded, failed, cancelling, cancelled, partial
+  attempt         Int      @default(1)
+  maxAttempts     Int      @default(3)
+  idempotencyKey  String?
+  inputJson       String   @default("{}")
+  outputJson      String   @default("{}")
+  startedAt       DateTime?
+  completedAt     DateTime?
+  durationMs      Int?
+  successCount    Int      @default(0)
+  failureCount    Int      @default(0)
+  provider        String?
+  cacheHitRate    Float?
+  warningsJson    String   @default("[]")
+  metricsJson     String   @default("{}")
+  errorJson       String   @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([operationId, name, chunkIndex])
+  @@index([operationId, status])
+  @@unique([operationId, idempotencyKey])
+}
+
+model SchedulerLease {
+  name           String   @id
+  leaseOwner     String?
+  leaseExpiresAt DateTime?
+  heartbeatAt    DateTime?
+  lastRunAt      DateTime?
+  lastResultJson String   @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([leaseExpiresAt])
+}
+
+model MarketBarRaw {
+  id             String   @id @default(uuid())
+  assetId        String?
+  symbol         String
+  market         String   @default("CN")
+  exchange       String?
+  provider       String
+  providerSymbol String?
+  timeframe      String   @default("1d")
+  tradeDate      DateTime
+  tradeTime      DateTime?
+  adjustType     String   @default("none")
+  openPrice      Float?
+  highPrice      Float?
+  lowPrice       Float?
+  closePrice     Float
+  volume         Float?
+  amount         Float?
+  turnoverRate   Float?
+  adjFactor      Float?
+  currency       String?  @default("CNY")
+  timezone       String?  @default("Asia/Shanghai")
+  isSuspended    Boolean  @default(false)
+  limitUp        Float?
+  limitDown      Float?
+  sourceTimestamp DateTime?
+  httpStatus     Int?
+  requestId      String?
+  qualityFlagsJson String @default("[]")
+  validationStatus String @default("pending")
+  rawPayloadHash String
+  rawPayloadRef  String?
+  rawPayloadJson String   @default("{}")
+  fetchedAt      DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@unique([symbol, market, provider, tradeDate, adjustType])
+  @@index([symbol, market, tradeDate])
+  @@index([provider, fetchedAt])
+  @@index([provider, providerSymbol, timeframe, tradeDate, tradeTime, adjustType])
+  @@index([assetId, timeframe, tradeDate])
+}
+
+model MarketBarCanonical {
+  id             String   @id @default(uuid())
+  assetId        String?
+  symbol         String
+  market         String   @default("CN")
+  timeframe      String   @default("1d")
+  tradeDate      DateTime
+  tradeTime      DateTime?
+  adjustType     String   @default("none")
+  openPrice      Float?
+  highPrice      Float?
+  lowPrice       Float?
+  closePrice     Float
+  volume         Float?
+  amount         Float?
+  adjFactor      Float?
+  primaryProvider String?
+  sourceRefsJson String   @default("[]")
+  consensusScore Float?
+  confidence     Float?
+  validationStatus String @default("pending")
+  dataVersion    String   @default("canonical.v1")
+  qualityFlagsJson String @default("[]")
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  @@unique([symbol, market, tradeDate, adjustType, dataVersion])
+  @@index([symbol, market, tradeDate])
+  @@index([assetId, timeframe, tradeDate])
+}
+
+model MarketDataCoverage {
+  id                String   @id @default(uuid())
+  assetId           String?
+  market            String   @default("CN")
+  symbol            String
+  timeframe         String   @default("1d")
+  adjustType        String   @default("none")
+  dataVersion       String   @default("canonical.v1")
+  firstTradeDate    DateTime?
+  lastTradeDate     DateTime?
+  completeFrom      DateTime?
+  completeTo        DateTime?
+  expectedBarCount  Int      @default(0)
+  actualBarCount    Int      @default(0)
+  missingCount      Int      @default(0)
+  missingRangesJson String   @default("[]")
+  lastProvider      String?
+  lastFetchAt       DateTime?
+  lastValidateAt    DateTime?
+  status            String   @default("unknown") // sufficient, partial, stale, failed, unknown
+  staleReason       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([symbol, market, timeframe, adjustType, dataVersion])
+  @@index([market, timeframe, adjustType, dataVersion, status])
+  @@index([symbol, market, status])
+  @@index([completeTo])
+}
+
+model MarketFeatureDaily {
+  id                 String   @id @default(uuid())
+  assetId            String?
+  symbol             String
+  market             String   @default("CN")
+  tradeDate          DateTime
+  adjustType         String   @default("none")
+  dataVersion        String   @default("canonical.v1")
+  closePrice         Float
+  return1d           Float?
+  return5d           Float?
+  return20d          Float?
+  return60d          Float?
+  ma5                Float?
+  ma10               Float?
+  ma20               Float?
+  ma60               Float?
+  ma120              Float?
+  ma250              Float?
+  ma20Slope          Float?
+  ma60Slope          Float?
+  rollingHigh20      Float?
+  rollingLow20       Float?
+  rollingHigh60      Float?
+  rollingLow60       Float?
+  volumeMa5          Float?
+  volumeMa20         Float?
+  volumeRatio20      Float?
+  atr14              Float?
+  rsi14              Float?
+  volatility20       Float?
+  volatility60       Float?
+  maxDrawdown20      Float?
+  maxDrawdown60      Float?
+  relativeStrength20 Float?
+  relativeStrength60 Float?
+  liquidityScore     Float?
+  trendScore         Float?
+  momentumScore      Float?
+  qualityFlagsJson   String   @default("[]")
+  computedAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([symbol, market, tradeDate, adjustType, dataVersion])
+  @@index([tradeDate, market, adjustType, dataVersion])
+  @@index([symbol, market, tradeDate])
+  @@index([assetId, tradeDate])
+}
+
+model SecurityStatusDaily {
+  id                  String   @id @default(uuid())
+  assetId             String?
+  symbol              String
+  market              String   @default("CN")
+  tradeDate           DateTime
+  listingStatus       String   @default("listed") // listed, suspended_listing, delisted, unknown
+  riskFlag            String?  // normal, st, delisting_risk, unknown
+  isSt                Boolean  @default(false)
+  isDelisted          Boolean  @default(false)
+  isSuspended         Boolean  @default(false)
+  provider            String   @default("heuristic")
+  sourceTimestamp     DateTime?
+  confidence          Float    @default(0.45)
+  sourceRefsJson      String   @default("[]")
+  warningsJson        String   @default("[]")
+  validationStatus    String   @default("valid")
+  dataVersion         String   @default("security_status.v1")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([symbol, market, tradeDate, dataVersion])
+  @@index([tradeDate, market, dataVersion])
+  @@index([symbol, market, tradeDate])
+  @@index([provider, tradeDate])
+  @@index([riskFlag, listingStatus])
+}
+
+model MarketTradeabilityDaily {
+  id                  String   @id @default(uuid())
+  assetId             String?
+  symbol              String
+  market              String   @default("CN")
+  tradeDate           DateTime
+  isTradable          Boolean  @default(true)
+  tradabilityStatus   String   @default("tradable") // tradable, suspended, limit_up_blocked, limit_down_blocked, unknown
+  isSuspended         Boolean  @default(false)
+  limitUp             Float?
+  limitDown           Float?
+  provider            String   @default("heuristic")
+  sourceTimestamp     DateTime?
+  confidence          Float    @default(0.45)
+  sourceRefsJson      String   @default("[]")
+  warningsJson        String   @default("[]")
+  qualityFlagsJson    String   @default("[]")
+  validationStatus    String   @default("valid")
+  dataVersion         String   @default("tradeability.v1")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([symbol, market, tradeDate, dataVersion])
+  @@index([tradeDate, market, dataVersion])
+  @@index([symbol, market, tradeDate])
+  @@index([provider, tradeDate])
+  @@index([tradabilityStatus, isTradable])
+}
+
+model ProviderHealth {
+  id              String   @id @default(uuid())
+  provider        String   @unique
+  endpoint        String   @default("default")
+  status          String   @default("healthy") // healthy, degraded, open_circuit
+  circuitState    String   @default("closed") // closed, open, half_open
+  cooldownUntil   DateTime?
+  windowStart     DateTime?
+  windowEnd       DateTime?
+  requestCount    Int      @default(0)
+  successCount    Int      @default(0)
+  failureCount    Int      @default(0)
+  timeoutCount    Int      @default(0)
+  error4xxCount   Int      @default(0)
+  error5xxCount   Int      @default(0)
+  badDataCount    Int      @default(0)
+  avgLatencyMs    Float?
+  p95LatencyMs    Float?
+  consecutiveFailures Int  @default(0)
+  circuitOpenedAt DateTime?
+  nextRetryAt      DateTime?
+  rateLimitPerMinute Int   @default(120)
+  lastSuccessAt    DateTime?
+  lastFailureAt    DateTime?
+  lastError        String?
+  metricsJson      String @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status, nextRetryAt])
+}
+
+model PositionAdviceCache {
+  id                    String   @id @default(uuid())
+  userId                String
+  positionId            String
+  assetId               String
+  factsetSchemaVersion  String   @default("position.advice.factset.v1")
+  status                String   @default("fresh") // fresh, stale, generating, failed, partial
+  summaryJson           String   @default("{}")
+  factsJson             String   @default("{}")
+  adviceJson            String   @default("{}")
+  evidenceRefsJson      String   @default("[]")
+  providerTraceJson     String   @default("{}")
+  warningsJson          String   @default("[]")
+  generatedAt           DateTime @default(now())
+  staleAt               DateTime
+  nextRefreshAfter      DateTime
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([userId, positionId, factsetSchemaVersion])
+  @@index([userId, status, nextRefreshAfter])
+  @@index([positionId, generatedAt])
+  @@index([assetId, generatedAt])
+}
+
+model FivdRInterventionReview {
+  id              String   @id @default(uuid())
+  userId          String
+  runId           String
+  positionId      String?
+  symbol          String?
+  decision        String
+  reason          String
+  reviewer        String
+  modelResultRef  String
+  evidenceRefsJson String @default("[]")
+  overrideJson    String   @default("{}")
+  previousHash    String?
+  recordHash      String
+  createdAt       DateTime @default(now())
+
+  @@index([userId, runId, createdAt])
+  @@index([positionId, createdAt])
+  @@index([recordHash])
+}
+
+model StockFactSetCache {
+  id                   String   @id @default(uuid())
+  assetId              String?
+  symbol               String
+  market               String   @default("A股")
+  factsetSchemaVersion String   @default("stock.analysis.factset.v1")
+  factsetType          String   @default("stock_full_analysis") // technical, fundamental, news, summary, stock_full_analysis
+  lookbackDays         Int      @default(80)
+  timeframe            String   @default("1d")
+  status               String   @default("fresh") // fresh, stale, generating, failed, partial
+  summaryJson          String   @default("{}")
+  factsJson            String   @default("{}")
+  analysisJson         String   @default("{}")
+  evidenceRefsJson     String   @default("[]")
+  providerTraceJson    String   @default("{}")
+  warningsJson         String   @default("[]")
+  generatedAt          DateTime @default(now())
+  staleAt              DateTime
+  nextRefreshAfter     DateTime
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([symbol, market, factsetType, factsetSchemaVersion, lookbackDays, timeframe])
+  @@index([symbol, market, factsetType, factsetSchemaVersion, lookbackDays, timeframe, status, nextRefreshAfter])
+  @@index([assetId, generatedAt])
+}
+
+model DividendLowVolDaily {
+  id                    String   @id @default(uuid())
+  userId                String   @default("default")
+  assetId               String?
+  symbol                String
+  name                  String
+  market                String   @default("A_SHARE")
+  tradeDate             DateTime
+  strategyFamily        String   @default("dividend_low_volatility")
+  strategyId            String   @default("dividend_low_vol_v1")
+  ttmDividendYield      Float?
+  avgDividendYield3y    Float?
+  dividendYieldPercentile3y Float?
+  consecutiveDividendYears Int    @default(0)
+  payoutRatio           Float?
+  dividendScore         Float
+  dividendQualityScore  Float
+  lowVolScore           Float
+  valuationScore        Float
+  lowZoneScore          Float
+  highZoneScore         Float
+  evidenceAdjustedScore Float
+  disposition           String
+  blockedReasonsJson    String   @default("[]")
+  dataGapSummaryJson    String   @default("[]")
+  evidenceRefsJson      String   @default("[]")
+  alertsJson            String   @default("[]")
+  disciplineJson        String   @default("{}")
+  factsetJson           String   @default("{}")
+  sourceOperationId     String?
+  generatedAt           DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([userId, symbol, tradeDate, strategyId])
+  @@index([userId, strategyId, tradeDate, evidenceAdjustedScore])
+  @@index([userId, disposition, tradeDate])
+  @@index([sourceOperationId])
+}

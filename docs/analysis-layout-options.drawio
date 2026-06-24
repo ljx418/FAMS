@@ -1,0 +1,222 @@
+<mxfile host="app.diagrams.net" agent="Codex" version="29.6.6" pages="5">
+  <diagram id="analysis-layout-overview" name="Overview">
+    <mxGraphModel dx="1280" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="ov-title" value="FAMS Analysis Page Layout Options" style="text;html=1;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="430" y="20" width="740" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="ov-subtitle" value="Four layout directions for the Analysis page. Choose one before I refactor the page structure." style="text;html=1;fontSize=13;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#94A3B8;" vertex="1" parent="1">
+          <mxGeometry x="300" y="62" width="1000" height="26" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ov-a" value="Option A&#xa;Command Center&#xa;&#xa;Top: conclusion / risk / pending&#xa;Left: key suggestions + full list&#xa;Right: execution + recent tasks&#xa;Bottom: folded detail blocks&#xa;&#xa;Best fit for current product" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E3A5F;strokeColor=#60A5FA;fontSize=16;fontStyle=1;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="140" width="320" height="260" as="geometry"/>
+        </mxCell>
+        <mxCell id="ov-b" value="Option B&#xa;Portfolio Overview&#xa;&#xa;Top: portfolio / pnl / allocation&#xa;Middle: advice summary + risk summary&#xa;Bottom tabs: suggestions / research / tasks / backtest&#xa;&#xa;More traditional wealth dashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=16;fontStyle=1;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="450" y="140" width="320" height="260" as="geometry"/>
+        </mxCell>
+        <mxCell id="ov-c" value="Option C&#xa;Inbox Workflow&#xa;&#xa;Left rail: filters&#xa;Middle: suggestion list&#xa;Right: selected suggestion detail&#xa;&#xa;Fastest for processing many suggestions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A3A18;strokeColor=#FBBF24;fontSize=16;fontStyle=1;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="820" y="140" width="320" height="260" as="geometry"/>
+        </mxCell>
+        <mxCell id="ov-d" value="Option D&#xa;Dual Mode&#xa;&#xa;Top mode switch: Overview / Execute&#xa;Overview mode emphasizes portfolio&#xa;Execute mode emphasizes suggestions&#xa;&#xa;Most flexible, also most complex" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#34254A;strokeColor=#A78BFA;fontSize=16;fontStyle=1;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="140" width="320" height="260" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ov-rank-title" value="Recommended Order" style="text;html=1;fontSize=18;fontStyle=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="450" width="260" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="ov-rank" value="1. Option A - strongest fit for your current advice-to-trade workflow&#xa;2. Option C - best if suggestion volume will keep growing&#xa;3. Option D - balanced, but more implementation cost&#xa;4. Option B - safest, but weaker for action handling" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F2937;strokeColor=#64748B;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="490" width="650" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="ov-note" value="Current page pain point: one screen is carrying too many roles at once - overview, research, suggestions, execution, task chain, and reliability." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A2428;strokeColor=#F87171;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="780" y="490" width="730" height="160" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="analysis-layout-a" name="Option A">
+    <mxGraphModel dx="1280" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="a-title" value="Option A - Command Center" style="text;html=1;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="470" y="20" width="660" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-sub" value="Goal: decide what to do in the next minute, then drill into detail only when needed." style="text;html=1;fontSize=13;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#94A3B8;" vertex="1" parent="1">
+          <mxGeometry x="320" y="62" width="960" height="26" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="a-top" value="Top Decision Bar&#xa;Conclusion / Risk / Pending / High Priority / Data Status / Research Input" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E3A5F;strokeColor=#60A5FA;fontSize=16;fontStyle=1;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="1440" height="95" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="a-left" value="Main Content" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#102A22;strokeColor=#34D399;fontSize=16;fontStyle=1;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="250" width="980" height="620" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-left-key" value="Key Suggestions&#xa;2-4 highest-value actions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="a-left">
+          <mxGeometry x="30" y="55" width="910" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-left-list" value="Full Suggestion List&#xa;filters / sort / density toggle / execute action" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A3A18;strokeColor=#FBBF24;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="a-left">
+          <mxGeometry x="30" y="215" width="910" height="255" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-left-folded" value="Folded Detail Blocks&#xa;Overview / Reliability / Task Chain / Holdings Research&#xa;Only expanded on demand" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F2937;strokeColor=#64748B;fontSize=15;arcSize=8;dashed=1;fontColor=#F8FAFC;" vertex="1" parent="a-left">
+          <mxGeometry x="30" y="500" width="910" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="a-right" value="Execution Sidebar" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#241B33;strokeColor=#A78BFA;fontSize=16;fontStyle=1;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="250" width="420" height="620" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-right-status" value="Execution Status&#xa;pending / recorded / top pending items" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#34254A;strokeColor=#A78BFA;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="a-right">
+          <mxGeometry x="30" y="55" width="350" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-right-task" value="Recent Task Card&#xa;latest advice / backtest / refresh status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#34254A;strokeColor=#A78BFA;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="a-right">
+          <mxGeometry x="30" y="235" width="350" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-right-actions" value="Quick Actions&#xa;refresh / run backtest / open task center" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E3A5F;strokeColor=#60A5FA;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="a-right">
+          <mxGeometry x="30" y="395" width="350" height="100" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="a-pro" value="Pros&#xa;Fastest decision path&#xa;Best for current product direction&#xa;Most natural advice -&gt; trade -&gt; backtest flow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=14;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="895" width="700" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-con" value="Tradeoff&#xa;Portfolio overview becomes secondary rather than the main visual hero." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A2428;strokeColor=#F87171;fontSize=14;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="820" y="895" width="700" height="70" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="analysis-layout-b" name="Option B">
+    <mxGraphModel dx="1280" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="b-title" value="Option B - Portfolio Overview" style="text;html=1;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="450" y="20" width="700" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-sub" value="Goal: make the page feel like a classic portfolio dashboard first, advice module second." style="text;html=1;fontSize=13;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#94A3B8;" vertex="1" parent="1">
+          <mxGeometry x="300" y="62" width="1000" height="26" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="b-top" value="Portfolio Hero&#xa;Total Value / PnL / Allocation / Cash / Concentration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=16;fontStyle=1;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="1440" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-middle1" value="Advice Summary&#xa;high-level conclusion + top actions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E3A5F;strokeColor=#60A5FA;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="275" width="470" height="125" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-middle2" value="Risk Summary&#xa;alerts / reliability / warnings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A3A18;strokeColor=#FBBF24;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="575" y="275" width="470" height="125" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-middle3" value="Recent Tasks / Backtest Snapshot" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#34254A;strokeColor=#A78BFA;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="1070" y="275" width="450" height="125" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="b-tabs" value="Lower Tab Area&#xa;Suggestions / Holdings Research / Tasks / Backtest / Reliability" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#1F2937;strokeColor=#64748B;fontSize=16;fontStyle=1;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="440" width="1440" height="420" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-tab-content" value="Current tab content lives here&#xa;Usually a large grid or table view" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#111827;strokeColor=#64748B;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="b-tabs">
+          <mxGeometry x="30" y="55" width="1370" height="310" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="b-pro" value="Pros&#xa;Feels familiar to portfolio users&#xa;Stronger dashboard identity&#xa;Great for overview-first usage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=14;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="895" width="700" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-con" value="Tradeoff&#xa;Advice execution path is weaker, and users may need more clicks to act." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A2428;strokeColor=#F87171;fontSize=14;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="820" y="895" width="700" height="70" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="analysis-layout-c" name="Option C">
+    <mxGraphModel dx="1280" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="c-title" value="Option C - Inbox Workflow" style="text;html=1;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="470" y="20" width="660" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-sub" value="Goal: process many suggestions quickly, like triaging tasks in an inbox." style="text;html=1;fontSize=13;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#94A3B8;" vertex="1" parent="1">
+          <mxGeometry x="320" y="62" width="960" height="26" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c-top" value="Thin Status Bar&#xa;Conclusion / Pending / High Priority / Reliability / Research Input" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E3A5F;strokeColor=#60A5FA;fontSize=16;fontStyle=1;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="1440" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-left" value="Filter Rail" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#4A3A18;strokeColor=#FBBF24;fontSize=16;fontStyle=1;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="240" width="240" height="620" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-left-items" value="All&#xa;Pending&#xa;High Priority&#xa;Buy&#xa;Sell&#xa;Recorded&#xa;Backtested" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A3A18;strokeColor=#FBBF24;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="c-left">
+          <mxGeometry x="25" y="55" width="170" height="250" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c-mid" value="Suggestion Inbox List" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#102A22;strokeColor=#34D399;fontSize=16;fontStyle=1;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="360" y="240" width="620" height="620" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-mid-list" value="Compact cards or rows&#xa;sorted by urgency and actionability&#xa;keyboard-friendly list scanning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="c-mid">
+          <mxGeometry x="25" y="55" width="560" height="510" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c-right" value="Selected Suggestion Detail" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#241B33;strokeColor=#A78BFA;fontSize=16;fontStyle=1;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="240" width="500" height="620" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-right-detail" value="Detail Panel&#xa;reasoning / targets / risk / reliability / execution history / backtest entry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#34254A;strokeColor=#A78BFA;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="c-right">
+          <mxGeometry x="25" y="55" width="440" height="510" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c-pro" value="Pros&#xa;Best for handling lots of suggestions&#xa;Little scrolling&#xa;Very high action efficiency" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=14;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="895" width="700" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-con" value="Tradeoff&#xa;Portfolio-wide overview becomes weaker, and the page feels more like a task product." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A2428;strokeColor=#F87171;fontSize=14;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="820" y="895" width="700" height="70" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="analysis-layout-d" name="Option D">
+    <mxGraphModel dx="1280" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="d-title" value="Option D - Dual Mode" style="text;html=1;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="500" y="20" width="600" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="d-sub" value="Goal: separate overview reading from execution handling without forcing one compromise layout." style="text;html=1;fontSize=13;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#94A3B8;" vertex="1" parent="1">
+          <mxGeometry x="320" y="62" width="960" height="26" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d-switch" value="Mode Switch&#xa;Overview Mode | Execute Mode" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E3A5F;strokeColor=#60A5FA;fontSize=18;fontStyle=1;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="520" y="120" width="560" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d-left" value="Overview Mode" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#102A22;strokeColor=#34D399;fontSize=16;fontStyle=1;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="250" width="690" height="610" as="geometry"/>
+        </mxCell>
+        <mxCell id="d-left-hero" value="Portfolio Hero&#xa;value / pnl / allocation / risk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="d-left">
+          <mxGeometry x="25" y="55" width="630" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="d-left-summary" value="Advice Summary / Holdings Research / Reliability / Recent Tasks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="d-left">
+          <mxGeometry x="25" y="205" width="630" height="305" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d-right" value="Execute Mode" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#241B33;strokeColor=#A78BFA;fontSize=16;fontStyle=1;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="830" y="250" width="690" height="610" as="geometry"/>
+        </mxCell>
+        <mxCell id="d-right-main" value="Suggestions / Filters / Pending / Execution Sidebar / Backtest Entry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#34254A;strokeColor=#A78BFA;fontSize=15;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="d-right">
+          <mxGeometry x="25" y="55" width="630" height="455" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="d-pro" value="Pros&#xa;Best balance between portfolio and execution use cases&#xa;Clean mental model if the switch is explicit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F4D3A;strokeColor=#34D399;fontSize=14;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="80" y="895" width="700" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="d-con" value="Tradeoff&#xa;Highest implementation and interaction complexity. Mode switching must be designed very clearly." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A2428;strokeColor=#F87171;fontSize=14;arcSize=8;fontColor=#F8FAFC;" vertex="1" parent="1">
+          <mxGeometry x="820" y="895" width="700" height="70" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

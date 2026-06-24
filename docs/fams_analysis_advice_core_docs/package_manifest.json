@@ -1,0 +1,22 @@
+{
+  "package": "FAMS Analysis Advice Core Documentation Package",
+  "version": "v0.1",
+  "date": "2026-05-31",
+  "files": [
+    "README.md",
+    "01_PRD_FAMS_Analysis_Advice_Core.md",
+    "02_Model_Architecture_FIVD_R.md",
+    "03_Development_Acceptance_Plan.md",
+    "04_Codex_Terminal_Prompt.txt",
+    "05_Data_API_Schema_Reference.md",
+    "06_Testing_Validation_Checklist.md"
+  ],
+  "core_boundaries": [
+    "LLM does not directly decide buy/sell/add/reduce",
+    "All advice must include evidenceRefs",
+    "Insufficient data leads to insufficient/blocked/observe, not deterministic trade action",
+    "Validation Evidence failure blocks formal ADD/REDUCE",
+    "Replay must avoid future data",
+    "Interventions are append-only"
+  ]
+}

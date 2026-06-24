@@ -1,0 +1,370 @@
+{
+  "schemaVersion": "dividend.low_vol.free_source_total_return_benchmark.v1",
+  "generatedAt": "2026-06-06T05:38:39.761Z",
+  "name": "CSI Dividend Low Volatility Index H30269 free-source total-return benchmark",
+  "source": "fixture_free_source",
+  "pointCount": 61,
+  "points": [
+    {
+      "date": "2025-01-01",
+      "value": 1000,
+      "evidenceRef": "fixture_free_source:point:2025-01-01"
+    },
+    {
+      "date": "2025-01-02",
+      "value": 1001,
+      "evidenceRef": "fixture_free_source:point:2025-01-02"
+    },
+    {
+      "date": "2025-01-03",
+      "value": 1002,
+      "evidenceRef": "fixture_free_source:point:2025-01-03"
+    },
+    {
+      "date": "2025-01-04",
+      "value": 1003,
+      "evidenceRef": "fixture_free_source:point:2025-01-04"
+    },
+    {
+      "date": "2025-01-05",
+      "value": 1004,
+      "evidenceRef": "fixture_free_source:point:2025-01-05"
+    },
+    {
+      "date": "2025-01-06",
+      "value": 1005,
+      "evidenceRef": "fixture_free_source:point:2025-01-06"
+    },
+    {
+      "date": "2025-01-07",
+      "value": 1006,
+      "evidenceRef": "fixture_free_source:point:2025-01-07"
+    },
+    {
+      "date": "2025-01-08",
+      "value": 1007,
+      "evidenceRef": "fixture_free_source:point:2025-01-08"
+    },
+    {
+      "date": "2025-01-09",
+      "value": 1008,
+      "evidenceRef": "fixture_free_source:point:2025-01-09"
+    },
+    {
+      "date": "2025-01-10",
+      "value": 1009,
+      "evidenceRef": "fixture_free_source:point:2025-01-10"
+    },
+    {
+      "date": "2025-01-11",
+      "value": 1010,
+      "evidenceRef": "fixture_free_source:point:2025-01-11"
+    },
+    {
+      "date": "2025-01-12",
+      "value": 1011,
+      "evidenceRef": "fixture_free_source:point:2025-01-12"
+    },
+    {
+      "date": "2025-01-13",
+      "value": 1012,
+      "evidenceRef": "fixture_free_source:point:2025-01-13"
+    },
+    {
+      "date": "2025-01-14",
+      "value": 1013,
+      "evidenceRef": "fixture_free_source:point:2025-01-14"
+    },
+    {
+      "date": "2025-01-15",
+      "value": 1014,
+      "evidenceRef": "fixture_free_source:point:2025-01-15"
+    },
+    {
+      "date": "2025-01-16",
+      "value": 1015,
+      "evidenceRef": "fixture_free_source:point:2025-01-16"
+    },
+    {
+      "date": "2025-01-17",
+      "value": 1016,
+      "evidenceRef": "fixture_free_source:point:2025-01-17"
+    },
+    {
+      "date": "2025-01-18",
+      "value": 1017,
+      "evidenceRef": "fixture_free_source:point:2025-01-18"
+    },
+    {
+      "date": "2025-01-19",
+      "value": 1018,
+      "evidenceRef": "fixture_free_source:point:2025-01-19"
+    },
+    {
+      "date": "2025-01-20",
+      "value": 1019,
+      "evidenceRef": "fixture_free_source:point:2025-01-20"
+    },
+    {
+      "date": "2025-01-21",
+      "value": 1020,
+      "evidenceRef": "fixture_free_source:point:2025-01-21"
+    },
+    {
+      "date": "2025-01-22",
+      "value": 1021,
+      "evidenceRef": "fixture_free_source:point:2025-01-22"
+    },
+    {
+      "date": "2025-01-23",
+      "value": 1022,
+      "evidenceRef": "fixture_free_source:point:2025-01-23"
+    },
+    {
+      "date": "2025-01-24",
+      "value": 1023,
+      "evidenceRef": "fixture_free_source:point:2025-01-24"
+    },
+    {
+      "date": "2025-01-25",
+      "value": 1024,
+      "evidenceRef": "fixture_free_source:point:2025-01-25"
+    },
+    {
+      "date": "2025-01-26",
+      "value": 1025,
+      "evidenceRef": "fixture_free_source:point:2025-01-26"
+    },
+    {
+      "date": "2025-01-27",
+      "value": 1026,
+      "evidenceRef": "fixture_free_source:point:2025-01-27"
+    },
+    {
+      "date": "2025-01-28",
+      "value": 1027,
+      "evidenceRef": "fixture_free_source:point:2025-01-28"
+    },
+    {
+      "date": "2025-01-29",
+      "value": 1028,
+      "evidenceRef": "fixture_free_source:point:2025-01-29"
+    },
+    {
+      "date": "2025-01-30",
+      "value": 1029,
+      "evidenceRef": "fixture_free_source:point:2025-01-30"
+    },
+    {
+      "date": "2025-01-31",
+      "value": 1030,
+      "evidenceRef": "fixture_free_source:point:2025-01-31"
+    },
+    {
+      "date": "2025-02-01",
+      "value": 1031,
+      "evidenceRef": "fixture_free_source:point:2025-02-01"
+    },
+    {
+      "date": "2025-02-02",
+      "value": 1032,
+      "evidenceRef": "fixture_free_source:point:2025-02-02"
+    },
+    {
+      "date": "2025-02-03",
+      "value": 1033,
+      "evidenceRef": "fixture_free_source:point:2025-02-03"
+    },
+    {
+      "date": "2025-02-04",
+      "value": 1034,
+      "evidenceRef": "fixture_free_source:point:2025-02-04"
+    },
+    {
+      "date": "2025-02-05",
+      "value": 1035,
+      "evidenceRef": "fixture_free_source:point:2025-02-05"
+    },
+    {
+      "date": "2025-02-06",
+      "value": 1036,
+      "evidenceRef": "fixture_free_source:point:2025-02-06"
+    },
+    {
+      "date": "2025-02-07",
+      "value": 1037,
+      "evidenceRef": "fixture_free_source:point:2025-02-07"
+    },
+    {
+      "date": "2025-02-08",
+      "value": 1038,
+      "evidenceRef": "fixture_free_source:point:2025-02-08"
+    },
+    {
+      "date": "2025-02-09",
+      "value": 1039,
+      "evidenceRef": "fixture_free_source:point:2025-02-09"
+    },
+    {
+      "date": "2025-02-10",
+      "value": 1040,
+      "evidenceRef": "fixture_free_source:point:2025-02-10"
+    },
+    {
+      "date": "2025-02-11",
+      "value": 1041,
+      "evidenceRef": "fixture_free_source:point:2025-02-11"
+    },
+    {
+      "date": "2025-02-12",
+      "value": 1042,
+      "evidenceRef": "fixture_free_source:point:2025-02-12"
+    },
+    {
+      "date": "2025-02-13",
+      "value": 1043,
+      "evidenceRef": "fixture_free_source:point:2025-02-13"
+    },
+    {
+      "date": "2025-02-14",
+      "value": 1044,
+      "evidenceRef": "fixture_free_source:point:2025-02-14"
+    },
+    {
+      "date": "2025-02-15",
+      "value": 1045,
+      "evidenceRef": "fixture_free_source:point:2025-02-15"
+    },
+    {
+      "date": "2025-02-16",
+      "value": 1046,
+      "evidenceRef": "fixture_free_source:point:2025-02-16"
+    },
+    {
+      "date": "2025-02-17",
+      "value": 1047,
+      "evidenceRef": "fixture_free_source:point:2025-02-17"
+    },
+    {
+      "date": "2025-02-18",
+      "value": 1048,
+      "evidenceRef": "fixture_free_source:point:2025-02-18"
+    },
+    {
+      "date": "2025-02-19",
+      "value": 1049,
+      "evidenceRef": "fixture_free_source:point:2025-02-19"
+    },
+    {
+      "date": "2025-02-20",
+      "value": 1050,
+      "evidenceRef": "fixture_free_source:point:2025-02-20"
+    },
+    {
+      "date": "2025-02-21",
+      "value": 1051,
+      "evidenceRef": "fixture_free_source:point:2025-02-21"
+    },
+    {
+      "date": "2025-02-22",
+      "value": 1052,
+      "evidenceRef": "fixture_free_source:point:2025-02-22"
+    },
+    {
+      "date": "2025-02-23",
+      "value": 1053,
+      "evidenceRef": "fixture_free_source:point:2025-02-23"
+    },
+    {
+      "date": "2025-02-24",
+      "value": 1054,
+      "evidenceRef": "fixture_free_source:point:2025-02-24"
+    },
+    {
+      "date": "2025-02-25",
+      "value": 1055,
+      "evidenceRef": "fixture_free_source:point:2025-02-25"
+    },
+    {
+      "date": "2025-02-26",
+      "value": 1056,
+      "evidenceRef": "fixture_free_source:point:2025-02-26"
+    },
+    {
+      "date": "2025-02-27",
+      "value": 1057,
+      "evidenceRef": "fixture_free_source:point:2025-02-27"
+    },
+    {
+      "date": "2025-02-28",
+      "value": 1058,
+      "evidenceRef": "fixture_free_source:point:2025-02-28"
+    },
+    {
+      "date": "2025-03-01",
+      "value": 1059,
+      "evidenceRef": "fixture_free_source:point:2025-03-01"
+    },
+    {
+      "date": "2025-03-02",
+      "value": 1060,
+      "evidenceRef": "fixture_free_source:point:2025-03-02"
+    }
+  ],
+  "evidenceRefs": [
+    "fixture_free_source:point:2025-01-01",
+    "fixture_free_source:point:2025-01-02",
+    "fixture_free_source:point:2025-01-03",
+    "fixture_free_source:point:2025-01-04",
+    "fixture_free_source:point:2025-01-05",
+    "fixture_free_source:point:2025-01-06",
+    "fixture_free_source:point:2025-01-07",
+    "fixture_free_source:point:2025-01-08",
+    "fixture_free_source:point:2025-01-09",
+    "fixture_free_source:point:2025-01-10",
+    "fixture_free_source:point:2025-01-11",
+    "fixture_free_source:point:2025-01-12",
+    "fixture_free_source:point:2025-01-13",
+    "fixture_free_source:point:2025-01-14",
+    "fixture_free_source:point:2025-01-15",
+    "fixture_free_source:point:2025-01-16",
+    "fixture_free_source:point:2025-01-17",
+    "fixture_free_source:point:2025-01-18",
+    "fixture_free_source:point:2025-01-19",
+    "fixture_free_source:point:2025-01-20",
+    "fixture_free_source:point:2025-01-21",
+    "fixture_free_source:point:2025-01-22",
+    "fixture_free_source:point:2025-01-23",
+    "fixture_free_source:point:2025-01-24",
+    "fixture_free_source:point:2025-01-25",
+    "fixture_free_source:point:2025-01-26",
+    "fixture_free_source:point:2025-01-27",
+    "fixture_free_source:point:2025-01-28",
+    "fixture_free_source:point:2025-01-29",
+    "fixture_free_source:point:2025-01-30",
+    "fixture_free_source:point:2025-01-31",
+    "fixture_free_source:point:2025-02-01",
+    "fixture_free_source:point:2025-02-02",
+    "fixture_free_source:point:2025-02-03",
+    "fixture_free_source:point:2025-02-04",
+    "fixture_free_source:point:2025-02-05",
+    "fixture_free_source:point:2025-02-06",
+    "fixture_free_source:point:2025-02-07",
+    "fixture_free_source:point:2025-02-08",
+    "fixture_free_source:point:2025-02-09",
+    "fixture_free_source:point:2025-02-10",
+    "fixture_free_source:point:2025-02-11",
+    "fixture_free_source:point:2025-02-12",
+    "fixture_free_source:point:2025-02-13",
+    "fixture_free_source:point:2025-02-14",
+    "fixture_free_source:point:2025-02-15",
+    "fixture_free_source:point:2025-02-16",
+    "fixture_free_source:point:2025-02-17",
+    "fixture_free_source:point:2025-02-18",
+    "fixture_free_source:point:2025-02-19"
+  ],
+  "validation": {
+    "status": "available",
+    "blockers": []
+  }
+}

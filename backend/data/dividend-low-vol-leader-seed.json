@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "dividend.low_vol.leader_seed.v1",
+  "generatedAt": "2026-06-04T00:00:00.000Z",
+  "description": "Public leader seed cache used only when live industry ranking providers are unavailable. Scores are explicit seed inputs and are always marked in evidenceRefs.",
+  "items": {
+    "601398": {
+      "industry": "银行",
+      "totalMarketCap": 2500000000000,
+      "avgTurnoverAmount60": 900000000,
+      "leaderScore": 95,
+      "marketCapRankScore": 100,
+      "revenueRankScore": 95,
+      "netProfitRankScore": 100,
+      "roeIndustryPercentile": 75,
+      "liquidityRankScore": 90,
+      "sourceRef": "leader-seed:state-owned-mega-bank:icbc"
+    },
+    "600519": {
+      "industry": "白酒",
+      "totalMarketCap": 1600000000000,
+      "avgTurnoverAmount60": 1500000000,
+      "leaderScore": 96,
+      "marketCapRankScore": 100,
+      "revenueRankScore": 90,
+      "netProfitRankScore": 100,
+      "roeIndustryPercentile": 95,
+      "liquidityRankScore": 95,
+      "sourceRef": "leader-seed:baijiu-market-cap-profit-leader:moutai"
+    },
+    "000001": {
+      "industry": "银行",
+      "totalMarketCap": 220000000000,
+      "avgTurnoverAmount60": 650000000,
+      "leaderScore": 72,
+      "marketCapRankScore": 70,
+      "revenueRankScore": 70,
+      "netProfitRankScore": 72,
+      "roeIndustryPercentile": 70,
+      "liquidityRankScore": 85,
+      "sourceRef": "leader-seed:national-joint-stock-bank:ping-an-bank"
+    },
+    "600000": {
+      "industry": "银行",
+      "totalMarketCap": 270000000000,
+      "avgTurnoverAmount60": 260000000,
+      "leaderScore": 70,
+      "marketCapRankScore": 68,
+      "revenueRankScore": 72,
+      "netProfitRankScore": 68,
+      "roeIndustryPercentile": 45,
+      "liquidityRankScore": 70,
+      "sourceRef": "leader-seed:national-joint-stock-bank:spdb"
+    }
+  }
+}

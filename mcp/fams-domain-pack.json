@@ -1,0 +1,59 @@
+{
+  "name": "fams",
+  "displayName": "FAMS 投资管理 DomainPack",
+  "version": "v2.0.0-alpha.1",
+  "schemaVersion": "fams.domainpack.v1",
+  "sourceOfTruth": "GET /api/v1/mcp/domain-pack",
+  "connectorManifest": "mcp/harnessos-connector.json",
+  "transports": {
+    "http": {
+      "basePath": "/api/v1/mcp",
+      "domainPackPath": "/api/v1/mcp/domain-pack",
+      "toolsPath": "/api/v1/mcp/tools",
+      "callPath": "/api/v1/mcp/call",
+      "batchPath": "/api/v1/mcp/batch"
+    },
+    "stdio": {
+      "status": "implemented",
+      "command": "node",
+      "args": ["backend/dist/mcp/stdio.js"],
+      "sourceEntrypoint": "backend/src/mcp/stdio.ts",
+      "configPath": "mcp/financial-mcp.json"
+    }
+  },
+  "domains": [
+    "market_data",
+    "position",
+    "portfolio",
+    "advice",
+    "alert",
+    "backtest",
+    "operation",
+    "transaction"
+  ],
+  "contractRules": {
+    "userContext": "工具必须通过显式 userId、HTTP x-fams-user-id / x-user-id header 或 stdio context.userId 限定用户范围；参数 userId 与调用上下文冲突时必须失败",
+    "asyncOperation": "长任务工具必须返回 operation_id，并通过 operation.get 轮询",
+    "artifacts": "产物必须以 artifact ref 暴露，并通过 operation.get_artifact 读取",
+    "nextActions": "工具可返回 nextActions，但交易影响动作必须进入人工确认",
+    "tradeProtection": "transaction.* 写入工具必须 requiresHumanConfirmation=true，且调用参数必须包含 confirmation.confirmed=true 与 confirmation.confirmedBy，否则只返回确认阻断结果，不执行写入",
+    "callEnvelope": "所有工具调用必须返回 fams.mcp.call.v1；status 只能为 completed、blocked、failed；audit 必须包含 calledAt、transport、userId、writes 与 requiresHumanConfirmation 等可用上下文"
+  },
+  "canonicalTools": [
+    "market_data.get_real_time_price",
+    "market_data.refresh_prices",
+    "position.list",
+    "portfolio.get_analysis",
+    "portfolio.get_daily_snapshot",
+    "advice.get_suggestions",
+    "advice.generate_daily",
+    "alert.list",
+    "alert.check",
+    "backtest.run_strategy",
+    "backtest.run_from_advice",
+    "operation.list",
+    "operation.get",
+    "operation.get_artifact",
+    "transaction.create_manual_record"
+  ]
+}

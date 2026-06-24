@@ -1,0 +1,154 @@
+<mxfile host="Electron" agent="Codex">
+  <diagram id="v1-phase1-mvp-plan" name="V1 Phase 1 MVP Plan">
+    <mxGraphModel dx="1768" dy="1053" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;labelBackgroundColor=none;fontColor=#393C56;" value="FAMS V1.0 Phase 1 MVP Development Plan" vertex="1">
+          <mxGeometry height="44" width="740" x="430" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;fontSize=13;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#393C56;labelBackgroundColor=none;" value="可信投资账本：资产导入/编辑 -&gt; 行情补全 -&gt; 仓位计算 -&gt; 标签维护 -&gt; 基础交易记录 -&gt; Dashboard / 详情 / 告警" vertex="1">
+          <mxGeometry height="28" width="1100" x="250" y="66" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-user" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=15;fontStyle=1;labelBackgroundColor=none;fontColor=#393C56;" value="User Task Flow" vertex="1">
+          <mxGeometry height="810" width="290" x="40" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="user-import" parent="lane-user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="导入或手动录入资产&#xa;股票 / 基金 / 黄金 / 现金" vertex="1">
+          <mxGeometry height="76" width="230" x="30" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="user-review" parent="lane-user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="核对价格、成本、数量&#xa;修正标签和资产信息" vertex="1">
+          <mxGeometry height="76" width="230" x="30" y="178" as="geometry" />
+        </mxCell>
+        <mxCell id="user-trade" parent="lane-user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="记录交易流水&#xa;买入 / 卖出 / 现金 / 费用 / 分红" vertex="1">
+          <mxGeometry height="82" width="230" x="30" y="296" as="geometry" />
+        </mxCell>
+        <mxCell id="user-monitor" parent="lane-user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="查看 Dashboard、仓位、详情&#xa;处理止盈止损提醒" vertex="1">
+          <mxGeometry height="82" width="230" x="30" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="user-acceptance" parent="lane-user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;fontStyle=1;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="Phase 1 Done&#xa;资产准确 / 价格可信&#xa;仓位清楚 / 交易可追溯" vertex="1">
+          <mxGeometry height="92" width="230" x="30" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-frontend" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=15;fontStyle=1;labelBackgroundColor=none;fontColor=#393C56;" value="Frontend Pages And Components" vertex="1">
+          <mxGeometry height="810" width="290" x="370" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-assets" parent="lane-frontend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="Assets Page&#xa;导入、创建、编辑、标签维护&#xa;价格来源和刷新状态" vertex="1">
+          <mxGeometry height="90" width="230" x="30" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-positions" parent="lane-frontend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="Positions Page&#xa;资产类型层 / 标签层 / 标的层&#xa;当前仓位、成本仓位、盈亏" vertex="1">
+          <mxGeometry height="96" width="230" x="30" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-transactions" parent="lane-frontend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="Transactions Page&#xa;买入、卖出、现金存取&#xa;费用、分红、备注" vertex="1">
+          <mxGeometry height="92" width="230" x="30" y="326" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-dashboard" parent="lane-frontend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="Dashboard + Detail Pages&#xa;总资产、市值、成本、盈亏&#xa;股票/基金详情跳转、基础告警" vertex="1">
+          <mxGeometry height="102" width="230" x="30" y="458" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-api" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=15;fontStyle=1;labelBackgroundColor=none;fontColor=#393C56;" value="REST API" vertex="1">
+          <mxGeometry height="810" width="290" x="700" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="api-assets" parent="lane-api" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="asset.* REST&#xa;POST import / create&#xa;PATCH edit / GET list" vertex="1">
+          <mxGeometry height="86" width="230" x="30" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="api-prices" parent="lane-api" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="price.* REST&#xa;refresh quote&#xa;return source / updated_at / warnings" vertex="1">
+          <mxGeometry height="88" width="230" x="30" y="184" as="geometry" />
+        </mxCell>
+        <mxCell id="api-positions" parent="lane-api" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="position.* REST&#xa;GET calculated positions&#xa;market value / cost / pnl / weights" vertex="1">
+          <mxGeometry height="92" width="230" x="30" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="api-transactions" parent="lane-api" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="transaction.* REST&#xa;POST trade or cash flow&#xa;refresh position summary" vertex="1">
+          <mxGeometry height="88" width="230" x="30" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="api-tags-alerts" parent="lane-api" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="tag.* + alert.* REST&#xa;manual tags / deterministic labels&#xa;basic stop-loss / take-profit alerts" vertex="1">
+          <mxGeometry height="96" width="230" x="30" y="566" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-service" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=15;fontStyle=1;labelBackgroundColor=none;fontColor=#393C56;" value="Backend Domain Services" vertex="1">
+          <mxGeometry height="810" width="290" x="1030" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-asset" parent="lane-service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="AssetService&#xa;normalize symbol / type / currency&#xa;create positions from import" vertex="1">
+          <mxGeometry height="88" width="230" x="30" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-market" parent="lane-service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="MarketDataService / priceService&#xa;provider adapter&#xa;fallback warning, quote DTO" vertex="1">
+          <mxGeometry height="90" width="230" x="30" y="186" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-position" parent="lane-service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="PositionService&#xa;market value, cost basis, PnL&#xa;actual weight, cost weight" vertex="1">
+          <mxGeometry height="92" width="230" x="30" y="316" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-transaction" parent="lane-service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="TransactionService&#xa;buy / sell / dividend / fee&#xa;deposit / withdraw" vertex="1">
+          <mxGeometry height="88" width="230" x="30" y="446" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-alert" parent="lane-service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=13;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="Tag + Alert Services&#xa;relationship tags first&#xa;Position stopLoss / takeProfit -&gt; Alert" vertex="1">
+          <mxGeometry height="96" width="230" x="30" y="572" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-data" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=15;fontStyle=1;labelBackgroundColor=none;fontColor=#393C56;" value="Data Models And External Sources" vertex="1">
+          <mxGeometry height="810" width="200" x="1360" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="db-core" parent="lane-data" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=12;labelBackgroundColor=none;fontColor=#393C56;" value="SQLite + Prisma&#xa;Asset, Position&#xa;Transaction, Tag, AssetTag" vertex="1">
+          <mxGeometry height="116" width="160" x="20" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="db-price" parent="lane-data" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=12;labelBackgroundColor=none;fontColor=#393C56;" value="PriceHistory&#xa;Asset.lastPrice&#xa;Asset.lastUpdated&#xa;source / timestamp" vertex="1">
+          <mxGeometry height="116" width="160" x="20" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="db-alert" parent="lane-data" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=12;labelBackgroundColor=none;fontColor=#393C56;" value="Phase 1 Alert&#xa;Alert table&#xa;Position stopLoss / takeProfit" vertex="1">
+          <mxGeometry height="108" width="160" x="20" y="378" as="geometry" />
+        </mxCell>
+        <mxCell id="external-sources" parent="lane-data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2CC8F;strokeColor=#E07A5F;fontSize=12;arcSize=8;labelBackgroundColor=none;fontColor=#393C56;" value="External Market Data&#xa;Yahoo Finance&#xa;Eastmoney&#xa;Sina / Manual Override" vertex="1">
+          <mxGeometry height="112" width="160" x="20" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="deferred" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=#F2CC8F;strokeColor=#E07A5F;fontColor=#393C56;fontSize=13;arcSize=8;labelBackgroundColor=none;" value="Deferred To Later Phases&#xa;AI structured advice / AdviceAction / monthly backtest / fund holding penetration / MCP DomainPack / harnessOS multi-agent orchestration" vertex="1">
+          <mxGeometry height="82" width="950" x="370" y="965" as="geometry" />
+        </mxCell>
+        <mxCell id="e-user-fe1" edge="1" parent="1" source="user-import" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="fe-assets" value="import/create asset">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe-api1" edge="1" parent="1" source="fe-assets" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="api-assets" value="POST asset import/create">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-svc1" edge="1" parent="1" source="api-assets" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="svc-asset" value="normalize asset">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-svc-db1" edge="1" parent="1" source="svc-asset" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="db-core" value="save asset / position">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe-api2" edge="1" parent="1" source="fe-assets" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="api-prices" value="refresh quote">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-svc2" edge="1" parent="1" source="api-prices" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="svc-market" value="quote DTO">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-svc-ext" edge="1" parent="1" source="svc-market" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="external-sources" value="provider fetch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-svc-db2" edge="1" parent="1" source="svc-market" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="db-price" value="write price snapshot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe-api3" edge="1" parent="1" source="fe-positions" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="api-positions" value="get positions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-svc3" edge="1" parent="1" source="api-positions" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="svc-position" value="recalculate positions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-svc-db3" edge="1" parent="1" source="svc-position" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="db-core" value="read asset / price / transaction">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe-api4" edge="1" parent="1" source="fe-transactions" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="api-transactions" value="create transaction">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-svc4" edge="1" parent="1" source="api-transactions" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="svc-transaction" value="update holding">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-svc-db4" edge="1" parent="1" source="svc-transaction" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="db-core" value="save transaction">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe-api5" edge="1" parent="1" source="fe-dashboard" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="api-tags-alerts" value="tags + alerts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-svc5" edge="1" parent="1" source="api-tags-alerts" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="svc-alert" value="trigger alert">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-svc-db5" edge="1" parent="1" source="svc-alert" style="endArrow=block;html=1;rounded=0;strokeColor=#E07A5F;fontSize=11;labelBackgroundColor=none;fontColor=default;" target="db-alert" value="read/write alert">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

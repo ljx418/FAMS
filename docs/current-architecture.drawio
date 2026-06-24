@@ -1,0 +1,118 @@
+<mxfile host="app.diagrams.net" modified="2026-05-03T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="current-architecture" name="FAMS Current Architecture">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="FAMS Current Architecture" style="text;html=1;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="440" y="20" width="620" height="44" as="geometry"/>
+        </mxCell>
+        <mxCell id="note" value="Current implementation baseline: React frontend, Fastify API, modular services, Prisma + SQLite, MCP/Agent/Workflow routers in process." style="text;html=1;fontSize=13;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="270" y="66" width="960" height="28" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="frontend-group" value="Frontend" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="120" width="330" height="390" as="geometry"/>
+        </mxCell>
+        <mxCell id="browser" value="Browser App&#xa;React 18 + Vite + TypeScript" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;arcSize=8;" vertex="1" parent="frontend-group">
+          <mxGeometry x="35" y="55" width="260" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="routing" value="App Routing&#xa;/dashboard, /assets, /positions&#xa;/fund/:code, /stock/:code&#xa;/transactions, /analysis, /backtest, /portfolios" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="frontend-group">
+          <mxGeometry x="35" y="155" width="260" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="ui-components" value="UI And Charts&#xa;Ant Design, TailwindCSS&#xa;ECharts K-line, allocation, heatmap, gauges&#xa;stock/fund detail components" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="frontend-group">
+          <mxGeometry x="35" y="285" width="260" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="backend-group" value="Backend API" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f7fff7;strokeColor=#82b366;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="450" y="120" width="390" height="620" as="geometry"/>
+        </mxCell>
+        <mxCell id="fastify" value="Fastify Server&#xa;backend/src/index.ts&#xa;CORS, multipart upload, Swagger UI&#xa;listens on :4000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;arcSize=8;" vertex="1" parent="backend-group">
+          <mxGeometry x="50" y="55" width="290" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="route-layer" value="HTTP Route Layer&#xa;auth, assets, positions, transactions&#xa;portfolios, analysis, backtest, alerts&#xa;prices, stocks, fund, tags, llm" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;arcSize=8;" vertex="1" parent="backend-group">
+          <mxGeometry x="50" y="175" width="290" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="service-layer" value="Business Services&#xa;asset, position, transaction, price&#xa;portfolio, analysis, backtest, alert&#xa;technical stock analysis, LLM advice" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;arcSize=8;" vertex="1" parent="backend-group">
+          <mxGeometry x="50" y="315" width="290" height="115" as="geometry"/>
+        </mxCell>
+        <mxCell id="prisma" value="Prisma Client&#xa;schema.prisma" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;arcSize=8;" vertex="1" parent="backend-group">
+          <mxGeometry x="50" y="465" width="290" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="swagger" value="Swagger UI&#xa;/api-docs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;arcSize=8;" vertex="1" parent="backend-group">
+          <mxGeometry x="50" y="550" width="130" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="uploads" value="Excel Import&#xa;xlsx + multipart" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;arcSize=8;" vertex="1" parent="backend-group">
+          <mxGeometry x="210" y="550" width="130" height="48" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="agent-group" value="AI / Agent Surface" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#fbf7ff;strokeColor=#9673a6;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="910" y="120" width="300" height="390" as="geometry"/>
+        </mxCell>
+        <mxCell id="mcp" value="MCP-style HTTP Router&#xa;GET /api/v1/mcp/tools&#xa;POST /api/v1/mcp/call&#xa;POST /api/v1/mcp/batch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="agent-group">
+          <mxGeometry x="30" y="55" width="240" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="agent-router" value="Agent Router&#xa;in-memory registry&#xa;fund analyst, strategy backtester&#xa;news intelligence, risk manager, advisor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="agent-group">
+          <mxGeometry x="30" y="175" width="240" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="workflow" value="Workflow Router&#xa;template definitions&#xa;daily analysis, strategy backtest, news sentiment&#xa;placeholder execution" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="agent-group">
+          <mxGeometry x="30" y="295" width="240" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="data-group" value="Data And External Dependencies" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f8f8f8;strokeColor=#666666;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="900" y="570" width="530" height="290" as="geometry"/>
+        </mxCell>
+        <mxCell id="sqlite" value="SQLite Local Database&#xa;backend/prisma/dev.db&#xa;User, Asset, Position, Transaction&#xa;PriceHistory, Portfolio, Strategy, Backtest&#xa;DailySnapshot, Alert, Suggestion" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="data-group">
+          <mxGeometry x="30" y="55" width="230" height="135" as="geometry"/>
+        </mxCell>
+        <mxCell id="market-data" value="Market Data Providers&#xa;Yahoo Finance&#xa;Eastmoney&#xa;Sina Finance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;arcSize=8;" vertex="1" parent="data-group">
+          <mxGeometry x="290" y="55" width="205" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="llm-provider" value="LLM Provider&#xa;called by llmService&#xa;prompt construction + response parsing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;arcSize=8;" vertex="1" parent="data-group">
+          <mxGeometry x="290" y="165" width="205" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="python" value="Separate Python Prototype&#xa;server.py&#xa;FastAPI + akshare&#xa;global stock analysis and technical indicators" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="620" width="260" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="legacy" value="Historical Claude Code Context&#xa;CLAUDE.md, .claude/, skills/, mcp/financial-mcp.json&#xa;kept as reference, not current runtime source of truth" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;arcSize=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="770" width="760" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="frontend-group" target="backend-group">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="fastify" target="route-layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="route-layer" target="service-layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="service-layer" target="prisma">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="prisma" target="sqlite">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="backend-group" target="agent-group">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="mcp" target="service-layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="service-layer" target="market-data">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e9" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="service-layer" target="llm-provider">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e10" style="endArrow=block;html=1;rounded=0;dashed=1;" edge="1" parent="1" source="frontend-group" target="python">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e11" style="endArrow=block;html=1;rounded=0;dashed=1;" edge="1" parent="1" source="legacy" target="agent-group">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

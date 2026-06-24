@@ -1,0 +1,177 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.6 Chrome/144.0.7559.236 Electron/40.8.4 Safari/537.36" version="29.6.6" pages="2">
+  <diagram id="current-implementation" name="Current Implementation">
+    <mxGraphModel dx="1394" dy="901" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title-current" parent="1" style="text;html=1;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;" value="FAMS Current Implementation" vertex="1">
+          <mxGeometry height="40" width="560" x="420" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="browser" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;arcSize=8;" value="Browser UI&#xa;React 18 + Vite + TypeScript&#xa;React Router, ECharts, Ant Design, TailwindCSS" vertex="1">
+          <mxGeometry height="110" width="260" x="80" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="pages" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" value="Pages&#xa;Dashboard, Assets, Positions&#xa;Stock/Fund Detail, Transactions&#xa;Analysis, Backtest, Portfolios" vertex="1">
+          <mxGeometry height="115" width="260" x="80" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;arcSize=8;" value="Fastify API Server&#xa;backend/src/index.ts&#xa;CORS, multipart, Swagger UI&#xa;/api/v1/* + /api-docs" vertex="1">
+          <mxGeometry height="120" width="270" x="430" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="routes" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;arcSize=8;" value="Route Layer&#xa;auth, assets, positions, transactions&#xa;portfolios, analysis, backtest, alerts&#xa;prices, stocks, fund, tags, llm" vertex="1">
+          <mxGeometry height="125" width="270" x="430" y="285" as="geometry" />
+        </mxCell>
+        <mxCell id="services" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;arcSize=8;" value="Service Layer&#xa;asset, position, transaction, price&#xa;portfolio, analysis, backtest, alert&#xa;technical stock analysis, LLM advice" vertex="1">
+          <mxGeometry height="125" width="270" x="430" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="mcp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" value="MCP-style HTTP Router&#xa;/api/v1/mcp/tools&#xa;/api/v1/mcp/call&#xa;/api/v1/mcp/batch" vertex="1">
+          <mxGeometry height="110" width="250" x="780" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="agents" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" value="Agent Router&#xa;in-process registry&#xa;fund analyst, risk manager&#xa;strategy backtester, advisor" vertex="1">
+          <mxGeometry height="110" width="250" x="780" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="workflow" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" value="Workflow Router&#xa;templates for daily analysis,&#xa;strategy backtest, news sentiment&#xa;placeholder execution state" vertex="1">
+          <mxGeometry height="120" width="250" x="780" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="prisma" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;arcSize=8;" value="Prisma ORM&#xa;backend/prisma/schema.prisma" vertex="1">
+          <mxGeometry height="75" width="270" x="430" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="sqlite" parent="1" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" value="SQLite dev database&#xa;backend/prisma/dev.db&#xa;Users, assets, positions, transactions&#xa;price history, tags, backtests, alerts" vertex="1">
+          <mxGeometry height="100" width="270" x="430" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="external" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;arcSize=8;" value="External Data Sources&#xa;Yahoo Finance&#xa;Eastmoney&#xa;Sina Finance" vertex="1">
+          <mxGeometry height="100" width="230" x="1090" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="python" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;arcSize=8;" value="Separate Python Prototype&#xa;server.py&#xa;FastAPI + akshare&#xa;technical indicators and stock analysis" vertex="1">
+          <mxGeometry height="120" width="230" x="1090" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="llm" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;arcSize=8;" value="LLM Provider&#xa;called by llmService&#xa;prompt + response parser" vertex="1">
+          <mxGeometry height="95" width="230" x="1090" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="browser" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" target="api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="browser" style="endArrow=block;html=1;rounded=0;" target="pages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="api" style="endArrow=block;html=1;rounded=0;" target="routes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="routes" style="endArrow=block;html=1;rounded=0;" target="services">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="services" style="endArrow=block;html=1;rounded=0;" target="prisma">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="prisma" style="endArrow=block;html=1;rounded=0;" target="sqlite">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="api" style="endArrow=block;html=1;rounded=0;" target="mcp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="api" style="endArrow=block;html=1;rounded=0;" target="agents">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="api" style="endArrow=block;html=1;rounded=0;" target="workflow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="mcp" style="endArrow=block;html=1;rounded=0;" target="services">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="services" style="endArrow=block;html=1;rounded=0;" target="external">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="browser" style="endArrow=block;html=1;rounded=0;dashed=1;" target="python">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="services" style="endArrow=block;html=1;rounded=0;" target="llm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="target-vision" name="Target Vision">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title-target" value="FAMS Target Vision" style="text;html=1;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="440" y="20" width="520" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="t-client" value="Client Applications&#xa;React Web UI&#xa;External Agent Clients&#xa;Future mobile or desktop clients" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="130" width="250" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="t-gateway" value="API Boundary&#xa;Fastify / OpenAPI&#xa;authn, authz, validation&#xa;rate limits, audit logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="130" width="260" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="t-domain" value="Modular Domain Services&#xa;Assets, positions, transactions&#xa;pricing, portfolio, analysis&#xa;backtest, alerts, LLM advice" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="325" width="260" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="t-mcp" value="Formal MCP Server&#xa;native transport where needed&#xa;tool registry and schemas&#xa;external Agent integration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="740" y="110" width="250" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="t-workflow" value="Durable Workflow Engine&#xa;persisted executions&#xa;step outputs, retries, cancellation&#xa;Agent and tool orchestration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="740" y="280" width="250" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="t-workers" value="Background Workers&#xa;Bull queues&#xa;price refresh, snapshots&#xa;backtests, alerts, reports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="740" y="460" width="250" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="t-pg" value="PostgreSQL&#xa;users, assets, positions&#xa;transactions, portfolios&#xa;strategies, alerts" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="330" y="650" width="220" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="t-time" value="TimescaleDB / time-series tables&#xa;price history&#xa;equity curves&#xa;daily snapshots" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="590" y="650" width="230" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="t-redis" value="Redis&#xa;cache, sessions&#xa;rate limits&#xa;queue coordination" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="860" y="650" width="210" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="t-providers" value="Managed External Providers&#xa;Yahoo, Eastmoney, Sina, akshare&#xa;timeouts, retries, caching&#xa;source attribution and validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="155" width="240" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="t-llm" value="LLM Providers&#xa;prompt templates&#xa;structured parsing&#xa;risk disclaimers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="340" width="240" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="t-observe" value="Observability And Operations&#xa;API latency, queue lag&#xa;provider failures, workflow duration&#xa;LLM parse errors" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="515" width="240" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="te1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="t-client" target="t-gateway">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te2" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-gateway" target="t-domain">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te3" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-client" target="t-mcp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te4" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-mcp" target="t-domain">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te5" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-workflow" target="t-domain">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te6" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-workflow" target="t-workers">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te7" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-domain" target="t-pg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te8" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-domain" target="t-time">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te9" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-workers" target="t-redis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te10" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-domain" target="t-providers">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te11" style="endArrow=block;html=1;rounded=0;" edge="1" parent="1" source="t-domain" target="t-llm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te12" style="endArrow=block;html=1;rounded=0;dashed=1;" edge="1" parent="1" source="t-gateway" target="t-observe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te13" style="endArrow=block;html=1;rounded=0;dashed=1;" edge="1" parent="1" source="t-workers" target="t-observe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,848 @@
+
+# docs/target-architecture-gap.drawio
+
+## 2026-06-02 FIVD-R Phase 12-15 收口同步
+
+- FIVD-R 可信研究工作台第一轮落地完成：新增 DataGapSummary、Capability State、Candidate Score Breakdown、Trade Gate Contract Tests 和 Validation Failure Taxonomy。
+- Candidate scoring 已拆分 `signalScore / researchScore / evidenceAdjustedScore`，前端默认按证据调整分解释候选，避免“高策略信号”被误认为可交易。
+- Analysis 页 FIVD-R 分区新增 research-only / trade-blocked Banner、data gap 展示和 validation failure taxonomy 面板。
+- `validation-retest` 现在产出 `validation_evidence_retest_report.json` 与 `validation_failure_taxonomy.json`，并新增 `GET /api/v1/analysis/fivd-r/validation-report/latest`。
+- 验证通过：`test:fivd-r-core`、`test:production-readiness`、`test:fivd-r-trade-gate-contract`、`test:fivd-r-validation-taxonomy`、前端 build；`test:trade-action-readiness` 继续按预期失败，唯一交易动作 blocker 仍为 `validation_evidence`。
+
+## 2026-06-02 FIVD-R Phase 5 同步
+
+- FIVD-R Phase 5 已完成：Trading Discipline Engine 从 v1 升级到 `fivd.r.trading_discipline.v2`。
+- 新增 bucket、disciplineType、validFrom、validUntil、reviewCadence、maxAllowedWeight、targetWeightMultiplier 和五类条件组。
+- 真实验收覆盖非现金持仓 `009725 / 中期债（一年）` 与现金持仓 `现金-现金-银行卡 / 银行卡`。
+- 现金 discipline 验证为 no_action，Validation Evidence gate 保持阻断，未开放 formal ADD / REDUCE / AUTO_TRADE。
+- 产物：`.verification/fivd-r-phase5-trading-discipline-audit.json` 与 `.verification/fivd-r-phase5-trading-discipline.png`。
+- Phase 6 PositionAdvice Adapter 开发前计划和审计已形成，下一步接入 FIVD-R multipliers 与 evidenceRefs。
+
+## 2026-06-02 FIVD-R Phase 6 同步
+
+- FIVD-R Phase 6 已完成：PositionAdvice Adapter 深度接入。
+- PositionAdvice FactSet/Advice 新增 `fivd.r.position_advice_adapter.v1`，接入 valuation/risk/evidence/validation/combined multipliers。
+- 真实验收覆盖 `601127 / 赛里斯`，`validationGateMultiplier=0`、`combinedMultiplier=0`、action=`OBSERVE`。
+- evidenceRefs 可追溯到 FIVD-R adapter run、股票事实缓存、quote-list canonical、财报和 validation operation。
+- Validation Evidence gate 保持阻断，未开放 formal ADD / REDUCE / AUTO_TRADE。
+- 产物：`.verification/fivd-r-phase6-position-advice-adapter-audit.json`。
+- 下一步进入 Phase 7 Advice Replay & Validation 的开发前计划、验收标准和审计。
+
+## 2026-06-02 FIVD-R Phase 7 第一段同步
+
+- FIVD-R Phase 7 第一段已完成：Gate-Strict + Buy & Hold 真实历史 replay 最小闭环。
+- 新增 `backend/scripts/verify-fivd-r-phase7-advice-replay.ts`。
+- 真实验收覆盖 `009725`，reviewDate=`2026-05-11`，horizonEnd=`2026-05-29`。
+- Gate-Strict 下 decisionAction=`OBSERVE`，simulatedTrades=0，未执行 formal ADD / REDUCE。
+- noFutureLeakAudit.leaked=false，决策输入未读取 reviewDate 后价格。
+- 产物：`.verification/fivd-r-phase7-advice-replay-audit.json`。
+- Phase 7 后续仍需 Rolling Start、多模式对比、宽基 benchmark、组合级 replay 和前端可视化。
+
+## 2026-06-02 FIVD-R Phase 7 第二段同步
+
+- FIVD-R Phase 7 第二段已完成：fixed/rolling 多窗口与四模式 replay。
+- 真实验收覆盖 `002611`，priceHistoryRows=36。
+- startPolicies=`fixed_3m / fixed_2m / fixed_1m / rolling_weekly`，windowsChecked=8。
+- modes=`gate_strict / research_only / buy_and_hold / benchmark_cash`。
+- noFutureLeakAudit.leaked=false，Gate-Strict 未执行 formal ADD / REDUCE。
+- `benchmark_cash` 明确为现金 benchmark，宽基 benchmark 和组合级再平衡仍属后续增强。
+
+## 2026-06-02 FIVD-R Phase 8 同步
+
+- FIVD-R Phase 8 已完成：人工复核与干预记录 append-only 审计。
+- 新增 `FivdRInterventionReview` 表、`fivdRInterventionService` 和 intervention API。
+- 记录包含 runId、decision、reason、reviewer、modelResultRef、evidenceRefs、previousHash、recordHash、createdAt。
+- 真实验收覆盖 runId=`fivd-r:default:1780398413513`，symbol=`009725`。
+- 两条复核记录均已追加，第一条未被覆盖，第二条 previousHash 指向第一条 recordHash，chain audit 通过。
+- 人工复核未绕过 `validation_evidence`，不开放 formal ADD / REDUCE / AUTO_TRADE。
+
+## 2026-06-02 FIVD-R Phase 9 同步
+
+- FIVD-R Phase 9 已完成：Calibration 与 Model Tuning 最小闭环。
+- 新增 `backend/scripts/verify-fivd-r-phase9-calibration.ts`。
+- 使用 Phase 7 真实 replay 产物生成 actionQuality、probabilityCalibration 和 modelComparison。
+- windowsChecked=8，validationGateRespected=true。
+- probabilityCalibration=insufficient，未伪造 p05-p95 / p25-p75 / upside probability / expectedReturnError。
+- challenger promoteStatus=not_promoted，requiresHumanConfirmation=true，未自动 promote。
+
+## 2026-06-02 FIVD-R Phase 10 同步
+
+- FIVD-R Phase 10 已完成：交易动作 Readiness 收口。
+- 新增 `backend/scripts/verify-fivd-r-phase10-readiness-closure.ts`。
+- closureStatus=blocked，analysisAdviceReady=true，productionReady=true，tradeActionReady=false。
+- blockerGateIds=`validation_evidence`，autoTradeAllowed=false，allowedManualModes=[]。
+- 当前只允许 RESEARCH / OBSERVE，不允许 MANUAL_REVIEW / PAPER_TRADE，不开放 AUTO_TRADE。
+- FIVD-R 剩余主线已完成当前 validation evidence 状态下的可执行闭环。
+
+## 2026-05-25 P4.31 同步
+
+- P4.31 已完成第一段：独立事实集预热验收入口。
+- 新增 `preheatScreenerFactsets`、`npm run run:screener-factset-preheat` 和 `npm run test:screener-factset-preheat`。
+- 事实集预热成功标准收紧为必须取得东方财富行业板块和总市值/流通市值。
+- 验收：指定 `601127` 覆盖率 100%，证明成功路径可用。
+- 受控 20 样本预热结果：attempted=20、success=0、failure=20、finalFullCoverage=0；provider 多次 empty reply。
+- 结论：P4.32 全 A 长样本正式扫描暂缓，先修复行业/市值事实 provider 覆盖。
+
+## 2026-05-25 P4.30 同步
+
+- P4.30 已完成第一段：worker 领取与过期租约恢复验收。
+- `stock_screener_full_scan` 新增 `executionMode=queued`，可只入队不立即由 API 进程执行。
+- 新增 `runNextQueuedOperation / executeQueuedOperation`，支持 worker 领取 queued 或过期 lease 的选股扫描和批量事实集刷新。
+- 新增 `npm run run:operation-worker-once` 与 `npm run test:operation-worker-readiness`。
+- 验收：排队小样本 Operation completed，过期租约 Operation 被恢复并写入 recovery metadata；原 `test:operation-recovery` 仍通过。
+- P4 下一步：事实集覆盖补齐、全 A 长样本前置评审、持仓建议证据联动。
+
+## 2026-05-25 P4.29 同步
+
+- P4.29 已完成第一段：market bar 缓存预热与 universe 来源防误判。
+- 新增缓存覆盖报告和 `npm run run:market-bar-cache-preheat`，扫描前可按缺口只补缺失或过期 K 线。
+- 全 A 股票池新增持久缓存；live provider 成功时写入快照，临时失败时优先使用已验证快照。
+- `long_sample_acceptance.json` 新增 `universeSource / universeTotal` 和 `universe_source` blocker gate，fallback 小样本不能通过长样本验收。
+- 复验 Operation `29dbb2f3-f238-45c4-92ca-8b551a8ed011`：全 A 来源 5521，只扫描 120，provider 成功率 100%，cache hit rate 100%，最佳样本 83，验收仍为 insufficient。
+- P4 下一步：PostgreSQL/worker 性能验收、全量扫描前置评审、持仓建议证据联动。
+
+## 2026-05-25 P4.28 同步
+
+- P4.28 已完成第一段：长样本 dry-run 实际运行与产物沉淀。
+- 新增 `npm run run:long-sample-dry-run`，可重复提交 `long_sample_dry_run` Operation 并输出验收摘要。
+- Operation `65a36d22-c4cc-400b-8755-0cf2a62a2618` 已完成，耗时约 155 秒，生成 17 个 artifact。
+- dry-run 结果：120 个扫描样本全部评估成功，provider 成功率 100%，缓存命中率 7.42%，最佳样本 83，最佳可信度 low。
+- 验收结论为 insufficient，失败点集中在扫描覆盖率、缓存命中率、样本量、稳定性证据和事实集覆盖。
+- P4 下一步：market bar 缓存预热、PostgreSQL/worker 性能验收、持仓建议证据联动。
+
+## 2026-05-25 P4.27 同步
+
+- P4.27 已完成第一段：长样本验收受控入口。
+- `stock_screener_full_scan` 支持 `default / long_sample_dry_run / long_sample_full` 三种模式。
+- dry-run 使用固定 120 只样本、60 个交易日、跳过事实集预热的低成本验收配置。
+- 真实全 A 长样本必须显式传入 `confirmedFullScan=true`，否则提前拒绝，避免误触发高成本任务。
+- 任务中心新增“长样本验收”按钮，直接提交 dry-run 并复用 `long_sample_acceptance.json` 产物。
+- P4 下一步：运行并记录真实长窗口样本产物、PostgreSQL/worker 性能验收、持仓建议证据联动。
+
+## 2026-05-25 P4.26 同步
+
+- P4.26 已完成第一段：全 A 长样本验收闸门。
+- 全市场扫描新增 `long_sample_acceptance.json`，明确本次扫描是否可作为高可信全 A 长样本结论。
+- 验收闸门覆盖扫描覆盖率、provider 成功率、缓存命中率、回测天数、成交样本量、稳定性验证和事实集覆盖。
+- 任务中心新增“长样本验收”artifact 预览，可查看每个 gate 的实际值、要求、严重级别和候选组合摘要。
+- P4 下一步：执行真实全 A 长窗口样本、PostgreSQL/worker 性能验收、持仓建议证据联动。
+
+## 2026-05-25 P4.25 同步
+
+- P4.25 已完成第一段：按覆盖缺口触发可取消事实集预热。
+- 全市场扫描若正式行业+市值完整覆盖率低于阈值，会进入 `factset.preheat_missing`，按上限刷新缺失样本。
+- 预热任务每个标的前检查取消状态，默认上限 20、阈值 80%，可通过查询文本调整或跳过。
+- `factset_preheat_coverage.json` 记录 initial、preheat 和最终覆盖率，便于审计预热是否改善正式分组基础。
+- P4 下一步：真实全 A 长窗口样本、PostgreSQL/worker 性能验收、持仓建议证据联动。
+
+## 2026-05-25 P4.24 同步
+
+- P4.24 已完成第一段：批量事实集预热覆盖率可审计。
+- 全市场扫描新增 `factset.preheat_coverage` 任务，统计正式行业覆盖、正式市值覆盖、完整覆盖和缺失样本。
+- Operation 产物新增 `factset_preheat_coverage.json`，`data_quality_report.json` 同步嵌入覆盖率报告。
+- 任务中心新增“事实集覆盖”artifact 预览，展示覆盖率、provider 分布、缺失行业/市值样本和 warning。
+- P4 下一步：按覆盖缺口触发可取消的批量事实集预热、真实全 A 长窗口样本、PostgreSQL/worker 性能验收、持仓建议证据联动。
+
+## 2026-05-25 P4.23 同步
+
+- P4.23 已完成第一段：正式行业/市值缓存接入策略锦标赛分组。
+- 全 A universe 优先从 `StockFactSetCache` 读取东方财富行业板块、总市值和流通市值。
+- `groupMetadata` 新增 `eastmoney_fundamental_cache`、`asOf` 和 `sourceRefs`，缓存缺失时继续降级并保留 warning。
+- 验证：后端/前端 TypeScript、`npm run test:strategy-tournament-backtest`、`npm run test:screener-service` 通过。
+- P4 下一步：批量事实集预热覆盖率、真实全 A 长窗口样本、PostgreSQL/worker 性能验收、持仓建议证据联动。
+
+## 2026-05-25 P4.22 同步
+
+- P4.22 已完成第一段：分组稳定性新增分组元数据血缘。
+- 每笔样本新增 `groupMetadata`，记录分组值、provider、method、confidence 和 warnings。
+- `group_stability_report.json` 新增 providerSummary、averageConfidence 和分组桶 provider/confidence。
+- 任务中心分组稳定性预览展示 provider 汇总和置信度，避免把启发式分组误读为正式数据源。
+- P4 下一步：正式行业/市值 provider、真实全 A 长窗口样本、PostgreSQL/worker 性能验收、持仓建议证据联动。
+
+## 2026-05-24 P4.19-P4.21 同步
+
+- P4.19-P4.21 已完成第一段：策略锦标赛新增分组稳定性审计，不新增选股策略。
+- 每笔样本记录 `marketSegment / industryGroup / marketCapGroup / marketRegime`，每个候选组合生成 `groupStabilityValidation`。
+- Operation 产物新增 `group_stability_report.json`，任务中心新增“分组稳定性”导航和可视化预览。
+- P4 剩余计划统一评审：继续做真实全 A 长窗口样本、正式行业/市值数据源、PostgreSQL/worker 性能验收、持仓建议证据联动。
+
+## 目标架构
+Nodes: 30; Edges: 5
+
+Nodes
+- FAMS 目标技术架构
+- V1.0 建立可信投资账本；V1.5 强化行情可靠性与异步任务；V2.0 输出 FAMS Connect 与 MCP 工具契约；V3.0 接入 harnessOS 多 Agent 编排。
+- 用户层
+- React Web UI / Dashboard / Assets / Positions / Transactions / Analysis / Backtest / Alerts / Portfolios / 详情页
+- 交互模式 / 普通资产维护模式 / Agent 辅助分析模式 / 交易入账前人工二次确认
+- 用户可见产物 / 投资建议报告 / 回测报告 / 告警历史 / 组合快照与任务结果
+- FAMS 应用层
+- API 边界 / Fastify REST + OpenAPI / 请求校验 / 用户上下文 / 错误契约 / 后续补齐鉴权、限流、审计日志
+- 领域服务 / AssetService / PositionService / TransactionService / MarketDataService / AlertService / BacktestService / AdviceService / SnapshotService / PortfolioService
+- 确定性规则引擎 / 仓位偏离 / 止盈止损 / 现金底线 / 集中度 / 入参合法性 / 交易保护
+- 结构化建议层 / JSON Schema 输出 / 解释、风险提示、建议动作 / Advice / AdviceAction / 输入快照
+- Operation / Job 层 / 价格刷新 / 告警检查 / 日报分析 / 回测 / 报告生成 / queued / running / completed / failed / retry
+- FAMS Connect 层
+- FAMS DomainPack / asset.* / market_data.* / position.* / transaction.* / advice.* / backtest.* / portfolio.* / alert.* / operation.*
+- 工具契约 / 输入输出 schema / 权限元数据 / 产物引用 / 下一步动作 / operation_id
+- HTTP MCP Bridge / 保留当前调试路径 / 前端和测试可直接调用
+- stdio MCP Provider / 面向外部 Agent 会话 / 与 harnessOS 传输对齐
+- 连接器策略边界 / 工作区和用户上下文 / 执行权限策略 / 影响交易的动作必须人工确认
+- harnessOS 编排层
+- 连接器注册 / fams_mcp_http / fams_mcp_stdio
+- 工作流注册 / daily_investment_analysis / interactive_asset_analysis / recommendation_to_trade_execution
+- 多 Agent 运行时 / planner / analyst / reviewer / 产物合成与交接 / 关键动作进入人工确认节点
+- 编排输出 / 行动建议 / 分析摘要 / 报告产物回流 FAMS UI
+- LLM Provider / 结构化解析 / 风险提示注入 / Prompt 与 schema 版本管理
+- 数据与基础设施层
+- 当前基线 / Prisma + SQLite / Asset / Position / Transaction / Alert / Operation / Snapshot
+- 目标事务库 / PostgreSQL / 用户、资产、仓位、交易 / 建议、告警、组合、任务
+- 时序数据 / 价格历史 / 组合净值 / PositionSnapshot / MarketSnapshot / AdviceInputSnapshot
+- Redis / 缓存 / 会话 / 限流 / 队列协调 / Provider 响应缓存
+- 外部依赖 / Yahoo / Eastmoney / Sina / Akshare / ManualOverride / LLM Provider / 超时、重试、fallback、来源归因
+
+Edges
+- 用户层 -> FAMS 应用层
+- FAMS 应用层 -> FAMS Connect 层
+- FAMS Connect 层 -> harnessOS 编排层
+- FAMS 应用层 -> 数据与基础设施层
+- 编排输出 / 行动建议 / 分析摘要 / 报告产物回流 FAMS UI -> 用户可见产物 / 投资建议报告 / 回测报告 / 告警历史 / 组合快照与任务结果 (产物回流)
+
+## 当前到目标 Gap 路线图
+Nodes: 30; Edges: 3
+
+Nodes
+- FAMS 当前到目标 Gap 路线图
+- 所有说明使用中文；技术名词保留原名。每到一个开发节点必须执行一次端到端验证，验证通过后同步更新本图和 TARGET_ARCHITECTURE_GAP.md。
+- 图例 / 绿色：已完成并验证 / 黄色：部分完成或进行中 / 红色：关键 Gap 未闭合 / 灰色：后续阶段，不作为当前主线
+- V1.0 可信投资账本
+- 技术架构 / React + Fastify REST / Prisma + SQLite / Asset / Position / Transaction / Tag / Alert / PositionService 统一计算仓位
+- 主要功能点 / 资产导入与编辑 / 行情补全、价格来源、更新时间 / 仓位、市值、成本、盈亏 / 标签维护、交易流水、基础止盈止损告警
+- 对应 Gap / GAP-1 用户交互边界 / GAP-2 API 边界硬化 / GAP-3 领域服务边界 / GAP-5 行情可信入口
+- 已完成进度 / Dashboard / Assets 使用后端仓位汇总 / 交易入账前二次确认，成功后刷新账本 / 写接口增加 JSON Schema 校验和稳定错误契约 / 标签修正资产类型，ETF 513770 验证 0.421 三位小数
+- V1.5 行情可靠性与异步任务
+- 技术架构 / MarketDataService Provider 注册表 / OperationService 持久化任务状态 / AlertService 风险检查 / 后续接入 Redis / BullMQ / 快照存储
+- 主要功能点 / 行情 Provider fallback、失败分类、来源归因 / 价格刷新任务、告警检查任务、任务中心 / Operation retry / polling / artifact refs / 基础快照和报告产物引用
+- 对应 Gap / GAP-3 领域服务分离继续收敛 / GAP-4 数据模型骨架 / GAP-5 市场数据可靠性 / GAP-7 异步任务骨架
+- 已完成进度 / Operation 已用于价格刷新、建议、回测、告警检查 / Alerts 页面成为风险告警产物面 / 失败和取消任务可 parent-linked retry / 513 / 159 ETF 行情路径修正，Sina fallback 可用 / 2026-05-08：建议 Operation 返回 artifactRefs / nextActions，并验证 24 个持仓快照、17 个市场快照 / 2026-05-08：任务中心展示 artifactRefs / nextActions，完成桌面与手机截图验证 / 2026-05-08：artifact refs 后端解析接口、前端可点击入口、深链路打开详情均已完成验证 / 2026-05-08：operation_id 契约、旧刷新入口异步化、任务中心轮询展示已完成验证 / 2026-05-10：AI 股票分析修复行情 fallback 与真实 provider 标识，601888 验证为中国中免并由 DeepSeek 返回 AI 结果
+- V2.0 FAMS Connect 与 MCP 工具契约
+- 技术架构 / FAMS DomainPack / HTTP MCP Bridge 保留调试路径 / stdio MCP Provider 面向外部 Agent / 工具 schema、权限、产物契约版本化 / fams.mcp.call.v1 调用 envelope 与审计上下文 / Connect 用户上下文解析与冲突阻断 / harnessOS connector manifest 注册入口
+- 主要功能点 / asset.* / market_data.* / position.* / transaction.* / advice.* / backtest.* / operation.* 返回 operation_id、artifact_refs、next_actions / 交易影响动作必须人工确认
+- 对应 Gap / GAP-6 Connect 与 MCP 成熟度 / GAP-7 异步任务骨架 / 前提：V1 账本可信，V1.5 任务和行情稳定 / 当前状态：已完成验收收口 / 2026-05-08：DomainPack manifest、工具元数据、canonical Operation tools 与 HTTP MCP 调用验证完成 / 2026-05-08：registry 模块拆分完成，HTTP 与后续 stdio 可复用同一套 manifest 和 handler / 2026-05-10：最小 stdio MCP Provider 已完成，HTTP / stdio 返回一致 DTO 并修复 index 启动副作用 / 2026-05-10：交易保护确认节点已落地，未确认的 transaction.* 写入只返回阻断结果和人工确认 next action，不写入交易流水 / 2026-05-10：MCP 调用 envelope 与审计上下文已收口，completed / blocked / failed 三种状态可被 HTTP 和 stdio 统一解析 / 2026-05-10：Connect 用户上下文边界已落地，显式 userId、HTTP header、stdio context 可统一解析，冲突或缺失会阻断 / 2026-05-10：harnessOS 最小连接器 manifest 已完成，fams_mcp_http / fams_mcp_stdio 可被注册入口发现 / 2026-05-10：workflow router 从占位状态改为真实 execution 状态，daily_analysis 已跑通 MCP / Operation / artifact 回流
+- 验收重点 / 工具列表 schema 可机器读取 / HTTP 与 stdio 传输返回一致 DTO / Agent 只能拿到授权用户上下文 / 交易写入必须进入确认节点 / 端到端 workflow 能返回真实状态、产物和前端可见结果
+- V3.0 harnessOS 多 Agent 编排
+- 技术架构 / harnessOS Connector Registry / Workflow Registry / 多 Agent Runtime / 持久化执行、步骤输出、重试、取消
+- 主要功能点 / 每日投资分析工作流 / 交互式资产分析工作流 / 建议到交易执行工作流 / Planner / Analyst / Reviewer 协作
+- 对应 Gap / GAP-6 后半段：真实工作流编排 / 依赖：FAMS DomainPack 稳定 / 当前状态：待进入；workflow router 真实状态与 daily_analysis 映射已作为前置底座完成
+- 验收重点 / 工作流执行可恢复、可重试、可取消 / 每一步有输入、输出、错误和产物引用 / 关键交易动作进入人工确认 / 结果回流 FAMS UI
+- 阶段开发计划与验收节点
+- 统一规则：每到一个开发节点，必须执行一次端到端验证。验证通过后，在本图对应 Gap 卡片和 TARGET_ARCHITECTURE_GAP.md 中同步记录完成情况；未验证能力不得标为已完成。
+- V1.0 开发节点 / 1. 资产导入/编辑：API + DB + Assets 页面验证 / 2. 行情刷新：Provider 返回 + PriceHistory + 前端价格/来源/时间验证 / 3. 仓位计算：PositionService + Dashboard/Assets/Positions 一致性验证 / 4. 交易入账：确认弹窗 + TransactionService + 仓位和告警联动验证 / 5. 标签与类型：Tag/AssetTag + asset.type + 行情刷新路径验证
+- V1.5 开发节点 / 1. 行情可靠性：多 Provider fallback、失败分类、来源归因验证 / 2. 告警检查：AlertService + Alerts 页面 + 操作状态验证 / 3. Operation 任务：queued/running/completed/failed/retry 全链路验证 / 4. 快照与产物：artifact_refs 可追踪、任务中心可打开验证 / 5. 异步化准备：接口返回 operation_id，前端轮询展示验证
+- V2.0 开发节点 / 1. DomainPack：工具分组、版本、能力元数据验证（已完成） / 2. 工具契约：输入输出 schema、错误契约、权限元数据验证（已完成） / 3. HTTP MCP：现有调试路径兼容验证（已完成） / 4. stdio MCP：外部 Agent 会话调用验证（已完成） / 5. 交易保护：所有交易影响工具必须进入人工确认验证（已完成） / 6. 调用 envelope：成功、阻断、失败与审计上下文统一验证（已完成） / 7. 用户上下文：显式参数、HTTP header、stdio context 与冲突阻断验证（已完成） / 8. 连接器 manifest：harnessOS 可发现 HTTP / stdio 注册入口验证（已完成） / 9. 端到端收口：daily_analysis workflow、Operation 产物、任务中心与 Dashboard 前端验证（已完成）
+- V3.0 开发节点 / 1. 连接器注册：harnessOS 可发现并连接 FAMS 验证 / 2. 工作流注册：日报、交互分析、建议执行工作流可列出验证 / 3. 多 Agent 执行：步骤输入输出、错误、重试和取消验证 / 4. 人工确认：关键动作阻断并等待确认验证 / 5. 产物回流：报告、建议和执行结果回到 FAMS UI 验证
+- 进度记录格式 / 进度 YYYY-MM-DD：完成能力描述。 / 验证：后端接口、数据库状态、前端运行态、关键业务结果。 / 状态：已完成 / 部分完成 / 待验证 / 待启动。
+
+Edges
+- V1.0 可信投资账本 -> V1.5 行情可靠性与异步任务 (账本可信后进入可靠性建设)
+- V1.5 行情可靠性与异步任务 -> V2.0 FAMS Connect 与 MCP 工具契约 (任务与行情稳定后开放工具契约)
+- V2.0 FAMS Connect 与 MCP 工具契约 -> V3.0 harnessOS 多 Agent 编排 (DomainPack 稳定后进入编排)
+
+## 2026-05-10 同步记录
+- V1.0：标签管理补齐删除能力，已删除“集合投资”标签类型，并清理 AssetTag 与持仓 JSON 标签；该项填补 GAP-1 用户交互边界中的标签维护缺口。
+- V1.5：价格刷新 Operation 改为并发执行并设置单资产超时，告警检查不再二次刷新价格；当前任务可 completed，但外部 provider 仍大量超时，行情成功率待后续缓存/代理/Provider 补强。
+- V1.5：Dashboard 活跃告警风险仪表盘隐藏轴刻度并完成 Chrome 截图验证，数字不再重叠。
+- V2.0：分析建议页合并 Dashboard AI 股票分析入口，新增统一标的/板块研究与 AI 选股入口；AI 选股第一版支持“A杀后横盘放量”规则。
+- 开发主线锁定：新增 `docs/HIGH_RELIABILITY_CORRECTNESS_PLAN.md`。在该计划完成前，不启动新的开发主线；V3.0 harnessOS 多 Agent 编排暂缓。当前最高优先级为查询正确性、行情可靠性、账本一致性、分析建议可追溯和 AI 选股可复现。
+
+## 2026-05-12 同步记录
+- V1.5：新增行情监控模块。AlertRule 保存宽基回撤规则，默认上证指数、沪深300、中证500、中证1000、创业板指、科创50 六个标的，250 个交易日窗口，10% 建仓提醒阈值。
+- V1.5：Alerts 页面新增“宽基回撤监控”和“宽基监控配置”，监控标的、回撤阈值、观察窗口和启用状态均可配置。
+- 验证：`npm run test:market-watch` 通过；接口验证当前上证指数 2026-05-12 回撤 0.37%，未触发 10% 建仓提醒；`PUT /api/v1/alerts/market-watch/rules` 配置保存成功；Playwright 截图 `.verification/market-watch-alerts-page.png` 和页面点击“检查宽基”验证通过。
+- V1.5 / 阶段 5：抽离 `StockScreenerService`，AI 选股结果新增策略定义、结构化阈值、命中/未命中原因和 provider 成功率观测；分析页截图 `.verification/analysis-screener-service-structured.png` 验证可见。
+- V1.5 / 阶段 5：AI 选股新增 `放量突破平台` 和 `跌破后收复关键均线` 两类确定性策略；接口和前端截图 `.verification/analysis-screener-multistrategy-platform.png` 验证通过。
+
+## 2026-05-17 同步记录
+- V1.0 / V1.5：持仓编辑新增止盈收益率和止损收益率维护入口，资产管理表格新增“收益率止盈/止损”列；保存持仓后立即按当前持仓收益率执行风险检查，触达阈值时生成风险告警。
+- 后端 `/api/v1/alerts/risk-check` 支持 `refreshPrices=false`，用于保存收益率阈值后的即时检查；`Position.stopLoss / takeProfit` 统一解释为收益率百分比，`-5` 表示亏损 5% 止损，`5` 表示盈利 5% 止盈。
+- 验证：后端和前端 TypeScript 检查通过；`npm run test:stop-alerts` 通过，验证 `601127` 当前收益率 `-38.98%` 触发“触及止损线”告警；Playwright 截图 `.verification/assets-return-percent-stop-alerts.png` 和 `.verification/assets-return-percent-stop-alerts-modal.png` 验证前端字段可见且无错误日志。
+- V1.5：基金/债基净值刷新改为东方财富官方单位净值优先，天天基金 `gsz` 仅作为盘中估值参考；刷新后基金/债基市值统一按 `份额 × 官方净值` 重算，收益率随市值更新。
+- 验证：刷新 Operation `b5952ee2-a61f-4588-9130-8b54c2ed82d7` 完成，`externalRefreshed=22`、`failed=0`；`npm run test:fund-nav-sources` 对 13 个基金/债基完成多源净值对账，系统净值全部等于东方财富官方净值；前端截图 `.verification/assets-fund-nav-official-refresh.png` 验证资产页显示官方净值和来源。
+- V1.5：分析技术指标输入按交易日去重，避免同一标的多次刷新记录扭曲 RSI / MACD / 均线信号；`014064` 银华农业最近 30 天 21 条刷新记录折算为 3 个有效交易日，样本不足时不输出 RSI 信号。
+- V1.0 / V1.5：持仓页新增“新增持仓”入口，后端 `/api/v1/positions/manual-buy` 通过 resolver 识别/创建资产，按外部价格或人工成交价创建买入交易并更新持仓；`npm run test:manual-buy-position` 和前端截图验证通过。
+- V1.5 / V2.0：新增 AI 投资分析与选股模型建设计划，后续分析建议改为外部指标、策略模型、LLM 解释和人工微调闭环。
+- V1.5 / V2.0：股票分析三面内容纳入重构计划，基本面、消息面、技术面必须基于 StockAnalysisFactSet 和 evidenceRefs，数据不足时不得输出模板化空话。
+- V1.5 / V2.0：外部策略发现与策略锦标赛纳入计划，后续支持从外部来源解析选股/投资策略，批量模拟买入执行并用排行榜、曲线、散点图、热力图对比胜率、收益和回撤。
+
+## 2026-05-18 同步记录
+- V1.5 / V2.0：完成 `TechnicalIndicatorService` 保护性第一段落地，统一处理交易日去重、样本质量、均线、RSI、MACD、BOLL、ATR、量比和支撑压力位；指标快照包含来源、样本数、更新时间、质量状态和 warnings。
+- `AnalysisService.getTradingSignals` 已迁移到统一指标服务，但本地指标只作为审计和 fallback，不再输出交易信号。
+- 股票分析服务删除“实时价伪造历史 K 线”的低可靠降级逻辑，真实历史 K 线不足时返回数据不足；正式技术面建议后续必须接入外部成熟 K 线/指标源和可靠技术模型。
+- 验证：`npm run test:technical-indicators`、后端 TypeScript 检查、`npm run test:analysis-trace`、`npm run test:stop-alerts` 均通过。
+- V1.5 / V2.0：股票分析技术面接入 TradingView Scanner 外部技术指标展示，API 返回 `externalTechnical`，前端展示外部来源、TradingView 标的、综合/均线/振荡器评级、RSI、MACD、ATR、SMA 和更新时间；本地指标仍为复核区。
+- 验证：`npm run test:external-technical` 通过，`601127` 返回 `SSE:601127`、TradingView 评级、RSI14 和 SMA20；股票分析接口验证 `externalTechnical.quality=ok`。
+- V1.5 / V2.0：外部技术指标新增多源可信度评分，TradingView 技术评级主源与 Eastmoney/Sina K 线复核源交叉校验收盘价、SMA20、RSI14 和 MACD 方向；前端展示可信度分数、来源数和校验明细。
+- 验证：`601127` 股票分析接口返回 `confidence.score=95`、`level=high`、`sourceCount=2`，四项校验均通过。
+- V1.5 / V2.0：`TechnicalAdviceModelRegistry` 第一版落地，`tradingview_ratings_interpretation_v1` 在外部指标可信度达标后输出技术面观察结论、证据、风险、边界和阻断原因，不输出直接买卖指令。
+- 验证：`npm run test:technical-advice-model` 通过；`601127` 返回 `technicalAdvice.status=available`、`stance=defensive`、`summary=技术面偏防守`。
+- V1.5 / V2.0：`StockAnalysisFactSet` 技术面第一段落地，股票分析 API 返回 `factSet`，技术面 facts 覆盖外部指标、可信度、交叉校验、本地复核和模型输出；基本面/消息面明确 `insufficient_data`，禁止空泛结论。
+- 验证：`npm run test:stock-analysis-factset` 通过；`601127` 返回技术 facts 13 条，`technicalAdvice.evidenceRefs` 全部可追溯。
+- V1.5 / V2.0：基本面估值事实第一段落地，`FundamentalDataProvider` 接入东方财富动态 PE、PB、总市值和流通市值，并写入 `factSet.fundamental`；成长、质量、现金流和行业分位仍以 warning 阻断完整基本面结论。
+- 验证：`npm run test:fundamental-factset` 通过；`601127` 返回 `peRatio=47.22`、`pbRatio=3.45`、基本面 facts 4 条。
+- V1.5 / V2.0：消息面事件流第一段落地，`NewsDataProvider` 接入东方财富个股新闻搜索，写入标题、摘要、媒体、发布时间、链接、事件类型、规则情绪和相关性，并同步到 `factSet.news`。
+- 验证：`npm run test:news-factset` 通过；`601127` 返回新闻事件 8 条、消息面 facts 6 条、`factSet.news.quality=ok`。
+- V1.5 / V2.0：`StockAnalysisSummary` 三面汇总第一段落地，技术面、基本面、消息面分别输出 status、summary、evidenceRefs 和 blockedReasons；技术面 available，基本面/消息面 partial。
+- V1.5 / V2.0：基本面财报主指标第一段落地，`FundamentalDataProvider` 接入东方财富 F10 财务主指标，`factSet.fundamental` 扩展到 13 条 facts，覆盖最新财报期、营收、归母净利、ROE、资产负债率和经营现金流；接口验证 `601127` 返回 `2026一季报`。
+- V1.5 / V2.0：基本面行业分位第一段落地，`601127` 映射到 `乘用车(BK1262)`，`factSet.fundamental` 扩展到 20 条 facts，新增 PE/PB/总市值/ROE/资产负债率同业分位；运行态接口验证 PE 低估分位 `11.11`、PB 低估分位 `44.44`、ROE 分位 `100`。
+- V1.5 / V2.0：财报主指标同厂不同接口复核第一段落地，东方财富 F10 主指标与数据中心业绩报表交叉校验营收、归母净利、EPS、ROE 和毛利率；`factSet.fundamental` 扩展到 26 条 facts，`601127` 五项复核均 pass、差异 `0%`。
+- V1.5 / V2.0：独立来源财报复核第一段落地，搜狐证券重要财务指标页 `SOHU_CWZB` 复核主营业务收入、净利润、每股收益、ROE 和资产负债率；`factSet.fundamental` 扩展到 32 条 facts，运行态验证 `独立来源复核：ok / SOHU_CWZB`。
+- V1.5 / V2.0：公告原文定位第一段落地，`officialAnnouncement` 定位 `601127` 的 `2026年第一季度报告`、披露日期 `2026-04-30` 和上交所 PDF 链接；`factSet.fundamental` 扩展到 36 条 facts，摘要显示 `公告原文：located / PDF`。
+- 验证：`npm run test:stock-analysis-summary` 通过；`601127` 返回 `analysisSummary.overallStatus=partial`。
+
+## 2026-05-19 全 A 选股异步化同步记录
+- V1.5 / GAP-7：新增 `stock_screener_full_scan` Operation，扫描拆分为 `universe.snapshot`、`market_data.warmup`、`strategy.evaluate`、`backtest.aggregate`、`artifact.generate`，每个分片持久化状态、成功数、失败数、provider、缓存命中率、warnings 和耗时。
+- V1.5 / GAP-5：新增 `market_bar_raw` 与 `market_bar_canonical`。raw 保存 provider 原始 OHLCV、复权类型、抓取时间、质量 flags 和 raw payload hash；canonical 保存策略和告警使用的标准 K 线、sourceRefs 和 dataVersion。
+- V1.5 / GAP-5：新增 `provider_health`，支持 provider 健康状态、连续失败、熔断、指数退避和 provider 级限速；缓存写入增加串行队列，SQLite 启用 WAL/busy_timeout，避免全 A 扫描期间锁库污染查询。
+- V1.5 / GAP-7：生成五类 artifactRefs：`leaderboard.json`、`candidate_list.json`、`strategy_metrics.json`、`data_quality_report.json`、`provider_health_report.json`。
+- 前端任务中心新增“全A选股扫描”入口，详情页展示任务分片表、取消按钮、partial success、失败原因、warnings 和结果产物入口。
+- 验证：后端/前端 TypeScript 检查通过；Prisma schema 同步；小样本 Operation `07f2582e-cb22-4f13-98ec-79f14ac51535` 完成并生成 5 个产物，`leaderboard.json` 可读取；数据库验证 `market_bar_raw=2209`、`market_bar_canonical=2200`。
+
+## 2026-05-19 GPT 架构建议合并记录
+- FAMS 核心定位锁定为：有数据血缘、有任务产物、有回测审计、有持仓约束的个人投资研究与决策系统。
+- 硬边界：LLM 不直接决定买卖，只解释结构化事实集、规则引擎、回测系统和仓位引擎的结论；没有 evidenceRefs、数据不足、provider 冲突或策略可信度 low/insufficient 时，不允许输出加仓建议。
+- 后续开发顺序锁定为 P0-P6：Operation 状态机、历史 K 线缓存、Provider 治理、PositionAdviceFactSet + PositionAdviceEngine、策略锦标赛升级、持仓研究面板缓存化、AI Agent 接入。
+- 下一条主线：P3 持仓建议事实集和确定性仓位建议引擎。P0-P2 仍需继续补齐正式状态枚举、幂等恢复、全字段 raw/canonical、日期级增量、多源 consensus、endpoint 级 provider health 和全量扫描稳定性。
+- `docs/HIGH_RELIABILITY_CORRECTNESS_PLAN.md` 已写入详细结构、决策公式、加减仓规则、技术指标分层、回测指标和 Agent 权限边界；`docs/TARGET_ARCHITECTURE_GAP.md` 已同步计划锁定。
+
+## 2026-05-19 P0-P2 执行记录
+- Operation 增加 `progressCurrent / progressTotal / progressMessage / cancelRequested / errorSummary / recoveryJson`，前端任务中心兼容 `succeeded / partial / cancelling`。
+- OperationTask 增加 `taskType / attempt / maxAttempts / idempotencyKey / inputJson / outputJson`，全 A 扫描分片可按任务键追踪。
+- `market_bar_raw` 和 `market_bar_canonical` 补充 timeframe、providerSymbol、exchange、validationStatus、primaryProvider、confidence 等血缘字段。
+- `provider_health` 补充 endpoint、circuitState、cooldownUntil、窗口统计、错误分类和延迟字段。
+- 验证：Prisma 同步、后端/前端 TypeScript 检查通过；小样本 Operation `1cf3e0b6-e92f-4865-b868-4af12e24512f` 完成，5 个 task 均写入 idempotencyKey，warmup cacheHitRate=31.14，raw/canonical 审计字段可查询。
+
+## 2026-05-19 P3 持仓建议引擎第一段
+- 新增 `PositionAdviceFactSet` 和确定性 `PositionAdviceEngine`，批量与单持仓均可输出组合权重、持仓事实、行情来源、技术评分、基本面/消息面边界、策略证据、阻断原因、证据引用和仓位动作。
+- 新增 `/api/v1/analysis/position-advice` 与 `/api/v1/analysis/position-advice/:positionId`，默认批量接口不拉取深度外部分析，单持仓可开启深度分析。
+- 硬边界已落入代码：低可信或证据不足时不允许输出 `ADD`；现金持仓为 `NO_ACTION`；缺少价格时为阻断状态。
+- 验证：后端 TypeScript 检查通过；`npm run test:position-advice` 验证 22 个持仓事实集；运行态 HTTP 返回 22 条建议，样例 `009725` 因 `strategy_evidence_missing` 返回 `OBSERVE / insufficient`。
+
+## 2026-05-20 P3 前端接入记录
+- `/api/v1/analysis/holdings-research` 合并返回 `positionAdvice`，前端持仓研究面板展示仓位建议引擎卡片。
+- 展示字段：动作、可信度、当前仓位、目标区间、交易幅度、策略证据、趋势/动量/相对强弱/波动/流动性评分、阻断原因、风险和证据数量。
+- 证据不足时目标区间显示“证据不足”，不再把 `0% - 0%` 误导为可执行清仓目标。
+- 验证：后端/前端 TypeScript 与 `npm run test:position-advice` 通过；HTTP 返回 22 条 `positionAdvice`；截图 `.verification/analysis-position-advice-holdings-layout-final.png` 验证前端可见。
+
+## 2026-05-20 P5 持仓建议缓存记录
+- 新增 `PositionAdviceCache`，缓存 `position.advice.factset.v1`、确定性建议、summary、evidenceRefs、providerTrace、warnings、状态和下次刷新时间。
+- `/api/v1/analysis/position-advice` 支持 `forceRefresh=true`，普通查询优先读 fresh cache；`holdings-research` 返回缓存状态。
+- 前端持仓研究面板显示“缓存新鲜/刚刷新”和下次刷新时间。
+- 验证：Prisma 同步、后端/前端 TypeScript、`npm run test:position-advice` 通过；HTTP 首次刷新写入 22 条缓存，后续查询命中 fresh cache；截图 `.verification/analysis-position-advice-cache-restarted.png` 验证前端可见。
+- 异常处理：SQLite `dev.db` 损坏已备份并迁移到干净库，新库完整性检查 ok；14 条损坏 `MarketSnapshot` 未恢复，核心资产、持仓、交易、回测和行情缓存数据保留。
+
+## 2026-05-20 P5 股票事实集缓存记录
+- 新增 `StockFactSetCache`，缓存个股 full analysis、`stock.analysis.factset.v1`、三面汇总、evidenceRefs、providerTrace、warnings、状态和下次刷新时间。
+- `/api/v1/stocks/:code` 支持 `forceRefresh=true`，普通查询优先读取 fresh cache。
+- 前端个股分析页事实集区显示“缓存新鲜/刚刷新”和下次刷新时间。
+- 验证：Prisma 同步、后端/前端 TypeScript、`npm run test:stock-analysis-factset`、`npm run test:stock-analysis-summary`、`npm run test:fundamental-factset`、`npm run test:stock-factset-cache` 通过；HTTP 验证 601127 第二次查询命中缓存；截图 `.verification/stock-analysis-factset-cache.png` 验证前端可见。
+
+## 2026-05-20 P5 stale-while-revalidate 记录
+- `PositionAdviceCache` 和 `StockFactSetCache` 过期但可解析时，接口立即返回 `cache.status=stale` 的旧结果，后台触发去重刷新。
+- 刷新成功后缓存恢复 `fresh`，避免页面同步等待外部 provider。
+- 验证：`npm run test:position-advice` 覆盖持仓建议 stale -> fresh；`npm run test:stock-factset-cache` 覆盖股票事实集 stale -> fresh；SQLite 完整性检查 ok。
+
+## 2026-05-20 P5 批量事实集刷新 Operation 记录
+- 新增 `batch_factset_refresh` Operation 与 `/api/v1/operations/refresh-factsets`，支持按 `all / position_advice / stock_factset` 范围刷新，可指定 `symbols` 和 `limit`。
+- 子任务分为 `position_advice.refresh` 与 `stock_factset.refresh`，记录成功数、失败数、耗时、provider、warnings 和失败详情；股票事实集单标的刷新加入 60 秒超时保护。
+- 前端任务中心新增“刷新事实集”按钮，复用 Operation 进度、取消、partial success、失败原因和结果入口。
+- 验证：后端/前端 TypeScript 通过；Operation `b2959557-bea6-41e7-87b2-71a77eafb856` 刷新 3 条持仓建议成功；Operation `521b8b6c-a1d0-4707-b2e1-2ab1bf5dac62` 刷新 `601127` 股票事实集成功；截图 `.verification/operations-factset-refresh-button.png` 验证任务中心可见。
+
+## 2026-05-21 P5 Operation 恢复记录
+- `batch_factset_refresh` 支持服务启动后恢复 `queued/running` 状态的事实集刷新任务，并写入 `recoveryJson`。
+- 恢复策略为 `skip_completed_phase_tasks`：阶段任务已完成则跳过，继续未完成的 `position_advice.refresh / stock_factset.refresh`。
+- 恢复范围暂时只覆盖事实集批量刷新，避免价格刷新、交易影响类任务重启后产生重复副作用。
+- 验证：`npm run test:operation-recovery` 通过；Operation `d7a71d5e-d3bc-4dca-bdea-1f1efd8f3d4a` 恢复后 `completed`，`position_advice.refresh success=1 / failed=0`，接口可查询 `recovery.reason=server_startup`。
+
+## 2026-05-21 P5 Operation 租约与心跳记录
+- `Operation` 新增 `leaseOwner / leaseExpiresAt / heartbeatAt`，执行 `batch_factset_refresh` 前必须获取租约。
+- 进度更新会续租并刷新心跳；完成、失败或取消会释放租约。
+- 服务启动恢复只接管 `queued`、无租约或租约过期的事实集刷新任务，有效租约任务会跳过。
+- 验证：Prisma 同步和客户端生成通过；后端 TypeScript 通过；`npm run test:operation-recovery` 验证过期租约可恢复、有效租约不可接管、完成后租约释放；运行态 Operation `b5656d4f-d29b-4730-843a-9b5d09b1e12c` 完成且租约释放。
+
+## 2026-05-21 P5 到期事实集刷新调度记录
+- 新增 `scheduleDueFactsetRefresh` 和 `/api/v1/operations/refresh-due-factsets`，扫描缺失、stale、failed、partial、`nextRefreshAfter` 到期或持仓更新时间晚于缓存生成时间的事实集。
+- 支持 `scope / horizonMinutes / limit / submit=false / force=true`；没有活跃刷新任务时提交 `createdBy=scheduler` 的 `batch_factset_refresh`。
+- 任务中心新增“刷新到期事实集”按钮。
+- 验证：后端/前端 TypeScript 通过；`npm run test:due-factset-refresh` 通过，Operation `dd94ce24-ba34-4f00-be08-55308db95a9a` 完成；运行态 HTTP 预览返回 `009725 / refresh_due` 且不提交任务。
+
+## 2026-05-21 P5 到期事实集 cron 调度器记录
+- 新增 `factsetRefreshScheduler`，后端启动后按 `FAMS_FACTSET_SCHEDULER_CRON` 周期扫描到期事实集。
+- 默认配置：每 15 分钟、`Asia/Shanghai`、用户 `default`、提前窗口 60 分钟、单批上限 20、避开 A 股交易时段 `09:15-15:30`。
+- 调度器只提交 `createdBy=scheduler` 的 `batch_factset_refresh` Operation，不直接刷新数据。
+- 验证：`npm run test:factset-refresh-scheduler` 通过，交易时段跳过，盘后提交 Operation `3bccf010-841c-47d1-ba70-6ebcb4bd7b90` 并完成；后端重启日志显示 scheduler started。
+
+## 2026-05-21 P5 调度租约记录
+- 新增 `SchedulerLease` 表，记录 `leaseOwner / leaseExpiresAt / heartbeatAt / lastRunAt / lastResultJson`。
+- `factsetRefreshScheduler` 每次 tick 前抢占 `factset_refresh` 租约，抢不到时返回 `scheduler_lease_not_acquired` 并跳过。
+- tick 完成后释放租约并记录最后运行结果，避免多后端实例重复扫描和提交刷新任务。
+- 验证：Prisma 同步和客户端生成通过；`npm run test:factset-refresh-scheduler` 覆盖有效租约阻止 tick、释放后提交 Operation `c323ce70-d0fa-4db1-8edd-0a9ad3bd224c` 并完成。
+
+## 2026-05-21 P5 调度状态可视化记录
+- 新增 `GET /api/v1/operations/schedulers/factset-refresh`，返回调度器配置、运行状态、租约、上次运行和上次结果。
+- 任务中心新增“事实集后台调度”状态卡，展示启用状态、cron/时区、提前窗口、单批上限、交易时段策略、租约持有者和上次结果。
+- 验证：后端/前端 TypeScript 通过；HTTP 返回 `enabled=true`、`taskStarted=true`、`lease.locked=false` 和 `lastResult.operationId=c323ce70-d0fa-4db1-8edd-0a9ad3bd224c`；截图验证因本机 Playwright 缺少 `libnspr4.so` 待补环境后复验。
+
+## 2026-05-21 全量检视并行修复记录
+- Operation fencing：`Operation.leaseToken` 与 `leaseOwner` 共同作为写入令牌，进度、子任务、完成、失败、取消均校验 owner/token；过期租约可恢复，有效租约不可抢占。
+- Operation 幂等：`idempotencyKey` 冲突返回既有 Operation，避免重复提交和 500。
+- LLM 边界：股票 AI 分析只保留事实观察、evidenceRefs、dataGaps、riskWarning；前端股票详情改为“技术事实观察”，不展示买入/卖出、目标价、止损、止盈或仓位。
+- 股票事实集缓存：`StockFactSetCache` 增加 `lookbackDays / timeframe`，80 日和 60 日缓存互不污染。
+- 到期调度：扫描全部开放持仓；`position_advice / stock_factset` 到期项分开提交，mixed scope 返回 `effectiveScope=split`。
+- MCP/前端契约：Operation status schema 和前端轮询补齐 `succeeded / partial / cancelling`，partial success 前端可见。
+- 验证脚本保护：改写 dev DB 的脚本要求 `FAMS_ALLOW_DEV_DB_TEST_MUTATION=1`。
+- 验证：Prisma validate/generate、后端/前端 TypeScript、operation recovery、due factset refresh、stock factset cache、factset scheduler 均通过。
+
+## 2026-05-21 用户边界与开放持仓唯一性记录
+- 用户边界：`ensureUser` 默认只自动创建 `default`，非 default 用户必须已存在或显式开启 `FAMS_ALLOW_DYNAMIC_LOCAL_USERS=1`。
+- 账本约束：`Position.openKey = userId:assetId`，开放持仓唯一，平仓后置空。
+- 交易保护：买入新建持仓写入 `openKey`，唯一冲突时合并到已有开放持仓；现金持仓同样保护。
+- 错误契约：Prisma `P2002` 映射为 `409 CONFLICT`，`P2025` 映射为 `404 NOT_FOUND`。
+- 验证：open position 回填后 `openCount=22 / missingOpenKey=0`；后端/前端 TypeScript、SQLite integrity、交易成本模型、持仓聚合一致性均通过。
+
+## 2026-05-11 同步记录
+- 查询正确性阶段 1：新增 Asset Identity Resolver 和 `/api/v1/assets/resolve`，返回规范化标的、资产类型、市场、交易所、币种、置信度、识别证据和 warnings。
+- `/api/v1/prices/realtime` 已接入 resolver，行情源超时时返回结构化失败和本地最近价兜底。`513770` 验证为 ETF，显示本地 `stock` 类型冲突并返回本地最近价 `0.421`。
+- 价格刷新失败修复：`refreshAssetMarketData` 外部 provider 失败时保留本地最近可信价，无 `lastPrice` 时使用持仓 `currentPrice / avgCost` 兜底；2026-05-11 修正口径为本地兜底不计入刷新成功。Operation `ffccccac-58fd-4337-bed5-a76a855b8690` 验证 `refreshed=9`、`failed=15`、`realtimeRefreshed=9`、`retainedLocalPrices=15`。`513770` 验证 `price=0.429`、`source=sina`、行情时间北京时间 `2026-05-11 15:00:03`，持仓 `currentPrice` 同步为 `0.429`。
+- 基金/债基 provider 补强：天天基金改为 curl 通道，非交易所 ETF 前缀优先本地 fund/bond 类型，天天基金估值为空时使用东方财富最新官方净值 `eastmoney_nav`；前端刷新口径改为“外部成功”。Operation `6041c162-867b-4128-814e-d0d45b307909` 验证 `refreshed=24`、`failed=0`、`externalRefreshed=24`、`retainedLocalPrices=0`，来源覆盖 `sina / tiantian / manual / eastmoney_nav`。
+- 行情可靠性自动回归：新增 `backend/scripts/verify-market-data-reliability.ts` 和 `npm run test:market-data`，覆盖 resolver、单标的行情和全量刷新。验证 Operation `bf146b0e-a45a-4c05-97e5-b68c4c952f78` 返回 `external=24`、`failed=0`、`retained=0`。
+- 异常价格跳变和行情来源展示：刷新结果新增 `previousPrice`、`priceChangeFromPreviousPercent`、`abnormalPriceJump`，持仓 DTO 新增 `asset.lastPriceSource`，资产页新增“来源”列。`npm run test:market-data` 验证 Operation `b09a55a5-f2f6-4c15-84b6-3522f29e906e` 返回 `external=24`、`failed=0`、`retained=0`，持仓接口验证 `513770 source=sina`、`006476/021634 source=eastmoney_nav`。
+- 目标研究和 AI 股票分析接入 resolver：`analyzeTarget` 统一先经 `Asset Identity Resolver` 再查行情，输入快照和建议参数带入 `identity/source/sourceTime/fallbackUsed`；`/api/v1/llm/stock-advice` 仅允许 `stock/CN`，513770 验证返回 `identity.assetType=etf` 并拒绝独立股票 AI 分析。
+- 同花顺持仓成本口径修复：`TransactionService` 股票/ETF 部分卖出改为卖出净回款冲减剩余持仓成本并重算成本价；已修复 `601127` 当前持仓，验证 `quantity=1900`、`avgCost=136.4541052631579`、`costBasis=259262.8`、`realizedPnl=0`。
+- 交易成本自动回归：新增 `backend/scripts/verify-transaction-cost-model.ts` 和 `npm run test:transaction-cost`，验证 `513770`、`159851`、`601127` 真实卖出案例及卖出后再买入案例；持仓列表和按标签分组接口对关键标的盈亏一致。
+- 基金估值口径修复：真实份额基金刷新外部净值后按 `quantity × currentPrice` 重算市值和浮盈，债券/类固收手工总额资产继续保留导入市值。`npm run test:market-data` 验证 `019062`、`011613`、`014064`、`021634`、`015311`、`007467`、`014674`、`015916`、`013597`、`012857`、`501008` 市值均等于份额乘最新净值，`013785`、`009725`、`014086` 保持手工总额。
+- AI 选股和资产导入接入 Asset Identity Resolver：选股样本池只保留 `stock/CN`，ETF / 基金 / 债券 / 现金通过 `excludedUniverse` 明确排除；资产导入新增身份预览并按 resolver 写入标准代码、类型、交易所和币种。`npm run test:screener-resolver` 验证 `universeSource=asset_identity_resolver`、`universe=9`、`excluded=19`，513770 作为 ETF 被排除；`npm run test:import-resolver` 验证股票、ETF、基金、债基、现金类型正确。历史 K 线 provider 当前仍有 502 / 空响应，后续继续治理。
+- AI 选股历史行情可靠性补强：A 股历史 K 线新增 Sina curl fallback；删除实时价伪造 22 天历史的低置信度候选逻辑，历史不足 22 个交易日的标的只进入 failures，不进入候选；接口和前端展示 `dataQuality`、`historySource`、`historyDays`。`npm run test:screener-resolver` 验证从 `failures=9` 修复为 `failures=0`，并锁定基线无历史不足失败。
+- AI 选股全 A 股样本池：选股入口默认通过 Sina `hs_a` 拉取沪深北全 A 股，接口返回 `universeSource=sina_hs_a_all_a_share`、`universeTotal`、`scannedCount` 和覆盖率；前端展示“全A股样本池”和“已扫描/覆盖率”。`npm run test:screener-resolver` 验证 `universe=5514`、`failures=0`，手工接口验证 `扫描上限=30` 只限制扫描数、不改变全样本池。
+- AI 选股多策略短窗胜率：`StockScreenerService` 新增 `strategyTournament`，同批历史 K 线同时评估 A杀横盘放量、放量突破平台、跌破后收复关键均线，并用最近可验证交易日信号计算持有 N 日后的胜率和平均收益；前端展示多策略排行。验证 `npm run test:screener-service` 通过，接口 `多策略胜率；扫描上限=30；验证天数=5；持有天数=3` 返回三类策略排行。
+- AI 选股回测批次持久化：`strategyTournament` 生成 `batchId`，三类内置策略分别写入 `Backtest / BacktestResult`，`reviewReportJson` 保存查询、阈值、样本池、数据质量、信号样本和候选；运行态验证 `batchId=13529910-0c3a-424a-9ae4-af490e2f48a7`，回测详情可追溯原始查询。
+- P4.1 策略锦标赛可信回测第一段：三类内置策略暂不新增，回测升级为 T 日信号、T+1 开盘入场、持有 N 日收盘退出；扣除佣金、最低佣金、印花税和滑点；阻断 ST、低流动性、停牌、T+1 涨停不可买和退出日跌停不可卖；输出 sampleSize、tradeCount、medianReturn、profitFactor、maxDrawdown、Sharpe、Sortino、Calmar、tailLoss 和 blockedSamples。Operation 产物新增 `sample_trades.csv`、`equity_curve.json`、`drawdown_curve.json`、`backtest_assumptions.json`；前端提示低可信策略仅进入观察池。
+- P4.1 验收：后端/前端 TypeScript 通过，`npm run test:screener-service` 与 `npm run test:strategy-tournament-backtest` 通过；新增脚本同时作为 `test:backtest-market-constraints` 和 `test:backtest-cost-model`，覆盖 T+1 日期、成本扣减、ST 排除、成交额不足、涨停不可买和单样本 `insufficient` 可信度。
+- P4.2 策略锦标赛版本化审计第一段：每个排名项新增 `versionBundle` 和 `auditHash`，绑定 SignalStrategy、EntryPolicy、ExitPolicy、PositionSizingPolicy、PortfolioPolicy、CostModel、MarketConstraint、Engine；持久化报告、leaderboard、assumptions 和新增 `strategy_manifest.json` 均写入版本束。前端展示策略版本、执行版本和审计哈希前缀。
+- P4.2 验收：后端/前端 TypeScript 通过，`npm run test:strategy-tournament-backtest` 与 `npm run test:screener-service` 通过，验证版本束、执行版本、成本模型版本、sha256 审计哈希和持久化报告。
+- P4.3 样本外验证第一段：每个排名项新增 `outOfSampleValidation`，按信号日期做 70/30 时间顺序切分，分别输出训练窗口和样本外窗口的样本数、胜率、平均收益、基准收益和超额收益；样本不足标记 `insufficient`。Operation 产物新增 `out_of_sample_validation.json`，前端展示样本外状态、交易数、超额收益和 warnings。
+- P4.3 验收：后端/前端 TypeScript 通过，`npm run test:strategy-tournament-backtest` 与 `npm run test:screener-service` 通过，验证单样本不足、5 样本切分和持久化报告。
+- P4.4 walk-forward 稳定性审计第一段：每个排名项新增 `walkForwardValidation`，按信号日期切成 3 个连续窗口，每个窗口输出样本数、胜率、平均收益、基准收益、超额收益和状态，并汇总 passedWindows / totalWindows。Operation 产物新增 `walk_forward_validation.json`，前端展示滚动窗口状态、通过窗口数、最近窗口超额收益和 warnings。
+- P4.4 验收：后端/前端 TypeScript 通过，`npm run test:strategy-tournament-backtest` 与 `npm run test:screener-service` 通过，验证单样本不足、3 窗口结构、5 样本切分和持久化报告。
+- P4.5 参数敏感性审计第一段：每个排名项新增 `parameterSensitivity`，对现有策略关键阈值做本地小网格扰动并重跑回测；A杀/平台突破扰动成交量阈值和横盘振幅阈值，均线收复扰动修复量比和回撤阈值。Operation 产物新增 `parameter_sensitivity.json`，前端展示参数稳健/敏感/样本不足、稳定变体数和 base 超额收益。
+- P4.5 验收：后端/前端 TypeScript 通过，`npm run test:strategy-tournament-backtest` 与 `npm run test:screener-service` 通过，验证参数敏感性 schema、5 个变体、base 变体和持久化报告。
+- P4.6 回测曲线前端可视化第一段：`strategyTournament.ranked` 返回 `equityCurve`，持久化报告和 leaderboard 写入权益/回撤曲线；前端 AI 选股策略卡用轻量 SVG 展示权益曲线和回撤曲线，参数敏感性块展示前三个参数变体。
+- P4.6 验收：后端/前端 TypeScript 通过，`npm run test:strategy-tournament-backtest` 与 `npm run test:screener-service` 通过，验证曲线字段和三策略回归。
+- P4.7 策略锦标赛 artifact 深链路可视化第一段：任务中心产物弹窗按 `leaderboard / strategy_metrics / equity_curve / drawdown_curve / out_of_sample_validation / walk_forward_validation / parameter_sensitivity / strategy_manifest / sample_trades` 识别产物并渲染策略排行、曲线、样本外、walk-forward、参数敏感性、版本清单和样本交易预览。
+- P4.7 验收：后端/前端 TypeScript 通过；该节点不改变后端回测计算口径，只增强 artifact 验收视图。
+- 2026-05-22 图表可读性重排：`target-architecture-gap.drawio` 不再承载长流水记录，改为两页摘要图。第一页只展示目标架构层次和可靠性边界；第二页展示 P0-P6 阶段、当前 P4 状态、核心 Gap、验收规则和 P4 artifact 产物链路。详细历史保留在 Markdown 文档，避免图中文字堆叠。
+- P4.8 样本交易结构化验收第一段：任务中心 `sample_trades.csv` artifact 解析为结构化表格，展示策略、标的、信号/入场/退出日期、入场/退出价格、毛收益、净收益、成本、盈利状态和阻断原因；顶部汇总记录数、可执行、阻断和盈利样本。
+- P4.8 验收：后端/前端 TypeScript 通过；不改变后端回测计算口径和 CSV artifact 格式，只增强样本交易验收视图。
+- P4.9 参数敏感性二维热力图第一段：任务中心 `parameter_sensitivity.json` artifact 自动识别变体 thresholds 中变化的参数，选择前两个变化参数作为 X/Y 轴，渲染超额收益、成交数和变体 ID；只有一个变化参数时降级为单轴热力条。
+- P4.9 验收：后端/前端 TypeScript 通过；不改变后端回测计算口径和 artifact 格式，只增强参数敏感性验收视图。
+- P4.10 artifact 交叉跳转第一段：任务中心打开任一 `operation_artifact` 后，弹窗顶部生成同批次产物导航，支持在 leaderboard、strategy_metrics、sample_trades、equity_curve、drawdown_curve、out_of_sample、walk_forward、parameter_sensitivity、strategy_manifest 之间直接跳转。
+- P4.10 验收：后端/前端 TypeScript 通过；不改变后端回测计算口径和 artifact 格式，只增强任务中心证据链导航。
+- P4.11 正式策略版本表第一段：新增 `StrategyVersion` 表，保存策略、入场、退出、仓位、组合、成本、市场约束和引擎版本束；策略锦标赛持久化时写入 `persistedStrategyVersionId`，并同步到 reviewReport、leaderboard、strategy_manifest 和 Strategy.parameters。
+- P4.11 验收：Prisma `db push/generate`、后端/前端 TypeScript、`npm run test:screener-service`、`npm run test:strategy-tournament-backtest` 通过。
+- P4.12 更大参数网格第一段：参数敏感性从 `local_threshold_grid_v1` 升级为 `local_threshold_grid_v2`；A杀/平台突破按成交量阈值 × 横盘振幅阈值生成 3×3 网格，均线收复按修复量比 × 回撤阈值生成 3×3 网格，base 变体固定作为对照，不新增策略类型。
+- P4.12 验收：后端/前端 TypeScript、`npm run test:strategy-tournament-backtest`、`npm run test:screener-service` 通过；下一步进入策略 × 执行策略组合矩阵。
+- P4.13 策略 × 执行策略组合矩阵第一段：`strategyTournament` 新增 `executionMatrix`，三类信号策略 × 3 个退出持有周期默认形成 9 个候选组合；排名项新增 `candidateId` 和 `executionPolicy`，产物新增 `execution_matrix.json`，前端任务中心新增执行矩阵导航与预览。
+- P4.13 验收：后端/前端 TypeScript、`npm run test:strategy-tournament-backtest`、`npm run test:screener-service` 通过；下一步补入场策略、止损止盈/移动止盈退出策略和仓位策略。
+- P4.14 止损止盈退出策略矩阵第一段：执行矩阵扩展为三类信号策略 × 6 个执行策略，默认 18 个候选组合；每个持有周期同时有固定持有和止损5%/止盈10%版本，回测逐日扫描高低价并在样本中记录 `exitReason`。
+- P4.14 验收：后端/前端 TypeScript、`npm run test:strategy-tournament-backtest`、`npm run test:screener-service` 通过；下一步补入场策略、移动止盈和仓位策略。
+- P4.15 入场策略矩阵第一段：开始前复验 P4.14 端到端通过，并独立评审决定只补 T+1 开盘/收盘两个确定入场口径。执行矩阵扩展为三类信号策略 × 2 个入场策略 × 6 个退出策略，默认 36 个候选组合；`versionBundle.entryPolicy` 区分 `entry.t1_open.v1` / `entry.t1_close.v1`，样本交易记录 `entryReason`，止盈止损按实际入场价计算。
+- P4.15 验收：后端/前端 TypeScript、前端 Vite 构建、`npm run test:strategy-tournament-backtest`、`npm run test:screener-service` 通过；下一步补移动止盈、仓位策略和完整执行策略版本矩阵。
+- P4.16-P4.18 移动止盈、仓位策略矩阵和执行矩阵收口：开始前复验 P4.15 端到端通过。新增固定 8% 移动止盈退出策略和保守波动率缩放本金策略，执行矩阵扩展为三类信号策略 × 2 个入场策略 × 3 个持有周期 × 3 个退出策略 × 2 个仓位策略，默认 108 个候选组合；样本交易记录入场、退出、仓位原因和本金倍数。
+- P4.16-P4.18 验收：后端/前端 TypeScript、`npm run test:strategy-tournament-backtest`、`npm run test:screener-service` 通过；下一步补更长期样本、市场状态/行业/市值分组稳定性和 PostgreSQL/worker 性能验收。
+- 持仓研究面板优化：后端按资产类型输出基本面/技术面/消息面的研究边界，前端改为指标块 + 三栏研究卡片；运行态验证 22 条持仓研究，股票样例指向事实集和公告原文，现金样例显示金额口径。
+- AI 选股可信度评估增强：`strategyTournament` 增加同窗口全样本基准、超额收益、样本充分度、Wilson 胜率置信区间和可信评级；运行态 `扫描上限=50` 返回基准样本 250、基准收益 -2.95%，三类策略均为 low 可信。
+- 黄金/现金手工总额资产修复：黄金编辑支持金价、成本、市值、收益率反推，刷新优先按本地 `gold` 类型取元/克金价，避免 `002611` 被当股票取到 19.33；现金保存和刷新统一为金额口径。新增 `npm run test:manual-assets`，验证现金 3 条和黄金 1 条均正确。
+- post-refresh validation：刷新写库前统一校验价格来源、资产类型、异常跳变和持仓公式。黄金必须为元/克且不能使用股票/基金源，现金必须为 manual 且价格为 1，股票/ETF/真实份额基金必须满足 `quantity × price`；失败时返回 `POST_REFRESH_VALIDATION_FAILED` 并不污染主数据。
+- validation 前端分类与手工校准基金保护：任务中心失败表展示 `validation_failed` 为“刷新校验阻断 / 阻断写库”；非场内基金/债基若市值与 `quantity × price` 偏离超过 0.3%，视为用户手工校准市值并在刷新时保留。`npm run test:position-consistency` 已恢复通过。
+- 资产编辑口径收紧：非现金资产允许人工录入持仓数量/份额/克重、当前总市值和收益率；净值/现价由系统行情查询且只读，成本和盈亏自动计算；现金仍按金额维护。
+- 资产编辑前后端一致性：后端保存时重新查询系统行情校验 `currentPrice`，防止客户端篡改现价/净值；`019062` 正确净值保存成功，错误净值 9.99 被 HTTP 400 拒绝。
+- 基金/债基/黄金份额口径：份额/克重由 `当前总市值 / 系统净值或金价` 反推，后端保存强制重算；009725 已从 `quantity=1` 修正为 `156516.1833668294`。
+- 全量份额修复：复扫 14 个基金/债基/黄金开放持仓，修复 12 个历史 quantity 不一致项；新增 `npm run test:derived-quantity`，保证 `quantity=marketValue/currentPrice`。
+- 持仓成本/收益率反推：资产编辑弹窗支持用“当前市值 + 当前收益率”反推总成本和每份成本，覆盖股票、ETF、基金和债基。示例 `7571.34` 元、`-2.27%` 反推 `costBasis=7747.20`、浮亏 `-175.86`，前端类型检查通过；前端重启后确认 3000 端口已提供新弹窗代码，资产页新增显式“编辑”按钮并截图验证。
+- 持仓/标签/页面聚合一致性：新增 `npm run test:position-consistency`，验证持仓 summary、资产列表、按标签分组总市值和总盈亏一致。`syncAssetTags` 改为精确同步，`GET /tags` 自动补齐历史持仓标签，修复管理标签少于实际标签；Chrome 截图验证总览与资产页总市值均为 `71.30万`。
+- 分析建议行情快照可追溯：`generateInvestmentSuggestions` 返回 `marketDataTrace`，前端分析建议页新增“行情取数快照”，展示来源、价格、置信度、行情时间、fallback 和警告数量。`npm run test:analysis-trace` 验证日常建议 `marketDataTrace=23`，513770 标的研究来源 `sina` 且非 fallback。
+- P4.31.1 事实集预热可靠性修复：基础 `em_industry_board` 不再依赖行业分位，选股预热改为只写行业/市值基础事实；无有效行业/市值时不写空缓存，读取缓存时优先选择已有完整事实的旧缓存，避免 provider 空回复污染分组证据。验证后端 TypeScript 和 `FAMS_ALLOW_DEV_DB_TEST_MUTATION=1 npm run test:screener-factset-preheat` 通过，`finalFullCoverage=100`、`failureSymbols=0`。东方财富列表接口仍有短时空回复，P4.32 全量准入需补独立来源或本地持久化 quote-list 快照。
+- P4.31.2 本地 quote-list 快照缓存：新增 `backend/data/a-share-quote-list-cache.json`，`FundamentalDataProvider` 优先读取本地行业/市值快照，显式设置 `FAMS_REFRESH_QUOTE_LIST_CACHE=1` 才刷新外部 provider；成功后自动写回，失败时不写空缓存。新增 `npm run test:quote-list-cache` 和 `npm run run:quote-list-cache-refresh`。验证 10 个缓存样本 `finalFullCoverage=100`，默认 20 样本当前为 75%，P4.32 前需刷新全量快照或接入第二来源。
+- P4.31.3 Quote-list 缓存验收与回退报告修正：`run:quote-list-cache-refresh` 区分外部刷新成功与本地缓存回退，当前输出 `quote_list_cache_refresh_fell_back_to_local_cache / externalSnapshots=0`；新增 `run:quote-list-cache-merge-factsets` 从已有 `StockFactSetCache` 合并完整行业+市值事实，当前无新增。20 样本预热仍为 `75%`，P4.32 继续暂缓。
+- P4.31.4 多信源 quote-list canonical：新增 BaoStock + AKShare 免费信源脚本，合成 `a-share-quote-list-canonical.json`，并保留 sourceRefs、confidence、warnings 和 providerReports；`FundamentalDataProvider` 优先读取 canonical，缺失时回退旧缓存。验证后端 TypeScript 通过，canonical refresh 输出 `itemCount=5846`，BaoStock `5531`、AKShare `5522`、本地 Eastmoney 缓存 `16`；`test:quote-list-canonical` 通过，10 个完整样本 `finalFullCoverage=100`；20 样本预热提升到 `80%`。市值多源完整覆盖仍不足，P4.32 前继续补市值第二来源。
+- P4.31.5 BaoStock 派生流通市值第二来源：用 BaoStock 日线 `close * volume * 100 / turn` 推导流通市值，默认通过 `FAMS_BAOSTOCK_FLOAT_CAP_LIMIT=120` 做受控补齐；`test:quote-list-canonical` 门槛提升到至少 100 个多源完整样本。验证 canonical refresh 输出 `fullCoverageCount=121 / multiProviderFullCoverageCount=121`，20 样本预热 `finalFullCoverage=100%`。下一步把全 A 市值补齐迁入可恢复、可取消、限速的 Operation/worker。
+- P4.31.6 市值补齐 Operation 化第一段：新增 `run:quote-list-market-cap-warmup`，创建 `quote_list_market_cap_warmup` Operation，按 chunk 写 `OperationTask`，增量写回 canonical，并生成 `quote_list_market_cap_warmup_report.json`。验证小样本 Operation `2ea5e944-f57d-4b0d-8a32-900291dee293` 完成，`successCount=5 / failureCount=0`，canonical 覆盖从 `121` 增至 `126`，20 样本预热保持 `100%`。下一步补任务中心入口、worker 类型白名单和 provider health 统一上报。
+- P4.31.7 市值补齐任务中心与 Worker 接入：`quote_list_market_cap_warmup` 接入 `OperationService`、后端 API、任务中心按钮、worker 白名单、retry 和启动恢复；新增 `test:quote-list-market-cap-worker`。验证 Operation `bc363972-b4fc-43b5-9f08-846bc87d0983` 完成，2 个 chunk task 均成功，artifact 可读取；canonical 覆盖提升到 `130`，20 样本预热保持 `100%`。下一步补 provider health 统一上报和更大样本限速验收。
+- P4.31.8 Provider Health 与受控样本限速验收：市值补齐每个 chunk 写入 `provider_health`，artifact 附带 provider health 快照；`test:quote-list-market-cap-worker` 增加健康上报断言。验证 40 样本 Operation `c61f3a33-e2d4-42f4-8169-86690ea6b8f7` 完成，`successCount=40 / failureCount=0`，耗时约 `11904ms`；provider health 为 `healthy / closed`；canonical 覆盖提升到 `182`，20 样本预热保持 `100%`。下一步做 200 只中样本验收。
+
+## 2026-05-27 P4.32.2 受控长样本验收同步
+- P4 当前状态更新为：500 样本受控长样本已闭环到 medium 可信阶段，provider 成功率、缓存命中率、事实集覆盖和成交样本量已达阶段要求。
+- 关键验收：Operation `d772c4ae-91bb-45fd-a140-a1c385c1f104`，`scannedCount=500`、`evaluatedCount=499`、`providerSuccessRate=99.8%`、`cacheHitRate=99.43%`、`bestSampleSize=234`、`bestCredibility=medium`。
+- quote-list canonical 完整覆盖提升到 `437`；500 样本事实集覆盖 `87.2%`。
+- 当前未闭环：全 A 覆盖仍为 `9.05%`，低于 `80%` gate，因此 P4.32 仍是部分完成，下一步推进 1000 样本和更高覆盖受控验收。
+
+## 2026-05-27 P4.32.3 1000 样本验收同步
+- P4 当前状态更新为：1000 样本受控长样本已完成，provider、缓存、事实集和成交样本量均达阶段要求。
+- 关键验收：Operation `f0bd05f5-2c61-47cd-973f-bbe07b9d954e`，`scannedCount=1000`、`evaluatedCount=997`、`providerSuccessRate=99.7%`、`cacheHitRate=99.52%`、`bestSampleSize=488`、`bestCredibility=medium`。
+- 前置补齐：market bar 缓存命中估算从 `49.69%` 提升到 `99.47%`；quote-list canonical 完整覆盖提升到 `975`；1000 样本事实集覆盖 `97.4%`。
+- 当前未闭环：全 A 覆盖仍为 `18.11%`，低于 `80%` gate，因此 P4.32 仍是部分完成。下一步建议做 2000 样本预热/扫描或先做 worker/SQLite 性能专项验收。
+
+## 2026-05-27 P4.32.4 2000 样本验收同步
+- P4 当前状态更新为：2000 样本受控长样本已完成，provider、缓存、事实集和成交样本量均达阶段要求，最佳策略证据升级为 high。
+- 关键验收：Operation `f9cfc6b9-874a-41f5-b9bd-5aa1def19ede`，`scannedCount=2000`、`evaluatedCount=1997`、`providerSuccessRate=99.85%`、`cacheHitRate=99.71%`、`bestSampleSize=828`、`bestCredibility=high`、`artifactRefs=17`。
+- 前置补齐：market bar 缓存命中估算从 `49.83%` 提升到 `99.68%`；quote-list canonical 完整覆盖提升到 `1970`；2000 样本事实集覆盖 `98.45%`。
+- 当前未闭环：全 A 覆盖仍为 `36.21%`，低于 `80%` gate。新增风险：2000 样本预热中出现一次 SQLite provider health 写入超时。下一步优先做预热/市值补齐 Operation 化、SQLite 写入压力和 artifact 体积专项验收。
+
+## 2026-05-28 P4.33.1 K线预热 Operation 化同步
+- 新增 `market_bar_cache_preheat` Operation，将 market bar 缓存预热从同步脚本迁入可查询、可取消、可恢复的任务体系。
+- 后端新增 `POST /api/v1/operations/market-bar-cache-preheat`，worker 支持 queued 领取，产物为 `market_bar_cache_preheat_report.json`。
+- 前端任务中心新增 `K线预热` 类型和 `预热K线` 按钮。
+- 小样本验收 Operation `c2bb9772-d05f-4793-9e8f-16f81687fe27` completed，`requestedSymbols=4`、`attemptedSymbols=1`、`successCount=1`、`fetchedBars=120`，artifact 可通过前端代理读取。
+- 当前未闭环：取消/恢复专项、2000 样本 queued 验收、SQLite timeout 复现和写入压力优化。
+
+## 2026-05-28 P4.33.2 K线预热 Worker 验收同步
+- 新增 `test:market-bar-cache-preheat-worker`，覆盖 K 线预热 queued worker、chunk task、artifact、取消和过期 lease 恢复。
+- 修复 `market_bar_cache_preheat` result schema 缺失，写入 `fams.market_bar.cache_preheat_result.v1`。
+- 验收 Operation `4bc2e7bf-8e04-43bc-8da7-be2f23eb9023` completed；取消 Operation `209688b0-ece9-414a-9a31-6e3175ce9180` cancelled；恢复 Operation `69bf14eb-8bd3-4712-bfb2-24144ed1a2fc` completed。
+- `target-architecture-gap.drawio` 已同步：当前 P4.33 已完成 K线预热 Worker 验收，剩余为 2000 样本 queued 压力和 SQLite provider health 写入优化。
+
+## 2026-05-28 P4.33.3 K线预热 queued 压力同步
+- `MarketBarCacheService` 已将 provider health 与 raw/canonical 写入串行化，降低 SQLite 并发写 timeout 风险。
+- 新增 `run:market-bar-cache-preheat-pressure`，覆盖 queued 压力执行、artifact 体积、chunk 统计、provider health 和 timeout/database locked 检查。
+- 80 样本强制刷新 Operation `36ef53b1-ce33-4106-85a3-07efc29a8a76` 无 timeout；40 样本 Operation `fbf8883f-1bfe-4c71-862b-da5bf0dfc6dc` 无 timeout。
+- 修复刷新后仍 stale 的假成功：afterCoverage 不充分时写 `coverageWarningCount` 并标记 `partial`。4 样本 Operation `a06153c5-0f7a-4d80-b861-cf8b09616750` 已验证。
+- `target-architecture-gap.drawio` 已同步：当前 P4.33 完成中样本 queued 压力第一段，剩余为 200/300 样本压力、批量 upsert/PG 评审和 2000 样本准入。
+
+## 2026-05-28 P4.33.4 K线批量写入同步
+- `MarketBarCacheService.upsertBars` 已从逐条 raw/canonical upsert 改为批量事务写入。
+- 单只股票 120 日 K 线从约 240 次写操作降为 5 个批量操作，并保留 `rawId/symbol/tradeDate/provider/hash` 血缘。
+- 4 样本耗时从约 `18032ms` 降至 `6756ms`；40 样本从约 `87634ms` 降至 `26681ms`；80 样本从约 `166912ms` 降至 `49169ms`。
+- 三组均无 timeout/database locked。下一步转向只补缺失交易日，减少 force refresh 全量重拉。
+
+## 2026-05-28 P4.34.1 选股扫描只读缓存同步
+- 已整合 GPT 架构评审：行情同步独立化，AI 选股扫描默认只读 canonical / feature cache。
+- `stock_screener` 默认 `marketDataMode=cache_only`；显式 `允许实时行情=1` 或 `allowLiveMarketFetch=1` 才允许实时拉 provider。
+- `marketBarCacheService.getCachedHistory` 已新增，扫描只读 canonical，不写 raw/canonical/provider health。
+- 验收 Operation `4d4ecc94-dfba-4da7-9083-1fc224815d41` completed，provider=`cache`，market data chunk duration=`17ms`。
+- 下一步：补 `market_data_coverage` 与 `NEEDS_MARKET_DATA_WARMUP` blocker。
+
+## 2026-05-28 P4.34.2-P4.34.3 coverage 与 blocker 同步
+- 新增 `MarketDataCoverage` 表，并由 `getCoverageReport` 同步 upsert。
+- `stock_screener_full_scan` 新增 `market_data.coverage` task 和 `coverage_report.json` artifact。
+- cache-only 模式下 coverage 不 sufficient 返回 `NEEDS_MARKET_DATA_WARMUP`，父 Operation 标为 partial。
+- 父选股 Operation 会自动创建 queued `market_bar_cache_preheat` 子 Operation，并写入 `warmupOperationId`。
+- 验收：`81e2e61d-d95f-4313-bf2a-71187b490434` completed；`fff93efd-524b-4d65-9ac7-1678cfc2f161` partial 并创建子 warmup `7bec65cc-ad5b-4619-9d26-906912db07eb`。
+
+## 2026-05-29 P4.34.4-P4.34.5 coverage bulk 与 provider health 聚合同步
+- `getCoverageReport` 优先 bulk 读 `market_data_coverage`，只对摘要缺失或 requested days 不足的标的回查 canonical 聚合。
+- coverage 写回改为分块 `deleteMany + createMany`，避免全 A 扫描前逐行 upsert。
+- `provider_health` 改为内存窗口聚合，K 线预热 chunk 完成后 flush，避免每个 symbol 写一次健康表。
+- 验收：coverage 4 标的直连验证 `79ms`；常规 worker `2b63b43e-4f50-4386-bf01-3dcd01d63186` completed；blocker `074280dd-87cf-44b6-b30f-da78ac8d057c` partial 并创建 warmup `6dd2761a-54a8-4951-b5ab-ef8414292c23`；K 线预热 worker `31c68662-ca7f-4c70-b6fd-61d5552275b0` 通过。
+- 下一步：新增 `market_feature_daily`，让选股策略读取预计算特征。
+
+## 2026-05-29 P4.34.6 market_feature_daily 同步
+- 新增 `MarketFeatureDaily` 表和 `marketFeatureDailyService`，从 canonical K 线计算 return、MA、斜率、量比、ATR、RSI、波动率、回撤、相对强弱、趋势/动量/流动性评分。
+- `market_bar_cache_preheat` 新增 `market_feature.compute` task，预热完成后同步生成特征缓存。
+- `stock_screener_full_scan` 新增 `market_feature.coverage` task 和 `market_feature_coverage.json` artifact。
+- 验收：K 线预热 Operation `50d663c5-126e-4f94-bb15-1e6ef7ba0d43` 生成 `3` 个 symbol、`324` 行特征；扫描 Operation `f956fbe7-1c3a-4aad-a0bd-28e5cc87128a` tasks=`8`、artifactRefs=`19`，feature coverage=`100%`。
+- 下一步：当前候选筛选迁移为 feature-first，回测继续引用 canonical 历史和缓存 evidence。
+
+## 2026-05-29 P4.34.7 feature-first 当前筛选同步
+- `MarketFeatureDaily` 补充 rolling high/low，用于支撑、压力、平台振幅和回撤判断。
+- 当前候选筛选优先读取 `market_feature_daily`，缺少 feature 才 fallback 到 history。
+- `strategy.evaluate` task 写入 `featureFirst=true`、`featureFirstEvaluatedCount` 和 `historyFallbackEvaluatedCount`。
+- `dataQuality.featureFirstScreening` 明确：当前筛选用 feature cache，回测仍用 canonical K 线。
+- 验收：Operation `5185878a-45eb-4f3f-ab9f-f30407112349` feature-first 评估 `2` 个候选，fallback=`0`；候选 source=`feature:market_feature_daily`，20 日振幅正常。增强后的 worker 验收 Operation `667e4cf4-d6fd-46d0-abc0-84fa59b71b38` 通过。
+- 下一步：当前筛选引用最近有效 backtest evidence，拆出异步策略锦标赛。
+
+## 2026-05-30 P4.34.8 全 A 完整扫描验收同步
+- 全 A universe 正常：`sina_hs_a_all_a_share`，`5524` 只。
+- K 线预热 Operation `73057da6-b372-4fd0-b11c-70e8078e493d` 拉取 `304316` 条 K 线。
+- 修复 afterCoverage 摘要旧口径：`getCoverageReport(forceRebuild)` 强制从 canonical 重建 coverage。
+- 修复 `getLatestFeatures` 大结果集问题：分批 groupBy 最新 tradeDate，再读取最新 feature。
+- coverage 重建后：sufficient=`5447`、insufficient=`77`、cacheHitRate=`99.22%`。
+- feature 补算：computed=`5447`、featureRows=`551019`。
+- 完整扫描 Operation `5757bc50-59ea-4826-a83b-886ca9118acf` 生成 `19` 个 artifact；featureFirstEvaluated=`5447`、fallback=`0`、matched=`3`。
+- 当前候选：`002230 科大讯飞`、`600848 上海临港`、`600690 海尔智家`。
+- 结论：全 A 功能链路跑通；仍为 partial，因为 `77` 只历史不足/过期、回测窗口仅 5 天、factset coverage=`35.66%`。
+- 下一步：60 日长窗 evidence 解耦和事实集覆盖补齐。
+
+## 2026-05-30 P4.34.9 策略证据异步化同步
+- 新增 `strategy_tournament_run` Operation，独立承载 60 日长窗策略证据任务。
+- 新增 API：`POST /api/v1/operations/strategy-tournament-run`。
+- 队列 worker、恢复、重试和高成本全 A 确认保护已接入。
+- 结果新增 `operationKind=strategy_tournament_run`、`evidenceMode=async_strategy_evidence`、`evidenceRefs.batchId/artifactRefs/backtestDays`。
+- 验收：Operation `6a65f81e-8288-4676-b60c-79b20743b46c` 与 `f04d3c65-1eb3-43b3-a96e-54499ad141e8` 均执行到 `partial`，生成 `19` 个 artifact，`evidenceRefs.backtestDays=60`。
+- 结论：长窗 evidence 已从普通当前筛选中拆出任务形态；下一步让当前选股扫描引用最近有效 evidence，并继续补行业/市值事实集覆盖。
+
+## 2026-05-30 P4.34.10 当前筛选引用异步 evidence 同步
+- 普通 AI 选股默认只做当前信号筛选，不再即时生成短窗回测批次。
+- 结果新增 `asyncStrategyEvidence`，引用最近一次 `strategy_tournament_run` 的 Operation、batch、artifact、60 日窗口、验收状态和阻断原因。
+- 前端新增“异步策略证据引用”展示区块。
+- 显式调试入口保留：查询中加入 `即时回测=1` 才运行旧内联回测。
+- 验收：默认接口 `hasInlineTournament=false`、引用 Operation `f04d3c65-1eb3-43b3-a96e-54499ad141e8`、`backtestDays=60`、`artifactRefs=19`；显式 `即时回测=1` 返回 `hasInlineTournament=true`。
+- 结论：当前筛选与策略证据已完成读写解耦；下一步执行受控全 A 60 日 evidence 或继续提高 factset coverage。
+
+## 2026-05-30 P4.34.11-P4.34.12 长窗 evidence 与全 A OOM 同步
+- 修复 60 日长窗实际计算口径：`evaluationDays` 上限从 20 调整到 120。
+- 500 样本 60 日 evidence 已通过受控验收：bestSampleSize=`281`、bestCredibility=`medium`。
+- 深度验证准入优化后，500 样本 `backtest.aggregate` 从约 211s 降到约 78s。
+- 真实全 A 60 日 Operation `8c4f96d8-2352-4811-be5c-6de6a8ba3e07` 在 `backtest.aggregate` 触发 Node heap OOM，已收口 failed。
+- 下一步：将 `backtest.aggregate` 改为分片/流式聚合，限制 outcome 明细内存和 artifact 一次性生成。
+
+## 2026-05-30 P4.34.13 全 A 60 日基础 evidence 同步
+- 移除全 A 聚合中的大规模 signal metric 缓存，`auditHash` 改为摘要输入。
+- 全 A 基础聚合不再内联深度稳定性验证，避免把未完成验证包装成高可信交易证据。
+- 全 A Operation `c3338ac1-0c8e-4e5d-8c38-bad4d257ccbb` 完成：scanned=`5524`、evaluated=`5447`、signals=`243118`、rankedStrategies=`108`、bestSampleSize=`3766`、bestCredibility=`high`。
+- 验收仍为 partial：validation evidence=`0`，factset coverage=`35.66%`，不可进入交易建议。
+- 修复 warmup artifact/result 过大和 feature 全量重算问题；复验 attempted=`77`、success=`16`、warnings=`61`、failures=`0`。
+- 下一步：top-N 深度验证子任务、provider warning 分类、factset coverage 补齐。
+
+## 2026-05-30 P4.34.14 全 A top-3 深度验证同步
+- 全 A 基础聚合后对 top-3 候选补跑深度验证。
+- Operation `67d0ea3e-209f-4a2e-8fc5-d82cc0bc100d` 完成，`backtest.aggregate=528100ms`，scanned=`5524`，evaluated=`5447`。
+- top-3 候选的 walk-forward、参数敏感性、分组稳定性均 passed。
+- top-3 候选的 out-of-sample 均 failed，因此 `validation_evidence` gate 仍 failed，actual=`0`。
+- 结论：系统继续阻断交易建议是正确行为；下一步诊断样本外失败原因，并补 provider warning 分类和 factset coverage。
+
+## 2026-05-30 P4.34.15 样本外失败诊断同步
+- 新增 `out_of_sample_diagnostics.json` artifact。
+- 诊断训练窗口与样本外窗口的胜率、平均收益、基准收益、超额收益和衰减。
+- 受控 Operation `02a8d944-5795-4590-9acb-b53ef256f07b` 验证 artifactRefs=`20`、diagnosedCandidates=`3`、passedCount=`0`、failedCount=`3`。
+- 结论：训练窗口有正超额，样本外超额转负；walk-forward、参数敏感性、分组稳定性通过，优先诊断时间切分窗口和近期市场状态变化。
+
+## 2026-05-30 P4.34.16 样本外窗口市场状态诊断同步
+- 新增 `out_of_sample_market_state.json` artifact。
+- 基于 `market_feature_daily` 聚合训练窗口和样本外窗口的平均收益、回撤、波动率、趋势/动量/流动性和强弱趋势市场宽度。
+- 受控 Operation `ddf2c8bd-6cf9-4327-aad8-665a0b2c8ab0` 验证 artifactRefs=`21`、diagnosedCandidates=`3`，Operation result 与 `data_quality_report.json` 均包含 `outOfSampleMarketStateDiagnostics`。
+- 结论：top-3 候选均显示市场状态从 `弱势回撤` 切换为 `高波动震荡`；该证据用于解释样本外失败，系统继续阻断交易建议。
+
+## 2026-05-30 P4.34.17 Provider / Coverage Warning 分类同步
+- coverage report 新增 `retryableWarmupSymbols`、`nonRetryableWarningSymbols` 和 `warningSummary.byCategory`。
+- 全 A coverage：total=`5524`、sufficient=`5447`、insufficient=`77`；77 个 warning 全部为非即时可补齐，其中 `limited_listing_history=61`、`stale_after_preheat=16`。
+- `stock_screener_full_scan / strategy_tournament_run` 仅在存在 retryable 缺口时创建 `market_bar_cache_preheat`。
+- 预热任务默认只处理 retryable 缺口；不可重试 warning 进入 artifact/result，不再重复拉取。
+- 结论：provider/coverage warning 分类与去重已完成；下一步补 factset coverage。
+
+## 2026-05-30 P4.34.18 Factset Coverage 市值补齐同步
+- 新增 `factsetNextAction=NEEDS_QUOTE_LIST_MARKET_CAP_WARMUP`。
+- 当行业覆盖达标但市值覆盖不足时，扫描任务自动派生 queued `quote_list_market_cap_warmup` 子 Operation。
+- 受控 500 样本扫描 factset coverage 达到 `99.8%`。
+- 阈值 100% 验收自动创建子任务 `f1a53cbe-1cba-48cb-8d9d-6573f15fe0f4`，并完成 `5/5` 市值补齐。
+- 批量市值补齐 Operation `4b154e59-17ea-4460-b566-b3e0b56ce392` 成功 `500/500`，canonical fullCoveragePercent 从 `34.38%` 提升到 `42.94%`，全 A screener factset coverage 提升到 `45.44%`。
+- 结论：factset coverage 已接入可审计补齐子任务；下一步继续向 80% coverage gate 推进。
+
+## 2026-05-30 P4.34.19 Factset Coverage 80% Gate 同步
+- 2000 标的 quote-list 市值补齐 Operation `d122fb49-a78e-4d8b-be5a-d1e860b7ae45` 执行完成，`successCount=1992 / failureCount=8`。
+- canonical 完整覆盖从 `2514` 提升到 `4506`；canonical 文件自身 coverage 为 `77.08%`。
+- 全 A screener 合并 `StockFactSetCache` 后复检：`total=5524`、正式行业覆盖 `94.24%`、正式市值覆盖 `81.61%`、完整事实集覆盖 `81.61%`。
+- `test:quote-list-canonical` 和 `test:quote-list-market-cap-worker` 通过。
+- 结论：factset coverage 80% gate 已闭环；下一步重新跑策略 evidence 验收，确认剩余 blocker 是否转为 validation evidence / OOS 稳定性。
+
+## 2026-05-30 P4.34.20 策略 Evidence 复验同步
+- 500 样本 evidence Operation `05c0c20d-c203-4411-878d-90d8fa5817ee` 完成，样本内 factset coverage=`99.8%`，全 A factset coverage=`81.64%`；唯一失败 gate 为样本限制导致的 `universe_coverage=9.05%`。
+- confirmed 全 A evidence Operation `92bf373f-448c-4958-8456-d3583d5d415f` 完成，scanned=`5524`、evaluated=`5447`、providerSuccessRate=`98.61%`、cacheHitRate=`99.95%`、bestSampleSize=`3766`、bestCredibility=`high`。
+- 全 A evidence 的 factset coverage=`81.64%`，factset gate 已解除。
+- 当前唯一 blocker：`validation_evidence`，OOS 诊断 `diagnosedCandidates=3 / passedCount=0 / failedCount=3`。
+- 结论：下一步不继续补事实源，转向样本外失败原因、时间切分和策略可信度规则。
+
+## 2026-05-30 P4.34.21 Validation Decision 同步
+- 新增 `validation_decision.json` artifact，把策略 evidence 最终动作边界结构化。
+- validation 未通过时 decision=`OBSERVE_ONLY`，允许 `RESEARCH / OBSERVE`，禁止 `ADD / REDUCE / AUTO_TRADE`。
+- `data_quality_report.json` 和 Operation result 写入 `validationDecision`。
+- 异步 evidence 引用改为优先 full scan coverage、验收状态和可信度，避免 500 样本局部 evidence 覆盖 confirmed 全 A evidence。
+- 前端任务中心新增“验证决策”预览；分析页展示 scan coverage 和 validation decision 摘要。
+- 验证：小样本 Operation `43cb6a65-6244-40a6-92c1-a8750f5c5424` 生成 `validation_decision.json`；普通选股仍引用 confirmed 全 A Operation `92bf373f-448c-4958-8456-d3583d5d415f`。
+
+## 2026-05-31 P4.34.22 OOS 失败分析同步
+- 新增 `oos_failure_analysis.json` artifact，进入 Operation result、`data_quality_report.json` 和 `validation_decision.json.evidenceRefs`。
+- 产物展示训练窗口/样本外窗口收益分布、超额/均值/中位数/胜率变化、signalDate 日期桶和 failureTags。
+- 前端任务中心新增“OOS失败分析”预览，用于查看全局结论、失败标签和候选组合对比。
+- 验证：后端/前端 TypeScript 通过，`test:screener-service` 和 `test:strategy-tournament-backtest` 通过。
+- 小样本 Operation `51de6890-c3df-486f-b9ae-ba4916507485` 验证 artifactCount=`23`，包含 `oos_failure_analysis.json`，validation decision 继续禁止 `ADD / REDUCE / AUTO_TRADE`。
+- 结论：OOS 失败原因已可审计；validation evidence 未通过前继续禁止 `ADD / REDUCE / AUTO_TRADE`。
+
+## 2026-05-31 P4.34.23 基础设施就绪评审同步
+- 新增 `infrastructure_readiness_report.json` artifact，进入 Operation result 和 `data_quality_report.json`。
+- 产物记录 database provider、executionMode、marketDataMode、chunkSize、concurrency、artifactCount 和 PostgreSQL/worker 迁移前置项。
+- 前端任务中心新增“基础设施就绪”预览。
+- 验证：后端/前端 TypeScript 通过，`test:screener-service` 和 `test:strategy-tournament-backtest` 通过。
+- 小样本 Operation `123d8057-aa05-4e93-9e1b-503066fcca97` 验证 artifactCount=`24`，readinessStatus=`blocked`，database=`sqlite/file/development_local`。
+- 结论：SQLite inline dry-run 不会被误标为生产级全 A ready；后续仍需 PostgreSQL/COPY/staging/worker 压力验收。
+
+## 2026-05-31 P4.34.24 市场约束覆盖报告同步
+- 新增 `market_constraint_coverage_report.json` artifact，进入 Operation result 和 `data_quality_report.json`。
+- 产物统计 executedSamples、blockedSamples、blockedRatioPercent、uniqueBlockedSymbols、blockedReasonSummary、providerGaps 和 nextActions。
+- 前端任务中心新增“市场约束覆盖”预览。
+- 验证：后端/前端 TypeScript 通过，`test:screener-service` 和 `test:strategy-tournament-backtest` 通过。
+- 小样本 Operation `71bc0ab2-ca65-4e80-ae9a-56275a539e4f` 验证 artifactCount=`25`，coverageStatus=`needs_official_status_provider`，providerGaps 包含正式证券状态、停复牌状态和涨跌停价字段缺口。
+- 结论：市场约束执行与正式源缺口已可审计；正式 provider 接入未完成前继续禁止把该约束体系标记为完全闭环。
+
+## 2026-05-31 P4.34.25 P4 收口评审同步
+- 新增 `p4_closure_review.json` artifact，进入 Operation result 和 `data_quality_report.json`。
+- 产物聚合长样本验收、验证决策、OOS 失败分析、基础设施 readiness 和市场约束覆盖。
+- 前端任务中心新增“P4收口评审”预览。
+- 验证：后端/前端 TypeScript 通过，`test:screener-service` 和 `test:strategy-tournament-backtest` 通过。
+- 小样本 Operation `7af9fa17-cdf2-443b-a78a-3019c22b926c` 验证 artifactCount=`26`，status=`blocked_for_production`，decision=`CONTINUE_RESEARCH_ONLY`。
+- 结论：P4 当前具备统一机器可读收口结论；validation 未通过、基础设施未生产 ready、正式 provider 未接入前，只能继续研究观察。
+
+## 2026-05-31 P5.1 审计产物同步
+- 新增 `postgres_shadow_readiness_report.json`，用于审计 Shadow PostgreSQL 配置、staging/COPY/promote 前置项和压力验收目标。
+- 新增 `security_status_coverage_report.json`，用于审计正式证券状态、停复牌、涨跌停价字段的 provider 计划和当前 heuristic fallback。
+- 新增 `validation_failure_taxonomy.json`，用于把 validation gate、OOS 衰减、样本不足、市场状态切换等失败原因结构化。
+- `p4_closure_review.json` 已引用上述三个 P5 artifact，前端任务中心新增 `PG Shadow / 证券状态覆盖 / 失败分类` 预览。
+- 验证：后端/前端 TypeScript 通过，`test:screener-service` 和 `test:strategy-tournament-backtest` 通过。
+- 小样本 Operation `b54125e4-b4e7-4fd2-b8ec-5007688ac038` 验证 artifactCount=`29`，PG shadow status=`not_configured`，证券状态覆盖 status=`not_started`，失败分类 status=`blocked_for_trading`、decision=`OBSERVE_ONLY`。
+- 结论：P5 第一段完成的是生产阻断点审计契约；真实 PostgreSQL shadow/staging、正式证券状态 provider 和 OOS 分层复验仍待后续实现。
+
+## 2026-05-31 P5.2 证券状态 canonical 事实层同步
+- 新增 `SecurityStatusDaily` 与 `MarketTradeabilityDaily`。
+- 新增 `securityStatusService`，第一段从标的名称和最新 K 线生成 heuristic 证券状态与可交易性事实，并保留 provider、confidence、sourceRefs 和 warnings。
+- `stock_screener_full_scan / strategy_tournament_run` 新增 `security_status.canonicalize` task。
+- `MarketConstraint` 第一段优先读取证券状态事实层，再 fallback 到名称、成交量和价格形态规则。
+- `security_status_coverage_report.json` 新增 coverageSnapshot；有 heuristic canonical 行时 status 从 `not_started` 变为 `partial`，但 `official_provider_rows` 仍是 blocker。
+- 前端任务中心“证券状态覆盖”预览新增状态行、交易性行、正式源行、启发式行和字段覆盖率。
+- 验证：Prisma db push/generate、后端/前端 TypeScript、`test:screener-service`、`test:strategy-tournament-backtest` 均通过。
+- 小样本 Operation `0881de2a-0f65-449c-912d-d8ef40d1632e` 验证 security task completed、successCount=`4`、provider=`heuristic`；coverageSnapshot statusRows=`4`、tradeabilityRows=`4`、officialProviderRows=`0`、heuristicRows=`8`。
+- 结论：证券状态事实层第一段已落地；由于正式 provider 行仍为 0，交易建议和生产 ready gate 不解除。
+
+## 2026-05-31 P5.3 quote-list canonical 多源身份升级同步
+- `securityStatusService` 优先读取 `a-share-quote-list-canonical`，把证券身份来源从纯 heuristic 升级为多源 canonical 引用。
+- `SecurityStatusDaily / MarketTradeabilityDaily` 写入 provider=`quote_list_canonical`、sourceProviders、sourceRefs、consensusScore、confidence 和 warnings。
+- 验证：后端/前端 TypeScript、`test:screener-service`、`test:strategy-tournament-backtest` 通过。
+- 小样本 Operation `85d6c35d-34bc-4f88-8e95-a6fe337a4ae0` 验证 `security_status.canonicalize` completed、provider=`quote_list_canonical`；coverageSnapshot requestedSymbols=`4`、officialProviderRows=`8`、heuristicRows=`0`。
+- 结论：身份事实可信度提升；正式停复牌、涨跌停价和历史交易状态源仍未接入，交易建议阻断不解除。
+
+## 2026-05-31 P5.4 / P5 收口评审同步
+- 新增 `p5_closure_review.json`，聚合 PG Shadow、证券状态覆盖、validation failure taxonomy 和 P4 closure。
+- 前端任务中心新增“P5收口评审”预览。
+- 验证：后端/前端 TypeScript、`test:screener-service`、`test:strategy-tournament-backtest` 通过。
+- 小样本 Operation `4f4a6d31-3f7c-4993-818b-9256f9114843` 验证 status=`partial`、artifactCount=`30`、`p5_closure_review.json` status=`partial`、decision=`P5_COMPLETE_RESEARCH_ONLY`、productionReady=`false`。
+- 结论：P5 研究闭环完成；生产仍被 PostgreSQL shadow/staging、正式交易状态 provider 和 OOS 分层复验阻断。
+
+## 2026-05-31 P5.5 生产阻断项继续处理同步
+- 新增 `oos_layered_validation.json`，按市场状态、行业和市值三维复验 OOS。
+- `postgres_shadow_readiness_report.json` 新增 verification，明确 shadow URL、client、schema、staging 和 pressure 检查状态。
+- `security_status_coverage_report.json` 新增正式交易状态行数与 `formal_trade_state_rows` gate。
+- 前端任务中心新增“OOS分层复验”预览，证券状态覆盖新增“正式交易状态”指标。
+- 验证：后端/前端 TypeScript、`test:screener-service`、`test:strategy-tournament-backtest` 通过。
+- 小样本 Operation `b7f50f35-bf1a-4069-9d5c-66c14eccd51e` status=`partial`、artifactCount=`31`；PG shadow=`not_configured / psql_missing`，OOS layered=`insufficient`，P5 closure=`P5_COMPLETE_RESEARCH_ONLY / productionReady=false`。
+- 结论：审计链路已补齐；真实 PostgreSQL shadow/staging、正式交易状态 provider 和足够样本 OOS 分层复验仍需外部环境或长样本任务后才能解除生产阻断。
+
+## 2026-05-31 P5.6 自动转绿路径同步
+- PG Shadow 不再只做静态审计：配置 `FAMS_POSTGRES_SHADOW_DATABASE_URL / POSTGRES_SHADOW_DATABASE_URL` 后，系统用 Node `pg` 连接真实 PostgreSQL，创建 `fams_shadow` schema、三张 staging 表，并执行事务内 smoke insert/count/rollback。
+- 正式交易状态 provider 新增 Tushare 可选路径：配置 `FAMS_TUSHARE_TOKEN / TUSHARE_TOKEN` 后抓取 `stock_basic / suspend_d / stk_limit`，写入 provider=`tushare` 的上市状态、停复牌与涨跌停价事实。
+- 未配置外部依赖时仍保持 `partial`，不会把 quote-list 身份源或 heuristic 行伪装成正式交易状态。
+- 验证：后端/前端 TypeScript、`test:screener-service`、`test:strategy-tournament-backtest` 通过。
+- 小样本 Operation `b7b6e30c-dc9b-440d-929b-9fce9731c877` 仍为 `partial`；PG shadow 未配置，正式交易状态 token 未配置，P5 closure=`P5_COMPLETE_RESEARCH_ONLY / productionReady=false`。
+- 结论：已经实现真实转绿条件；当前红灯来自环境缺少 PostgreSQL shadow 和 Tushare token，而不是通过修改文档可消除的问题。
+
+## 2026-05-31 P5.7 生产就绪自检同步
+- 新增 `npm run test:production-readiness`，输出 `fams.production_readiness_check.v1`，用于直接检查 PG shadow、Tushare 正式交易状态和正式源涨跌停价 gate。
+- 脚本默认不因红灯退出失败，便于本地查看；传入 `--strict` 或 `FAMS_READINESS_STRICT=1` 时，未全部通过会返回非零退出码。
+- Tushare `stock_basic` 查询扩展为 `L / D / P`，避免只查询在市股导致退市、暂停上市或缺失标的被误判。
+- `limit_price_coverage` 收紧为必须有正式交易状态行；quote-list/heuristic 行不再让该 gate passed。
+- 验证：后端 TypeScript、`test:screener-service`、`test:production-readiness` 通过。
+- 当前环境输出 `productionReady=false`，三个生产 gate 均 failed：未配置 PG shadow、未配置 Tushare token、未检测到正式源涨跌停价。
+
+## 2026-05-31 P5.8 PG Shadow 配置与 GPT 优化核对同步
+- Windows PostgreSQL 17 已安装并运行 `postgresql-x64-17` 服务。
+- 已创建 `fams_shadow` 数据库和用户，`backend/.env` 已配置 `FAMS_POSTGRES_SHADOW_DATABASE_URL`。
+- `npm run test:production-readiness` 输出 `postgres_shadow_ready=passed`，PG shadow report `status=ready`。
+- `npm run test:production-readiness -- --strict` 仍失败，原因是 Tushare 正式交易状态和正式源涨跌停价 gate 未通过。
+- 新增 `npm run test:gpt-optimization-plan`，12/12 项通过，状态 `implemented_with_external_blockers`。
+- 结论：GPT 优化建议工程项已完成机器核对；PG shadow 已绿；交易建议仍被正式交易状态和 OOS/validation gate 阻断。
+
+## 2026-05-31 P5.9 免费信源分析建议放行同步
+- Tushare 调整为可选增强接口：系统保留 `stock_basic / suspend_d / stk_limit` 接入路径，用户可选择配置 token。
+- 免费来源第一段可以支撑分析建议、候选池、观察建议和人工复核草案；缺少正式交易状态时降级置信度并保留 warning。
+- `test:production-readiness -- --strict` 现在验证分析建议 readiness：`analysisAdviceReady=true`、`productionReady=true`、`tradeActionReady=false`。
+- `test:gpt-optimization-plan` 仍为 12/12 项通过，外部 blocker 更新为 Tushare 可选、OOS/validation 仍阻断交易动作。
+- 结论：分析建议链路已放行；`ADD / REDUCE / AUTO_TRADE` 仍必须等 OOS/validation 和执行级市场约束通过后才能开放。
+
+## 2026-05-31 P5.10 交易动作动态门禁同步
+- `tradeActionReady` 不再硬编码 false，改为读取最新 `strategy_tournament_run` 长样本 evidence 生成 `tradeActionReadiness`。
+- 新增 `test:trade-action-readiness`，等价于 production readiness 的 `--strict-trade` 门禁。
+- 当前报告显示：全 A 证据、事实集覆盖均 passed，唯一交易动作 blocker 为 `validation_evidence`。
+- 全 A 深度验证从固定 top-3 改为 `FAMS_SCREENER_DEEP_VALIDATION_TOP_N`，默认 12，上限 20。
+- 结论：工程假阻断已消除；下一步必须复跑扩大 top-N 后的全 A 60 日 evidence，验证是否有候选组合通过四项稳定性检查。
+
+## 2026-05-31 P5.11 全 A top-12 复验同步
+- 首次全 A top-12 复跑暴露 `security_status.canonicalize` 大事务超时；已改为分批小事务，默认 250 条提交一次。
+- 复跑 Operation `52cfc9bf-ceb4-49cf-8f94-c56272117492` 完成 partial：全 A 覆盖、provider、cache、样本量、事实集均达标。
+- `security_status.canonicalize` 成功处理 5447 个标的，耗时约 7407ms。
+- top-12 中诊断 10 个候选组合，`passedCount=0 / failedCount=10`；主要失败点为样本外超额收益不为正。
+- readiness 已改为引用最新 `stock_screener_full_scan` evidence；`test:trade-action-readiness` 仍按预期失败，唯一 blocker=`validation_evidence`。
+- 结论：执行链路阻断已闭环；剩余是策略在高波动震荡样本外窗口失效，不能放行交易动作。
+
+## 2026-05-31 P1-P5 收口复验同步
+- P1-P5 按“研究/分析建议链路”可收口：分析建议、候选池、观察建议、异步 evidence 引用和人工复核草案可输出。
+- P1-P5 按“交易动作放行”不可收口：`ADD / REDUCE / AUTO_TRADE` 仍被 `validation_evidence` 阻断。
+- 前端已验证分析页 AI 选股三类策略：`A杀后横盘放量 / 放量突破平台 / 跌破后收复关键均线` 均能提交到真实后端并渲染策略定义和异步策略证据。
+- 当前 120 样本结果：前两类严格条件命中 0，但返回候选排序；`跌破后收复关键均线` 命中 4。
+- 截图：`.verification/frontend-screener-validation.png`。
+
+## 2026-06-01 P4.35-P4.40 剩余计划落地同步
+- 新增 `validation_candidate_disposition.json`，把验证矩阵和 OOS 多窗口复验后的候选组合处置为 `eligible_manual_review / regime_limited_candidate / observe_only / retire_candidate / needs_more_samples`。
+- `p4_closure_review.json` 新增 `candidate_disposition` gate，并引用候选处置 artifact；`data_quality_report.json` 同步写入 `validationCandidateDisposition`。
+- 前端任务中心新增“候选处置”导航和预览；普通即时回测也可返回候选处置用于调试。
+- 交易边界不变：未四项通过的候选继续禁止 `ADD / REDUCE / AUTO_TRADE`，P4 当前仍按研究观察链路收口。
+
+## 2026-06-01 FIVD-R / P4 合并计划同步
+- 架构口径更新为：FIVD-R 对外提供一套分析建议入口，P4 策略竞标赛并入 FIVD-R Core，成为内部 `validation_tournament_agent`。
+- 新统一入口：`GET /api/v1/analysis/fivd-r`。输出包含 `summary / evidenceGate / valuation / tradingDiscipline / strategyValidation / candidateDisposition / positionAdviceImpact / agentTrace`。
+- `strategyValidation` 继续消费原 P4 validation evidence artifacts；`candidateDisposition` 消费候选处置产物。用户不再需要在 FIVD-R 和 P4 两套结论之间切换。
+- 当前状态仍为研究链路可用、交易动作阻断；`validation_evidence` 通过前禁止 `ADD / REDUCE / AUTO_TRADE`。
+
+## 2026-06-01 FIVD-R Phase 2 Agent Trace 同步
+- `agentTrace` 升级为机器可读内部编排契约，顶层包含 `scope / status / blockedReasons / evidenceRefs`。
+- 五个 Agent 固化为 evidence、valuation、validation tournament、discipline、explanation；每个 Agent 都输出输入引用、证据引用、阻断原因和产物引用。
+- 该结构用于后续统一前端面板展示“为什么只允许研究/观察，为什么不能进入交易动作”。
+
+## 2026-06-01 FIVD-R Phase 3 统一面板同步
+- 分析页新增 `FIVD-R` 分区，消费真实 `/analysis/fivd-r` 组合级结果。
+- 页面展示统一结论、Evidence Gate、内部验证锦标赛、候选处置、evidenceRefs 和 Agent Trace。
+- 新增真实数据端到端脚本 `scripts/verify-fivd-r-phase3-panel.mjs`，截图 `.verification/fivd-r-phase3-panel.png`。
+- 当前交易动作仍被 `validation_evidence` 阻断，页面显式展示 `ADD / REDUCE / AUTO_TRADE` 为禁止动作。
+
+## 2026-06-01 FIVD-R 剩余路线图同步
+- 新增 `09_FIVD_R_Remaining_Roadmap.md`，剩余阶段为 Phase 3.5 到 Phase 10。
+- 后续每阶段都必须先完成开发计划、验收计划、PRD 规格检视和审计意见，再进入开发。
+- 每阶段完成后必须执行真实数据端到端验收；验收不通过则打回计划阶段。
+- 若发现较大 PRD 偏差或虚假验收风险，必须暂停并找用户确认。
+
+## 2026-06-01 FIVD-R Phase 3.5 开发前审计同步
+- 新增 `10_FIVD_R_Phase3_5_Development_Acceptance_Audit.md`。
+- Phase 3.5 目标：单持仓 FIVD-R 详情 + portfolio/position 接口性能审计。
+- 开发前审计无致命/重大意见，允许进入实质开发。
+- Expected Return 仍为后续 Phase 4，不得在 Phase 3.5 包装成真实收益分布。
+- 基线复验通过：后端/前端 TypeScript、`test:fivd-r-core`、`test:production-readiness -- --strict` 均通过；`test:trade-action-readiness` 按预期失败，唯一 blocker=`validation_evidence`。
+
+## 2026-06-01 FIVD-R Phase 3.5 完成同步
+- 持仓研究面板新增 position 级 FIVD-R 详情入口。
+- 真实数据 E2E 通过：`009725 / 中期债（一年） / positionId=4d144dc4-953d-4ce6-aa40-26f9277023b7`。
+- 截图：`.verification/fivd-r-phase3-5-position.png`；性能审计：`.verification/fivd-r-phase3-5-performance-audit.json`。
+- portfolioLatencyMs=`33869`，positionLatencyMs=`16764`；后续建议 cached latest FIVD-R run 或 Operation-backed refresh。
+- 交易边界不变：`ADD / REDUCE / AUTO_TRADE` 仍被 `validation_evidence` 阻断。
+
+## 2026-06-01 FIVD-R Phase 4 开发前审计同步
+- 新增 `11_FIVD_R_Phase4_Expected_Return_Development_Acceptance_Audit.md`。
+- Phase 4 目标：Expected Return Distribution 从 placeholder 升级为真实历史行情分布。
+- 开发前审计无致命/重大意见，允许进入实质开发。
+- 验收必须覆盖真实样本充分/不足案例，并验证无未来函数：`maxObservedTradeDate <= reviewDate`。
+
+## 2026-06-01 FIVD-R Phase 4 完成同步
+- `expectedReturn` 已升级为 `fivd.r.expected_return.distribution.v1`，只读取真实本地历史行情。
+- 真实数据 E2E 通过：`601127` available；`009725 / 013785` insufficient。
+- noFutureLeak=`true`；截图 `.verification/fivd-r-phase4-expected-return.png`；审计 `.verification/fivd-r-phase4-expected-return-audit.json`。
+- 交易边界不变：`ADD / REDUCE / AUTO_TRADE` 仍被 `validation_evidence` 阻断。
+
+## 2026-06-01 FIVD-R Phase 5 开发前审计同步
+- 新增 `12_FIVD_R_Phase5_Trading_Discipline_Development_Acceptance_Audit.md`。
+- Phase 5 目标：Trading Discipline Engine 完整化。
+- 开发前审计无致命/重大意见，允许进入实质开发。
+- 现金不得生成买卖建议；validation failed 时 `formalTradeActionAllowed=false`。

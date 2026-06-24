@@ -1,0 +1,503 @@
+你正在 FAMS 项目代码库中工作。请先不要直接大规模改代码，先完成代码扫描、架构确认和分阶段实现计划，然后按 Phase 0 -> Phase 1 的顺序落地。除非明确要求，不要实现自动交易。
+
+项目背景：
+FAMS 是个人/家庭投资资产管理与研究决策系统。系统目标不是让 AI 直接买卖，而是：
+1. 构造可靠事实集；
+2. 由确定性规则、行情数据、回测证据、持仓约束生成可审计结论；
+3. AI 只负责解释、归纳、生成研究报告或交易计划草案；
+4. 最终买卖必须由用户人工确认。
+
+当前系统已具备：
+- 资产与持仓账本；
+- 股票、ETF、基金、债基、黄金、现金资产类型；
+- market_bar_raw；
+- market_bar_canonical；
+- market_data_coverage；
+- market_feature_daily；
+- provider health；
+- Operation 状态机；
+- AI 选股；
+- strategy tournament；
+- validation evidence artifacts；
+- PositionAdviceFactSet；
+- PositionAdviceEngine；
+- ADD / REDUCE 当前仍被 validation_evidence gate 阻断。
+
+本次目标：
+实现 FAMS Analysis Advice Core，即：
+Investment Valuation + Expected Return Distribution + Trading Discipline + PositionAdvice Adapter + Advice Replay Validation + Intervention + Model Tuning。
+
+核心边界：
+1. LLM 不直接决定 BUY / SELL / ADD / REDUCE。
+2. 没有 evidenceRefs 的建议不能作为交易建议。
+3. 数据不足、provider 冲突、回测验证不足时，只能输出 OBSERVE / HOLD / NO_ACTION / 风险提示 / 研究结论。
+4. Validation Evidence 未通过时，不允许 formal ADD / REDUCE。
+5. 所有模型输出必须包含 modelVersion、dataVersion、runId、evidenceRefs、blockedReasons。
+6. 所有 Replay 必须使用 reviewDate 当时可见数据，禁止未来函数。
+7. 所有人工干预必须 append-only，不允许覆盖历史结果。
+
+第一步请只做代码扫描并输出 implementation map：
+1. 当前项目结构。
+2. PositionAdviceFactSet / PositionAdviceEngine 所在文件。
+3. Operation 系统所在文件。
+4. market_feature_daily / market_data_coverage 所在文件。
+5. validation evidence artifacts 生成与读取位置。
+6. 计划新增文件。
+7. 计划修改文件。
+8. 数据库 migration 方案。
+9. Phase 0 和 Phase 1 的 patch 计划。
+10. 风险点和需要人工确认的问题。
+
+确认 implementation map 后，再实施 Phase 0。
+
+====================
+Phase 0：Schema 与类型冻结
+====================
+
+新增或完善 TypeScript 类型：
+
+1. InvestmentValuationInput
+字段包括：
+- runContext
+- portfolioContext
+- positionContext
+- assetIdentity
+- marketData
+- fundamentals
+- etfFacts
+- fundFacts
+- bondFacts
+- goldMacroFacts
+- newsEvents
+- transactionHistory
+- strategyEvidence
+
+2. InvestmentValuationOutput
+字段包括：
+- runId
+- assetId
+- modelVersion
+- dataVersion
+- valuationDate
+- status: available / partial / insufficient / blocked
+- thesisType:
+  core_holding / satellite_opportunity / trading_candidate / watchlist / reduce_risk / avoid / cash_no_action / data_insufficient
+- scores:
+  valuationScore
+  qualityScore
+  growthScore
+  financialRiskScore
+  timingScore
+  portfolioFitScore
+  evidenceQualityScore
+  compositeScore
+- valuation:
+  method
+  label: undervalued / fair / overvalued / unknown
+  fairValueRange
+  currentPrice
+  marginOfSafety
+  historicalPercentile
+  peerPercentile
+  confidence
+  reasons
+  warnings
+- expectedReturnDistribution
+- tradingDiscipline
+- positionAdviceImpact
+- evidenceRefs
+- blockedReasons
+- missingData
+- conflictFlags
+- explanationDraft
+
+3. ExpectedReturnDistribution
+字段包括：
+- horizon: 20d / 60d / 120d / 1y
+- expectedReturnPct
+- expectedPnlAmount
+- probabilityOfGain
+- probabilityOfLoss
+- probabilityOfStopLoss
+- probabilityOfTakeProfit
+- p05 / p25 / p50 / p75 / p95
+- expectedMaxDrawdown
+- cvar5
+- method
+- sampleSize
+- confidence
+
+4. TradingDiscipline
+字段包括：
+- bucket: core / satellite / cash
+- disciplineType:
+  accumulate_on_dip / hold_with_review / trim_on_strength / risk_reduce / watch_only / avoid / no_action
+- validFrom
+- validUntil
+- reviewCadence
+- maxAllowedWeight
+- targetWeightMultiplier
+- addConditions
+- reduceConditions
+- stopConditions
+- takeProfitConditions
+- invalidationConditions
+- humanConfirmationRequired
+
+5. EvidenceGateResult
+字段包括：
+- status: pass / partial / blocked
+- evidenceQualityScore
+- missingData
+- conflictFlags
+- blockedReasons
+- evidenceRefs
+
+验收：
+- 类型可编译；
+- 不影响现有代码；
+- 新增单元测试覆盖 status / thesisType / disciplineType 枚举；
+- 所有输出结构都保留 evidenceRefs 和 blockedReasons。
+
+====================
+Phase 1：价值评估模型 MVP
+====================
+
+实现 services：
+
+1. EvidenceGateService
+职责：
+- 检查 asset identity；
+- 检查 market_data_coverage；
+- 检查 provider confidence；
+- 检查 market feature freshness；
+- 检查 validation evidence；
+- 输出 EvidenceGateResult。
+
+硬规则：
+- asset type unknown => blocked；
+- latest price stale or failed => blocked 或 partial；
+- provider conflict severe => blocked；
+- validation evidence failed => formal ADD blocked；
+- cash => no valuation needed。
+
+2. InvestmentValuationService
+根据 assetType 分发：
+- StockValuationModel
+- EtfValuationModel
+- FundValuationModel stub
+- BondFundValuationModel stub
+- GoldValuationModel
+- CashNoActionModel
+
+3. StockValuationModel
+MVP 分数：
+- valuationScore：PE / PB / 历史分位 / 行业分位，缺失时 partial；
+- qualityScore：ROE / 毛利率 / 经营现金流 / 资产负债率；
+- growthScore：营收增速 / 净利润增速 / 扣非增速；
+- financialRiskScore：高负债、现金流恶化、业绩恶化、事件风险；
+- timingScore：trendScore / momentumScore / relativeStrength / volatility；
+- portfolioFitScore：当前仓位、核心/卫星、集中度、现金比例；
+- evidenceQualityScore：来自 EvidenceGate。
+
+4. EtfValuationModel
+MVP 分数：
+- underlying index quality；
+- index valuation percentile；
+- liquidity；
+- fee if available；
+- portfolio fit；
+- data missing => partial。
+
+5. GoldValuationModel
+不要套股票估值。
+输出：
+- macroSupportScore；
+- hedgeValueScore；
+- portfolioDiversificationScore；
+- timingScore；
+- portfolioFitScore；
+若宏观数据缺失，只能输出观察，不输出确定性结论。
+
+6. CashNoActionModel
+现金不生成投资建议，只输出 cash_no_action / no_action。
+
+7. PositionAdvice Adapter
+把 InvestmentValuationOutput 映射为：
+- valuationMultiplier
+- qualityGrowthMultiplier
+- riskPenaltyMultiplier
+- portfolioFitMultiplier
+- evidenceConfidenceMultiplier
+- validationGateMultiplier
+- targetWeightMultiplier
+- allowedActionHints
+- formalTradeActionAllowed
+
+规则：
+- evidence insufficient => allowedActionHints 不包含 ADD；
+- validation evidence failed => formalTradeActionAllowed = false；
+- cash => only NO_ACTION。
+
+数据库：
+新增或迁移：
+- valuation_runs
+- valuation_factsets
+- valuation_scores
+
+如果项目当前使用 Prisma，请新增 schema 和 migration。
+如果当前仍兼容 SQLite，注意避免使用 SQLite 不支持的特性。
+
+验收：
+1. 股票、ETF、黄金、现金分别走不同模型。
+2. 现金输出 cash_no_action，不输出交易建议。
+3. 基本面缺失时 status = partial 或 insufficient。
+4. 所有分数有 reasons / warnings / evidenceRefs。
+5. validation evidence failed 时 formalTradeActionAllowed = false。
+6. 不允许 LLM 直接决定 action。
+7. 新增单元测试：
+   - stock with sufficient data
+   - stock with missing fundamentals
+   - etf with missing index valuation
+   - gold with missing macro facts
+   - cash no action
+   - validation failed blocks formal ADD
+
+====================
+Phase 2：预计盈亏分布
+====================
+
+实现 ExpectedReturnDistributionService：
+- historical_bootstrap；
+- strategy_backtest_distribution；
+- regime_matched_samples 简化版；
+- 接入止盈止损阈值；
+- 输出 20d / 60d 分布。
+
+新增表：
+- expected_return_distributions
+
+验收：
+- 输出 p05/p25/p50/p75/p95；
+- 输出上涨概率/亏损概率；
+- 输出止损/止盈触发概率；
+- 样本不足 confidence = insufficient；
+- 单元测试覆盖样本不足、正常样本、极端波动样本。
+
+====================
+Phase 3：交易纪律模型
+====================
+
+实现 TradingDisciplineEngine：
+- core bucket；
+- satellite bucket；
+- cash bucket；
+- 最大回撤预算；
+- validUntil；
+- reviewCadence；
+- add/reduce/stop/takeProfit/invalidation conditions。
+
+新增表：
+- trading_disciplines
+
+规则：
+- 核心仓预计最大回撤超过预算，不允许提高核心仓仓位；
+- 卫星仓必须有有效期和退出条件；
+- 数据不足 disciplineType = watch_only 或 no_action；
+- formalTradeActionAllowed = false 时，只能输出研究纪律，不输出正式交易动作。
+
+验收：
+- 核心仓 maxDrawdownTolerance = 5% 时，expectedMaxDrawdown > 5% 会触发 blockedReason；
+- 卫星仓 maxDrawdownTolerance = 20% 时，必须有 stopConditions；
+- cash => no_action；
+- 单元测试覆盖核心/卫星/现金。
+
+====================
+Phase 4：Advice Replay Validation
+====================
+
+实现 AdviceReplayEngine。
+
+新增表：
+- advice_replay_runs
+- advice_replay_slices
+- advice_decision_logs
+- simulated_trades
+- replay_portfolio_snapshots
+- probability_calibration_results
+
+支持：
+1. Fixed Start Replay：
+   - 3 个月前；
+   - 2 个月前；
+   - 1 个月前；
+   - 每周复盘到今天。
+
+2. Rolling Start Replay：
+   - 最近半年每周作为起点。
+
+Replay modes：
+- gate_strict
+- research_only
+- buy_hold
+- benchmark
+
+每周流程：
+1. 使用 reviewDate 当时可见数据；
+2. 运行 InvestmentValuationService；
+3. 运行 PositionAdviceEngine；
+4. 运行 TradingDisciplineEngine；
+5. 运行 validation gate；
+6. 生成 simulated trade；
+7. T+1 成交；
+8. 扣手续费、印花税、滑点；
+9. 更新 replay portfolio snapshot；
+10. 记录 decision log。
+
+禁止：
+- 使用未来 K 线；
+- 使用未来财报；
+- 使用未来新闻；
+- 使用今天才知道的数据修正历史判断。
+
+验收：
+- 可从 3m/2m/1m 起点回放到今天；
+- 输出最终市值、累计收益、最大回撤；
+- 输出 FAMS vs BuyHold vs Benchmark；
+- 每笔 simulated trade 可追溯 decision_id；
+- Gate-Strict 下 validation failed 不执行 formal ADD / REDUCE；
+- Research-Only 可以记录理论动作，但必须明确标记不可作为正式交易建议。
+
+====================
+Phase 5：动作质量、概率校准、评分有效性
+====================
+
+实现报告：
+- action_quality_report.json
+- probability_calibration.json
+- score_effectiveness_report.json
+- risk_budget_report.json
+
+统计：
+- ADD 后 1/2/4/8 周收益；
+- REDUCE 是否规避下跌；
+- HOLD 是否跑赢基准；
+- OBSERVE opportunity cost；
+- p05-p95 coverage；
+- p25-p75 coverage；
+- gain probability calibration；
+- stopLoss probability error；
+- valuationScore 与未来收益相关性；
+- financialRiskScore 与未来亏损相关性；
+- timingScore 与短期收益相关性。
+
+验收：
+- replay report 中包含动作质量统计；
+- 概率校准能输出误差；
+- 若模型过度乐观，报告明确 warning；
+- 分数有效性报告能指出哪些分数和未来收益/风险相关性弱。
+
+====================
+Phase 6：人工干预与模型调优
+====================
+
+新增：
+- intervention_events
+- valuation_model_versions
+- model_tuning_trials
+
+支持：
+- user override；
+- risk preference override；
+- bucket override；
+- parameter override；
+- model_only vs human_override；
+- champion vs challenger。
+
+调优目标：
+objective =
+  excessReturn
+  - lambda1 * maxDrawdown
+  - lambda2 * turnover
+  - lambda3 * riskBudgetViolation
+  - lambda4 * probabilityMiscalibration
+  - lambda5 * dataInsufficientFalseConfidence
+
+规则：
+- Challenger 未通过 replay validation 不允许 promote；
+- 所有人工干预 append-only；
+- 不允许覆盖历史 decision log。
+
+验收：
+- 可以创建 challenger model version；
+- 可以运行 challenger replay；
+- 可以生成 model_comparison_report；
+- 可以 promote 通过验证的 challenger；
+- promote 必须人工确认。
+
+====================
+API 要求
+====================
+
+新增 API：
+POST /api/v1/analysis/valuation/run
+POST /api/v1/analysis/advice/refresh
+GET  /api/v1/analysis/advice/:assetId
+POST /api/v1/analysis/replay/run
+GET  /api/v1/analysis/replay/:runId/report
+POST /api/v1/analysis/interventions
+POST /api/v1/analysis/model-tuning/trials
+POST /api/v1/analysis/model-versions/:id/promote
+
+所有 API 返回：
+- status
+- runId 或 operationId
+- evidenceRefs
+- blockedReasons
+- warnings
+
+====================
+前端要求
+====================
+
+分析建议页新增：
+1. 顶部结论卡；
+2. 指标评分卡；
+3. 预计盈亏分布；
+4. 交易纪律；
+5. 证据与缺口；
+6. AI 解释；
+7. 模型验证入口。
+
+模型验证页新增：
+1. 起点回放收益曲线；
+2. FAMS vs BuyHold vs Benchmark；
+3. 每周建议时间线；
+4. 每条建议的当时评分、证据、预计分布、后续真实结果；
+5. ADD / REDUCE / HOLD / OBSERVE 成效统计；
+6. 概率校准图；
+7. 人工干预前后对照；
+8. Champion / Challenger 对比。
+
+====================
+测试要求
+====================
+
+新增测试：
+- unit tests for EvidenceGateService
+- unit tests for StockValuationModel
+- unit tests for EtfValuationModel
+- unit tests for GoldValuationModel
+- unit tests for CashNoActionModel
+- unit tests for PositionAdvice Adapter
+- unit tests for ExpectedReturnDistributionService
+- unit tests for TradingDisciplineEngine
+- replay no-future-data test
+- replay gate-strict validation test
+- replay simulated trade traceability test
+- probability calibration test
+- intervention append-only test
+- champion/challenger promotion gate test
+
+不要跳过测试。
+如果现有测试失败，请先判断是否因为本次改动造成，并修复。

@@ -1,0 +1,669 @@
+{
+  "schemaVersion": "dividend.low_vol.free_source_total_return_benchmark.v1",
+  "generatedAt": "2026-06-06T07:15:38.589Z",
+  "name": "FAMS free-source equal-weight A-share price-return benchmark",
+  "source": "market_bar_canonical_equal_weight_price_return",
+  "note": "This is a local free-source benchmark built from market_bar_canonical close prices. It is not official H30269 and does not include index-level dividend total-return data.",
+  "symbolCount": 300,
+  "requestedSymbols": 300,
+  "days": 120,
+  "pointCount": 120,
+  "points": [
+    {
+      "date": "2025-12-04",
+      "value": 998.9671,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-04:symbols=300"
+    },
+    {
+      "date": "2025-12-05",
+      "value": 1012.2206,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-05:symbols=300"
+    },
+    {
+      "date": "2025-12-08",
+      "value": 1015.4268,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-08:symbols=300"
+    },
+    {
+      "date": "2025-12-09",
+      "value": 1002.0535,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-09:symbols=300"
+    },
+    {
+      "date": "2025-12-10",
+      "value": 1009.0975,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-10:symbols=300"
+    },
+    {
+      "date": "2025-12-11",
+      "value": 988.0234,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-11:symbols=300"
+    },
+    {
+      "date": "2025-12-12",
+      "value": 988.2619,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-12:symbols=300"
+    },
+    {
+      "date": "2025-12-15",
+      "value": 991.0207,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-15:symbols=300"
+    },
+    {
+      "date": "2025-12-16",
+      "value": 973.8577,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-16:symbols=300"
+    },
+    {
+      "date": "2025-12-17",
+      "value": 977.4596,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-17:symbols=300"
+    },
+    {
+      "date": "2025-12-18",
+      "value": 978.0762,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-18:symbols=300"
+    },
+    {
+      "date": "2025-12-19",
+      "value": 996.6862,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-19:symbols=300"
+    },
+    {
+      "date": "2025-12-22",
+      "value": 1003.9132,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-22:symbols=300"
+    },
+    {
+      "date": "2025-12-23",
+      "value": 995.5196,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-23:symbols=300"
+    },
+    {
+      "date": "2025-12-24",
+      "value": 1004.582,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-24:symbols=299"
+    },
+    {
+      "date": "2025-12-25",
+      "value": 1009.424,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-25:symbols=300"
+    },
+    {
+      "date": "2025-12-26",
+      "value": 1015.8228,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-26:symbols=298"
+    },
+    {
+      "date": "2025-12-29",
+      "value": 1006.5005,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-29:symbols=300"
+    },
+    {
+      "date": "2025-12-30",
+      "value": 1002.5,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-30:symbols=300"
+    },
+    {
+      "date": "2025-12-31",
+      "value": 1003.2258,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2025-12-31:symbols=299"
+    },
+    {
+      "date": "2026-01-05",
+      "value": 1010.3518,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-05:symbols=300"
+    },
+    {
+      "date": "2026-01-06",
+      "value": 1026.5244,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-06:symbols=299"
+    },
+    {
+      "date": "2026-01-07",
+      "value": 1022.3434,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-07:symbols=299"
+    },
+    {
+      "date": "2026-01-08",
+      "value": 1027.8852,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-08:symbols=298"
+    },
+    {
+      "date": "2026-01-09",
+      "value": 1039.2572,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-09:symbols=298"
+    },
+    {
+      "date": "2026-01-12",
+      "value": 1053.4233,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-12:symbols=298"
+    },
+    {
+      "date": "2026-01-13",
+      "value": 1042.4453,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-13:symbols=298"
+    },
+    {
+      "date": "2026-01-14",
+      "value": 1045.6414,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-14:symbols=298"
+    },
+    {
+      "date": "2026-01-15",
+      "value": 1040.4599,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-15:symbols=299"
+    },
+    {
+      "date": "2026-01-16",
+      "value": 1035.3801,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-16:symbols=299"
+    },
+    {
+      "date": "2026-01-19",
+      "value": 1050.245,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-19:symbols=299"
+    },
+    {
+      "date": "2026-01-20",
+      "value": 1053.2223,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-20:symbols=300"
+    },
+    {
+      "date": "2026-01-21",
+      "value": 1058.2518,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-21:symbols=300"
+    },
+    {
+      "date": "2026-01-22",
+      "value": 1070.4124,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-22:symbols=300"
+    },
+    {
+      "date": "2026-01-23",
+      "value": 1084.2301,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-23:symbols=300"
+    },
+    {
+      "date": "2026-01-26",
+      "value": 1083.193,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-26:symbols=300"
+    },
+    {
+      "date": "2026-01-27",
+      "value": 1075.2916,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-27:symbols=300"
+    },
+    {
+      "date": "2026-01-28",
+      "value": 1080.8178,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-28:symbols=300"
+    },
+    {
+      "date": "2026-01-29",
+      "value": 1080.0736,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-29:symbols=300"
+    },
+    {
+      "date": "2026-01-30",
+      "value": 1066.3679,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-01-30:symbols=300"
+    },
+    {
+      "date": "2026-02-02",
+      "value": 1034.8304,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-02:symbols=300"
+    },
+    {
+      "date": "2026-02-03",
+      "value": 1053.0228,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-03:symbols=300"
+    },
+    {
+      "date": "2026-02-04",
+      "value": 1066.7662,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-04:symbols=300"
+    },
+    {
+      "date": "2026-02-05",
+      "value": 1057.0068,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-05:symbols=300"
+    },
+    {
+      "date": "2026-02-06",
+      "value": 1056.2963,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-06:symbols=300"
+    },
+    {
+      "date": "2026-02-09",
+      "value": 1071.1275,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-09:symbols=300"
+    },
+    {
+      "date": "2026-02-10",
+      "value": 1070.9046,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-10:symbols=299"
+    },
+    {
+      "date": "2026-02-11",
+      "value": 1072.2299,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-11:symbols=298"
+    },
+    {
+      "date": "2026-02-12",
+      "value": 1070.1301,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-12:symbols=300"
+    },
+    {
+      "date": "2026-02-13",
+      "value": 1058.9635,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-13:symbols=300"
+    },
+    {
+      "date": "2026-02-24",
+      "value": 1079.3728,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-24:symbols=300"
+    },
+    {
+      "date": "2026-02-25",
+      "value": 1096.511,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-25:symbols=300"
+    },
+    {
+      "date": "2026-02-26",
+      "value": 1095.9792,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-26:symbols=300"
+    },
+    {
+      "date": "2026-02-27",
+      "value": 1107.7373,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-02-27:symbols=298"
+    },
+    {
+      "date": "2026-03-02",
+      "value": 1098.5605,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-02:symbols=299"
+    },
+    {
+      "date": "2026-03-03",
+      "value": 1065.3859,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-03:symbols=299"
+    },
+    {
+      "date": "2026-03-04",
+      "value": 1062.1811,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-04:symbols=300"
+    },
+    {
+      "date": "2026-03-05",
+      "value": 1072.0859,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-05:symbols=300"
+    },
+    {
+      "date": "2026-03-06",
+      "value": 1089.6293,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-06:symbols=300"
+    },
+    {
+      "date": "2026-03-09",
+      "value": 1081.221,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-09:symbols=300"
+    },
+    {
+      "date": "2026-03-10",
+      "value": 1091.0618,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-10:symbols=300"
+    },
+    {
+      "date": "2026-03-11",
+      "value": 1093.5373,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-11:symbols=300"
+    },
+    {
+      "date": "2026-03-12",
+      "value": 1091.6457,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-12:symbols=300"
+    },
+    {
+      "date": "2026-03-13",
+      "value": 1073.2863,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-13:symbols=299"
+    },
+    {
+      "date": "2026-03-16",
+      "value": 1070.4052,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-16:symbols=299"
+    },
+    {
+      "date": "2026-03-17",
+      "value": 1061.1637,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-17:symbols=299"
+    },
+    {
+      "date": "2026-03-18",
+      "value": 1062.8098,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-18:symbols=299"
+    },
+    {
+      "date": "2026-03-19",
+      "value": 1037.1205,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-19:symbols=299"
+    },
+    {
+      "date": "2026-03-20",
+      "value": 1024.4487,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-20:symbols=300"
+    },
+    {
+      "date": "2026-03-23",
+      "value": 974.2719,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-23:symbols=300"
+    },
+    {
+      "date": "2026-03-24",
+      "value": 1011.104,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-24:symbols=300"
+    },
+    {
+      "date": "2026-03-25",
+      "value": 1033.2151,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-25:symbols=300"
+    },
+    {
+      "date": "2026-03-26",
+      "value": 1023.2433,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-26:symbols=300"
+    },
+    {
+      "date": "2026-03-27",
+      "value": 1035.3908,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-27:symbols=300"
+    },
+    {
+      "date": "2026-03-30",
+      "value": 1034.0883,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-30:symbols=300"
+    },
+    {
+      "date": "2026-03-31",
+      "value": 1019.417,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-03-31:symbols=300"
+    },
+    {
+      "date": "2026-04-01",
+      "value": 1025.1033,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-01:symbols=300"
+    },
+    {
+      "date": "2026-04-02",
+      "value": 1008.6434,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-02:symbols=298"
+    },
+    {
+      "date": "2026-04-03",
+      "value": 982.3178,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-03:symbols=298"
+    },
+    {
+      "date": "2026-04-07",
+      "value": 997.6562,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-07:symbols=299"
+    },
+    {
+      "date": "2026-04-08",
+      "value": 1028.2905,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-08:symbols=299"
+    },
+    {
+      "date": "2026-04-09",
+      "value": 1015.3255,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-09:symbols=299"
+    },
+    {
+      "date": "2026-04-10",
+      "value": 1019.7491,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-10:symbols=299"
+    },
+    {
+      "date": "2026-04-13",
+      "value": 1024.3018,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-13:symbols=299"
+    },
+    {
+      "date": "2026-04-14",
+      "value": 1029.8792,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-14:symbols=299"
+    },
+    {
+      "date": "2026-04-15",
+      "value": 1021.7588,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-15:symbols=299"
+    },
+    {
+      "date": "2026-04-16",
+      "value": 1036.2427,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-16:symbols=299"
+    },
+    {
+      "date": "2026-04-17",
+      "value": 1030.94,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-17:symbols=300"
+    },
+    {
+      "date": "2026-04-20",
+      "value": 1036.6169,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-20:symbols=300"
+    },
+    {
+      "date": "2026-04-21",
+      "value": 1035.079,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-21:symbols=300"
+    },
+    {
+      "date": "2026-04-22",
+      "value": 1036.5589,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-22:symbols=299"
+    },
+    {
+      "date": "2026-04-23",
+      "value": 1028.9314,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-23:symbols=300"
+    },
+    {
+      "date": "2026-04-24",
+      "value": 1026.9199,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-24:symbols=298"
+    },
+    {
+      "date": "2026-04-27",
+      "value": 1028.7722,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-27:symbols=299"
+    },
+    {
+      "date": "2026-04-28",
+      "value": 1027.0683,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-28:symbols=299"
+    },
+    {
+      "date": "2026-04-29",
+      "value": 1048.986,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-29:symbols=295"
+    },
+    {
+      "date": "2026-04-30",
+      "value": 1045.0762,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-04-30:symbols=296"
+    },
+    {
+      "date": "2026-05-06",
+      "value": 1059.6455,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-06:symbols=299"
+    },
+    {
+      "date": "2026-05-07",
+      "value": 1064.4146,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-07:symbols=299"
+    },
+    {
+      "date": "2026-05-08",
+      "value": 1070.894,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-08:symbols=299"
+    },
+    {
+      "date": "2026-05-11",
+      "value": 1077.6537,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-11:symbols=299"
+    },
+    {
+      "date": "2026-05-12",
+      "value": 1066.4003,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-12:symbols=299"
+    },
+    {
+      "date": "2026-05-13",
+      "value": 1075.0285,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-13:symbols=299"
+    },
+    {
+      "date": "2026-05-14",
+      "value": 1050.2652,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-14:symbols=299"
+    },
+    {
+      "date": "2026-05-15",
+      "value": 1035.4941,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-15:symbols=298"
+    },
+    {
+      "date": "2026-05-18",
+      "value": 1035.5215,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-18:symbols=299"
+    },
+    {
+      "date": "2026-05-19",
+      "value": 1042.4211,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-19:symbols=298"
+    },
+    {
+      "date": "2026-05-20",
+      "value": 1027.8131,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-20:symbols=298"
+    },
+    {
+      "date": "2026-05-21",
+      "value": 1005.1383,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-21:symbols=299"
+    },
+    {
+      "date": "2026-05-22",
+      "value": 1019.5855,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-22:symbols=299"
+    },
+    {
+      "date": "2026-05-25",
+      "value": 1024.9806,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-25:symbols=299"
+    },
+    {
+      "date": "2026-05-26",
+      "value": 1018.5725,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-26:symbols=299"
+    },
+    {
+      "date": "2026-05-27",
+      "value": 1004.0629,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-27:symbols=299"
+    },
+    {
+      "date": "2026-05-28",
+      "value": 1011.586,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-28:symbols=299"
+    },
+    {
+      "date": "2026-05-29",
+      "value": 1007.6872,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-05-29:symbols=298"
+    },
+    {
+      "date": "2026-06-01",
+      "value": 1019.3375,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-06-01:symbols=299"
+    },
+    {
+      "date": "2026-06-02",
+      "value": 1013.2351,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-06-02:symbols=297"
+    },
+    {
+      "date": "2026-06-03",
+      "value": 1011.5184,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-06-03:symbols=299"
+    },
+    {
+      "date": "2026-06-04",
+      "value": 997.5802,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-06-04:symbols=299"
+    },
+    {
+      "date": "2026-06-05",
+      "value": 992.6297,
+      "evidenceRef": "market-bar-canonical-equal-weight-benchmark:2026-06-05:symbols=299"
+    }
+  ],
+  "evidenceRefs": [
+    "market-bar-canonical-equal-weight-benchmark:2025-12-04:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-05:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-08:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-09:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-10:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-11:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-12:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-15:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-16:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-17:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-18:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-19:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-22:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-23:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-24:symbols=299",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-25:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-26:symbols=298",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-29:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-30:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2025-12-31:symbols=299",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-05:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-06:symbols=299",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-07:symbols=299",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-08:symbols=298",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-09:symbols=298",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-12:symbols=298",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-13:symbols=298",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-14:symbols=298",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-15:symbols=299",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-16:symbols=299",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-19:symbols=299",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-20:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-21:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-22:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-23:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-26:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-27:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-28:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-29:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-01-30:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-02:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-03:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-04:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-05:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-06:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-09:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-10:symbols=299",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-11:symbols=298",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-12:symbols=300",
+    "market-bar-canonical-equal-weight-benchmark:2026-02-13:symbols=300"
+  ],
+  "validation": {
+    "status": "available",
+    "blockers": []
+  }
+}

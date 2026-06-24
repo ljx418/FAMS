@@ -1,0 +1,109 @@
+{
+  "mcpServers": {
+    "financial-asset-manager": {
+      "command": "node",
+      "args": ["backend/dist/mcp/stdio.js"],
+      "env": {
+        "PORT": "4000",
+        "DATABASE_URL": "postgresql://localhost:5432/fams"
+      },
+      "domainPack": "mcp/fams-domain-pack.json",
+      "harnessOSConnector": "mcp/harnessos-connector.json",
+      "description": "金融资产管理系统 MCP Server",
+      "capabilities": [
+        "market_data.get_real_time_price",
+        "market_data.refresh_prices",
+        "position.list",
+        "portfolio.get_analysis",
+        "portfolio.get_daily_snapshot",
+        "advice.get_suggestions",
+        "advice.generate_daily",
+        "alert.list",
+        "alert.check",
+        "backtest.run_strategy",
+        "backtest.run_from_advice",
+        "operation.list",
+        "operation.get",
+        "operation.get_artifact",
+        "transaction.create_manual_record"
+      ]
+    }
+  },
+  "tools": {
+    "get-investment-suggestions": {
+      "description": "获取每日/每周投资建议",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "period": { "type": "string", "enum": ["daily", "weekly"] }
+        }
+      }
+    },
+    "get-real-time-price": {
+      "description": "获取资产实时价格",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "symbol": { "type": "string" },
+          "source": { "type": "string", "enum": ["yahoo", "eastmoney", "sina"] }
+        }
+      }
+    },
+    "get-portfolio-analysis": {
+      "description": "获取投资组合分析",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "portfolioId": { "type": "string" }
+        }
+      }
+    },
+    "run-backtest": {
+      "description": "执行策略回测",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "strategyId": { "type": "string" },
+          "startDate": { "type": "string" },
+          "endDate": { "type": "string" },
+          "initialCapital": { "type": "number" }
+        }
+      }
+    },
+    "get-daily-snapshot": {
+      "description": "获取每日仓位快照",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "date": { "type": "string" }
+        }
+      }
+    },
+    "get-positions": {
+      "description": "获取用户仓位列表",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "closed", "pending"] }
+        }
+      }
+    },
+    "create-transaction": {
+      "description": "创建交易记录",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "assetId": { "type": "string" },
+          "type": { "type": "string", "enum": ["buy", "sell"] },
+          "quantity": { "type": "number" },
+          "price": { "type": "number" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "harnessos.connector.v1",
+  "id": "fams",
+  "name": "FAMS Investment Management",
+  "displayName": "FAMS 投资管理连接器",
+  "version": "v2.0.0-alpha.1",
+  "domainPack": "mcp/fams-domain-pack.json",
+  "domainPackName": "fams",
+  "domain": "financial_asset_management",
+  "description": "Expose FAMS DomainPack tools to harnessOS through HTTP MCP and stdio MCP transports.",
+  "connectors": [
+    {
+      "id": "fams_mcp_http",
+      "type": "http_mcp",
+      "status": "ready",
+      "baseUrl": "http://localhost:4000",
+      "paths": {
+        "domainPack": "/api/v1/mcp/domain-pack",
+        "tools": "/api/v1/mcp/tools",
+        "call": "/api/v1/mcp/call",
+        "batch": "/api/v1/mcp/batch"
+      },
+      "context": {
+        "userId": {
+          "required": true,
+          "sources": ["parameters.userId", "headers.x-fams-user-id", "headers.x-user-id"],
+          "conflictPolicy": "fail_with_USER_CONTEXT_MISMATCH",
+          "missingPolicy": "fail_with_USER_CONTEXT_REQUIRED"
+        }
+      }
+    },
+    {
+      "id": "fams_mcp_stdio",
+      "type": "stdio_mcp",
+      "status": "ready",
+      "command": "node",
+      "args": ["backend/dist/mcp/stdio.js"],
+      "sourceEntrypoint": "backend/src/mcp/stdio.ts",
+      "configPath": "mcp/financial-mcp.json",
+      "context": {
+        "userId": {
+          "required": true,
+          "sources": ["parameters.userId", "params.context.userId"],
+          "conflictPolicy": "fail_with_USER_CONTEXT_MISMATCH",
+          "missingPolicy": "fail_with_USER_CONTEXT_REQUIRED"
+        }
+      }
+    }
+  ],
+  "capabilities": {
+    "toolDiscovery": true,
+    "singleToolCall": true,
+    "batchToolCall": true,
+    "domainPackDiscovery": true,
+    "asyncOperations": true,
+    "artifactRefs": true,
+    "nextActions": true,
+    "humanConfirmation": true
+  },
+  "toolContract": {
+    "sourceOfTruth": "GET /api/v1/mcp/domain-pack",
+    "toolsPath": "GET /api/v1/mcp/tools",
+    "callEnvelope": "fams.mcp.call.v1",
+    "batchEnvelope": "fams.mcp.batch.v1",
+    "statuses": ["completed", "blocked", "failed"]
+  },
+  "safety": {
+    "tradeProtection": "transaction.* tools require human confirmation before writes",
+    "writePolicy": "writes_must_be_explicitly_scoped_to_user_context",
+    "confirmationPolicy": "tools with requiresHumanConfirmation=true must return blocked status until confirmation is supplied"
+  },
+  "canonicalTools": [
+    "market_data.get_real_time_price",
+    "market_data.refresh_prices",
+    "position.list",
+    "portfolio.get_analysis",
+    "portfolio.get_daily_snapshot",
+    "advice.get_suggestions",
+    "advice.generate_daily",
+    "alert.list",
+    "alert.check",
+    "backtest.run_strategy",
+    "backtest.run_from_advice",
+    "operation.list",
+    "operation.get",
+    "operation.get_artifact",
+    "transaction.create_manual_record"
+  ],
+  "validation": {
+    "httpSmoke": {
+      "headers": { "x-fams-user-id": "default" },
+      "tool": "operation.list",
+      "expectedStatus": "completed"
+    },
+    "stdioSmoke": {
+      "context": { "userId": "default" },
+      "tool": "operation.list",
+      "expectedStatus": "completed"
+    },
+    "tradeProtectionSmoke": {
+      "tool": "create_transaction",
+      "expectedStatus": "blocked",
+      "expectedCode": "HUMAN_CONFIRMATION_REQUIRED"
+    }
+  }
+}
