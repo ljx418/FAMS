@@ -176,9 +176,9 @@ async function screenshot(page, fileName, title, description, requiredTexts = []
   const filePath = path.join(screenshotDir, fileName)
   const bodyText = await page.locator('body').innerText({ timeout: 30000 }).catch(() => '')
   const missingTexts = requiredTexts.filter((text) => !bodyText.includes(text))
-  await page.screenshot({ path: filePath, fullPage: true }).catch(async () => {
-    await page.screenshot({ path: filePath, fullPage: false })
-  })
+  // Keep screenshots viewport-scoped for stability. Some strategy pages are very
+  // tall after data loads, and full-page screenshots can close Chromium on WSL.
+  await page.screenshot({ path: filePath, fullPage: false })
   return {
     title,
     description,
@@ -268,6 +268,105 @@ async function buildDocumentAudit() {
   }
 }
 
+async function buildCodeInspectionAudit() {
+  const paths = {
+    appRoutes: 'frontend/src/App.tsx',
+    appLayout: 'frontend/src/components/layout/AppLayout.tsx',
+    dividendPage: 'frontend/src/pages/DividendLowVol.tsx',
+    backtestPage: 'frontend/src/pages/Backtest.tsx',
+    operationsPage: 'frontend/src/pages/Operations.tsx',
+    analysisPage: 'frontend/src/pages/Analysis.tsx',
+    analysisService: 'frontend/src/services/analysisService.ts',
+    backendIndex: 'backend/src/index.ts',
+    strategyRoutes: 'backend/src/routes/strategy.ts',
+    analysisRoutes: 'backend/src/routes/analysis.ts',
+    portfolioBacktestRoutes: 'backend/src/routes/portfolioBacktest.ts',
+    operationRoutes: 'backend/src/routes/operation.ts',
+  }
+  const source = Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([key, relativePath]) => [
+    key,
+    await readText(relativePath),
+  ])))
+  const checks = [
+    {
+      id: 'frontend_route_dividend_low_vol',
+      label: '前端存在红利低波独立路由',
+      status: source.appRoutes.includes('path="dividend-low-vol"') && source.appLayout.includes("key: 'dividend-low-vol'") ? 'passed' : 'failed',
+      evidence: `${paths.appRoutes} / ${paths.appLayout}`,
+    },
+    {
+      id: 'frontend_route_backtest',
+      label: '前端存在组合策略回测入口',
+      status: source.appRoutes.includes('path="backtest"') && source.appLayout.includes("key: 'backtest'") ? 'passed' : 'failed',
+      evidence: `${paths.appRoutes} / ${paths.appLayout}`,
+    },
+    {
+      id: 'frontend_route_operations',
+      label: '前端存在任务中心追溯入口',
+      status: source.appRoutes.includes('path="operations"') && source.appLayout.includes("key: 'operations'") ? 'passed' : 'failed',
+      evidence: `${paths.appRoutes} / ${paths.appLayout}`,
+    },
+    {
+      id: 'frontend_dividend_research_boundary',
+      label: '红利低波页面明确非交易指令和 AUTO_TRADE 禁止',
+      status: source.dividendPage.includes('不构成交易指令') && source.dividendPage.includes('AUTO_TRADE') ? 'passed' : 'failed',
+      evidence: paths.dividendPage,
+    },
+    {
+      id: 'frontend_dividend_filters_and_zones',
+      label: '红利低波页面包含筛选排序、买卖观察区间和滚动回测',
+      status: source.dividendPage.includes('筛选与排序') && source.dividendPage.includes('买入/卖出观察区间') && source.dividendPage.includes('滚动回测') ? 'passed' : 'failed',
+      evidence: paths.dividendPage,
+    },
+    {
+      id: 'frontend_backtest_formal_review_fields',
+      label: '组合回测页面展示数据等级、模型有效性、草案和正式交易锁',
+      status: source.backtestPage.includes('数据等级') && source.backtestPage.includes('模型有效性') && source.backtestPage.includes('草案') && source.backtestPage.includes('正式交易') ? 'passed' : 'failed',
+      evidence: paths.backtestPage,
+    },
+    {
+      id: 'frontend_analysis_fivd_r',
+      label: '分析建议页包含 FIVD-R 统一分析与交易阻断说明',
+      status: source.analysisPage.includes('FIVD-R 统一分析') && source.analysisPage.includes('交易阻断') ? 'passed' : 'failed',
+      evidence: paths.analysisPage,
+    },
+    {
+      id: 'backend_dividend_routes',
+      label: '后端暴露红利低波候选、交易区间、回测和 FIVD-R adapter',
+      status: source.strategyRoutes.includes('/dividend-low-vol/candidates') && source.strategyRoutes.includes('/dividend-low-vol/trading-zones') && source.strategyRoutes.includes('/dividend-low-vol/rolling-backtest') && source.strategyRoutes.includes('/dividend-low-vol/fivd-r/candidates') ? 'passed' : 'failed',
+      evidence: paths.strategyRoutes,
+    },
+    {
+      id: 'backend_portfolio_backtest_routes',
+      label: '后端暴露组合回测 templates/run 与正式交易解锁审计产物',
+      status: source.backendIndex.includes('portfolioBacktestRoutes') && source.portfolioBacktestRoutes.includes('/templates') && source.portfolioBacktestRoutes.includes('/run') && source.portfolioBacktestRoutes.includes('formal_trading_unlock_checklist') ? 'passed' : 'failed',
+      evidence: `${paths.backendIndex} / ${paths.portfolioBacktestRoutes}`,
+    },
+    {
+      id: 'backend_operation_artifacts',
+      label: '后端 Operation 支持 artifact 读取',
+      status: source.operationRoutes.includes('/artifacts/:ref') && source.operationRoutes.includes('getArtifact') ? 'passed' : 'failed',
+      evidence: paths.operationRoutes,
+    },
+    {
+      id: 'frontend_service_fivd_and_dividend_api',
+      label: '前端服务封装 FIVD-R 与红利低波接口',
+      status: source.analysisService.includes('/api/v1/analysis/fivd-r') && source.analysisService.includes('/api/v1/strategy/dividend-low-vol') ? 'passed' : 'failed',
+      evidence: paths.analysisService,
+    },
+  ]
+  return {
+    status: assessOverall(checks),
+    checks,
+    summary: {
+      inspectedFiles: Object.keys(paths).length,
+      passedChecks: checks.filter((item) => item.status === 'passed').length,
+      failedChecks: checks.filter((item) => item.status === 'failed').length,
+      blockedChecks: checks.filter((item) => item.status === 'blocked').length,
+    },
+  }
+}
+
 function buildPrdCoverage(commandResults, apiResults, screenshots) {
   const hasPassedCommand = (name) => commandResults.some((item) => item.name === name && item.status === 'passed')
   const hasPassedApi = (name) => apiResults.some((item) => item.name === name && item.status === 'passed')
@@ -308,6 +407,16 @@ function buildPrdCoverage(commandResults, apiResults, screenshots) {
       status: hasPassedCommand('trade action readiness') && hasPassedApi('组合回测 API') ? 'passed' : 'failed',
       evidence: '命令 + API prohibitedActions',
     },
+    {
+      capability: 'FIVD-R 统一分析入口和交易阻断可见',
+      status: hasPassedShot('FIVD-R 分析建议') && hasPassedCommand('fivd-r core') ? 'passed' : 'failed',
+      evidence: '截图 /analysis?section=fivdr + test:fivd-r-core',
+    },
+    {
+      capability: '跨设备基础可读性截图',
+      status: screenshots.some((item) => item.title === '移动端组合回测') && screenshots.some((item) => item.title === '平板端红利低波') ? 'passed' : 'failed',
+      evidence: 'Playwright desktop/tablet/mobile screenshots',
+    },
   ]
   return { status: assessOverall(rows), rows }
 }
@@ -321,6 +430,8 @@ function testCoverage(commandResults) {
     ['dividend low vol rolling backtest', '红利低波滚动回测'],
     ['dividend low vol validation retest', '红利低波验证 retest'],
     ['dividend low vol frontend runtime', '红利低波前端静态合同'],
+    ['fivd-r core', 'FIVD-R 核心合同'],
+    ['fivd-r trade gate contract', 'FIVD-R 交易 gate 合同'],
     ['portfolio strategy backtest', '组合策略回测服务'],
     ['portfolio backtest API contract', '组合回测 API 与 artifact 合同'],
     ['production readiness', '生产就绪 gate'],
@@ -358,22 +469,34 @@ async function runBrowserEvidence(apiResults) {
     await waitForBodyText(page, ['FAMS'])
     screenshots.push(await screenshot(page, '01-dashboard.png', '总览与侧边栏', '证明左侧菜单和系统入口可见。', ['FAMS', '红利低波策略', '策略回测']))
 
+    await page.goto(`${frontendUrl}/analysis?section=fivdr`, { waitUntil: 'networkidle', timeout: 120000 })
+    await waitForBodyText(page, ['分析建议', 'FIVD-R'], 120000)
+    screenshots.push(await screenshot(page, '02-analysis-fivd-r.png', 'FIVD-R 分析建议', '证明 FIVD-R 统一分析入口、研究/交易阻断语义可见。', ['FIVD-R', '交易', '建议']))
+
     await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'networkidle', timeout: 120000 })
     await waitForBodyText(page, ['红利低波策略', '不构成交易指令'])
-    screenshots.push(await screenshot(page, '02-dividend-low-vol-overview.png', '红利低波策略页', '独立菜单页、研究模式 banner、禁止交易动作。', ['红利低波策略', '不构成交易指令', 'AUTO_TRADE']))
+    screenshots.push(await screenshot(page, '03-dividend-low-vol-overview.png', '红利低波策略页', '独立菜单页、研究模式 banner、禁止交易动作。', ['红利低波策略', '不构成交易指令', 'AUTO_TRADE']))
     await page.getByText('筛选与排序').scrollIntoViewIfNeeded().catch(() => {})
-    screenshots.push(await screenshot(page, '03-dividend-low-vol-filters.png', '红利低波筛选与指标', '候选池筛选、排序和指标说明区域。', ['筛选与排序', '排序指标', '综合分']))
+    screenshots.push(await screenshot(page, '04-dividend-low-vol-filters.png', '红利低波筛选与指标', '候选池筛选、排序和指标说明区域。', ['筛选与排序', '排序指标', '综合分']))
     await page.getByText('买入/卖出观察区间与滚动策略').scrollIntoViewIfNeeded().catch(() => {})
-    screenshots.push(await screenshot(page, '04-dividend-low-vol-zones.png', '红利低波买卖区间', '买入/卖出观察区间、滚动回测和区间免责声明。', ['买入/卖出观察区间', '正式 ADD', '正式 REDUCE']))
+    screenshots.push(await screenshot(page, '05-dividend-low-vol-zones.png', '红利低波买卖区间', '买入/卖出观察区间、滚动回测和区间免责声明。', ['买入/卖出观察区间', '正式 ADD', '正式 REDUCE']))
     await page.getByText('人工交易计划草案 Gate').scrollIntoViewIfNeeded().catch(() => {})
-    screenshots.push(await screenshot(page, '05-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '人工计划草案 readiness、Top3 草案和交易 gate。', ['人工交易计划草案 Gate', '正式买入/卖出']))
+    screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '人工计划草案 readiness、Top3 草案和交易 gate。', ['人工交易计划草案 Gate', '正式买入/卖出']))
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'networkidle', timeout: 120000 })
+    await waitForBodyText(page, ['红利低波策略'], 120000)
+    screenshots.push(await screenshot(page, '07-tablet-dividend-low-vol.png', '平板端红利低波', '平板视口下验证红利低波页面可读性。', ['红利低波策略']))
+    await page.setViewportSize({ width: 1440, height: 1100 })
 
     await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'networkidle', timeout: 120000 })
     await waitForBodyText(page, ['组合策略对比回测', '运行组合回测'])
-    screenshots.push(await screenshot(page, '06-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行组合回测']))
+    screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行组合回测']))
     await page.getByRole('button', { name: '运行组合回测' }).click()
     await waitForBodyText(page, ['超额收益', 'Benchmark', '非交易建议'], 120000)
-    screenshots.push(await screenshot(page, '07-backtest-result.png', '组合回测结果', '组合净值曲线、收益指标、benchmark 和分红贡献。', ['Benchmark', '超额收益', '总收益']))
+    screenshots.push(await screenshot(page, '09-backtest-result.png', '组合回测结果', '组合净值曲线、收益指标、benchmark 和分红贡献。', ['Benchmark', '超额收益', '总收益']))
+    await page.setViewportSize({ width: 390, height: 844 })
+    screenshots.push(await screenshot(page, '10-mobile-backtest-result.png', '移动端组合回测', '移动视口下验证组合回测结果仍可访问和阅读。', ['策略回测']))
+    await page.setViewportSize({ width: 1440, height: 1100 })
 
     const portfolioApi = apiResults.find((item) => item.name === '组合回测 API')
     const firstArtifactRef = portfolioApi?.summary?.firstArtifactRef
@@ -384,7 +507,7 @@ async function runBrowserEvidence(apiResults) {
     await page.goto(operationsUrl, { waitUntil: 'networkidle', timeout: 120000 })
     await waitForBodyText(page, ['任务中心'], 120000)
     await page.waitForTimeout(2000)
-    screenshots.push(await screenshot(page, '08-operations-artifact.png', '任务中心产物', '任务中心 operation 与 artifact 可追溯。', ['任务中心', firstArtifactRef ? '任务产物' : '组合回测']))
+    screenshots.push(await screenshot(page, '11-operations-artifact.png', '任务中心产物', '任务中心 operation 与 artifact 可追溯。', ['任务中心', firstArtifactRef ? '任务产物' : '组合回测']))
   } catch (error) {
     screenshots.push({
       title: '浏览器验收异常',
@@ -473,6 +596,14 @@ function renderReport(model) {
     </tr>
   `).join('\n')
 
+  const codeRows = model.codeInspection.checks.map((item) => `
+    <tr>
+      <td>${escapeHtml(item.label)}</td>
+      <td>${renderStatus(item.status)}</td>
+      <td>${escapeHtml(item.evidence)}</td>
+    </tr>
+  `).join('\n')
+
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -536,6 +667,12 @@ function renderReport(model) {
   <h2>文档一致性审计</h2>
   <table><thead><tr><th>检查项</th><th>状态</th><th>文档</th><th>备注</th></tr></thead><tbody>${docRows}</tbody></table>
 
+  <h2>代码检视矩阵</h2>
+  <div class="card">
+    <p>该矩阵只检查代码中是否存在与 PRD 功能对应的入口、页面、接口和交易边界；它不是视觉验收，视觉结果以下方截图为准。</p>
+  </div>
+  <table><thead><tr><th>检查项</th><th>状态</th><th>证据文件</th></tr></thead><tbody>${codeRows}</tbody></table>
+
   <h2>用户场景截图证据</h2>
   ${screenshotHtml}
 
@@ -560,6 +697,7 @@ async function main() {
   await mkdir(screenshotDir, { recursive: true })
 
   const documentAudit = await buildDocumentAudit()
+  const codeInspection = await buildCodeInspectionAudit()
   const commands = [
     ['typescript', ['node', 'node_modules/typescript/bin/tsc'], backendDir, 240000],
     ['sqlite health', ['npm', 'run', 'check:sqlite-health'], backendDir, 180000],
@@ -568,6 +706,8 @@ async function main() {
     ['dividend low vol rolling backtest', ['npm', 'run', 'test:dividend-low-vol-rolling-backtest'], backendDir, 240000],
     ['dividend low vol validation retest', ['npm', 'run', 'test:dividend-low-vol-validation-retest'], backendDir, 240000],
     ['dividend low vol frontend runtime', ['npm', 'run', 'test:dividend-low-vol-frontend-runtime'], backendDir, 180000],
+    ['fivd-r core', ['npm', 'run', 'test:fivd-r-core'], backendDir, 240000],
+    ['fivd-r trade gate contract', ['npm', 'run', 'test:fivd-r-trade-gate-contract'], backendDir, 240000],
     ['portfolio strategy backtest', ['npm', 'run', 'test:portfolio-strategy-backtest'], backendDir, 240000],
     ['portfolio backtest API contract', ['npm', 'run', 'test:portfolio-backtest-api-contract'], backendDir, 240000],
     ['production readiness', ['npm', 'run', 'test:production-readiness'], backendDir, 240000],
@@ -663,6 +803,7 @@ async function main() {
   const coverage = testCoverage(commandResults)
   const criticalSections = [
     documentAudit,
+    codeInspection,
     prdCoverage,
     coverage,
     browser,
@@ -701,6 +842,7 @@ async function main() {
       ],
     },
     documentAudit,
+    codeInspection,
     prdCoverage,
     testCoverage: coverage,
     commands: commandResults,
@@ -720,6 +862,7 @@ async function main() {
   await writeFile(path.join(reportDir, 'prd-coverage-matrix.json'), JSON.stringify(prdCoverage, null, 2))
   await writeFile(path.join(reportDir, 'test-coverage-matrix.json'), JSON.stringify(coverage, null, 2))
   await writeFile(path.join(reportDir, 'document-consistency-audit.json'), JSON.stringify(documentAudit, null, 2))
+  await writeFile(path.join(reportDir, 'code-inspection-audit.json'), JSON.stringify(codeInspection, null, 2))
   await writeFile(path.join(reportDir, 'architecture-current-vs-target.json'), JSON.stringify(model.architecture, null, 2))
   await writeFile(path.join(reportDir, 'acceptance-report.html'), renderReport(model))
 

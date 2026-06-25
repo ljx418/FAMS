@@ -4,7 +4,18 @@ import { useNavigate } from 'react-router-dom'
 import { API_BASE } from '../../config/api'
 
 export type OperationTimelineStatus = 'queued' | 'running' | 'completed' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'partial'
-export type OperationTimelineType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'batch_factset_refresh' | 'fivd_r_portfolio_refresh'
+export type OperationTimelineType =
+  | 'refresh_prices'
+  | 'check_alerts'
+  | 'generate_daily_advice'
+  | 'run_backtest'
+  | 'generate_backtest_report'
+  | 'stock_screener_full_scan'
+  | 'batch_factset_refresh'
+  | 'quote_list_market_cap_warmup'
+  | 'market_bar_cache_preheat'
+  | 'fivd_r_portfolio_refresh'
+  | 'portfolio_backtest_run'
 
 export interface OperationTimelineItem {
   id: string
@@ -25,7 +36,10 @@ const TYPE_META: Record<OperationTimelineType, { label: string; color: string }>
   generate_backtest_report: { label: '回测报告', color: '#f97316' },
   stock_screener_full_scan: { label: '全A选股扫描', color: '#22c55e' },
   batch_factset_refresh: { label: '刷新事实集', color: '#a78bfa' },
+  quote_list_market_cap_warmup: { label: '市值补齐', color: '#14b8a6' },
+  market_bar_cache_preheat: { label: 'K线预热', color: '#f59e0b' },
   fivd_r_portfolio_refresh: { label: 'FIVD-R刷新', color: '#38bdf8' },
+  portfolio_backtest_run: { label: '组合回测', color: '#22d3ee' },
 }
 
 const STATUS_META: Record<OperationTimelineStatus, { color: string; label: string }> = {

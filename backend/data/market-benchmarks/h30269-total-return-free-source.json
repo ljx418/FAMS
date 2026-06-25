@@ -1,12 +1,12 @@
 {
   "schemaVersion": "dividend.low_vol.free_source_total_return_benchmark.v1",
-  "generatedAt": "2026-06-06T07:15:38.589Z",
+  "generatedAt": "2026-06-24T13:25:43.294Z",
   "name": "FAMS free-source equal-weight A-share price-return benchmark",
   "source": "market_bar_canonical_equal_weight_price_return",
   "note": "This is a local free-source benchmark built from market_bar_canonical close prices. It is not official H30269 and does not include index-level dividend total-return data.",
   "symbolCount": 300,
-  "requestedSymbols": 300,
-  "days": 120,
+  "requestedSymbols": 500,
+  "days": 260,
   "pointCount": 120,
   "points": [
     {

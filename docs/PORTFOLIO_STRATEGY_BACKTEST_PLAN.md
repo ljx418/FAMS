@@ -1,12 +1,33 @@
-# 组合策略回测开发与验收计划
+# 交互式策略回测与正式交易级前置 PRD / 开发与验收计划
 
-更新时间：2026-06-23
+更新时间：2026-06-24
 
 ## 1. 阶段目标
 
-本阶段目标是新增并持续完善“组合策略回测”能力，让用户可以选择不同投资组合策略，在不同起止时间段内查看收益率曲线、回撤曲线、关键指标和 benchmark 对比。
+本阶段目标是把 FAMS 从“研究页和单策略回测可用”推进到“交互式策略回测与正式交易级前置系统”。完成后，用户可以在前端选择多种组合或策略模板，设置不同起止时间和参数，查看收益率曲线、回撤曲线、关键指标、benchmark 对比、数据缺口、证据引用和交易 gate 状态，并基于结果生成人工计划草案。
 
-2026-06-23 当前阶段状态：
+本阶段不是正式交易放行阶段。开发完成后的目标状态是：
+
+```text
+interactiveStrategyBacktestReady=true
+researchGradeStrategyComparisonReady=true
+manualTradeDraftReady=true
+portfolioBacktestFormalReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+本阶段完成后的目标体验：
+
+1. 用户进入“策略回测”页面。
+2. 用户选择红利低波组合、当前持仓、永久组合、全天候组合、本地真实样本组合或自定义权重组合。
+3. 用户设置起止时间、初始资金、再平衡频率、分红处理、手续费、滑点和 benchmark。
+4. 用户点击运行后，页面展示多策略收益曲线、回撤曲线、指标表、benchmarkReturn、excessReturn、dividendContribution、dataCoverage 和 blockedReasons。
+5. 用户能打开每个策略的输入定义、行情覆盖、分红覆盖、benchmark 状态、交易约束和 evidenceRefs。
+6. 用户能基于红利低波或组合回测结果生成人工计划草案，但系统仍显示 `formalTargetWeight=0`、`canCreateOrder=false`。
+7. 所有页面和接口明确显示“研究回测，不构成交易指令”，并禁止正式 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
+
+2026-06-23 历史基线状态：
 
 ```text
 portfolioStrategyBacktestReady=research_grade_partial
@@ -17,7 +38,33 @@ formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
-已完成的研究级能力：
+2026-06-24 实现验收同步：
+
+```text
+interactiveStrategyBacktestReady=true
+researchGradeStrategyComparisonReady=true
+manualDraftReady=true
+portfolioBacktestFormalReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+runtimeHealth=healthy
+proxyEtfCoverage=ready
+frontendRuntimeEvidence=passed
+completedStrategies=7/7
+tradeConstraintCoveragePercent=99.69
+freeSourceTotalReturnBenchmarkReady=true
+dividendLowVolBasketStatus=completed
+dividendLowVolBasketComponentCount=3
+dividendLowVolBasketSymbols=000513,601398,000333
+```
+
+最新审计包：
+
+```text
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/SUMMARY_FOR_GPT.md
+```
+
+已完成能力：
 
 - 后端已新增 `PortfolioStrategyRegistry / PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService / PortfolioBacktestRoutes`。
 - 前端已在 `/backtest` 页面新增“组合策略对比回测”模块。
@@ -29,22 +76,28 @@ autoTradeUnlocked=false
 - 已补齐标准组合代理行情研究路径，`permanent_portfolio` 和 `all_weather` 可在本地代理行情覆盖满足时返回 completed 曲线。
 - `/api/v1/portfolio-backtest/run` 已支持 `executionMode=operation`，可生成 Operation 与 artifactRefs，并可在任务中心追溯。
 - API 和页面继续显示 `notTradingAdvice=true` 与禁止动作。
+- Runtime Health 已统一接入 `/health`、SQLite 检查、组合回测 API 和交互式策略回测审计包；当前状态为 `healthy`。
+- `/backtest` 前端已显示 runtime gate、SQLite 状态、Operation 持久化状态、价格收益、分红贡献、资本利得、成本拖累、benchmark 和超额收益。
+- 无头浏览器专项验收已通过，截图证据落盘在交互式策略回测审计包中。
 
 仍然阻断的目标能力：
 
-- 标准永久组合和全天候组合当前为研究级代理行情 completed，不等同于正式 total-return benchmark 验证。
-- 当前系统用户 open positions 为 0，`current_holdings_buy_and_hold` 保持 insufficient。
-- 分红事件、除权调整和正式 total-return benchmark 未接入，不能升级 formal validation。
+- 标准永久组合和全天候组合当前为研究级代理行情 completed，可进入组合回测正式评审；仍不等同于正式交易解锁。
+- 红利低波篮子已接入真实 `DividendLowVolDaily` 候选快照读取、等权 v1、tradeDate、selectionRules 和 evidenceRefs；通过免费源扩容后真实入篮数量达到 3/3，当前可在研究级组合回测中返回 completed 曲线，但不得用该结果解锁正式交易。
+- 已新增审计用户 `audit_portfolio_backtest_user` 的真实持仓样本，`current_holdings_buy_and_hold` 在该用户下可返回 completed 曲线；默认用户无持仓时仍保持 insufficient。
+- 已接入免费源 total-return benchmark，组合回测可达到 formal-review-ready；官方授权 total-return benchmark 和人工交易复核仍是正式交易解锁前置。
+- Runtime Health 已完成本阶段统一收口；后续若出现 critical 或 unconfirmed，必须阻断 full-A 持久化 scan、persistence-heavy backtest 和 formal validation promotion。
+- 正式交易级需要额外通过 formal provider、formal benchmark、交易约束、OOS、walk-forward、参数敏感性、分组稳定性和人工复核。
 
 目标状态：
 
 ```text
-portfolioStrategyBacktestReady=research_grade
+portfolioStrategyBacktestReady=formal_review_ready
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
-本阶段只输出研究结论和人工计划参考，不输出正式买卖指令。
+本阶段只输出研究结论、策略比较、观察提醒和人工计划草案，不输出正式买卖指令。
 
 允许动作：
 
@@ -65,10 +118,12 @@ ADD / REDUCE / AUTO_TRADE / ORDER_CREATE
 1. 选择组合模板：永久组合、全天候组合、当前真实持仓、红利低波组合、自定义权重组合。
 2. 设置回测区间：开始日期、结束日期、初始资金、再平衡频率、手续费、滑点、分红处理方式。
 3. 选择 benchmark：沪深300、中证红利、中证全指、现金基准，缺正式数据时显示 proxy。
-4. 点击运行回测，系统返回研究级回测结果；下一阶段升级为 Operation + artifactRefs。
+4. 点击运行回测，系统返回研究级回测结果；`executionMode=operation` 时生成 Operation + artifactRefs。
 5. 页面展示多组合收益率曲线、回撤曲线和指标表。
 6. 用户能对比不同起止时间段下的收益、回撤、波动率、Sharpe、Calmar、月度胜率、benchmarkReturn 和超额收益。
 7. 页面明确显示数据来源、新鲜度、缺失项和“研究回测，不构成交易指令”。
+8. 用户能保存或追溯回测 Operation artifact，包括输入参数、策略定义、曲线、指标、benchmark、缺口和交易 gate。
+9. 用户能从红利低波页面跳转到组合回测视角，比较红利低波篮子与永久组合、全天候、当前持仓和自定义组合；红利低波篮子已接入真实候选快照读取，当前 3 只真实入篮标的可返回 completed 曲线。若后续真实入篮数量低于最小 3 只或证据不足，必须回退为 insufficient，不得用样本组合替代。
 
 ## 3. 当前项目基线
 
@@ -87,14 +142,15 @@ ADD / REDUCE / AUTO_TRADE / ORDER_CREATE
 - 已有统一的组合策略版本定义、输入构建、费用、滑点、再平衡和 cash/local proxy benchmark。
 - 已有 `/api/v1/portfolio-backtest/templates` 与 `/api/v1/portfolio-backtest/run`。
 - 已有 API contract 验收和前端 build 验收。
+- 已有前端 runtime 专项验收，覆盖 `/backtest` 页面加载、runtime gate 展示、组合回测运行、曲线指标展示和非交易提示。
 
 剩余缺口：
 
-- 标准 ETF 代理行情已有研究级路径；仍需正式 total-return benchmark 和更严格 freshness/evidence 审计，才能升级 formal validation。
-- 正式宽基 benchmark 和 total-return benchmark 未接入。
-- 分红总回报未完成，`dividendContributionPercent` 仍不能作为 formal-grade 证据。
-- 当前持仓组合需要真实 open positions 才能完成。
-- Operation + artifactRefs 已接入组合回测研究路径；后续重点是运行态前端回归、artifact 完整性和正式数据源升级。
+- 组合回测已达到 `portfolioBacktestFormalReviewReady=true`，但该状态只表示“可进入人工评审”，不表示正式交易解锁。
+- 免费源 total-return benchmark 已接入并可支撑 formal review；官方授权 total-return benchmark 仍是正式交易级升级项。
+- 分红贡献、资本利得和成本拖累已可输出；后续仍需把分红事件、除权调整和再投资路径升级为官方源或可交叉验证源。
+- 审计用户 `audit_portfolio_backtest_user` 已有真实持仓样本，当前持仓组合在该用户下可 completed；默认用户无持仓时仍应保持 insufficient。
+- Operation + artifactRefs 已接入组合回测路径；后续重点是扩大正式数据源、模型有效性验证、人工复核记录和正式交易执行约束。
 
 ## 4. 目标架构
 
@@ -229,6 +285,7 @@ equityCurve
 drawdownCurve
 dailyReturns
 totalReturnPercent
+priceOnlyReturnPercent
 annualizedReturnPercent
 maxDrawdownPercent
 volatilityPercent
@@ -238,6 +295,7 @@ monthlyWinRate
 turnoverRate
 dividendContributionPercent
 capitalGainContributionPercent
+costDragPercent
 benchmarkReturnPercent
 excessReturnPercent
 dataCoverage
@@ -296,22 +354,40 @@ API 契约：
 ```http
 GET  /api/v1/portfolio-backtest/templates
 POST /api/v1/portfolio-backtest/run
-GET  /api/v1/portfolio-backtest/results/:operationId     # 下一阶段
-GET  /api/v1/portfolio-backtest/artifacts/:artifactId   # 下一阶段
 ```
 
-当前 `POST /run` 返回同步研究结果，用于前端即时体验和真实数据验收。下一阶段 `POST /run` 必须支持 Operation：
+当前 `POST /run` 支持两种模式：
+
+- 默认同步返回研究级组合回测结果，用于前端即时体验和真实数据验收。
+- `executionMode=operation` 时创建 Operation，返回 `operationId`、`artifactRefs` 和 result；artifact 通过任务中心既有 Operation artifact API 追溯。
 
 ```json
 {
   "operationId": "string",
-  "status": "queued",
+  "status": "completed",
   "artifactRefs": [],
   "notTradingAdvice": true
 }
 ```
 
-## 7. 开发计划
+## 7. 开发计划与当前状态
+
+本节记录从 research-grade 到 formal-review-ready 的开发计划。2026-06-24 最新验收显示 PBT-0 到 PBT-11 已完成本阶段要求；后续正式交易级升级计划维护在 `docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md`。
+
+### PBT-0 Runtime Health 与验收口径收口
+
+开发项：
+
+- 统一 `/health`、`check:sqlite-health`、红利低波 audit package 和全系统 E2E 的 runtime health 口径。
+- 当 runtime health 为 critical 或 unconfirmed 时，阻断 full-A 持久化 scan、persistence-heavy backtest 和 formal validation promotion。
+- 在前端任务中心和审计包中展示 runtime health 状态和阻断原因。
+
+验收标准：
+
+- 不能再出现“命令 passed 但 runtime audit critical 却被视为正式通过”的验收口径。
+- runtime critical 时，系统只能运行 dry-run、fixture 或小样本研究验证。
+- runtime healthy 时，才允许进入大样本持久化扫描和组合 Operation 回测。
+- 审计包必须记录 `runtimeHealth.status / sqliteHealthy / blockedActions / allowedActions`。
 
 ### PBT-1 文档与架构闭环
 
@@ -422,6 +498,8 @@ GET  /api/v1/portfolio-backtest/artifacts/:artifactId   # 下一阶段
 
 ### PBT-8 标准组合真实代理行情补齐
 
+当前状态：已完成本阶段验收。
+
 开发项：
 
 - 为 `510300 / 511010 / 511260 / 518880 / 159985` 补齐免费行情或正式 provider 行情。
@@ -435,7 +513,9 @@ GET  /api/v1/portfolio-backtest/artifacts/:artifactId   # 下一阶段
 - 页面明确标注 ETF 代理来源和更新时间。
 - 如果任何代理缺数据，仍保持 insufficient，不允许用本地 A 股样本冒充 ETF。
 
-### PBT-9 正式 benchmark 与分红总回报
+### PBT-9 Benchmark 与分红总回报
+
+当前状态：已完成本阶段 formal-review-ready 验收；官方授权 benchmark 和更严格分红事件链路是下一阶段升级项。
 
 开发项：
 
@@ -446,9 +526,9 @@ GET  /api/v1/portfolio-backtest/artifacts/:artifactId   # 下一阶段
 验收标准：
 
 - 至少一个正式或免费宽基 benchmark 可输出曲线。
-- `proxy` benchmark 不得被用于 formal validation。
+- `proxy` benchmark 不得被用于正式交易级 validation。
 - 分红贡献不再恒为 null。
-- 缺 total-return benchmark 时 formal validation 仍为 blocked。
+- 缺 total-return benchmark 时 portfolio formal review 仍为 blocked。
 
 ### PBT-10 Operation、Artifact 与前端运行态验收
 
@@ -464,6 +544,22 @@ GET  /api/v1/portfolio-backtest/artifacts/:artifactId   # 下一阶段
 - artifact 可被下载或预览。
 - 前端运行态验收覆盖加载、参数输入、运行、曲线、指标、缺口和非交易 banner。
 
+### PBT-11 组合回测正式评审前置
+
+当前状态：已完成本阶段验收，最新审计包显示 `portfolioBacktestFormalReviewReady=true`、`formalTradingUnlocked=false`。
+
+开发项：
+
+- 输出 formal review readiness artifact，聚合 runtime、provider、benchmark、tradeability、validation、manual review 和 frontend visibility。
+- 区分 `research_grade_passed`、`manual_draft_ready`、`formal_review_ready`、`formal_trading_unlocked`。
+- 增加正式交易级前置清单，但不自动解锁正式交易动作。
+
+验收标准：
+
+- 只有 runtime healthy、正式或可信数据覆盖达标、benchmark 不再依赖 proxy、交易约束完整、validation 全部 gate passed、人工复核通过时，才允许标记 `formalTradingReviewReady=true`。
+- 即使 `formalTradingReviewReady=true`，`formalTradingUnlocked` 仍需单独人工确认。
+- `AUTO_TRADE` 保持 false，除非未来另立独立项目和人工授权。
+
 ## 8. 出门条件
 
 当前已可出门为：
@@ -476,13 +572,25 @@ formal_trading_locked
 auto_trade_locked
 ```
 
+本阶段目标出门为：
+
+```text
+interactive_strategy_backtest_ready
+research_grade_strategy_comparison_ready
+portfolio_backtest_formal_review_ready
+manual_trade_draft_ready
+runtime_health_gate_consistent
+formal_trading_locked
+auto_trade_locked
+```
+
 下一阶段可以出门为：
 
 ```text
-standard_portfolio_proxy_data_ready
-portfolio_benchmark_research_ready
-portfolio_total_return_research_ready
-portfolio_operation_artifact_ready
+official_benchmark_upgrade_ready
+portfolio_model_effectiveness_review_ready
+manual_trade_review_workflow_ready
+formal_trading_unlock_prerequisites_ready
 ```
 
 不能出门为：
@@ -491,6 +599,7 @@ portfolio_operation_artifact_ready
 formal_portfolio_trade_ready
 auto_rebalance_ready
 auto_trade_ready
+formal_add_reduce_unlocked
 ```
 
 ## 9. 验收命令

@@ -3,10 +3,12 @@ import { prisma } from '../db/prisma.js'
 import { portfolioBacktestEngine } from '../services/portfolio-backtest/portfolioBacktestEngine.js'
 import { portfolioBacktestInputBuilder } from '../services/portfolio-backtest/portfolioBacktestInputBuilder.js'
 import { portfolioStrategyRegistry } from '../services/portfolio-backtest/portfolioStrategyRegistry.js'
+import { runtimeHealthService } from '../services/runtime/runtimeHealthService.js'
 import { ensureUser } from '../utils/user.js'
 
 export async function portfolioBacktestRoutes(app: FastifyInstance) {
   app.get('/templates', async () => {
+    const runtimeHealth = await runtimeHealthService.check({ prisma })
     return {
       schemaVersion: 'portfolio.strategy_backtest.templates.v1',
       generatedAt: new Date().toISOString(),
@@ -14,15 +16,41 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
       allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'PLAN_DRAFT'],
       prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
       notTradingAdvice: true,
+      runtimeHealth: {
+        status: runtimeHealth.status,
+        sqliteHealthy: runtimeHealth.sqliteHealthy,
+        decision: runtimeHealth.decision,
+      },
     }
   })
 
-  app.post('/run', async (request) => {
+  app.post('/run', async (request, reply) => {
     const body = request.body as Record<string, unknown>
+    const runtimeHealth = await runtimeHealthService.check({ prisma })
+    if (body?.executionMode === 'operation' && runtimeHealth.decision.largeBacktestPersistenceAllowed !== true) {
+      return reply.status(503).send({
+        schemaVersion: 'portfolio.strategy_backtest.operation_submission_blocked.v1',
+        status: 'blocked',
+        blockedReasons: ['runtime_health_blocks_operation_persistence'],
+        runtimeHealth: {
+          status: runtimeHealth.status,
+          sqliteHealthy: runtimeHealth.sqliteHealthy,
+          decision: runtimeHealth.decision,
+        },
+        allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'PLAN_DRAFT'],
+        prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
+        notTradingAdvice: true,
+      })
+    }
     const input = await portfolioBacktestInputBuilder.build({
       ...(body || {}),
       userId: typeof body?.userId === 'string' ? body.userId : 'default',
     } as any)
+    input.runtimeHealth = {
+      status: runtimeHealth.status,
+      sqliteHealthy: runtimeHealth.sqliteHealthy,
+      decision: runtimeHealth.decision,
+    }
     const result = await portfolioBacktestEngine.run(input)
     if (body?.executionMode === 'operation') {
       await ensureUser(prisma, input.request.userId)
@@ -35,11 +63,13 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           strategies: input.strategies,
           allowedActions: result.allowedActions,
           prohibitedActions: result.prohibitedActions,
+          runtimeHealth: result.runtimeHealth,
           notTradingAdvice: true,
         },
         '02_input_data_coverage.json': {
           schemaVersion: 'portfolio.backtest.input_data_coverage.v1',
           generatedAt: generatedAt.toISOString(),
+          runtimeHealth: result.runtimeHealth,
           inputDataQuality: input.dataQuality,
           strategyCoverage: result.strategies.map((strategy) => ({
             strategyId: strategy.definition.strategyId,
@@ -87,6 +117,65 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           prohibitedActions: result.prohibitedActions,
           formalTradingUnlocked: false,
           autoTradeUnlocked: false,
+          formalTradingUnlockChecklist: result.formalTradingUnlockChecklist,
+          runtimeHealth: result.runtimeHealth,
+          notTradingAdvice: true,
+        },
+        '07_formal_review_readiness.json': {
+          schemaVersion: 'portfolio.backtest.formal_review_readiness.v1',
+          generatedAt: generatedAt.toISOString(),
+          gradeMode: input.request.gradeMode || 'research',
+          formalReviewReadiness: result.formalReviewReadiness,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          notTradingAdvice: true,
+          prohibitedActions: result.prohibitedActions,
+        },
+        '08_data_grade_audit.json': {
+          schemaVersion: 'portfolio.backtest.data_grade_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          aggregate: result.dataGradeAudit,
+          strategies: result.strategies.map((strategy) => ({
+            strategyId: strategy.definition.strategyId,
+            displayName: strategy.definition.displayName,
+            dataGradeAudit: strategy.dataGradeAudit,
+          })),
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          notTradingAdvice: true,
+        },
+        '09_model_effectiveness_audit.json': {
+          schemaVersion: 'portfolio.backtest.model_effectiveness_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          aggregate: result.modelEffectiveness,
+          strategies: result.strategies.map((strategy) => ({
+            strategyId: strategy.definition.strategyId,
+            displayName: strategy.definition.displayName,
+            modelEffectiveness: strategy.modelEffectiveness,
+          })),
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          notTradingAdvice: true,
+        },
+        '10_manual_plan_draft_audit.json': {
+          schemaVersion: 'portfolio.backtest.manual_plan_draft_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          manualPlanDrafts: result.manualPlanDrafts,
+          policy: {
+            allowedActions: result.allowedActions,
+            prohibitedActions: result.prohibitedActions,
+            formalTargetWeightPercent: 0,
+          },
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          notTradingAdvice: true,
+        },
+        '11_formal_trading_unlock_checklist.json': {
+          schemaVersion: 'portfolio.backtest.formal_trading_unlock_checklist.v1',
+          generatedAt: generatedAt.toISOString(),
+          formalTradingUnlockChecklist: result.formalTradingUnlockChecklist,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
           notTradingAdvice: true,
         },
       }
@@ -114,6 +203,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
             insufficientStrategyCount: result.strategies.filter((strategy) => strategy.status === 'insufficient').length,
             allowedActions: result.allowedActions,
             prohibitedActions: result.prohibitedActions,
+            runtimeHealth: result.runtimeHealth,
             notTradingAdvice: true,
             artifacts,
           }),
@@ -133,6 +223,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
         artifactRefs,
         allowedActions: result.allowedActions,
         prohibitedActions: result.prohibitedActions,
+        runtimeHealth: result.runtimeHealth,
         notTradingAdvice: true,
       }
     }

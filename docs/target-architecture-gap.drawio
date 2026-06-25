@@ -1,373 +1,340 @@
 <mxfile host="Electron" agent="draw.io" pages="7">
-  <diagram id="page-target-experience" name="1 目标体验">
+  <diagram id="p1" name="1 目标体验">
     <mxGraphModel dx="1920" dy="1080" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="p1-title" value="红利低波策略目标体验：研究、观察、人工计划草案，不是自动交易" style="text;html=1;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
-          <mxGeometry x="210" y="40" width="1500" height="50" as="geometry" />
+        <mxCell id="p1-title" value="本阶段目标体验：交互式策略回测 + 正式交易级前置，不自动交易" style="text;html=1;fontSize=28;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="120" y="35" width="1680" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="p1-subtitle" value="用户能快速筛选高分红低波行业龙头，理解数据来源、价格新鲜度、买卖观察区间和交易 gate；系统始终禁止 ADD / REDUCE / AUTO_TRADE。" style="text;html=1;fontSize=16;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#4B5563;" vertex="1" parent="1">
-          <mxGeometry x="180" y="95" width="1560" height="36" as="geometry" />
+        <mxCell id="p1-a" value="入口体验&#xa;&#xa;用户从左侧进入策略回测或红利低波页面。页面顶部显示研究模式、数据状态、禁止动作和最新审计状态。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="160" width="300" height="190" as="geometry" />
         </mxCell>
-        <mxCell id="p1-entry" value="1 进入策略页面&#xa;&#xa;左侧菜单：红利低波策略&#xa;显示研究模式 banner&#xa;显示禁止动作和最新数据状态" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=16;spacing=12;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="100" y="200" width="300" height="190" as="geometry" />
+        <mxCell id="p1-b" value="选择策略&#xa;&#xa;红利低波篮子、当前持仓、永久组合、全天候组合、本地真实样本组合、自定义权重组合。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="430" y="160" width="310" height="190" as="geometry" />
         </mxCell>
-        <mxCell id="p1-candidates" value="2 筛选候选池&#xa;&#xa;全 A 候选&#xa;行业 / 等级 / 综合分 / 股息率 / 低波分 / 质量分 / 估值分筛选排序&#xa;所有字段必须有值或状态" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=16;spacing=12;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="470" y="200" width="320" height="190" as="geometry" />
+        <mxCell id="p1-c" value="设置参数&#xa;&#xa;起止时间、初始资金、再平衡频率、分红处理、手续费、滑点、benchmark。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="790" y="160" width="310" height="190" as="geometry" />
         </mxCell>
-        <mxCell id="p1-evidence" value="3 理解证据&#xa;&#xa;入选理由&#xa;剔除原因分类&#xa;行业龙头证据&#xa;分红事实集&#xa;风险标记和 evidenceRefs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=16;spacing=12;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="860" y="200" width="320" height="190" as="geometry" />
+        <mxCell id="p1-d" value="查看结果&#xa;&#xa;收益曲线、回撤曲线、指标表、benchmarkReturn、excessReturn、dividendContribution、dataCoverage、blockedReasons。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="160" width="340" height="190" as="geometry" />
         </mxCell>
-        <mxCell id="p1-zones" value="4 查看观察区间&#xa;&#xa;买入观察区间&#xa;卖出观察区间&#xa;止损 / 失效条件&#xa;priceAudit：交易日、来源、新鲜度、错配检查" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=16;spacing=12;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="1250" y="200" width="330" height="190" as="geometry" />
+        <mxCell id="p1-e" value="追溯证据&#xa;&#xa;打开每个策略的输入定义、行情覆盖、分红覆盖、benchmark 状态、交易约束、evidenceRefs 和 Operation artifact。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="360" y="500" width="360" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="p1-draft" value="5 生成人工草案&#xa;&#xa;manual draft&#xa;manual acceptance&#xa;watchlist&#xa;pretrade check&#xa;formalTargetWeight=0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=16;spacing=12;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="520" width="330" height="190" as="geometry" />
+        <mxCell id="p1-f" value="人工计划草案&#xa;&#xa;满足 gate 时只生成 manual draft / watchlist / pretrade check。formalTargetWeight=0，canCreateOrder=false。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="800" y="500" width="360" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="p1-audit" value="6 审计追溯&#xa;&#xa;Operation 状态&#xa;daily scan 调度&#xa;审计包&#xa;validation retest&#xa;trade gate contract" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=16;spacing=12;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="780" y="520" width="330" height="190" as="geometry" />
+        <mxCell id="p1-g" value="硬边界&#xa;&#xa;禁止正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE。研究回测不能包装成正式交易验证。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="500" width="360" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="p1-gate" value="硬边界&#xa;&#xa;免费源不能保证 100% 每日最新&#xa;stale / unknown / price_zone_mismatch =&gt; 需刷新后重算&#xa;validation insufficient =&gt; 保持研究和草案&#xa;禁止 ADD / REDUCE / AUTO_TRADE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=16;fontStyle=1;spacing=12;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="1290" y="520" width="390" height="210" as="geometry" />
-        </mxCell>
-        <mxCell id="p1-e1" value="使用路径" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="p1-entry" target="p1-candidates">
+        <mxCell id="p1-e1" value="选择" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p1-a" target="p1-b">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p1-e2" value="查看" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="p1-candidates" target="p1-evidence">
+        <mxCell id="p1-e2" value="配置" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p1-b" target="p1-c">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p1-e3" value="复核" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="p1-evidence" target="p1-zones">
+        <mxCell id="p1-e3" value="运行" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p1-c" target="p1-d">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p1-e4" value="只生成草案" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" edge="1" parent="1" source="p1-zones" target="p1-draft">
+        <mxCell id="p1-e4" value="查看证据" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p1-d" target="p1-e">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p1-e5" value="产物追踪" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" edge="1" parent="1" source="p1-draft" target="p1-audit">
+        <mxCell id="p1-e5" value="人工复核" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p1-e" target="p1-f">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p1-e6" value="交易保护" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" edge="1" parent="1" source="p1-audit" target="p1-gate">
+        <mxCell id="p1-e6" value="交易保护" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p1-f" target="p1-g">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="page-current-target-architecture" name="2 当前架构与目标架构">
-    <mxGraphModel dx="2093" dy="972" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+  <diagram id="p2" name="2 当前架构与目标架构">
+    <mxGraphModel dx="3005" dy="1531" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="p2-title" parent="1" style="text;html=1;fontSize=28;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;" value="当前架构到目标架构：灰色已实现，黄色需增强，橘黄新增目标，红色交易边界" vertex="1">
-          <mxGeometry height="50" width="1600" x="170" y="40" as="geometry" />
+        <mxCell id="p2-title" parent="1" style="text;html=1;fontSize=28;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;" value="当前架构与目标架构关系：灰色已实现，黄色需修改，橘黄需新增，红色硬边界" vertex="1">
+          <mxGeometry height="55" width="1680" x="120" y="35" as="geometry" />
         </mxCell>
-        <mxCell id="p2-fe" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=16;spacing=12;" value="前端体验层（已实现）&#xa;&#xa;资产 / 持仓 / 组合 / Operations&#xa;红利低波独立菜单&#xa;候选筛选排序&#xa;买卖观察区间&#xa;人工草案与验收记录" vertex="1">
-          <mxGeometry height="230" width="300" x="80" y="170" as="geometry" />
+        <mxCell id="p2-fe" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" value="当前前端层（已实现）&#xa;&#xa;React/Vite；资产、持仓、分析、策略回测、红利低波、任务中心。已具备多曲线展示和研究模式提示。" vertex="1">
+          <mxGeometry height="220" width="320" x="70" y="150" as="geometry" />
         </mxCell>
-        <mxCell id="p2-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=16;spacing=12;" value="API 与领域服务（已实现）&#xa;&#xa;Fastify REST&#xa;DividendLowVol routes/services&#xa;Operation Service&#xa;Backtest / Validation&#xa;Manual workflow" vertex="1">
-          <mxGeometry height="230" width="300" x="460" y="170" as="geometry" />
+        <mxCell id="p2-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" value="当前 API/服务层（已实现）&#xa;&#xa;Fastify REST；PortfolioBacktest、DividendLowVol、Operation、Validation、Manual workflow。" vertex="1">
+          <mxGeometry height="220" width="320" x="440" y="150" as="geometry" />
         </mxCell>
-        <mxCell id="p2-domain" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=16;spacing=12;" value="事实与策略层（需增强）&#xa;&#xa;MarketBar / Feature / FactSet&#xa;红利低波评分与硬规则&#xa;leader / dividend 证据&#xa;priceAudit&#xa;FIVD-R 是 validation gate，不是已证明有效的交易模型" vertex="1">
-          <mxGeometry height="230" width="330" x="840" y="170" as="geometry" />
+        <mxCell id="p2-data" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" value="当前数据层（已实现，仍需增强）&#xa;&#xa;SQLite + 本地缓存 + 免费数据源；market_bar_canonical、provider health、freshness、coverage。Runtime Health 已统一，当前 healthy；免费源 total-return benchmark 与交易约束覆盖已达到组合回测正式评审 ready。" vertex="1">
+          <mxGeometry height="220" width="350" x="810" y="150" as="geometry" />
         </mxCell>
-        <mxCell id="p2-audit" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=16;spacing=12;" value="任务与审计层（已实现，需持续增强）&#xa;&#xa;Operation 状态机&#xa;scheduler / daily scan&#xa;artifactRefs&#xa;GPT audit package&#xa;validation / manual acceptance audit" vertex="1">
-          <mxGeometry height="230" width="340" x="1250" y="170" as="geometry" />
+        <mxCell id="p2-audit" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" value="当前审计层（已实现）&#xa;&#xa;Operation artifact、GPT audit package、前端运行态截图、trade gate contract。组合回测最新审计包显示 7/7 策略完成，formal-review-ready。" vertex="1">
+          <mxGeometry height="220" width="360" x="120" y="590" as="geometry" />
         </mxCell>
-        <mxCell id="p2-data-current" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=16;spacing=12;" value="当前数据底座（需增强）&#xa;&#xa;SQLite + 本地缓存&#xa;免费数据源 research provider&#xa;market_bar_raw / canonical&#xa;provider_health&#xa;coverage / freshness / fallback audit" vertex="1">
-          <mxGeometry height="220" width="340" x="190" y="540" as="geometry" />
+        <mxCell id="p2-target-data" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" value="目标数据能力（已部分达成，继续增强）&#xa;&#xa;ETF 代理行情 &gt;=250 交易日已达成；免费源 total-return benchmark 已接入；后续增强官方授权 benchmark、分红事件、除权调整、正式 provider。" vertex="1">
+          <mxGeometry height="250" width="390" x="510" y="580" as="geometry" />
         </mxCell>
-        <mxCell id="p2-data-target" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=16;spacing=12;" value="目标正式数据能力（新增目标）&#xa;&#xa;PostgreSQL staging&#xa;正式 provider 字段覆盖&#xa;Tushare optional upgrade&#xa;官方 total-return benchmark&#xa;涨跌停 / 停牌 / 退市事实" vertex="1">
-          <mxGeometry height="220" width="360" x="650" y="540" as="geometry" />
+        <mxCell id="p2-target-engine" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" value="目标回测能力（已实现正式评审前置）&#xa;&#xa;多策略同屏比较；price-only / dividend cash / reinvest 指标；费用、滑点、再平衡；Operation 化运行；任务中心追踪。" vertex="1">
+          <mxGeometry height="250" width="390" x="980" y="580" as="geometry" />
         </mxCell>
-        <mxCell id="p2-validation" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=16;spacing=12;" value="目标正式验证能力（新增目标）&#xa;&#xa;OOS 正收益与超额收益&#xa;walk-forward 多窗口&#xa;参数敏感性&#xa;行业 / 市场状态 / 流动性分组稳定&#xa;历史数据覆盖、交易约束和 formal validation artifact 全部通过" vertex="1">
-          <mxGeometry height="220" width="380" x="1130" y="540" as="geometry" />
+        <mxCell id="p2-target-review" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" value="组合回测正式评审前置（已达成）&#xa;&#xa;formal review readiness artifact 聚合 runtime、benchmark、tradeability、frontend visibility。当前 portfolioBacktestFormalReviewReady=true；正式交易仍需人工确认。" vertex="1">
+          <mxGeometry height="250" width="390" x="1450" y="580" as="geometry" />
         </mxCell>
-        <mxCell id="p2-gate" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=16;fontStyle=1;spacing=12;" value="交易硬边界（当前与目标均保留）&#xa;&#xa;当前：manual draft ready only&#xa;formalTargetWeight=0&#xa;canCreateOrder=false&#xa;任一 insufficient 不放行&#xa;AUTO_TRADE 始终独立授权" vertex="1">
-          <mxGeometry height="260" width="310" x="1530" y="500" as="geometry" />
+        <mxCell id="p2-gate" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;spacing=12;arcSize=8;" value="交易硬边界（当前与目标均保留）&#xa;&#xa;本阶段只允许 RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT。正式 ADD / REDUCE、订单创建、自动再平衡和 AUTO_TRADE 不放行。" vertex="1">
+          <mxGeometry height="120" width="770" x="875" y="905" as="geometry" />
         </mxCell>
-        <mxCell id="p2-e1" edge="1" parent="1" source="p2-fe" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" target="p2-api" value="REST">
+        <mxCell id="p2-e1" edge="1" parent="1" source="p2-fe" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" target="p2-api" value="REST">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p2-e2" edge="1" parent="1" source="p2-api" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" target="p2-domain" value="策略服务">
+        <mxCell id="p2-e2" edge="1" parent="1" source="p2-api" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" target="p2-data" value="读写">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p2-e3" edge="1" parent="1" source="p2-domain" style="endArrow=block;html=1;strokeColor=#D97706;strokeWidth=2;" target="p2-audit" value="产物">
+        <mxCell id="p2-e3" edge="1" parent="1" source="p2-api" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" target="p2-audit" value="产物">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p2-e4" edge="1" parent="1" source="p2-data-current" style="endArrow=block;html=1;strokeColor=#D97706;strokeWidth=2;" target="p2-domain" value="免费源">
+        <mxCell id="p2-e4" edge="1" parent="1" source="p2-data" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" target="p2-target-data" value="补齐">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p2-e5" edge="1" parent="1" source="p2-data-current" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" target="p2-data-target" value="升级路径">
+        <mxCell id="p2-e5" edge="1" parent="1" source="p2-target-data" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" target="p2-target-engine" value="输入">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p2-e6" edge="1" parent="1" source="p2-data-target" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" target="p2-validation" value="正式数据">
+        <mxCell id="p2-e6" edge="1" parent="1" source="p2-target-engine" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" target="p2-target-review" value="审计">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p2-e7" edge="1" parent="1" source="p2-validation" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" target="p2-gate" value="gate">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2-e8" edge="1" parent="1" source="p2-audit" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" target="p2-gate" value="审计阻断">
+        <mxCell id="p2-e7" edge="1" parent="1" source="p2-target-review" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;fontSize=12;" target="p2-gate" value="gate">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="page-dividend-architecture" name="3 红利低波目标架构">
-    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
-      <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="p3-title" parent="1" style="text;html=1;fontSize=28;fontStyle=1;align=center;strokeColor=none;fillColor=none;fontColor=#111827;" value="红利低波目标架构：数据、事实、评分、区间、草案、审计闭环" vertex="1">
-          <mxGeometry height="50" width="1460" x="230" y="40" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-data" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=16;spacing=12;" value="数据输入&#xa;&#xa;全 A quote list&#xa;免费行情与分红源&#xa;market bar / feature&#xa;正式 provider 可选升级&#xa;每日收盘 scheduler" vertex="1">
-          <mxGeometry height="220" width="300" x="90" y="190" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-fact" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=16;spacing=12;" value="事实集层&#xa;&#xa;DividendLowVolFactSet&#xa;DividendFactSet&#xa;leaderEvidence&#xa;dataVerification&#xa;metricCompleteness&#xa;evidenceRefs" vertex="1">
-          <mxGeometry height="220" width="310" x="470" y="190" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-score" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=16;spacing=12;" value="策略评分与硬规则&#xa;&#xa;股息率 &gt;= 4%&#xa;行业龙头&#xa;连续分红&#xa;分红质量&#xa;低波动 / 估值 / 时机&#xa;高息陷阱剔除" vertex="1">
-          <mxGeometry height="220" width="320" x="860" y="190" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-zone" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=16;spacing=12;" value="观察区间与价格审计&#xa;&#xa;yield + MA 模型&#xa;Bollinger 对照模型&#xa;priceAudit&#xa;fresh / stale / unknown&#xa;aligned / mismatch / insufficient&#xa;需刷新后重算" vertex="1">
-          <mxGeometry height="220" width="350" x="1260" y="190" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-alert" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=16;spacing=12;" value="提醒与人工计划&#xa;&#xa;低位观察&#xa;建仓计划草案&#xa;高位观察&#xa;退出风险&#xa;watchlist&#xa;pretrade check" vertex="1">
-          <mxGeometry height="220" width="330" x="620" y="500" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-validation" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=16;spacing=12;" value="回测与验证&#xa;&#xa;含分红总回报&#xa;费用 / 滑点&#xa;benchmark proxy 标记&#xa;OOS / walk-forward&#xa;参数 / 分组稳定&#xa;当前是研究验证；formal validation 未通过前不证明模型有效" vertex="1">
-          <mxGeometry height="220" width="360" x="1260" y="500" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-audit" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=16;fontStyle=1;spacing=12;" value="审计与交易 Gate&#xa;&#xa;GPT audit package&#xa;runtime/data/provider audit&#xa;validation retest&#xa;manual acceptance audit&#xa;FIVD-R 仅可阻断和解释&#xa;formalTargetWeight=0&#xa;ADD / REDUCE / AUTO_TRADE 禁止" vertex="1">
-          <mxGeometry height="230" width="390" x="870" y="840" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-e1" edge="1" parent="1" source="p3-data" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" target="p3-fact" value="采集">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-e2" edge="1" parent="1" source="p3-fact" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" target="p3-score" value="构建">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-e3" edge="1" parent="1" source="p3-score" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" target="p3-zone" value="候选">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-e4" edge="1" parent="1" source="p3-zone" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" target="p3-alert" value="观察">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-e5" edge="1" parent="1" source="p3-zone" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" target="p3-validation" value="验证">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-e6" edge="1" parent="1" source="p3-validation" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" target="p3-audit" value="gate">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3-e7" edge="1" parent="1" source="p3-alert" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" target="p3-audit" value="人工复核">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-  <diagram id="page-plan-milestones" name="4 开发计划与里程碑">
+  <diagram id="p3" name="3 交互式策略回测架构">
     <mxGraphModel dx="1920" dy="1080" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="p4-title" value="开发计划与里程碑：本阶段完成文档可驱动、体验可验收、交易边界清晰" style="text;html=1;fontSize=28;fontStyle=1;align=center;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
-          <mxGeometry x="180" y="40" width="1560" height="50" as="geometry" />
+        <mxCell id="p3-title" value="交互式策略回测目标架构：模板、输入、引擎、benchmark、artifact、前端展示" style="text;html=1;fontSize=28;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="120" y="35" width="1680" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="p4-d1" value="D1 文档与架构闭环&#xa;&#xa;PRD / 验收计划 / TARGET_ARCHITECTURE_GAP / drawio&#xa;目标体验、目标架构、gap、出门条件一致" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="90" y="170" width="280" height="180" as="geometry" />
+        <mxCell id="p3-templates" value="策略模板层&#xa;&#xa;permanent_portfolio&#xa;all_weather&#xa;current_holdings_buy_and_hold&#xa;dividend_low_vol_basket&#xa;custom_weight_portfolio&#xa;local_real_data_*" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="160" width="330" height="260" as="geometry" />
         </mxCell>
-        <mxCell id="p4-d2" value="D2 数据研究链路&#xa;&#xa;免费源默认&#xa;Tushare 可选升级&#xa;daily scan&#xa;freshness / coverage / fallback audit&#xa;候选表无空白" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="430" y="170" width="280" height="180" as="geometry" />
+        <mxCell id="p3-input" value="输入构建层&#xa;&#xa;strategyVersion、assetUniverse、weightPolicy、rebalancePolicy、dividendPolicy、costModel、benchmarkPolicy、evidenceRefs。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="470" y="160" width="340" height="260" as="geometry" />
         </mxCell>
-        <mxCell id="p4-d3" value="D3 龙头与分红事实&#xa;&#xa;leader status&#xa;dividend factset&#xa;risk flags&#xa;rejection taxonomy&#xa;seed fallback 不 verified" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="770" y="170" width="280" height="180" as="geometry" />
+        <mxCell id="p3-data" value="数据与约束层&#xa;&#xa;行情、分红、ETF 代理、benchmark、涨跌停、停牌、ST/退市、freshness、coverage、blockedReasons。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="870" y="160" width="350" height="260" as="geometry" />
         </mxCell>
-        <mxCell id="p4-d4" value="D4 回测与验证&#xa;&#xa;红利含分红回测&#xa;组合策略多曲线回测&#xa;local benchmark / proxy 明示&#xa;OOS / walk-forward / 参数 / 分组&#xa;insufficient 不放行" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="1110" y="170" width="300" height="180" as="geometry" />
+        <mxCell id="p3-engine" value="组合 replay 引擎&#xa;&#xa;按日净值、收益、回撤、再平衡、费用、滑点、分红现金/再投资、benchmark 对比。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="160" width="350" height="260" as="geometry" />
         </mxCell>
-        <mxCell id="p4-d5" value="D5 人工草案路径&#xa;&#xa;candidate -&gt; draft -&gt; acceptance -&gt; watchlist -&gt; pretrade check&#xa;formalTargetWeight=0&#xa;canCreateOrder=false" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="1480" y="170" width="300" height="180" as="geometry" />
+        <mxCell id="p3-artifact" value="Operation 与 artifact&#xa;&#xa;01 输入定义&#xa;02 数据覆盖&#xa;03 曲线和指标&#xa;04 benchmark&#xa;05 前端路径&#xa;06 trade gate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="300" y="560" width="360" height="250" as="geometry" />
         </mxCell>
-        <mxCell id="p4-d6" value="D6 正式交易评审前置&#xa;&#xa;正式 provider&#xa;官方 / 免费宽基 total-return benchmark&#xa;ETF 代理行情覆盖&#xa;完整交易约束&#xa;formal validation 全通过&#xa;人工复核通过" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;fontStyle=1;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="760" y="430" width="380" height="190" as="geometry" />
+        <mxCell id="p3-ui" value="前端展示&#xa;&#xa;多曲线图、回撤图、指标表、数据缺口、benchmark 状态、分红贡献、非交易提示。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="780" y="560" width="360" height="250" as="geometry" />
         </mxCell>
-        <mxCell id="p4-m0" value="M0 Research Evidence Ready&#xa;候选池可解释，研究验证可复现" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="130" y="760" width="290" height="90" as="geometry" />
+        <mxCell id="p3-contract" value="输出契约&#xa;&#xa;每条曲线必须包含 strategyId、dateRange、dataCoverage、evidenceRefs、warnings、blockedReasons、notTradingAdvice。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="560" width="360" height="250" as="geometry" />
         </mxCell>
-        <mxCell id="p4-m1" value="M1 Manual Draft Ready&#xa;人工草案可生成、可复核、不可下单" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="480" y="760" width="290" height="90" as="geometry" />
-        </mxCell>
-        <mxCell id="p4-m2" value="M2 Documentation Gate Ready&#xa;文档和 drawio 可驱动 PBT-8~PBT-10 开发" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="830" y="760" width="290" height="90" as="geometry" />
-        </mxCell>
-        <mxCell id="p4-m3" value="M3 Daily Freshness Gate Ready&#xa;日更调度、priceAudit、异常阻断可验收" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="1180" y="760" width="300" height="90" as="geometry" />
-        </mxCell>
-        <mxCell id="p4-m4" value="M4/M5 Formal Review&#xa;正式数据和 formal validation 通过后才讨论交易动作" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="1540" y="760" width="300" height="90" as="geometry" />
-        </mxCell>
-        <mxCell id="p4-e1" value="" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="p4-d1" target="p4-d2">
+        <mxCell id="p3-e1" value="选择" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p3-templates" target="p3-input">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p4-e2" value="" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="p4-d2" target="p4-d3">
+        <mxCell id="p3-e2" value="构建输入" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p3-input" target="p3-data">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p4-e3" value="" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" edge="1" parent="1" source="p4-d3" target="p4-d4">
+        <mxCell id="p3-e3" value="回测" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p3-data" target="p3-engine">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p4-e4" value="" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" edge="1" parent="1" source="p4-d4" target="p4-d5">
+        <mxCell id="p3-e4" value="落盘" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p3-engine" target="p3-artifact">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p4-e5" value="只做前置，不自动放行" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" edge="1" parent="1" source="p4-d5" target="p4-d6">
+        <mxCell id="p3-e5" value="展示" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p3-artifact" target="p3-ui">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p4-e6" value="" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="p4-m0" target="p4-m1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p4-e7" value="" style="endArrow=block;html=1;strokeColor=#D97706;strokeWidth=2;" edge="1" parent="1" source="p4-m1" target="p4-m2">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p4-e8" value="" style="endArrow=block;html=1;strokeColor=#D97706;strokeWidth=2;" edge="1" parent="1" source="p4-m2" target="p4-m3">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p4-e9" value="" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" edge="1" parent="1" source="p4-m3" target="p4-m4">
+        <mxCell id="p3-e6" value="验收" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p3-ui" target="p3-contract">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="page-acceptance-exit" name="5 验收门槛与出门条件">
-    <mxGraphModel dx="1920" dy="1080" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+  <diagram id="p4" name="4 红利低波联动">
+    <mxGraphModel dx="1884" dy="876" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="p5-title" value="验收门槛与出门条件：用户看得到、系统验得过、交易不误放" style="text;html=1;fontSize=28;fontStyle=1;align=center;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
-          <mxGeometry x="210" y="40" width="1500" height="50" as="geometry" />
+        <mxCell id="p4-title" parent="1" style="text;html=1;fontSize=28;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;" value="红利低波策略进入组合回测视角：从单只候选到篮子比较" vertex="1">
+          <mxGeometry height="55" width="1680" x="120" y="35" as="geometry" />
         </mxCell>
-        <mxCell id="p5-doc" value="文档验收&#xa;&#xa;drawio 页数 &lt;= 8&#xa;中文书写&#xa;可被 read-drawio 解析&#xa;目标体验 / 架构差异 / 计划 / 里程碑 / 门槛 / 出门条件一致" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=16;spacing=12;" vertex="1" parent="1">
-          <mxGeometry x="90" y="170" width="330" height="230" as="geometry" />
+        <mxCell id="p4-a" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" value="候选池输入&#xa;&#xa;全 A 筛选；股息率 &gt;=4%；行业龙头；分红质量；低波动；估值；低位/高位；priceAudit。" vertex="1">
+          <mxGeometry height="230" width="330" x="100" y="170" as="geometry" />
         </mxCell>
-        <mxCell id="p5-user" value="用户体验验收&#xa;&#xa;能进入红利低波页面并筛选候选&#xa;能进入策略回测页并比较至少 3 条 completed 曲线&#xa;能看懂入选、剔除、priceAudit、benchmark 和缺口&#xa;能生成草案但不能下单" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="500" y="170" width="340" height="230" as="geometry" />
+        <mxCell id="p4-b" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" value="篮子构建（已完成正式评审前置）&#xa;&#xa;已读取 DividendLowVolDaily 快照、等权 v1、tradeDate、selectionRules、evidenceRefs。当前真实快照 3/3：000513、601398、000333；可用于组合回测正式评审，不用于自动交易。" vertex="1">
+          <mxGeometry height="230" width="390" x="500" y="170" as="geometry" />
         </mxCell>
-        <mxCell id="p5-data" value="数据与价格验收&#xa;&#xa;scanCoverage &gt;= 80%&#xa;providerSuccess &gt;= 95%&#xa;cacheHit &gt;= 80%&#xa;bestSampleSize &gt;= 100&#xa;组合回测：真实行情曲线、ETF 代理覆盖、benchmarkCoverage 可审计&#xa;stale / unknown / mismatch =&gt; 需刷新后重算" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="920" y="170" width="360" height="230" as="geometry" />
+        <mxCell id="p4-c" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" value="回测比较&#xa;&#xa;红利低波篮子与当前持仓、永久组合、全天候、自定义组合比较；展示收益、回撤、benchmark、分红贡献和缺口。" vertex="1">
+          <mxGeometry height="230" width="390" x="1150" y="170" as="geometry" />
         </mxCell>
-        <mxCell id="p5-validation" value="验证与审计验收&#xa;&#xa;effectivePathCount &gt;= 30&#xa;industryGroupCount &gt;= 3&#xa;walkForwardWindows &gt;= 6&#xa;proxy / local benchmark 不解锁 formal&#xa;组合回测审计包记录策略定义、曲线、benchmark、缺口和 gate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="1360" y="170" width="380" height="230" as="geometry" />
+        <mxCell id="p4-d" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" value="买卖观察区间&#xa;&#xa;yield + MA 模型、Bollinger 对照模型、买入观察区间、卖出观察区间、失效条件、需刷新后重算。" vertex="1">
+          <mxGeometry height="230" width="390" x="280" y="540" as="geometry" />
         </mxCell>
-        <mxCell id="p5-commands" value="机器验收命令&#xa;&#xa;node docs/read-drawio.mjs docs/target-architecture-gap.drawio&#xa;backend: tsc / test:dividend-low-vol-api / rolling-backtest / test:portfolio-backtest-api-contract / test:portfolio-strategy-backtest / production-readiness / trade-action-readiness&#xa;frontend: npm run build" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=14;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="120" y="530" width="560" height="220" as="geometry" />
+        <mxCell id="p4-e" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" value="人工计划草案&#xa;&#xa;只有 validation/manual gate 支持时生成草案。当前仍是 manual draft，不是正式 ADD / REDUCE。" vertex="1">
+          <mxGeometry height="230" width="390" x="760" y="540" as="geometry" />
         </mxCell>
-        <mxCell id="p5-exit-yes" value="本阶段可以出门为&#xa;&#xa;documentation_and_research_workflow_ready&#xa;manual_trade_draft_ready&#xa;daily_freshness_gate_documented&#xa;portfolio_strategy_backtest_research_ready&#xa;multi_portfolio_curve_compare_ready&#xa;formal_trading_locked / auto_trade_locked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D1FAE5;strokeColor=#059669;fontSize=15;fontStyle=1;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="760" y="530" width="420" height="220" as="geometry" />
+        <mxCell id="p4-f" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;spacing=12;arcSize=8;" value="红利低波交易边界&#xa;&#xa;formalTargetWeight=0；canCreateOrder=false；AUTO_TRADE=false；免费源 benchmark、proxy benchmark 或 insufficient 均不得自动解锁正式动作。" vertex="1">
+          <mxGeometry height="230" width="390" x="1240" y="540" as="geometry" />
         </mxCell>
-        <mxCell id="p5-exit-no" value="本阶段不能出门为&#xa;&#xa;formal_trade_action_ready&#xa;auto_trade_ready&#xa;正式 ADD / REDUCE&#xa;订单创建&#xa;免费源 100% 最新承诺&#xa;proxy benchmark formal 化" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=16;fontStyle=1;spacing=12;" vertex="1" parent="1">
-          <mxGeometry x="1280" y="530" width="440" height="220" as="geometry" />
-        </mxCell>
-        <mxCell id="p5-e1" value="体验可见" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="p5-doc" target="p5-user">
+        <mxCell id="p4-e1" edge="1" parent="1" source="p4-a" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" target="p4-b" value="生成篮子">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p5-e2" value="数据保护" style="endArrow=block;html=1;strokeColor=#D97706;strokeWidth=2;" edge="1" parent="1" source="p5-user" target="p5-data">
+        <mxCell id="p4-e2" edge="1" parent="1" source="p4-b" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" target="p4-c" value="进入回测">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p5-e3" value="审计证明" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" edge="1" parent="1" source="p5-data" target="p5-validation">
+        <mxCell id="p4-e3" edge="1" parent="1" source="p4-c" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" target="p4-d" value="查看区间">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p5-e4" value="通过" style="endArrow=block;html=1;strokeColor=#059669;strokeWidth=2;" edge="1" parent="1" source="p5-validation" target="p5-exit-yes">
+        <mxCell id="p4-e4" edge="1" parent="1" source="p4-d" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;fontSize=12;" target="p4-e" value="人工复核">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p5-e5" value="阻断" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" edge="1" parent="1" source="p5-validation" target="p5-exit-no">
+        <mxCell id="p4-e5" edge="1" parent="1" source="p4-e" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;fontSize=12;" target="p4-f" value="保护">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="page-fivdr-validation-status" name="6 FIVD-R有效性验证状态">
+  <diagram id="p5" name="5 开发计划">
     <mxGraphModel dx="1920" dy="1080" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="p6-title" value="FIVD-R 有效性验证状态：当前是研究验证与交易阻断框架，不是已证明有效的交易模型" style="text;html=1;fontSize=28;fontStyle=1;align=center;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
-          <mxGeometry x="130" y="40" width="1660" height="60" as="geometry" />
+        <mxCell id="p5-title" value="开发及验收计划：完成后用户可交互式比较策略并生成人工计划草案" style="text;html=1;fontSize=28;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="120" y="35" width="1680" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="p6-question" value="核心问题&#xa;&#xa;是否完整验证了历史数据和模型有效性？&#xa;&#xa;当前答案：没有达到 formal trading validation。&#xa;已完成研究级证据链与失败诊断，但 OOS / validation evidence 未通过时，只能研究、观察、草案和阻断。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=17;fontStyle=1;spacing=14;" vertex="1" parent="1">
-          <mxGeometry x="120" y="150" width="520" height="250" as="geometry" />
+        <mxCell id="p5-0" value="PBT-0 Runtime Health（已完成）&#xa;&#xa;统一 /health、SQLite health、组合回测 API、红利低波 audit 和交互式回测审计包。当前 runtimeHealth=healthy。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="150" width="350" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="p6-verified" value="已经验证 / 已有产物&#xa;&#xa;全 A 扫描链路&#xa;market bar / feature cache&#xa;providerSuccess / cacheHit / coverage&#xa;策略回测 artifact&#xa;OOS 诊断 artifact&#xa;walk-forward / 参数敏感性 / 分组稳定性产物&#xa;trade gate contract：不误放交易动作" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=16;spacing=12;" vertex="1" parent="1">
-          <mxGeometry x="720" y="150" width="460" height="250" as="geometry" />
+        <mxCell id="p5-8" value="PBT-8 ETF 代理行情（已完成）&#xa;&#xa;510300 / 511010 / 511260 / 518880 / 159985 代理行情覆盖 ready，可支撑永久组合和全天候组合 completed。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="470" y="150" width="350" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="p6-not-verified" value="尚未完整验证 / 不能承诺&#xa;&#xa;不能证明模型可稳定赚钱&#xa;不能证明样本外长期稳定&#xa;不能证明所有市场状态有效&#xa;不能把 proxy benchmark 当 formal benchmark&#xa;不能把免费源 freshness 当实时行情保证&#xa;不能输出正式 ADD / REDUCE / AUTO_TRADE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=16;spacing=12;" vertex="1" parent="1">
-          <mxGeometry x="1260" y="150" width="500" height="250" as="geometry" />
+        <mxCell id="p5-9" value="PBT-9 Benchmark + 分红总回报（已完成正式评审前置）&#xa;&#xa;已输出 price-only、分红贡献、资本利得、成本拖累、benchmark、超额收益；免费源 total-return benchmark 可支撑 formal review，官方授权 benchmark 后续增强。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="870" y="150" width="350" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="p6-data-gate" value="历史数据有效性 Gate&#xa;&#xa;1 数据覆盖：全 A / 行业 / 市值 / 流动性覆盖达标&#xa;2 新鲜度：tradeDate、sourceType、freshnessStatus 可审计&#xa;3 价格一致性：priceAudit aligned&#xa;4 交易约束：涨跌停、停牌、ST、退市事实&#xa;5 分红总回报：除权、现金分红、再投资、税费、滑点" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=16;spacing=12;" vertex="1" parent="1">
-          <mxGeometry x="150" y="500" width="430" height="290" as="geometry" />
+        <mxCell id="p5-10" value="PBT-10 Operation + 前端验收（已完成）&#xa;&#xa;组合回测 Operation 化；任务中心 artifact；无头浏览器已覆盖加载、配置、运行、曲线、指标、非交易提示。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="150" width="350" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="p6-model-gate" value="模型有效性 Gate&#xa;&#xa;1 OOS 正收益且超额收益为正&#xa;2 walk-forward 多窗口通过&#xa;3 参数邻域稳定，不是单点过拟合&#xa;4 行业 / 市场状态 / 流动性分组稳定&#xa;5 足够样本数和交易路径&#xa;6 失败时输出 taxonomy，不调低门槛" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=16;spacing=12;" vertex="1" parent="1">
-          <mxGeometry x="745" y="500" width="430" height="290" as="geometry" />
+        <mxCell id="p5-11" value="PBT-11 组合回测正式评审前置（已达成，交易未解锁）&#xa;&#xa;审计包已记录 portfolioBacktestFormalReviewReady=true；正式交易仍需官方 benchmark、模型有效性验证和人工复核。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="300" y="520" width="430" height="230" as="geometry" />
         </mxCell>
-        <mxCell id="p6-decision" value="当前系统决策&#xa;&#xa;FIVD-R 可以做：&#xa;事实解释 / 研究排序 / 观察提醒 / 人工计划草案 / 失败归因 / 交易阻断&#xa;&#xa;FIVD-R 不能做：&#xa;证明策略一定有效 / 直接交易建议 / 下单 / 自动交易" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=16;fontStyle=1;spacing=12;" vertex="1" parent="1">
-          <mxGeometry x="1340" y="500" width="430" height="290" as="geometry" />
+        <mxCell id="p5-doc" value="下一阶段正式交易级前置计划&#xa;&#xa;FT-1 数据等级；FT-2 模型有效性；FT-3 人工草案；FT-4 前端评审工作台；FT-5 审计包升级；FT-6 解锁闸门。每项完成后做 PRD 规格检视和 E2E 验收。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="520" width="430" height="230" as="geometry" />
         </mxCell>
-        <mxCell id="p6-e1" value="证据链" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="p6-question" target="p6-verified">
+        <mxCell id="p5-out" value="完成后目标体验&#xa;&#xa;用户可比较策略、查看数据等级和模型有效性、打开 artifact、生成人工计划草案；系统显示正式交易解锁 blocker，仍不创建订单。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCFCE7;strokeColor=#16A34A;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="520" width="430" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="p5-e1" value="健康先行" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p5-0" target="p5-8">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p6-e2" value="边界" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" edge="1" parent="1" source="p6-verified" target="p6-not-verified">
+        <mxCell id="p5-e2" value="数据输入" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p5-8" target="p5-9">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p6-e3" value="先验证数据" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" edge="1" parent="1" source="p6-not-verified" target="p6-data-gate">
+        <mxCell id="p5-e3" value="运行态" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p5-9" target="p5-10">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p6-e4" value="再验证模型" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" edge="1" parent="1" source="p6-data-gate" target="p6-model-gate">
+        <mxCell id="p5-e4" value="评审前置" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p5-10" target="p5-11">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p6-e5" value="决定动作边界" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" edge="1" parent="1" source="p6-model-gate" target="p6-decision">
+        <mxCell id="p5-e5" value="同步" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p5-11" target="p5-doc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p5-e6" value="出门" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p5-doc" target="p5-out">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="page-portfolio-backtest" name="7 组合策略回测目标">
+  <diagram id="p6" name="6 验收门槛与出门条件">
     <mxGraphModel dx="1920" dy="1080" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="p7-title" value="组合策略回测本阶段目标：标准组合、真实样本、benchmark、分红总回报逐步补齐；研究用，不自动交易" style="text;html=1;fontSize=27;fontStyle=1;align=center;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
-          <mxGeometry x="120" y="40" width="1680" height="60" as="geometry" />
+        <mxCell id="p6-title" value="验收门槛与出门条件：用户体验可见、数据证据可审计、交易动作不误放" style="text;html=1;fontSize=28;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="120" y="35" width="1680" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="p7-user" value="目标用户体验（灰色已实现，继续增强）&#xa;&#xa;进入策略回测页 -> 选择永久组合、全天候、当前持仓、红利低波、自定义或本地真实样本组合&#xa;&#xa;设置区间、初始资金、再平衡、分红模式、费用、滑点和 benchmark&#xa;&#xa;查看多组合曲线、指标表、benchmarkReturn、excessReturn、缺口和非交易提示" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="100" y="150" width="430" height="280" as="geometry" />
+        <mxCell id="p6-doc" value="文档验收&#xa;&#xa;drawio 页数 &lt;=8；中文书写；可解析；PRD、目标架构、里程碑、验收门槛、出门条件一致。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="150" width="350" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="p7-current" value="当前已实现（灰色）&#xa;&#xa;Backtest 页面组合模块&#xa;/api/v1/portfolio-backtest/templates&#xa;/api/v1/portfolio-backtest/run&#xa;PortfolioStrategyRegistry / InputBuilder / Engine / BenchmarkService&#xa;3 条本地真实行情 completed 曲线&#xa;local_equal_weight_20 研究 benchmark" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="610" y="150" width="370" height="280" as="geometry" />
+        <mxCell id="p6-ux" value="用户体验验收&#xa;&#xa;能选择多策略、设置时间区间和参数、运行回测、查看多曲线、指标、缺口、benchmark 和证据。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="480" y="150" width="350" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="p7-gap" value="当前缺口（黄色需修改）&#xa;&#xa;标准 ETF 代理行情为 0：510300 / 511010 / 511260 / 518880 / 159985&#xa;&#xa;永久组合、全天候仍 insufficient&#xa;&#xa;当前用户 open positions=0，真实持仓组合 insufficient&#xa;&#xa;分红总回报、正式 benchmark、Operation artifact 仍未完成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="1060" y="150" width="380" height="280" as="geometry" />
+        <mxCell id="p6-data" value="数据验收&#xa;&#xa;runtime health gate 一致；ETF 代理 &gt;=250 交易日；至少一个宽基 benchmark；分红贡献不恒为 null；stale/unknown/mismatch 显示阻断。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="880" y="150" width="390" height="230" as="geometry" />
         </mxCell>
-        <mxCell id="p7-boundary" value="交易边界（红色硬约束）&#xa;&#xa;只允许 RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT&#xa;&#xa;禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE&#xa;&#xa;本地样本组合不是推荐组合&#xa;local_equal_weight_20 是 research proxy&#xa;缺分红或正式 benchmark 时不得 formal validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;fontStyle=1;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="1510" y="150" width="320" height="280" as="geometry" />
+        <mxCell id="p6-val" value="验证验收&#xa;&#xa;当前组合回测 formal-review-ready passed；OOS、walk-forward、参数敏感性、行业/市场/流动性分组仍是正式交易解锁前置，不由免费源 benchmark 自动解锁。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="150" width="390" height="230" as="geometry" />
         </mxCell>
-        <mxCell id="p7-arch" value="目标架构（橘黄新增/继续建设）&#xa;&#xa;PortfolioBacktestArtifactService&#xa;Operation 化运行与任务中心追踪&#xa;标准 ETF 代理行情接入&#xa;正式/免费 benchmark adapter&#xa;分红事件与除权调整&#xa;price-only / dividend cash / reinvest 三模式&#xa;前端运行态验收" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="130" y="540" width="430" height="290" as="geometry" />
+        <mxCell id="p6-cmd" value="机器验收命令&#xa;&#xa;read-drawio；backend tsc；portfolio-backtest tests；dividend-low-vol tests；production-readiness；trade-action-readiness；frontend build。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#2563EB;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="260" y="540" width="410" height="230" as="geometry" />
         </mxCell>
-        <mxCell id="p7-flow" value="开发及验收计划（本阶段效果）&#xa;&#xa;PBT-8：补齐 ETF 代理行情，标准组合 completed&#xa;PBT-9：benchmark adapter + 分红总回报，显示分红贡献与超额收益&#xa;PBT-10：Operation + artifactRefs，任务中心可追踪&#xa;&#xa;完成后用户可比较：本地样本 / 永久组合 / 全天候 / 当前持仓 / 红利低波篮子" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="740" y="540" width="440" height="290" as="geometry" />
+        <mxCell id="p6-pass" value="本阶段可出门&#xa;&#xa;interactive_strategy_backtest_ready&#xa;research_grade_strategy_comparison_ready&#xa;portfolio_backtest_formal_review_ready&#xa;manual_trade_draft_ready&#xa;formal_trading_locked&#xa;auto_trade_locked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCFCE7;strokeColor=#16A34A;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="760" y="540" width="410" height="260" as="geometry" />
         </mxCell>
-        <mxCell id="p7-acceptance" value="验收门槛与出门条件（绿色）&#xa;&#xa;当前已出门：research-grade 多曲线对比 / 3 条真实样本曲线 / benchmark proxy 可见 / 交易动作禁止&#xa;&#xa;下一阶段出门：ETF 代理 >=250 交易日 / 至少 1 个宽基 benchmark / dividendContribution 不恒为 null / Operation artifact 可审计&#xa;&#xa;不能出门：formal trade ready / auto rebalance / auto trade" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D1FAE5;strokeColor=#059669;fontSize=15;fontStyle=1;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="1340" y="540" width="460" height="290" as="geometry" />
+        <mxCell id="p6-fail" value="本阶段不可出门&#xa;&#xa;formal_trade_action_ready&#xa;formal_add_reduce_unlocked&#xa;auto_rebalance_ready&#xa;auto_trade_ready&#xa;免费源 100% 最新承诺&#xa;免费源 benchmark 等同官方授权 benchmark" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="540" width="410" height="260" as="geometry" />
         </mxCell>
-        <mxCell id="p7-e1" value="复用" style="endArrow=block;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="p7-current" target="p7-arch">
+        <mxCell id="p6-e1" value="规格到体验" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p6-doc" target="p6-ux">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p7-e2" value="补齐" style="endArrow=block;html=1;strokeColor=#D97706;strokeWidth=2;" edge="1" parent="1" source="p7-gap" target="p7-arch">
+        <mxCell id="p6-e2" value="真实数据" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p6-ux" target="p6-data">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p7-e3" value="实现" style="endArrow=block;html=1;strokeColor=#D17A22;strokeWidth=2;" edge="1" parent="1" source="p7-arch" target="p7-flow">
+        <mxCell id="p6-e3" value="验证" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p6-data" target="p6-val">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p7-e4" value="体验验收" style="endArrow=block;html=1;strokeColor=#059669;strokeWidth=2;" edge="1" parent="1" source="p7-flow" target="p7-acceptance">
+        <mxCell id="p6-e4" value="通过" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p6-val" target="p6-pass">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="p7-e5" value="保护边界" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;" edge="1" parent="1" source="p7-boundary" target="p7-acceptance">
+        <mxCell id="p6-e5" value="阻断" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p6-val" target="p6-fail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="p7" name="7 关键用户路径与审计">
+    <mxGraphModel dx="1920" dy="1080" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p7-title" value="关键用户场景：从策略选择到回测比较、草案生成和审计追溯" style="text;html=1;fontSize=28;fontStyle=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="120" y="35" width="1680" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-path1" value="路径 A：比较策略&#xa;&#xa;策略回测页 -&gt; 选择永久组合/全天候/红利低波/本地样本 -&gt; 设置近 1 年或近 3 年 -&gt; 运行 -&gt; 查看曲线和指标。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#6B7280;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="90" y="150" width="420" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-path2" value="路径 B：红利低波草案&#xa;&#xa;红利低波页 -&gt; 筛选行业和分数 -&gt; 查看候选详情和观察区间 -&gt; 进入回测比较 -&gt; 生成人工计划草案。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="570" y="150" width="420" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-path3" value="路径 C：缺口处理&#xa;&#xa;数据 stale、benchmark proxy、ETF 行情缺失、runtime critical、validation insufficient 时，页面显示 blockedReasons 和下一步。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="150" width="450" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-audit" value="审计路径&#xa;&#xa;任务中心 -&gt; Operation -&gt; artifactRefs -&gt; 输入定义、数据覆盖、曲线指标、benchmark、前端截图、trade gate contract。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8D6;strokeColor=#D17A22;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="250" y="510" width="430" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-prd" value="PRD 规格检视&#xa;&#xa;每个子阶段结束后检查：功能是否覆盖目标体验、测试是否覆盖功能点、文档概念是否一致、是否存在虚假验收风险。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="760" y="510" width="430" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-human" value="人类只处理高风险流程&#xa;&#xa;正式交易动作、正式 provider 凭证、人工复核结论、AUTO_TRADE 授权必须人工确认。自动化只能做前置和阻断审计。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=15;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="510" width="430" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-e1" value="产物" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p7-path1" target="p7-audit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-e2" value="证据" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p7-path2" target="p7-audit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-e3" value="打回" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p7-path3" target="p7-prd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-e4" value="规格检视" style="endArrow=block;html=1;strokeColor=#6B7280;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p7-audit" target="p7-prd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p7-e5" value="高风险确认" style="endArrow=block;html=1;strokeColor=#DC2626;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="p7-prd" target="p7-human">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>

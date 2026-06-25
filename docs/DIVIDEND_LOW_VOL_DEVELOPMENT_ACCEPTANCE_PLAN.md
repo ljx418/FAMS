@@ -1,6 +1,6 @@
 # 红利低波行业龙头策略开发与验收计划
 
-更新时间：2026-06-23
+更新时间：2026-06-24
 
 ## 1. 本阶段目标
 
@@ -14,6 +14,26 @@ researchWorkflowReady=true
 manualTradeDraftReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
+```
+
+2026-06-24 交互式策略回测实现验收同步：
+
+```text
+interactiveStrategyBacktestReady=true
+researchGradeStrategyComparisonReady=true
+manualDraftReady=true
+formalReviewReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+runtimeHealth=healthy
+proxyEtfCoverage=ready
+frontendRuntimeEvidence=passed
+```
+
+最新阶段审计包：
+
+```text
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T11-58-33-608Z/SUMMARY_FOR_GPT.md
 ```
 
 允许动作：
@@ -52,6 +72,20 @@ ADD / REDUCE / AUTO_TRADE
 - manual draft、manual acceptance、watchlist、pretrade check 用户路径。
 - GPT audit package 与 validation retest artifact。
 
+2026-06-24 本阶段新增目标：
+
+```text
+interactiveStrategyBacktestReady=true
+researchGradeStrategyComparisonReady=true
+dividendLowVolBasketBacktestReady=research_grade
+manualTradeDraftReady=true
+formalReviewReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+红利低波不再只作为独立候选页面验收，还必须能作为组合策略回测中的一个策略篮子参与比较。用户应能从红利低波候选池进入策略回测视角，并与当前持仓、永久组合、全天候组合、本地真实样本组合和自定义权重组合对比收益、回撤、benchmark、分红贡献和数据缺口。
+
 仍未完成：
 
 - 正式 provider 字段覆盖。
@@ -59,6 +93,7 @@ ADD / REDUCE / AUTO_TRADE
 - formal-grade validation evidence。
 - 正式 `ADD / REDUCE` 解锁。
 - `AUTO_TRADE`。
+- 红利低波篮子从真实候选快照进入组合回测；当前已接入快照读取、等权规则和 evidenceRefs，真实入篮数量已达 3 只，可进入研究级 completed 曲线。若后续刷新低于最小 3 只、行业/单票约束或 evidenceRefs 不完整，必须自动回退 insufficient。
 
 ## 3. 开发阶段与验收标准
 
@@ -171,6 +206,24 @@ ADD / REDUCE / AUTO_TRADE
 - 人工确认允许进入正式交易评审。
 - 即使正式交易评审通过，`AUTO_TRADE` 仍保持禁止，除非另立独立项目和人工授权。
 
+### D7 交互式策略回测联动
+
+开发项：
+
+- 红利低波候选快照输出 `strategyVersion / tradeDate / selectionRules / evidenceRefs`。
+- 红利低波篮子可进入组合策略回测，权重规则可解释。
+- 策略回测页可展示红利低波篮子与永久组合、全天候、当前持仓、自定义组合的多曲线对比。
+- 回测结果展示收益曲线、回撤曲线、benchmarkReturn、excessReturn、dividendContribution、dataCoverage 和 blockedReasons。
+- runtime health、benchmark proxy、价格 stale、priceAudit mismatch 或 validation insufficient 时，前端必须显示阻断原因。
+
+验收标准：
+
+- 用户能完成：红利低波页面筛选候选 -> 进入策略回测 -> 选择近 1 年或近 3 年 -> 运行 -> 查看多组合曲线 -> 查看数据缺口 -> 返回人工计划草案。
+- 红利低波篮子缺少候选快照、真实入篮数量低于最小 3 只、权重规则或 evidenceRefs 时，不允许进入 completed 状态。
+- 红利低波篮子回测不得解锁正式 `ADD / REDUCE`。
+- `AUTO_TRADE` 继续禁止。
+- 端到端验收报告必须包含红利低波页面截图、策略回测页面截图、任务中心 artifact 截图和 trade gate 结果。
+
 ## 4. 项目里程碑
 
 | 里程碑 | 目标体验 | 出门条件 | 当前状态 |
@@ -181,6 +234,8 @@ ADD / REDUCE / AUTO_TRADE
 | M3 Daily Freshness Gate Ready | 用户能看到每日数据状态和价格异常阻断 | daily scan、priceAudit、前端展示、回归测试通过 | 已实现，需文档收口 |
 | M4 Formal Data Upgrade Ready | 正式 provider 与 benchmark 可评审 | 字段级 evidence、freshness、coverage 达标 | 未完成 |
 | M5 Formal Validation Review | 进入正式交易 gate 评审 | OOS、walk-forward、参数、分组、交易约束全部通过 | 未完成 |
+| M6 Interactive Strategy Backtest Ready | 用户可交互式比较红利低波、永久组合、全天候、当前持仓和自定义组合 | 多曲线、指标、缺口、artifact、非交易 gate 全部可见 | 本阶段目标 |
+| M7 Formal Trading Review Prerequisites | 正式交易级评审前置证据齐全但不自动放行 | runtime/provider/benchmark/tradeability/validation/manual review artifact 完整 | 前置文档完成，formal review 未解锁 |
 
 ## 5. 验收命令
 
@@ -201,6 +256,9 @@ npm run test:dividend-low-vol-rolling-backtest
 npm run test:factset-refresh-scheduler
 npm run test:production-readiness
 npm run test:trade-action-readiness
+npm run test:portfolio-strategy-backtest
+npm run test:portfolio-backtest-api-contract
+npm run test:portfolio-backtest-frontend-runtime
 ```
 
 前端验收：
@@ -215,6 +273,7 @@ npm run build
 ```bash
 cd backend
 npm run run:dividend-low-vol-audit-package
+npm run run:interactive-strategy-backtest-audit-package
 ```
 
 ## 6. 本阶段出门条件
@@ -227,6 +286,19 @@ manual_trade_draft_ready
 daily_freshness_gate_documented
 formal_trading_locked
 auto_trade_locked
+```
+
+当前实现验收结果：
+
+```text
+interactive_strategy_backtest_ready=true
+research_grade_strategy_comparison_ready=true
+manual_trade_draft_ready=true
+runtime_health_gate_consistent=true
+frontend_runtime_evidence=passed
+formal_review_ready=false
+formal_trading_locked=true
+auto_trade_locked=true
 ```
 
 必须满足：

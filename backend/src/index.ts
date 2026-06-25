@@ -28,6 +28,7 @@ import { strategyRoutes } from './routes/strategy.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { operationService } from './services/operation/operationService.js'
 import { factsetRefreshScheduler } from './services/operation/factsetRefreshScheduler.js'
+import { runtimeHealthService } from './services/runtime/runtimeHealthService.js'
 
 const app = Fastify({ logger: true })
 
@@ -64,8 +65,14 @@ async function registerRoutes() {
     let database: 'ok' | 'failed' = 'ok'
     let operationHealth: Record<string, unknown> = {}
     let schedulerStatus: Record<string, unknown> | null = null
+    let runtimeHealth: Record<string, unknown> | null = null
     try {
       await prisma.$queryRaw`SELECT 1`
+      runtimeHealth = await runtimeHealthService.check({
+        prisma,
+        includeOperations: true,
+        includeProviderHealth: true,
+      })
       const [runningOperations, queuedOperations, activeFivdRRefresh] = await Promise.all([
         prisma.operation.count({ where: { status: 'running' } }),
         prisma.operation.count({ where: { status: 'queued' } }),
@@ -97,12 +104,13 @@ async function registerRoutes() {
     }
     return {
       schemaVersion: 'fams.health.v1',
-      status: database === 'ok' ? 'ok' : 'degraded',
+      status: database === 'ok' && (runtimeHealth as any)?.status !== 'critical' ? 'ok' : 'degraded',
       generatedAt: new Date().toISOString(),
       service: 'fams-backend',
       uptimeSeconds: Math.floor(process.uptime()),
       startedAt,
       database,
+      runtimeHealth,
       operations: operationHealth,
       schedulers: {
         factsetRefresh: schedulerStatus,

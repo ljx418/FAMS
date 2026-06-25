@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Tag, message } from 'antd'
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Form, Input, InputNumber, Row, Select, Tag, message } from 'antd'
 import axios from 'axios'
 import { useLocation, useNavigate } from 'react-router-dom'
+import dayjs from 'dayjs'
+import ReactECharts from 'echarts-for-react'
+import type { EChartsOption } from 'echarts'
 
 const { RangePicker } = DatePicker
 
@@ -13,45 +16,95 @@ const formatSignedMoney = (value?: number | null) => {
 }
 const getOperationId = (data: any) => data?.operation_id || data?.operationId || data?.id
 
+const DEFAULT_PORTFOLIO_BACKTEST_END_DATE = '2026-06-05'
+const RECOMMENDED_PORTFOLIO_STRATEGY_IDS = [
+  'dividend_low_vol_basket',
+  'current_holdings_buy_and_hold',
+  'local_real_data_sample_60_40',
+]
+
 const PortfolioCurveChart: React.FC<{ strategies: any[] }> = ({ strategies }) => {
   const completed = strategies.filter((strategy) => Array.isArray(strategy.equityCurve) && strategy.equityCurve.length > 1)
   if (completed.length === 0) {
     return <div className="h-56 flex items-center justify-center text-gray-500">暂无可绘制曲线</div>
   }
-  const colors = ['#38bdf8', '#34d399', '#fbbf24', '#a78bfa', '#fb7185']
-  const allValues = completed.flatMap((strategy) => strategy.equityCurve.map((point: any) => Number(point.netValue || 1)))
-  const min = Math.min(...allValues, 0.9)
-  const max = Math.max(...allValues, 1.1)
-  const span = Math.max(0.01, max - min)
-  const width = 760
-  const height = 220
-  const toPath = (points: any[]) => points.map((point, index) => {
-    const x = points.length <= 1 ? 0 : (index / (points.length - 1)) * width
-    const y = height - ((Number(point.netValue || 1) - min) / span) * height
-    return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
-  }).join(' ')
+  const benchmarkIds = Array.from(new Set(completed.flatMap((strategy) => (
+    Object.keys(strategy.equityCurve?.[0]?.benchmark || {})
+  )))).slice(0, 2)
+  const dates = Array.from(new Set(completed.flatMap((strategy) => strategy.equityCurve.map((point: any) => point.date)))).sort()
+  const byDate = (strategy: any, selector: (point: any) => number | null) => {
+    const map = new Map((strategy.equityCurve || []).map((point: any) => [point.date, selector(point)]))
+    return dates.map((date) => map.get(date) ?? null)
+  }
+  const benchmarkByDate = (benchmarkId: string) => {
+    const map = new Map<string, number>()
+    for (const strategy of completed) {
+      for (const point of strategy.equityCurve || []) {
+        const value = point.benchmark?.[benchmarkId]?.cumulativeReturnPercent
+        if (typeof value === 'number' && !map.has(point.date)) map.set(point.date, value)
+      }
+    }
+    return dates.map((date) => map.get(date) ?? null)
+  }
+  const option: EChartsOption = {
+    backgroundColor: 'transparent',
+    color: ['#38bdf8', '#34d399', '#fbbf24', '#a78bfa', '#fb7185', '#94a3b8', '#f97316'],
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#0f172a',
+      borderColor: '#334155',
+      textStyle: { color: '#e5e7eb' },
+      valueFormatter: (value) => `${Number(value).toFixed(2)}%`,
+    },
+    legend: {
+      type: 'scroll',
+      top: 0,
+      textStyle: { color: '#cbd5e1' },
+    },
+    grid: [
+      { left: 48, right: 24, top: 48, height: 210 },
+      { left: 48, right: 24, top: 304, height: 78 },
+    ],
+    xAxis: [
+      { type: 'category', data: dates, boundaryGap: false, axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } } },
+      { type: 'category', data: dates, boundaryGap: false, gridIndex: 1, axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } } },
+    ],
+    yAxis: [
+      { type: 'value', name: '累计收益', axisLabel: { color: '#94a3b8', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#1f2937' } } },
+      { type: 'value', name: '回撤', gridIndex: 1, axisLabel: { color: '#94a3b8', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#1f2937' } } },
+    ],
+    series: [
+      ...completed.map((strategy) => ({
+        name: strategy.definition?.displayName || strategy.definition?.strategyId,
+        type: 'line' as const,
+        smooth: true,
+        showSymbol: false,
+        data: byDate(strategy, (point) => Number(point.cumulativeReturnPercent ?? ((point.netValue - 1) * 100))),
+      })),
+      ...benchmarkIds.map((benchmarkId) => ({
+        name: `基准 ${benchmarkId}`,
+        type: 'line' as const,
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { type: 'dashed' as const, width: 1.5 },
+        data: benchmarkByDate(benchmarkId),
+      })),
+      ...completed.slice(0, 5).map((strategy) => ({
+        name: `${strategy.definition?.displayName || strategy.definition?.strategyId} 回撤`,
+        type: 'line' as const,
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        smooth: true,
+        showSymbol: false,
+        areaStyle: { opacity: 0.08 },
+        data: byDate(strategy, (point) => Number(point.drawdownPercent ?? 0)),
+      })),
+    ],
+  }
 
   return (
-    <div className="overflow-x-auto">
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="组合策略净值曲线">
-        <line x1="0" y1={height - ((1 - min) / span) * height} x2={width} y2={height - ((1 - min) / span) * height} stroke="#475569" strokeDasharray="4 4" />
-        {completed.map((strategy, index) => (
-          <path
-            key={strategy.definition?.strategyId || index}
-            d={toPath(strategy.equityCurve)}
-            fill="none"
-            stroke={colors[index % colors.length]}
-            strokeWidth="2.5"
-          />
-        ))}
-      </svg>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {completed.map((strategy, index) => (
-          <Tag key={strategy.definition?.strategyId || index} color={colors[index % colors.length]}>
-            {strategy.definition?.displayName || strategy.definition?.strategyId}
-          </Tag>
-        ))}
-      </div>
+    <div role="img" aria-label="组合策略累计收益、基准和回撤曲线">
+      <ReactECharts option={option} style={{ height: 430, width: '100%' }} notMerge lazyUpdate />
     </div>
   )
 }
@@ -203,11 +256,16 @@ const Backtest: React.FC = () => {
   } | null>(null)
   const [portfolioBacktestLoading, setPortfolioBacktestLoading] = useState(false)
   const [portfolioTemplates, setPortfolioTemplates] = useState<any[]>([])
+  const [portfolioTemplateError, setPortfolioTemplateError] = useState<string | null>(null)
+  const [selectedPortfolioStrategyIds, setSelectedPortfolioStrategyIds] = useState<string[]>([])
+  const [portfolioRuntimeHealth, setPortfolioRuntimeHealth] = useState<any | null>(null)
   const [portfolioBacktestResult, setPortfolioBacktestResult] = useState<any | null>(null)
   const [portfolioBacktestOperation, setPortfolioBacktestOperation] = useState<any | null>(null)
   const [portfolioBacktestParams, setPortfolioBacktestParams] = useState({
+    userId: 'audit_portfolio_backtest_user',
+    gradeMode: 'formal_review',
     startDate: '2025-12-04',
-    endDate: '2026-06-05',
+    endDate: DEFAULT_PORTFOLIO_BACKTEST_END_DATE,
     initialCapital: 100000,
   })
 
@@ -216,9 +274,24 @@ const Backtest: React.FC = () => {
     const fetchTemplates = async () => {
       try {
         const response = await axios.get('/api/v1/portfolio-backtest/templates')
-        if (!cancelled) setPortfolioTemplates(response.data?.templates || [])
+        if (!cancelled) {
+          const templates = response.data?.templates || []
+          setPortfolioTemplates(templates)
+          setSelectedPortfolioStrategyIds((previous) => {
+            if (previous.length > 0) return previous
+            const recommended = RECOMMENDED_PORTFOLIO_STRATEGY_IDS.filter((id) => templates.some((template: any) => template.strategyId === id))
+            return recommended.length > 0
+              ? recommended
+              : templates.filter((template: any) => template.strategyId !== 'custom_weight_portfolio').slice(0, 3).map((template: any) => template.strategyId)
+          })
+          setPortfolioRuntimeHealth(response.data?.runtimeHealth || null)
+          setPortfolioTemplateError(null)
+        }
       } catch (error) {
-        if (!cancelled) console.error('Failed to fetch portfolio backtest templates:', error)
+        if (!cancelled) {
+          console.error('Failed to fetch portfolio backtest templates:', error)
+          setPortfolioTemplateError('组合模板加载失败，请检查后端服务或稍后重试。')
+        }
       }
     }
     void fetchTemplates()
@@ -440,18 +513,23 @@ const Backtest: React.FC = () => {
   }
 
   const handleRunPortfolioBacktest = async () => {
+    if (selectedPortfolioStrategyIds.length === 0) {
+      message.warning('请至少选择一个组合策略')
+      return
+    }
+    if (!portfolioBacktestParams.startDate || !portfolioBacktestParams.endDate) {
+      message.warning('请选择回测日期区间')
+      return
+    }
+    if (dayjs(portfolioBacktestParams.endDate).isBefore(dayjs(portfolioBacktestParams.startDate))) {
+      message.warning('结束日期不能早于开始日期')
+      return
+    }
     setPortfolioBacktestLoading(true)
     try {
       const response = await axios.post('/api/v1/portfolio-backtest/run', {
-        userId: 'default',
-        portfolioStrategyIds: [
-          'local_real_data_sample_60_40',
-          'local_real_data_equal_weight_5',
-          'local_real_data_concentrated_3',
-          'permanent_portfolio',
-          'all_weather',
-          'current_holdings_buy_and_hold',
-        ],
+        userId: portfolioBacktestParams.userId || 'default',
+        portfolioStrategyIds: selectedPortfolioStrategyIds,
         startDate: portfolioBacktestParams.startDate,
         endDate: portfolioBacktestParams.endDate,
         initialCapital: portfolioBacktestParams.initialCapital,
@@ -459,15 +537,24 @@ const Backtest: React.FC = () => {
         dividendMode: 'reinvest',
         feeRate: 0.0003,
         slippageRate: 0.0005,
-        benchmarkIds: ['cash_cny', 'csi300_price_index', 'local_equal_weight_20'],
+        benchmarkIds: ['cash_cny', 'csi300_price_index', 'local_equal_weight_20', 'free_source_total_return'],
+        gradeMode: portfolioBacktestParams.gradeMode,
         executionMode: 'operation',
       })
       setPortfolioBacktestOperation(response.data?.operationId ? response.data : null)
       setPortfolioBacktestResult(response.data?.result || response.data)
-      message.success('组合策略研究回测已完成')
+      message.success(response.data?.result || response.data?.strategies ? '组合策略研究回测已生成结果' : '组合策略研究回测任务已提交')
+      window.setTimeout(() => document.getElementById('portfolio-backtest-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
     } catch (error) {
       console.error('Failed to run portfolio backtest:', error)
-      message.error('组合策略研究回测失败')
+      const blocked = (error as any)?.response?.data
+      if (blocked?.status === 'blocked') {
+        setPortfolioBacktestOperation(blocked)
+        setPortfolioBacktestResult(null)
+        message.error('运行时健康未通过，已阻断持久化组合回测')
+      } else {
+        message.error('组合策略研究回测失败')
+      }
     } finally {
       setPortfolioBacktestLoading(false)
     }
@@ -562,27 +649,146 @@ const Backtest: React.FC = () => {
     }
   }, [adviceDetail, executionWindowReview, backtestResult])
 
+  const selectedTemplates = useMemo(() => {
+    const map = new Map(portfolioTemplates.map((template) => [template.strategyId, template]))
+    return selectedPortfolioStrategyIds.map((id) => map.get(id)).filter(Boolean)
+  }, [portfolioTemplates, selectedPortfolioStrategyIds])
+
+  const portfolioDataCutoffDate = useMemo(() => {
+    const snapshotDates = [
+      ...portfolioTemplates.map((template) => template.snapshot?.tradeDate),
+      ...(portfolioBacktestResult?.strategies || []).map((strategy: any) => strategy.definition?.snapshot?.tradeDate),
+    ].filter(Boolean).sort()
+    return snapshotDates[snapshotDates.length - 1] || DEFAULT_PORTFOLIO_BACKTEST_END_DATE
+  }, [portfolioTemplates, portfolioBacktestResult])
+
+  const applyQuickPortfolioRange = (months: number) => {
+    const end = dayjs(portfolioDataCutoffDate)
+    setPortfolioBacktestParams((previous) => ({
+      ...previous,
+      startDate: end.subtract(months, 'month').format('YYYY-MM-DD'),
+      endDate: end.format('YYYY-MM-DD'),
+    }))
+  }
+
+  const portfolioGateSummary = useMemo(() => {
+    if (!portfolioBacktestResult) {
+      return {
+        status: '待运行',
+        color: '#64748b',
+        description: '选择组合策略和时间区间后运行回测；本页只生成研究比较结果。',
+      }
+    }
+    const unlocked = portfolioBacktestResult.formalTradingUnlockChecklist?.formalTradingUnlocked === true
+    const blockers = portfolioBacktestResult.formalTradingUnlockChecklist?.blockers || portfolioBacktestResult.formalReviewReadiness?.blockers || []
+    return {
+      status: unlocked ? '正式交易已解锁' : '正式交易未解锁',
+      color: unlocked ? '#34d399' : '#ef4444',
+      description: unlocked
+        ? '正式交易 gate 已满足，但 AUTO_TRADE 仍需要单独人工治理。'
+        : `当前只能用于研究比较和计划草案。阻断原因：${blockers.slice(0, 4).join('、') || '人工确认、模型有效性或正式数据审计未完成'}`,
+    }
+  }, [portfolioBacktestResult])
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white mb-6">策略回测</h1>
-      <Card title={<span className="text-primary">组合策略对比回测</span>} className="bg-[#1a1a2e] border-[surface-border]">
-        <div className="mb-4 rounded-lg border border-yellow-400/30 bg-yellow-500/10 p-3 text-sm text-yellow-100">
-          当前仅用于研究、观察和组合比较，不构成交易指令；ADD、REDUCE、ORDER_CREATE、AUTO_TRADE 仍被禁止。分红贡献和正式 total return benchmark 未完整覆盖时，不能升级为交易级验证。
+      <Card title={<span className="text-primary">组合策略对比回测</span>} className="bg-[#1a1a2e] border-surface-border">
+        <Alert
+          className="mb-4"
+          type="warning"
+          showIcon
+          message="研究回测，不构成交易指令"
+          description="当前用于真实数据组合策略比较和正式评审前置；ADD、REDUCE、ORDER_CREATE、AUTO_TRADE 仍被禁止。免费源 total-return 只能支持 formal-review-ready，不等同官方授权正式交易数据。"
+        />
+
+        <div className="mb-4 rounded-lg border border-white/10 bg-[#0f172a99] p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-sm font-medium text-white">1. 选择要比较的组合策略</div>
+              <div className="text-xs text-gray-400">默认只选推荐组合；取消勾选后，请求体会只提交当前选中的策略。</div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(portfolioTemplates.filter((item) => item.strategyId !== 'custom_weight_portfolio').map((item) => item.strategyId))}>全选</Button>
+              <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(RECOMMENDED_PORTFOLIO_STRATEGY_IDS.filter((id) => portfolioTemplates.some((item) => item.strategyId === id)))}>推荐 3 组</Button>
+              <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(['dividend_low_vol_basket', 'current_holdings_buy_and_hold'].filter((id) => portfolioTemplates.some((item) => item.strategyId === id)))}>红利+当前持仓</Button>
+              <Button size="small" onClick={() => setSelectedPortfolioStrategyIds([])}>清空</Button>
+            </div>
+          </div>
+          {portfolioTemplateError && (
+            <Alert className="mb-3" type="error" showIcon message={portfolioTemplateError} action={<Button size="small" onClick={() => window.location.reload()}>重试</Button>} />
+          )}
+          <Checkbox.Group
+            className="w-full"
+            value={selectedPortfolioStrategyIds}
+            onChange={(values) => setSelectedPortfolioStrategyIds(values.map(String))}
+          >
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {portfolioTemplates.map((template) => (
+                <label key={template.strategyId} className="block rounded-lg border border-white/10 bg-black/10 p-3 hover:border-sky-400/60">
+                  <div className="flex items-start gap-2">
+                    <Checkbox value={template.strategyId} disabled={template.strategyId === 'custom_weight_portfolio'} />
+                    <div className="min-w-0">
+                      <div className="font-medium text-white">{template.displayName}</div>
+                      <div className="mt-1 line-clamp-3 text-xs leading-5 text-gray-400">{template.description}</div>
+                      {template.strategyId === 'custom_weight_portfolio' && <Tag className="mt-2" color="#64748b">暂未开放输入</Tag>}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </Checkbox.Group>
         </div>
-        <div className="grid gap-3 lg:grid-cols-5">
-          <div>
-            <div className="mb-1 text-xs text-gray-400">开始日期</div>
+
+        <div className="grid gap-3 lg:grid-cols-6">
+          <div className="lg:col-span-2">
+            <div className="mb-1 text-xs text-gray-400">用户</div>
             <Input
-              value={portfolioBacktestParams.startDate}
-              onChange={(event) => setPortfolioBacktestParams((previous) => ({ ...previous, startDate: event.target.value }))}
+              value={portfolioBacktestParams.userId}
+              onChange={(event) => setPortfolioBacktestParams((previous) => ({ ...previous, userId: event.target.value }))}
             />
           </div>
           <div>
-            <div className="mb-1 text-xs text-gray-400">结束日期</div>
-            <Input
-              value={portfolioBacktestParams.endDate}
-              onChange={(event) => setPortfolioBacktestParams((previous) => ({ ...previous, endDate: event.target.value }))}
+            <div className="mb-1 text-xs text-gray-400">验收模式</div>
+            <Select
+              className="w-full"
+              value={portfolioBacktestParams.gradeMode}
+              onChange={(value) => setPortfolioBacktestParams((previous) => ({ ...previous, gradeMode: value }))}
+              options={[
+                { value: 'formal_review', label: '正式评审前置' },
+                { value: 'research', label: '研究模式' },
+              ]}
             />
+          </div>
+          <div className="lg:col-span-2">
+            <div className="mb-1 text-xs text-gray-400">回测区间</div>
+            <RangePicker
+              className="w-full"
+              value={portfolioBacktestParams.startDate && portfolioBacktestParams.endDate
+                ? [dayjs(portfolioBacktestParams.startDate), dayjs(portfolioBacktestParams.endDate)]
+                : null}
+              onChange={(range) => setPortfolioBacktestParams((previous) => ({
+                ...previous,
+                startDate: range?.[0]?.format('YYYY-MM-DD') || '',
+                endDate: range?.[1]?.format('YYYY-MM-DD') || '',
+              }))}
+            />
+            <div className="mt-1 text-[11px] text-gray-500">数据可用截止日：{portfolioDataCutoffDate}</div>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {[
+                ['近 6 月', 6],
+                ['近 1 年', 12],
+                ['近 3 年', 36],
+              ].map(([label, months]) => (
+                <Button
+                  key={String(label)}
+                  size="small"
+                  onClick={() => applyQuickPortfolioRange(Number(months))}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
           </div>
           <div>
             <div className="mb-1 text-xs text-gray-400">初始资金</div>
@@ -594,7 +800,7 @@ const Backtest: React.FC = () => {
               style={{ width: '100%' }}
             />
           </div>
-          <div className="lg:col-span-2 flex items-end gap-2">
+          <div className="lg:col-span-6 flex flex-wrap items-end gap-2">
             <Button type="primary" loading={portfolioBacktestLoading} onClick={handleRunPortfolioBacktest}>
               运行组合回测
             </Button>
@@ -604,28 +810,133 @@ const Backtest: React.FC = () => {
               </Button>
             )}
             <Tag color="#64748b">模板 {portfolioTemplates.length}</Tag>
+            <Tag color={selectedPortfolioStrategyIds.length > 0 ? '#38bdf8' : '#ef4444'}>已选 {selectedPortfolioStrategyIds.length}</Tag>
+            <Tag color="#38bdf8">Benchmark: free_source_total_return</Tag>
             {portfolioBacktestOperation?.artifactRefs?.length > 0 && (
               <Tag color="#a78bfa">产物 {portfolioBacktestOperation.artifactRefs.length}</Tag>
             )}
           </div>
         </div>
+        <div className="mt-4 rounded-lg border border-white/10 bg-black/10 p-3 text-xs text-gray-300">
+          <div className="mb-2 flex flex-wrap gap-2">
+            <Tag color="#38bdf8">将运行 {selectedTemplates.length} 个策略</Tag>
+            <Tag color={portfolioBacktestParams.startDate && portfolioBacktestParams.endDate ? '#64748b' : '#ef4444'}>
+              区间 {portfolioBacktestParams.startDate || '未选'} ~ {portfolioBacktestParams.endDate || '未选'}
+            </Tag>
+            <Tag color="#64748b">分红 reinvest</Tag>
+            <Tag color="#64748b">季度再平衡</Tag>
+            <Tag color="#64748b">费率 0.03% / 滑点 0.05%</Tag>
+          </div>
+          <div className="text-gray-400">
+            {selectedTemplates.map((template) => template.displayName).join('、') || '尚未选择策略'}
+          </div>
+        </div>
+        {portfolioRuntimeHealth && (
+          <div className="mt-4 rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Tag color={portfolioRuntimeHealth.status === 'healthy' ? '#34d399' : '#ef4444'}>
+                Runtime {portfolioRuntimeHealth.status}
+              </Tag>
+              <Tag color={portfolioRuntimeHealth.sqliteHealthy ? '#34d399' : '#ef4444'}>
+                SQLite {portfolioRuntimeHealth.sqliteHealthy ? 'healthy' : 'critical'}
+              </Tag>
+              <Tag color={portfolioRuntimeHealth.decision?.largeBacktestPersistenceAllowed ? '#34d399' : '#fbbf24'}>
+                Operation 持久化 {portfolioRuntimeHealth.decision?.largeBacktestPersistenceAllowed ? '允许' : '阻断'}
+              </Tag>
+            </div>
+            <div className="text-gray-300">
+              {portfolioRuntimeHealth.decision?.reason || '运行时健康由后端统一闸门判断。'}
+            </div>
+          </div>
+        )}
+        {portfolioBacktestOperation?.status === 'blocked' && (
+          <div className="mt-4 rounded-lg border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-100">
+            组合回测 Operation 已被运行时健康闸门阻断：
+            {(portfolioBacktestOperation.blockedReasons || []).join(', ') || 'runtime health blocked'}。
+            当前只能进行非持久化研究或修复数据库健康后重试。
+          </div>
+        )}
         {portfolioTemplates.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {portfolioTemplates.map((template) => (
-              <Tag key={template.strategyId} color="#38bdf8">{template.displayName}</Tag>
-            ))}
+          <div className="mt-4 flex flex-wrap gap-2 text-xs text-gray-400">
+            <span>可用模板：</span>
+            {portfolioTemplates.map((template) => <Tag key={template.strategyId} color="#64748b">{template.displayName}</Tag>)}
           </div>
         )}
         {portfolioBacktestResult && (
-          <div className="mt-5 space-y-4">
+          <div id="portfolio-backtest-result" className="mt-5 space-y-4">
+            <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-4">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Tag color={portfolioGateSummary.color}>{portfolioGateSummary.status}</Tag>
+                <Tag color="#38bdf8">允许 RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT</Tag>
+                <Tag color="#ef4444">禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE</Tag>
+              </div>
+              <div className="text-sm text-gray-300">{portfolioGateSummary.description}</div>
+            </div>
             <div className="flex flex-wrap gap-2">
               <Tag color="#34d399">{portfolioBacktestResult.schemaVersion}</Tag>
+              <Tag color={portfolioBacktestResult.formalReviewReadiness?.ready ? '#34d399' : '#ef4444'}>
+                formal-review {portfolioBacktestResult.formalReviewReadiness?.ready ? 'ready' : 'blocked'}
+              </Tag>
+              <Tag color={portfolioBacktestResult.dataGradeAudit?.status === 'passed' ? '#34d399' : '#fbbf24'}>
+                数据等级 {portfolioBacktestResult.dataGradeAudit?.aggregateGrade || 'unknown'}
+              </Tag>
+              <Tag color={portfolioBacktestResult.modelEffectiveness?.status === 'passed' ? '#34d399' : portfolioBacktestResult.modelEffectiveness?.status === 'failed' ? '#ef4444' : '#fbbf24'}>
+                模型有效性 {portfolioBacktestResult.modelEffectiveness?.status || 'unknown'}
+              </Tag>
+              <Tag color={portfolioBacktestResult.formalTradingUnlockChecklist?.formalTradingUnlocked ? '#34d399' : '#ef4444'}>
+                正式交易 {portfolioBacktestResult.formalTradingUnlockChecklist?.formalTradingUnlocked ? '已解锁' : '未解锁'}
+              </Tag>
               {portfolioBacktestResult.allowedActions?.map((action: string) => <Tag key={action} color="#38bdf8">{action}</Tag>)}
               {portfolioBacktestResult.prohibitedActions?.map((action: string) => <Tag key={action} color="#ef4444">禁止 {action}</Tag>)}
               <Tag color={portfolioBacktestResult.notTradingAdvice ? '#fbbf24' : '#ef4444'}>
                 {portfolioBacktestResult.notTradingAdvice ? '非交易建议' : '风险：交易建议标记异常'}
               </Tag>
             </div>
+            {portfolioBacktestResult.formalReviewReadiness && (
+              <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+                <div className="mb-2 flex flex-wrap gap-2">
+                  <Tag color={portfolioBacktestResult.formalReviewReadiness.status === 'passed' ? '#34d399' : '#ef4444'}>
+                    Formal Review {portfolioBacktestResult.formalReviewReadiness.status}
+                  </Tag>
+                  <Tag color={portfolioBacktestResult.formalReviewReadiness.tradeConstraintCoverage?.status === 'passed' ? '#34d399' : '#ef4444'}>
+                    交易约束 {portfolioBacktestResult.formalReviewReadiness.tradeConstraintCoverage?.coveragePercent ?? 0}%
+                  </Tag>
+                  <Tag color={portfolioBacktestResult.formalReviewReadiness.dividendReturnCoverage?.status === 'passed' ? '#34d399' : '#ef4444'}>
+                    分红覆盖 {portfolioBacktestResult.formalReviewReadiness.dividendReturnCoverage?.coveragePercent ?? 0}%
+                  </Tag>
+                </div>
+                <div className="text-gray-300">
+                  Benchmark 状态：{Object.entries(portfolioBacktestResult.formalReviewReadiness.benchmarkStatuses || {}).map(([id, status]) => `${id}=${status}`).join('；') || '--'}
+                </div>
+                {(portfolioBacktestResult.formalReviewReadiness.blockers || []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {portfolioBacktestResult.formalReviewReadiness.blockers.map((blocker: string) => <Tag key={blocker} color="#ef4444">{blocker}</Tag>)}
+                  </div>
+                )}
+              </div>
+            )}
+            {portfolioBacktestResult.formalTradingUnlockChecklist && (
+              <div className="rounded-lg border border-red-400/20 bg-red-500/10 p-3 text-sm">
+                <div className="mb-2 flex flex-wrap gap-2">
+                  <Tag color="#ef4444">正式交易解锁清单 {portfolioBacktestResult.formalTradingUnlockChecklist.status}</Tag>
+                  <Tag color={portfolioBacktestResult.formalTradingUnlockChecklist.modelEffectivenessReviewed ? '#34d399' : '#fbbf24'}>
+                    模型复核 {portfolioBacktestResult.formalTradingUnlockChecklist.modelEffectivenessReviewed ? '通过' : '未通过'}
+                  </Tag>
+                  <Tag color={portfolioBacktestResult.formalTradingUnlockChecklist.tradeConstraintsReviewed ? '#34d399' : '#fbbf24'}>
+                    交易约束 {portfolioBacktestResult.formalTradingUnlockChecklist.tradeConstraintsReviewed ? '通过' : '未通过'}
+                  </Tag>
+                  <Tag color={portfolioBacktestResult.formalTradingUnlockChecklist.humanReviewerConfirmed ? '#34d399' : '#ef4444'}>
+                    人工确认 {portfolioBacktestResult.formalTradingUnlockChecklist.humanReviewerConfirmed ? '完成' : '未完成'}
+                  </Tag>
+                  <Tag color="#ef4444">AUTO_TRADE 禁止</Tag>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {(portfolioBacktestResult.formalTradingUnlockChecklist.blockers || []).map((blocker: string) => (
+                    <Tag key={blocker} color="#ef4444">{blocker}</Tag>
+                  ))}
+                </div>
+              </div>
+            )}
             <PortfolioCurveChart strategies={portfolioBacktestResult.strategies || []} />
             <div className="grid gap-3 xl:grid-cols-3">
               {(portfolioBacktestResult.strategies || []).map((strategy: any) => (
@@ -637,6 +948,8 @@ const Backtest: React.FC = () => {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="text-gray-400">总收益</div>
                     <div className="text-right text-white">{formatPercent(strategy.metrics?.totalReturnPercent)}</div>
+                    <div className="text-gray-400">价格收益</div>
+                    <div className="text-right text-white">{strategy.metrics?.priceOnlyReturnPercent == null ? '--' : formatPercent(strategy.metrics.priceOnlyReturnPercent)}</div>
                     <div className="text-gray-400">年化</div>
                     <div className="text-right text-white">{formatPercent(strategy.metrics?.annualizedReturnPercent)}</div>
                     <div className="text-gray-400">最大回撤</div>
@@ -647,14 +960,63 @@ const Backtest: React.FC = () => {
                     <div className="text-right text-white">{formatPercent(strategy.dataCoverage?.priceCoveragePercent)}</div>
                     <div className="text-gray-400">分红贡献</div>
                     <div className="text-right text-white">{strategy.metrics?.dividendContributionPercent == null ? '--' : formatPercent(strategy.metrics.dividendContributionPercent)}</div>
+                    <div className="text-gray-400">成本拖累</div>
+                    <div className="text-right text-white">{strategy.metrics?.costDragPercent == null ? '--' : formatPercent(-strategy.metrics.costDragPercent)}</div>
                     <div className="text-gray-400">Benchmark</div>
                     <div className="text-right text-white">{strategy.metrics?.benchmarkReturnPercent == null ? '--' : formatPercent(strategy.metrics.benchmarkReturnPercent)}</div>
                     <div className="text-gray-400">超额收益</div>
                     <div className="text-right text-white">{strategy.metrics?.excessReturnPercent == null ? '--' : formatPercent(strategy.metrics.excessReturnPercent)}</div>
+                    <div className="text-gray-400">Formal Review</div>
+                    <div className="text-right text-white">{strategy.formalReviewReadiness?.status || '--'}</div>
+                    <div className="text-gray-400">数据等级</div>
+                    <div className="text-right text-white">{strategy.dataGradeAudit?.aggregateGrade || '--'}</div>
+                    <div className="text-gray-400">模型有效性</div>
+                    <div className="text-right text-white">{strategy.modelEffectiveness?.status || '--'}</div>
+                    <div className="text-gray-400">草案</div>
+                    <div className="text-right text-white">{strategy.manualPlanDraft?.status || '--'}</div>
+                    <div className="text-gray-400">正式目标仓位</div>
+                    <div className="text-right text-white">{strategy.manualPlanDraft?.formalTargetWeightPercent ?? 0}%</div>
                   </div>
+                  {strategy.manualPlanDraft && (
+                    <div className="mt-3 rounded border border-white/10 bg-black/20 p-2 text-xs text-gray-300">
+                      <div className="mb-1 flex flex-wrap gap-1">
+                        {(strategy.manualPlanDraft.suggestedActionTypes || []).map((action: string) => (
+                          <Tag key={action} color="#38bdf8">{action}</Tag>
+                        ))}
+                        <Tag color="#ef4444">formalTargetWeight 0%</Tag>
+                      </div>
+                      {(strategy.manualPlanDraft.blockedReasons || []).slice(0, 8).map((reason: string) => (
+                        <Tag key={reason} color="#ef4444">{reason}</Tag>
+                      ))}
+                    </div>
+                  )}
+                  {strategy.modelEffectiveness?.failureTaxonomy?.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {strategy.modelEffectiveness.failureTaxonomy.slice(0, 8).map((reason: string) => <Tag key={reason} color="#fbbf24">{reason}</Tag>)}
+                    </div>
+                  )}
                   {(strategy.blockedReasons || []).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1">
                       {strategy.blockedReasons.map((reason: string) => <Tag key={reason} color="#ef4444">{reason}</Tag>)}
+                    </div>
+                  )}
+                  {strategy.definition?.snapshot && (
+                    <div className="mt-3 rounded border border-white/10 bg-black/20 p-2 text-xs text-gray-300">
+                      <div>快照来源：{strategy.definition.snapshot.source}</div>
+                      {strategy.definition.snapshot.tradeDate && <div>交易日：{strategy.definition.snapshot.tradeDate}</div>}
+                      {strategy.definition.snapshot.selectedCandidateCount != null && (
+                        <div>入篮标的：{strategy.definition.snapshot.selectedCandidateCount} / 候选 {strategy.definition.snapshot.candidateCount ?? '--'}</div>
+                      )}
+                      {strategy.definition?.strategyId === 'dividend_low_vol_basket'
+                        && (strategy.definition.snapshot.selectedCandidateCount ?? 0) < 3 && (
+                        <div className="mt-1 text-yellow-200">
+                          当前红利低波入篮数量低于最小 3 只要求，保持 insufficient，不展示完成曲线。
+                        </div>
+                      )}
+                      {strategy.definition.snapshot.weightPolicy && <div>权重规则：{strategy.definition.snapshot.weightPolicy}</div>}
+                      {Array.isArray(strategy.definition.snapshot.evidenceRefs) && (
+                        <div>证据引用：{strategy.definition.snapshot.evidenceRefs.length} 条</div>
+                      )}
                     </div>
                   )}
                   {(strategy.warnings || []).length > 0 && (
@@ -668,7 +1030,7 @@ const Backtest: React.FC = () => {
           </div>
         )}
       </Card>
-      <Card title={<span className="text-primary">基于建议发起回测</span>} className="bg-[#1a1a2e] border-[surface-border]">
+      <Card title={<span className="text-primary">基于建议发起回测</span>} className="bg-[#1a1a2e] border-surface-border">
         <Form form={form} layout="vertical" className="grid gap-4 lg:grid-cols-4">
           <Form.Item name="adviceId" label="Advice ID" rules={[{ required: true, message: '请输入 adviceId' }]} className="lg:col-span-2 mb-0">
             <Input placeholder="输入建议 ID，或从任务中心跳转预填" />
@@ -729,7 +1091,7 @@ const Backtest: React.FC = () => {
                 查看任务中心
               </Button>
             ) : undefined}
-            className="bg-[#1a1a2e] border-[surface-border]"
+            className="bg-[#1a1a2e] border-surface-border"
           >
             {loadingAdviceDetail ? (
               <div className="text-gray-400">建议详情加载中...</div>
@@ -876,7 +1238,7 @@ const Backtest: React.FC = () => {
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title={<span className="text-primary">回测结果对照</span>} className="bg-[#1a1a2e] border-[surface-border]">
+          <Card title={<span className="text-primary">回测结果对照</span>} className="bg-[#1a1a2e] border-surface-border">
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-4">
                 <div className="text-xs text-gray-400 mb-2">建议回测总收益率</div>
@@ -912,7 +1274,7 @@ const Backtest: React.FC = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
-          <Card title={<span className="text-primary">权益曲线</span>} className="bg-[#1a1a2e] border-[surface-border]">
+          <Card title={<span className="text-primary">建议回测交易记录</span>} className="bg-[#1a1a2e] border-surface-border">
             <div className="h-80 overflow-auto rounded-lg border border-white/10 bg-[#0f172a99] p-4">
               {loadingResult ? (
                 <div className="h-full flex items-center justify-center text-gray-400">回测结果加载中...</div>
@@ -929,21 +1291,21 @@ const Backtest: React.FC = () => {
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-gray-500">
-                  {backtestResult ? '暂无交易记录' : '等待回测结果'}
+                  {backtestResult ? '暂无交易记录；当前接口未返回建议回测权益曲线' : '等待回测结果'}
                 </div>
               )}
             </div>
           </Card>
         </Col>
         <Col xs={24} lg={8}>
-          <Card title={<span className="text-primary">回测指标</span>} className="bg-[#1a1a2e] border-[surface-border]">
+          <Card title={<span className="text-primary">回测指标</span>} className="bg-[#1a1a2e] border-surface-border">
             <div className="space-y-4">
               <div className="text-gray-300">年化收益率</div>
-              <div className="text-2xl text-[success]">{backtestResult?.metrics?.annualizedReturn?.toFixed(2) ?? '--'}%</div>
+              <div className="text-2xl text-success">{backtestResult?.metrics?.annualizedReturn?.toFixed(2) ?? '--'}%</div>
               <div className="text-gray-300">夏普比率</div>
               <div className="text-2xl text-white">{backtestResult?.metrics?.sharpeRatio?.toFixed(2) ?? '--'}</div>
               <div className="text-gray-300">最大回撤</div>
-              <div className="text-2xl text-[danger]">-{backtestResult?.metrics?.maxDrawdown?.toFixed(2) ?? '--'}%</div>
+              <div className="text-2xl text-danger">-{backtestResult?.metrics?.maxDrawdown?.toFixed(2) ?? '--'}%</div>
               <div className="text-gray-300">总收益率</div>
               <div className="text-2xl text-white">{backtestResult?.metrics?.totalReturn?.toFixed(2) ?? '--'}%</div>
               <div className="text-gray-300">交易次数</div>

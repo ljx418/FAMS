@@ -65,25 +65,36 @@ async function main() {
   const chunkSize = Math.max(25, Math.min(200, Number(process.env.FAMS_TRADEABILITY_FROM_BARS_CHUNK_SIZE || 80) || 80))
   for (let index = 0; index < symbols.length; index += chunkSize) {
     const chunk = symbols.slice(index, index + chunkSize)
-    const bars = await prisma.marketBarCanonical.findMany({
-      where: {
-        symbol: { in: chunk },
-        market: 'CN',
-        timeframe: '1d',
-        adjustType: 'none',
-        dataVersion: 'canonical.v1',
-      },
-      orderBy: [{ symbol: 'asc' }, { tradeDate: 'desc' }],
-      take: chunk.length * days,
-    })
-    const barsBySymbol = new Map<string, typeof bars>()
-    for (const bar of bars) {
-      const group = barsBySymbol.get(bar.symbol) || []
-      if (group.length < days) {
-        group.push(bar)
-        barsBySymbol.set(bar.symbol, group)
-      }
-    }
+    const barsBySymbol = new Map<string, Array<{
+      assetId: string | null
+      symbol: string
+      tradeDate: Date
+      closePrice: number
+      volume: number
+      sourceRefsJson: string | null
+    }>>()
+    await Promise.all(chunk.map(async (symbol) => {
+      const symbolBars = await prisma.marketBarCanonical.findMany({
+        where: {
+          symbol,
+          market: 'CN',
+          timeframe: '1d',
+          adjustType: 'none',
+          dataVersion: 'canonical.v1',
+        },
+        orderBy: { tradeDate: 'desc' },
+        take: days,
+        select: {
+          assetId: true,
+          symbol: true,
+          tradeDate: true,
+          closePrice: true,
+          volume: true,
+          sourceRefsJson: true,
+        },
+      })
+      barsBySymbol.set(symbol, symbolBars)
+    }))
     await prisma.$transaction(async (tx) => {
       for (const symbol of chunk) {
         const symbolBars = [...(barsBySymbol.get(symbol) || [])].sort((left, right) => left.tradeDate.getTime() - right.tradeDate.getTime())

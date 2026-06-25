@@ -1,6 +1,6 @@
 # 红利低波行业龙头策略 PRD
 
-更新时间：2026-06-23
+更新时间：2026-06-24
 
 ## 1. 产品定位
 
@@ -14,6 +14,19 @@ manualTradeDraftReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
+
+2026-06-24 交互式策略回测阶段同步：
+
+```text
+interactiveStrategyBacktestReady=true
+researchGradeStrategyComparisonReady=true
+manualDraftReady=true
+formalReviewReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+红利低波策略可以作为组合回测目标架构中的策略篮子来源；当前已接入真实 `DividendLowVolDaily` 候选快照读取、等权 v1、tradeDate、selectionRules 和 evidenceRefs。若真实入篮数量低于最小 3 只、行业/单票约束不足或 evidenceRefs 不完整，`dividend_low_vol_basket` 必须保持 insufficient，不得用本地样本组合替代红利低波篮子。
 
 允许动作：
 
@@ -200,7 +213,7 @@ price_zone_mismatch：价格与均线/区间锚点明显错配
 
 ## 8. 验收状态
 
-截至 2026-06-23：
+截至 2026-06-24：
 
 - 全 A 研究链路已可运行。
 - v2 研究验证状态为 `research_candidate_passed`。
@@ -209,7 +222,9 @@ price_zone_mismatch：价格与均线/区间锚点明显错配
 - 600887 价格错配回归已覆盖：25 元事实价格不得生成 7 元观察区间。
 - 每日收盘后红利低波 scan 已接入 scheduler，使用 daily idempotency key 防重复。
 - 审计包显示 `formalTradingUnlocked=false`、`autoTradeUnlocked=false`。
-- `validation_retest.status` 仍为 `insufficient`，正式交易动作继续禁止。
+- 组合回测页面已达到 research-grade：支持多策略曲线、benchmark、分红贡献、成本拖累、Operation artifact 和前端 runtime 验收。
+- 红利低波候选篮子已进入组合回测输入构建；通过免费源扩容后当前真实入篮数量为 3/3，入篮标的为 `000513 / 601398 / 000333`，可在研究级组合回测中展示 completed 曲线。
+- 红利低波独立策略的 formal validation 仍未解锁正式交易动作；`tradeActionReadiness=true` 只能解释为 `ready_for_manual_trade_draft`。
 
 ## 8.1 组合策略回测联动
 
@@ -222,13 +237,14 @@ price_zone_mismatch：价格与均线/区间锚点明显错配
 - 用户自定义权重组合。
 - 本地真实行情样本组合。
 
-当前组合回测专项已达到 research-grade partial：
+当前组合回测专项已达到 research-grade：
 
 - `/backtest` 页面可以展示多组合曲线。
 - 默认路径可用本地真实 `market_bar_canonical` 生成 3 条 completed 策略曲线。
 - `local_equal_weight_20` 可作为研究 benchmark，显示 benchmarkReturn 和 excessReturn。
-- 永久组合和全天候组合因为 ETF 代理行情缺失继续显示 insufficient。
+- 永久组合和全天候组合已有研究级代理行情路径；当 ETF 代理行情覆盖满足时可返回 completed 曲线，缺 ETF 数据时仍显示 insufficient，且不等同于正式 total-return benchmark 验证。
 - 当前持仓组合因为 open positions 为 0 继续显示 insufficient。
+- 红利低波篮子当前可用真实候选快照返回 completed 曲线，但回测结果为研究级，benchmark 仍包含 price index / research proxy，不能用于正式交易放行。
 
 红利低波组合进入组合回测前必须满足：
 
@@ -237,6 +253,7 @@ price_zone_mismatch：价格与均线/区间锚点明显错配
 - 分红总回报可区分 price-only、dividend cash、dividend reinvest。
 - benchmark 状态必须区分 formal total-return、price index 和 research proxy。
 - 任一数据缺口不能被填成 0 或静默跳过，必须进入 `blockedReasons / warnings / dataCoverage`。
+- 红利低波篮子缺真实候选快照、真实入篮数量低于最小 3 只或 evidenceRefs 不完整时，前端必须显示 insufficient / blockedReasons，不能显示 completed 曲线。
 
 组合回测不能改变红利低波交易边界：
 
@@ -246,6 +263,40 @@ prohibitedActions = ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
 ```
 
 即使组合回测研究结果较好，也必须通过正式 validation evidence 和人工复核，才可能进入人工交易计划草案；自动交易仍不开放。
+
+## 8.2 本阶段正式交易级前置联动
+
+2026-06-24 起，红利低波策略纳入“交互式策略回测与正式交易级前置阶段”。这不会改变红利低波的交易边界，但会改变用户体验目标：用户不仅能看单只红利候选，还能把红利低波候选篮子放入策略回测页面，与当前持仓、永久组合、全天候组合、本地真实样本组合和自定义权重组合比较。
+
+完成后的红利低波联动体验：
+
+1. 在红利低波页面筛选候选，查看行业、股息率、分红质量、低波、估值、低位/高位、priceAudit 和 evidenceRefs。
+2. 选择红利低波篮子进入策略回测视角。
+3. 在策略回测页设置起止时间、再平衡频率、分红模式、费用、滑点和 benchmark。
+4. 查看红利低波篮子与其他组合的收益曲线、回撤曲线、benchmarkReturn、excessReturn、dividendContribution 和 blockedReasons。
+5. 若结果满足人工计划草案 gate，系统只生成人工计划草案；仍不得创建订单或输出正式买卖指令。
+
+红利低波进入策略回测必须满足：
+
+- 候选快照包含 `strategyVersion / tradeDate / selectionRules / evidenceRefs`。
+- 权重规则可解释，例如等权、分数加权、行业上限、单票上限。
+- `priceAudit` 必须为 fresh/aligned，或前端显示“需刷新后重算”。
+- benchmark 状态必须明确区分 `formal_total_return / price_index / research_proxy`。
+- 缺数据时进入 `blockedReasons`，不得把缺失指标填 0。
+
+本阶段出门状态：
+
+```text
+interactiveStrategyBacktestReady=true
+researchGradeStrategyComparisonReady=true
+dividendLowVolBasketBacktestReady=research_grade_completed
+manualTradeDraftReady=true
+formalReviewReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+说明：`dividendLowVolBasketBacktestReady=research_grade_completed` 表示已从真实候选快照构建红利低波篮子并达到最小 3 只入篮要求；该结论只代表研究级组合回测可用，不代表 formal validation 或正式交易动作可用。
 
 ## 9. 自动化开发边界
 

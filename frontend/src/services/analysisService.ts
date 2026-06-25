@@ -1166,6 +1166,9 @@ export interface DividendLowVolManualTradeDraftResult {
     holdingCount: number
     newReviewCount: number
     totalSuggestedDraftWeightPercent: number
+    selectionSource?: string
+    selectedSymbols?: string[]
+    filterSnapshot?: Record<string, unknown>
   }
   actions: Array<{
     rank: number
@@ -2204,11 +2207,11 @@ export async function getDividendLowVolManualTradeDraft(topN = 3): Promise<Divid
   return response.json()
 }
 
-export async function createDividendLowVolManualTradeDraft(topN = 3): Promise<DividendLowVolManualTradeDraftResult> {
+export async function createDividendLowVolManualTradeDraft(topN = 3, options: { selectedSymbols?: string[]; selectionSource?: string; filterSnapshot?: Record<string, unknown> } = {}): Promise<DividendLowVolManualTradeDraftResult> {
   const response = await fetch(`${API_BASE}/api/v1/strategy/dividend-low-vol/manual-trade-draft`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId: 'default', topN, requestedBy: 'user' }),
+    body: JSON.stringify({ userId: 'default', topN, requestedBy: 'user', ...options }),
   })
   if (!response.ok) {
     throw new Error(`Dividend low vol manual trade draft create failed: ${response.status}`)
@@ -2411,7 +2414,7 @@ export async function getDividendLowVolTradingZones(symbols = ['600000', '000001
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(options.persistedOnly
-      ? { persistedOnly: true, limit: options.limit || 120 }
+      ? { persistedOnly: true, symbols: symbols.join(','), limit: options.limit || 120 }
       : options.scope === 'all'
       ? { scope: 'all', limit: options.limit || 120 }
       : { symbols: symbols.join(','), limit: options.limit }),

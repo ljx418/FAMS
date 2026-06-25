@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Button, Card, Collapse, Empty, InputNumber, Select, Slider, Spin, Table, Tag, Tooltip, message } from 'antd'
+import { Alert, Button, Card, Collapse, Empty, InputNumber, Select, Slider, Spin, Table, Tag, Tooltip, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { FilterOutlined, ReloadOutlined } from '@ant-design/icons'
 import {
@@ -54,6 +54,26 @@ const SYMBOLS = ['600000', '000001', '601398', '600519']
 const DEFAULT_ALL_A_LIMIT = 6000
 
 type Candidate = DividendLowVolCandidatePool['candidates'][number]
+type ActiveTop3Selection = {
+  id: string
+  symbols: string[]
+  labels: string[]
+  createdAt: string
+  source: 'current_filter_top3'
+  filterSnapshot: {
+    industryFilter: string
+    gradeFilter: string
+    dispositionFilter: string
+    alertFilter: string
+    minCompositeScore: number
+    minLeaderScore: number
+    minDividendScore: number
+    minQualityScore: number
+    minLowVolScore: number
+    sortKey: SortKey
+    sortDirection: 'desc' | 'asc'
+  }
+}
 type SortKey =
   | 'evidenceAdjustedScore'
   | 'totalResearchScore'
@@ -283,6 +303,10 @@ const DividendLowVol: React.FC = () => {
   const [manualAcceptanceDecision, setManualAcceptanceDecision] = useState<DividendLowVolManualAcceptanceDecisionResult | null>(null)
   const [v2ResearchValidation, setV2ResearchValidation] = useState<DividendLowVolV2ResearchValidationResult | null>(null)
   const [historyBySymbol, setHistoryBySymbol] = useState<Record<string, DividendLowVolCandidateHistory>>({})
+  const [loadIssues, setLoadIssues] = useState<Record<string, string>>({})
+  const [lastScanOperation, setLastScanOperation] = useState<any | null>(null)
+  const [selectionSource, setSelectionSource] = useState<'current_filter_top3' | 'manual_selected'>('current_filter_top3')
+  const [activeTop3Selection, setActiveTop3Selection] = useState<ActiveTop3Selection | null>(null)
   const [loading, setLoading] = useState(false)
   const [scanLoading, setScanLoading] = useState(false)
   const [alertLoading, setAlertLoading] = useState(false)
@@ -312,8 +336,9 @@ const DividendLowVol: React.FC = () => {
 
   const loadCandidates = async () => {
     setLoading(true)
+    const issues: Record<string, string> = {}
     try {
-      const [readiness, manualDraft, tradeDraft, watchlist, workflowAudit, acceptanceReview, acceptanceDecision, candidates, v2Validation] = await Promise.all([
+      const results = await Promise.allSettled([
         getDividendLowVolDataReadiness(),
         getDividendLowVolManualDraftReadiness(),
         getDividendLowVolManualTradeDraft(3),
@@ -323,16 +348,26 @@ const DividendLowVol: React.FC = () => {
         getDividendLowVolManualAcceptanceDecision(),
         getDividendLowVolCandidates('', scanLimit, { scope: 'all', persistedOnly: true }),
         getDividendLowVolV2ResearchValidation(),
-      ])
-      setDataReadiness(readiness)
-      setManualDraftReadiness(manualDraft)
-      setManualTradeDraft(tradeDraft)
-      setManualWatchlist(watchlist)
-      setManualWorkflowAudit(workflowAudit)
-      setManualAcceptanceReview(acceptanceReview)
-      if (acceptanceDecision.status !== 'missing') setManualAcceptanceDecision(acceptanceDecision)
-      setPool(candidates)
-      setV2ResearchValidation(v2Validation)
+      ] as const)
+      const names = ['数据就绪', '草案 Gate', '人工草案', '观察清单', '工作流审计', '验收回看', '验收结论', '候选池', 'V2 研究验证']
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') issues[names[index]] = result.reason?.message || String(result.reason)
+      })
+      if (results[0].status === 'fulfilled') setDataReadiness(results[0].value)
+      if (results[1].status === 'fulfilled') setManualDraftReadiness(results[1].value)
+      if (results[2].status === 'fulfilled') setManualTradeDraft(results[2].value)
+      if (results[3].status === 'fulfilled') setManualWatchlist(results[3].value)
+      if (results[4].status === 'fulfilled') setManualWorkflowAudit(results[4].value)
+      if (results[5].status === 'fulfilled') setManualAcceptanceReview(results[5].value)
+      if (results[6].status === 'fulfilled' && results[6].value.status !== 'missing') setManualAcceptanceDecision(results[6].value)
+      if (results[7].status === 'fulfilled') setPool(results[7].value)
+      if (results[8].status === 'fulfilled') setV2ResearchValidation(results[8].value)
+      setLoadIssues(issues)
+      if (issues['候选池']) {
+        message.error('红利低波候选池加载失败')
+      } else if (Object.keys(issues).length > 0) {
+        message.warning(`候选池已加载，${Object.keys(issues).length} 个诊断卡片降级`)
+      }
     } catch (error) {
       console.error(error)
       message.error('红利低波候选池加载失败')
@@ -345,6 +380,7 @@ const DividendLowVol: React.FC = () => {
     setScanLoading(true)
     try {
       const operation = await startDividendLowVolDailyScanOperation({ universe: 'all_a', limit: scanLimit, executionMode: 'queued' })
+      setLastScanOperation(operation)
       message.success(`全 A 红利低波扫描已提交任务中心：${(operation.operationId || operation.id || '').slice(0, 8)}`)
     } catch (error) {
       console.error(error)
@@ -394,11 +430,16 @@ const DividendLowVol: React.FC = () => {
   }
 
   const loadTradingZones = async () => {
+    const selectedSymbols = getActiveSelectionSymbols()
+    if (selectedSymbols.length === 0) {
+      message.warning('请先锁定或筛选出 Top 3 标的')
+      return
+    }
     setTradingZoneLoading(true)
     try {
-      const result = await getDividendLowVolTradingZones(SYMBOLS, { limit: Math.min(scanLimit, 300), persistedOnly: true })
+      const result = await getDividendLowVolTradingZones(selectedSymbols, { limit: selectedSymbols.length, persistedOnly: true })
       setTradingZones(result)
-      message.success(`买卖区间已生成：${result.zones.length} 个标的`)
+      message.success(`买卖区间已生成：${result.zones.length} 个标的，输入 ${selectedSymbols.join(' / ')}`)
     } catch (error) {
       console.error(error)
       message.error('买卖区间生成失败')
@@ -408,11 +449,16 @@ const DividendLowVol: React.FC = () => {
   }
 
   const runRollingBacktestCheck = async () => {
+    const selectedSymbols = getActiveSelectionSymbols()
+    if (selectedSymbols.length === 0) {
+      message.warning('请先锁定或筛选出 Top 3 标的')
+      return
+    }
     setRollingBacktestLoading(true)
     try {
-      const result = await runDividendLowVolRollingBacktest(SYMBOLS, { scope: 'all', limit: Math.min(scanLimit, 120), years: 3 })
+      const result = await runDividendLowVolRollingBacktest(selectedSymbols, { limit: selectedSymbols.length, years: 3 })
       setRollingBacktest(result)
-      message.success(`滚动回测完成：${result.status}`)
+      message.success(`滚动回测完成：${result.status}，输入 ${selectedSymbols.join(' / ')}`)
     } catch (error) {
       console.error(error)
       message.error('滚动回测失败')
@@ -466,10 +512,21 @@ const DividendLowVol: React.FC = () => {
   const createManualTradeDraft = async () => {
     setManualDraftLoading(true)
     try {
-      const draft = await createDividendLowVolManualTradeDraft(3)
+      const selectedSymbols = getActiveSelectionSymbols()
+      if (selectedSymbols.length === 0) {
+        message.warning('当前筛选结果为空，无法生成观察草案')
+        return
+      }
+      const selection = activeTop3Selection || lockCurrentTop3Selection(false)
+      setSelectionSource('current_filter_top3')
+      const draft = await createDividendLowVolManualTradeDraft(selectedSymbols.length, {
+        selectedSymbols,
+        selectionSource: 'current_filter_top3',
+        filterSnapshot: selection?.filterSnapshot,
+      })
       setManualTradeDraft(draft)
       setManualDraftReview(null)
-      message.success('红利低波人工草案已生成并落盘')
+      message.success(`已按当前筛选生成 Top ${selectedSymbols.length} 观察草案`)
     } catch (error) {
       console.error(error)
       message.error('红利低波人工草案生成失败')
@@ -630,6 +687,50 @@ const DividendLowVol: React.FC = () => {
         return sortDirection === 'asc' ? diff : -diff
       })
   }, [alertFilter, completeDisplayCandidates, dispositionFilter, gradeFilter, industryFilter, minCompositeScore, minDividendScore, minLeaderScore, minLowVolScore, minQualityScore, sortDirection, sortKey])
+  const draftTopCandidates = filteredCandidates.slice(0, 3)
+  const getFilterSnapshot = (): ActiveTop3Selection['filterSnapshot'] => ({
+    industryFilter,
+    gradeFilter,
+    dispositionFilter,
+    alertFilter,
+    minCompositeScore,
+    minLeaderScore,
+    minDividendScore,
+    minQualityScore,
+    minLowVolScore,
+    sortKey,
+    sortDirection,
+  })
+  const lockCurrentTop3Selection = (showMessage = true) => {
+    if (draftTopCandidates.length === 0) {
+      if (showMessage) message.warning('当前筛选结果为空，无法锁定 Top 3')
+      return null
+    }
+    const createdAt = new Date().toISOString()
+    const selection: ActiveTop3Selection = {
+      id: `top3-${createdAt.replace(/[:.]/g, '-')}`,
+      symbols: draftTopCandidates.map((candidate) => candidate.identity.symbol),
+      labels: draftTopCandidates.map((candidate) => `${candidate.identity.symbol} ${candidate.identity.name}`),
+      createdAt,
+      source: 'current_filter_top3',
+      filterSnapshot: getFilterSnapshot(),
+    }
+    setActiveTop3Selection(selection)
+    if (showMessage) message.success(`已锁定本次 Top ${selection.symbols.length}：${selection.symbols.join(' / ')}`)
+    return selection
+  }
+  const getActiveSelectionSymbols = () => (
+    activeTop3Selection?.symbols.length
+      ? activeTop3Selection.symbols
+      : draftTopCandidates.map((candidate) => candidate.identity.symbol)
+  )
+  const selectedTop3SymbolSet = new Set(getActiveSelectionSymbols())
+  const scopeSummary = {
+    candidateScope: `persistedOnly · all_latest_by_symbol · limit ${scanLimit}`,
+    zoneScope: tradingZones ? `Top3 · ${getActiveSelectionSymbols().join(' / ')} · zones ${tradingZones.zones.length}` : '未生成',
+    rollingScope: rollingBacktest ? `3 年 · Top3 ${getActiveSelectionSymbols().join(' / ')} · ${rollingBacktest.status}` : '未运行',
+    draftScope: manualTradeDraft ? `${manualTradeDraft.summary.selectionSource || selectionSource} · ${(manualTradeDraft.summary.selectedSymbols || manualTradeDraft.actions.map((action) => action.symbol)).join(' / ')}` : '未生成',
+  }
 
   const rollingMetricByStrategy = useMemo(() => {
     const map = new Map<string, DividendLowVolRollingBacktestResult['strategyResults'][number]>()
@@ -653,10 +754,11 @@ const DividendLowVol: React.FC = () => {
       })))
       .sort((left, right) => {
         const signalRank: Record<string, number> = { buy_zone: 0, hold_zone: 1, sell_zone: 2, exit_risk: 3, insufficient: 4 }
-        return (signalRank[left.strategy.currentSignal] ?? 9) - (signalRank[right.strategy.currentSignal] ?? 9) || right.score - left.score
+        const selectedDiff = Number(selectedTop3SymbolSet.has(right.symbol)) - Number(selectedTop3SymbolSet.has(left.symbol))
+        return selectedDiff || (signalRank[left.strategy.currentSignal] ?? 9) - (signalRank[right.strategy.currentSignal] ?? 9) || right.score - left.score
       })
       .slice(0, 80)
-  }, [rollingMetricByStrategy, tradingZones])
+  }, [rollingMetricByStrategy, selectedTop3SymbolSet, tradingZones])
 
   const tradingZoneColumns: ColumnsType<typeof tradingZoneRows[number]> = [
     {
@@ -860,25 +962,98 @@ const DividendLowVol: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           <InputNumber min={20} max={6000} step={100} value={scanLimit} onChange={(value) => setScanLimit(Number(value || DEFAULT_ALL_A_LIMIT))} />
           <Button loading={scanLoading} onClick={runScan}>扫描全 A 样本</Button>
-          <Button loading={alertLoading} onClick={runAlertCheck}>提醒检查</Button>
-          <Button onClick={loadPersistedAlerts}>持久化提醒</Button>
-          <Button loading={tradingZoneLoading} onClick={loadTradingZones}>买卖区间</Button>
-          <Button loading={rollingBacktestLoading} onClick={runRollingBacktestCheck}>滚动回测</Button>
-          <Button loading={backtestLoading} onClick={runBacktestCheck}>回测</Button>
-          <Button loading={validationLoading} onClick={runValidationRetestCheck}>验证复测</Button>
-          <Button loading={gapDiagnosticsLoading} onClick={runValidationGapDiagnostics}>验证缺口</Button>
-          <Button loading={manualDraftLoading} onClick={createManualTradeDraft}>生成人工草案</Button>
           <Button loading={auditLoading} onClick={createAuditPackage}>生成 GPT 审计包</Button>
           <Button icon={<ReloadOutlined />} loading={loading} onClick={loadCandidates}>刷新</Button>
         </div>
       </div>
 
-      <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
-        当前为研究/观察提醒，不构成交易指令。正式 ADD / REDUCE 仍受 validation_evidence gate 限制，AUTO_TRADE 始终禁止。
-      </div>
+      <Alert
+        type="warning"
+        showIcon
+        message="当前为研究/观察提醒，不构成交易指令"
+        description="正式 ADD / REDUCE 仍受 validation_evidence gate 限制，AUTO_TRADE 始终禁止。页面内的买入/卖出区间只用于观察和人工计划草案。"
+      />
+
+      {Object.keys(loadIssues).length > 0 && (
+        <Alert
+          type={loadIssues['候选池'] ? 'error' : 'warning'}
+          showIcon
+          message={loadIssues['候选池'] ? '候选池加载失败' : '部分诊断卡片加载失败，候选池仍可使用'}
+          description={
+            <div className="flex flex-wrap gap-1">
+              {Object.entries(loadIssues).map(([name, issue]) => (
+                <Tooltip key={name} title={issue}>
+                  <Tag color={name === '候选池' ? '#ef4444' : '#fbbf24'}>{name}</Tag>
+                </Tooltip>
+              ))}
+            </div>
+          }
+          action={<Button size="small" onClick={loadCandidates}>重试</Button>}
+        />
+      )}
+
+      <Card title="红利低波 5 步工作台" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+        <div className="grid gap-3 xl:grid-cols-5">
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-sm font-medium text-white">1. 加载候选池</div>
+            <div className="mt-1 text-xs text-gray-400">{scopeSummary.candidateScope}</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Tag color={pool ? '#34d399' : '#64748b'}>{pool ? `候选 ${candidates.length}` : '未加载'}</Tag>
+              <Button size="small" loading={loading} onClick={loadCandidates}>刷新候选</Button>
+            </div>
+            {lastScanOperation && (
+              <div className="mt-2 text-xs text-sky-200">任务 {(lastScanOperation.operationId || lastScanOperation.id || '').slice(0, 8)}</div>
+            )}
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-sm font-medium text-white">2. 锁定 Top 3</div>
+            <div className="mt-1 text-xs text-gray-400">先按下方筛选排序得到预览，再锁定本次区间、回测和草案输入。</div>
+            <div className="mt-3 flex flex-wrap gap-1">
+              {draftTopCandidates.length === 0 ? <Tag color="#64748b">无可选标的</Tag> : draftTopCandidates.map((candidate) => (
+                <Tag key={candidate.identity.symbol} color={activeTop3Selection?.symbols.includes(candidate.identity.symbol) ? '#34d399' : '#38bdf8'}>
+                  {candidate.identity.symbol} {candidate.identity.name}
+                </Tag>
+              ))}
+            </div>
+            <Button className="mt-3" size="small" onClick={() => lockCurrentTop3Selection()} disabled={draftTopCandidates.length === 0}>
+              锁定当前 Top 3
+            </Button>
+            {activeTop3Selection && (
+              <div className="mt-2 text-[11px] text-emerald-200">
+                已锁定：{activeTop3Selection.symbols.join(' / ')}
+              </div>
+            )}
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-sm font-medium text-white">3. 查看买卖区间</div>
+            <div className="mt-1 text-xs text-gray-400">{scopeSummary.zoneScope}</div>
+            <Button className="mt-3" size="small" loading={tradingZoneLoading} onClick={loadTradingZones}>按 Top3 生成区间</Button>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-sm font-medium text-white">4. 运行滚动回测</div>
+            <div className="mt-1 text-xs text-gray-400">{scopeSummary.rollingScope}</div>
+            <Button className="mt-3" size="small" loading={rollingBacktestLoading} onClick={runRollingBacktestCheck}>Top3 3 年滚动回测</Button>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-sm font-medium text-white">5. 生成观察草案</div>
+            <div className="mt-1 text-xs text-gray-400">{scopeSummary.draftScope}</div>
+            <Button className="mt-3" size="small" type="primary" loading={manualDraftLoading} onClick={createManualTradeDraft}>使用锁定 Top 3</Button>
+          </div>
+        </div>
+        <div className="mt-3 rounded border border-sky-400/20 bg-sky-400/10 p-2 text-xs text-sky-100">
+          本次工作台输入：{getActiveSelectionSymbols().length > 0 ? getActiveSelectionSymbols().join(' / ') : '尚未选择'}。未锁定时会临时使用当前筛选前三只；建议先锁定再生成区间、回测和草案。
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button size="small" loading={alertLoading} onClick={runAlertCheck}>提醒检查</Button>
+          <Button size="small" onClick={loadPersistedAlerts}>持久化提醒</Button>
+          <Button size="small" loading={backtestLoading} onClick={runBacktestCheck}>研究回测</Button>
+          <Button size="small" loading={validationLoading} onClick={runValidationRetestCheck}>验证复测</Button>
+          <Button size="small" loading={gapDiagnosticsLoading} onClick={runValidationGapDiagnostics}>验证缺口</Button>
+        </div>
+      </Card>
 
       {manualDraftReadiness && (
-        <Card title="人工交易计划草案 Gate" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+        <Card title="人工交易计划草案 Gate" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
           <div className="space-y-3 text-xs text-gray-300">
             <div className="flex flex-wrap items-center gap-2">
               <Tag color={manualDraftReadiness.readyForManualTradeDraft ? '#34d399' : '#ef4444'}>
@@ -1050,9 +1225,12 @@ const DividendLowVol: React.FC = () => {
             {manualTradeDraft && (
               <div className="rounded border border-white/10 bg-black/10 p-2">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-white">Top 3 人工草案</span>
+                  <span className="font-medium text-white">本次 Top 3 人工草案</span>
                   <Tag color={manualTradeDraft.readyForManualTradeDraft ? '#34d399' : '#ef4444'}>{manualTradeDraft.status}</Tag>
                   <Tag color="#64748b">建议权重合计 {formatScore(manualTradeDraft.summary.totalSuggestedDraftWeightPercent)}%</Tag>
+                  {(manualTradeDraft.summary.selectedSymbols || manualTradeDraft.actions.map((action) => action.symbol)).map((symbol) => (
+                    <Tag key={symbol} color="#38bdf8">{symbol}</Tag>
+                  ))}
                   <Tag color="#ef4444">禁止 {manualTradeDraft.prohibitedActions.join(' / ')}</Tag>
                 </div>
                 {manualTradeDraft.draftId && (
@@ -1263,7 +1441,7 @@ const DividendLowVol: React.FC = () => {
       )}
 
       {v2ResearchValidation && (
-        <Card title="V2 研究验证诊断" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+        <Card title="V2 研究验证诊断" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
           <div className="space-y-3 text-xs text-gray-300">
             <div className="flex flex-wrap items-center gap-2">
               <Tag color={v2ResearchValidation.status === 'research_candidate_passed' ? '#34d399' : v2ResearchValidation.status === 'missing' ? '#ef4444' : '#fbbf24'}>
@@ -1350,7 +1528,7 @@ const DividendLowVol: React.FC = () => {
         </Card>
       )}
 
-      <Card title="买入/卖出观察区间与滚动策略" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+      <Card title="买入/卖出观察区间与滚动策略" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-gray-300">
             <Tag color="#38bdf8">布林低吸高抛</Tag>
@@ -1366,6 +1544,9 @@ const DividendLowVol: React.FC = () => {
           </div>
           <div className="rounded border border-amber-400/20 bg-amber-400/10 p-2 text-xs text-amber-100">
             区间只用于研究观察和人工计划草案：进入买入观察区不等于正式 ADD，进入卖出观察区不等于正式 REDUCE。正式动作仍由 validation_evidence、人工复核、仓位和交易约束共同阻断。
+          </div>
+          <div className="rounded border border-sky-400/20 bg-sky-400/10 p-2 text-xs text-sky-100">
+            本次区间/滚动回测输入标的：{getActiveSelectionSymbols().length > 0 ? getActiveSelectionSymbols().join(' / ') : '尚未选择'}。
           </div>
           {rollingBacktest && (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -1410,29 +1591,29 @@ const DividendLowVol: React.FC = () => {
       </Card>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-        <Card className="bg-[#1a1a2e] border-[surface-border]" styles={{ body: { padding: 14 } }}>
+        <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
           <div className="text-xs text-gray-400">本轮样本</div>
           <div className="mt-1 text-2xl font-semibold text-white">{candidates.length}</div>
         </Card>
-        <Card className="bg-[#1a1a2e] border-[surface-border]" styles={{ body: { padding: 14 } }}>
+        <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
           <div className="text-xs text-gray-400">完整指标</div>
           <div className="mt-1 text-2xl font-semibold text-emerald-300">{completeDisplayCandidates.length}</div>
         </Card>
-        <Card className="bg-[#1a1a2e] border-[surface-border]" styles={{ body: { padding: 14 } }}>
+        <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
           <div className="text-xs text-gray-400">研究候选</div>
           <div className="mt-1 text-2xl font-semibold text-sky-300">{eligible.length}</div>
         </Card>
-        <Card className="bg-[#1a1a2e] border-[surface-border]" styles={{ body: { padding: 14 } }}>
+        <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
           <div className="text-xs text-gray-400">低位提醒</div>
           <div className="mt-1 text-2xl font-semibold text-sky-300">{lowZone.length}</div>
         </Card>
-        <Card className="bg-[#1a1a2e] border-[surface-border]" styles={{ body: { padding: 14 } }}>
+        <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
           <div className="text-xs text-gray-400">建仓/卖出</div>
           <div className="mt-1 text-2xl font-semibold text-amber-300">{buildPlan.length}/{sellAlerts.length}</div>
         </Card>
       </div>
 
-      <Card title="未纳入完整指标表" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+      <Card title="未纳入完整指标表" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
         <div className="space-y-3 text-xs text-gray-300">
           <div className="flex flex-wrap gap-2">
             <Tag color="#34d399">完整指标 {completeDisplayCandidates.length}</Tag>
@@ -1468,7 +1649,7 @@ const DividendLowVol: React.FC = () => {
       </Card>
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <Card title="剔除原因审计" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+        <Card title="剔除原因审计" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
           {pool?.rejectionSummary ? (
             <div className="space-y-3 text-xs">
               <div className="flex flex-wrap gap-2">
@@ -1498,7 +1679,7 @@ const DividendLowVol: React.FC = () => {
           )}
         </Card>
 
-        <Card title="龙头数据审计" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+        <Card title="龙头数据审计" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
           {pool?.leaderAuditSummary ? (
             <div className="space-y-3 text-xs text-gray-300">
               <div className="flex flex-wrap gap-2">
@@ -1537,7 +1718,7 @@ const DividendLowVol: React.FC = () => {
         </Card>
       </div>
 
-      <Card title="指标说明" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+      <Card title="指标说明" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
           <Collapse
             size="small"
             ghost
@@ -1552,7 +1733,7 @@ const DividendLowVol: React.FC = () => {
       {(persistedAlerts || auditPackage) && (
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           {persistedAlerts && (
-            <Card title={`持久化提醒 ${persistedAlerts.totalAlerts}`} className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+            <Card title={`持久化提醒 ${persistedAlerts.totalAlerts}`} className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
               {persistedAlerts.totalAlerts === 0 ? (
                 <div className="text-sm text-gray-400">最新持久化扫描没有打开的红利低波提醒。</div>
               ) : (
@@ -1572,7 +1753,7 @@ const DividendLowVol: React.FC = () => {
             </Card>
           )}
           {auditPackage && (
-            <Card title="GPT 审计包" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+            <Card title="GPT 审计包" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
               <div className="space-y-2 text-xs text-gray-300">
                 <div>文件：<span className="text-white">{auditPackage.fileName}</span></div>
                 <div>路径：<span className="break-all text-sky-200">{auditPackage.path}</span></div>
@@ -1584,7 +1765,7 @@ const DividendLowVol: React.FC = () => {
         </div>
       )}
 
-      <Card title={<span><FilterOutlined /> 筛选与排序</span>} className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+      <Card title={<span><FilterOutlined /> 筛选与排序</span>} className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div>
             <div className="mb-1 text-xs text-gray-400">行业</div>
@@ -1682,7 +1863,7 @@ const DividendLowVol: React.FC = () => {
 
       <Card
         title={`完整策略指标候选 ${filteredCandidates.length}/${completeDisplayCandidates.length}`}
-        className="bg-[#1a1a2e] border-[surface-border]"
+        className="bg-[#1a1a2e] border-surface-border"
         styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 0 } }}
       >
         {loading ? (
@@ -1807,12 +1988,12 @@ const DividendLowVol: React.FC = () => {
       {(alerts || backtest || validationRetest || validationGapDiagnostics) && (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {alerts && (
-            <Card title="提醒检查" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' } }}>
+            <Card title="提醒检查" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' } }}>
               <div className="text-sm text-gray-300">提醒 {alerts.totalAlerts} 条 · 禁止 {alerts.policy.prohibitedActions.join(' / ')}</div>
             </Card>
           )}
           {backtest && (
-            <Card title="回测与验证证据" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' } }}>
+            <Card title="回测与验证证据" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' } }}>
               <div className="text-sm text-gray-300">{backtest.status} · 样本 {backtest.sample.researchEligibleCount}/{backtest.sample.candidateCount} · validation {backtest.validationEvidence.status}</div>
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-400 md:grid-cols-4">
                 <div>OOS {backtest.validationEvidence.outOfSample}</div>
@@ -1843,7 +2024,7 @@ const DividendLowVol: React.FC = () => {
             </Card>
           )}
           {validationRetest && (
-            <Card title="验证复测审计" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' } }}>
+            <Card title="验证复测审计" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' } }}>
               <div className="text-sm text-gray-300">状态 {validationRetest.status} · 交易可用 {validationRetest.validationDecision.usableForTradingAdvice ? '是' : '否'}</div>
               <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-gray-400 md:grid-cols-2">
                 {Object.entries(validationRetest.validationEvidenceMatrix.checks).map(([key, check]) => (
@@ -1862,7 +2043,7 @@ const DividendLowVol: React.FC = () => {
             </Card>
           )}
           {validationGapDiagnostics && (
-            <Card title="验证缺口诊断" className="bg-[#1a1a2e] border-[surface-border]" styles={{ header: { color: '#fff', borderBottomColor: '#374151' } }}>
+            <Card title="验证缺口诊断" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' } }}>
               <div className="space-y-3 text-xs text-gray-300">
                 <div className="flex flex-wrap items-center gap-2">
                   <Tag color={validationGapDiagnostics.status === 'formal_validation_gap_clear' ? '#34d399' : '#ef4444'}>

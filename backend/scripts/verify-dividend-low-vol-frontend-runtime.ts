@@ -22,12 +22,14 @@ async function main() {
   const servicePath = resolve(repoRoot, 'frontend/src/services/analysisService.ts')
   const layoutPath = resolve(repoRoot, 'frontend/src/components/layout/AppLayout.tsx')
   const appPath = resolve(repoRoot, 'frontend/src/App.tsx')
+  const strategyRoutePath = resolve(process.cwd(), 'src/routes/strategy.ts')
 
-  const [pageSource, serviceSource, layoutSource, appSource, v2Artifact] = await Promise.all([
+  const [pageSource, serviceSource, layoutSource, appSource, strategyRouteSource, v2Artifact] = await Promise.all([
     readFile(pagePath, 'utf8'),
     readFile(servicePath, 'utf8'),
     readFile(layoutPath, 'utf8'),
     readFile(appPath, 'utf8'),
+    readFile(strategyRoutePath, 'utf8'),
     latestV2Artifact(),
   ])
 
@@ -39,7 +41,20 @@ async function main() {
     pageLoadsManualTradeDraft: pageSource.includes('getDividendLowVolManualTradeDraft(3)'),
     pageLoadsManualWatchlist: pageSource.includes('getDividendLowVolManualWatchlist()'),
     pageLoadsManualWorkflowAudit: pageSource.includes('getDividendLowVolManualWorkflowAudit()'),
-    pageCreatesManualTradeDraft: pageSource.includes('createDividendLowVolManualTradeDraft(3)') && pageSource.includes('生成人工草案'),
+    pageCreatesManualTradeDraft: pageSource.includes('createDividendLowVolManualTradeDraft(selectedSymbols.length') && pageSource.includes('使用锁定 Top 3'),
+    pageUsesCurrentFilteredTop3ForDraft: pageSource.includes('draftTopCandidates.map((candidate) => candidate.identity.symbol)') && pageSource.includes("selectionSource: 'current_filter_top3'"),
+    pageLocksActiveTop3Selection: pageSource.includes('activeTop3Selection') && pageSource.includes('lockCurrentTop3Selection') && pageSource.includes('已锁定'),
+    pageUsesSameTop3ForTradingZones: pageSource.includes('const selectedSymbols = getActiveSelectionSymbols()') && pageSource.includes('getDividendLowVolTradingZones(selectedSymbols'),
+    pageUsesSameTop3ForRollingBacktest: pageSource.includes('runDividendLowVolRollingBacktest(selectedSymbols') && pageSource.includes('Top3 3 年滚动回测'),
+    pageShowsTop3InputScope: pageSource.includes('本次区间/滚动回测输入标的') && pageSource.includes('本次工作台输入'),
+    pageShowsFiveStepWorkbench: pageSource.includes('红利低波 5 步工作台')
+      && pageSource.includes('1. 加载候选池')
+      && pageSource.includes('2. 锁定 Top 3')
+      && pageSource.includes('3. 查看买卖区间')
+      && pageSource.includes('4. 运行滚动回测')
+      && pageSource.includes('5. 生成观察草案'),
+    pageUsesPartialLoadingFallback: pageSource.includes('Promise.allSettled') && pageSource.includes('部分诊断卡片加载失败，候选池仍可使用'),
+    serviceCanCreateDraftWithSelectedSymbols: serviceSource.includes('selectedSymbols?: string[]') && serviceSource.includes('selectionSource?: string') && serviceSource.includes('filterSnapshot?: Record<string, unknown>'),
     pageReviewsManualTradeDraft: pageSource.includes('reviewDividendLowVolManualTradeDraft') && pageSource.includes('批准进入观察') && pageSource.includes('需要补数据') && pageSource.includes('拒绝草案'),
     pageShowsManualWatchlist: pageSource.includes('人工观察清单') && pageSource.includes('观察清单不是正式交易清单'),
     pageCreatesManualPretradeCheck: pageSource.includes('createDividendLowVolManualPretradeCheck') && pageSource.includes('生成执行前检查单') && pageSource.includes('执行前人工检查单'),
@@ -54,7 +69,7 @@ async function main() {
     pageRunsRollingBacktest: pageSource.includes('runDividendLowVolRollingBacktest') && pageSource.includes('滚动回测'),
     pageShowsV2ResearchCard: pageSource.includes('V2 研究验证诊断'),
     pageShowsManualDraftGate: pageSource.includes('人工交易计划草案 Gate') && pageSource.includes('草案复核'),
-    pageShowsManualDraftTop3: pageSource.includes('Top 3 人工草案') && pageSource.includes('suggestedDraftWeightPercent'),
+    pageShowsManualDraftTop3: pageSource.includes('本次 Top 3 人工草案') && pageSource.includes('suggestedDraftWeightPercent'),
     pageKeepsResearchOnlyWarning: pageSource.includes('不构成交易指令') && pageSource.includes('AUTO_TRADE'),
     scanButtonUsesQueuedOperation: pageSource.includes("executionMode: 'queued'"),
     serviceExposesV2Endpoint: serviceSource.includes('/api/v1/strategy/dividend-low-vol/v2/research-validation'),
@@ -69,11 +84,13 @@ async function main() {
     serviceCanPersistManualAcceptanceDecision: serviceSource.includes('decideDividendLowVolManualAcceptance') && serviceSource.includes('/api/v1/strategy/dividend-low-vol/manual-acceptance-review/decision') && serviceSource.includes("method: 'POST'"),
     serviceExposesValidationGapDiagnosticsEndpoint: serviceSource.includes('/api/v1/strategy/dividend-low-vol/validation-gap-diagnostics'),
     serviceExposesTradingZoneEndpoint: serviceSource.includes('/api/v1/strategy/dividend-low-vol/trading-zones') && serviceSource.includes('persistedOnly'),
+    servicePassesSymbolsForPersistedTradingZones: serviceSource.includes("{ persistedOnly: true, symbols: symbols.join(',')"),
     serviceExposesRollingBacktestEndpoint: serviceSource.includes('/api/v1/strategy/dividend-low-vol/rolling-backtest'),
     serviceCanPersistManualTradeDraft: serviceSource.includes('createDividendLowVolManualTradeDraft') && serviceSource.includes("method: 'POST'"),
     serviceCanReviewManualTradeDraft: serviceSource.includes('reviewDividendLowVolManualTradeDraft') && serviceSource.includes('/review') && serviceSource.includes("method: 'POST'"),
     leftMenuHasIndependentEntry: layoutSource.includes("key: 'dividend-low-vol'") && layoutSource.includes('红利低波策略'),
     appRouteHasIndependentPage: appSource.includes('path="dividend-low-vol"') && appSource.includes('<DividendLowVol />'),
+    backendFiltersPersistedTradingZonesBySymbols: strategyRouteSource.includes('requestedSymbolSet') && strategyRouteSource.includes('pool.candidates.filter'),
     v2ArtifactResearchOnly: Boolean(
       v2Artifact
         && v2Artifact.payload?.validationDecision?.usableForTradingAdvice === false

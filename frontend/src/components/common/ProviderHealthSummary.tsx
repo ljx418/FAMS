@@ -19,6 +19,13 @@ const PROVIDER_STATUS_COLOR: Record<ProviderHealthItem['status'], string> = {
   unknown: '#818cf8',
 }
 
+const PROVIDER_STATUS_LABEL: Record<ProviderHealthItem['status'], string> = {
+  healthy: '可靠',
+  degraded: '降级',
+  failing: '异常',
+  unknown: '未知',
+}
+
 const providerSummaryColumns: ColumnsType<ProviderHealthItem> = [
   { title: '数据源', dataIndex: 'label', key: 'label', width: 160 },
   {
@@ -27,7 +34,7 @@ const providerSummaryColumns: ColumnsType<ProviderHealthItem> = [
     key: 'status',
     width: 120,
     render: (value: ProviderHealthItem['status']) => (
-      <span style={{ color: PROVIDER_STATUS_COLOR[value] }}>{value}</span>
+      <Tag color={PROVIDER_STATUS_COLOR[value]}>{PROVIDER_STATUS_LABEL[value]}</Tag>
     ),
   },
   { title: '成功', dataIndex: 'successes', key: 'successes', width: 80 },
@@ -50,7 +57,7 @@ export const ProviderHealthTags: React.FC<{
       .filter((item) => item.status !== 'unknown')
       .map((item) => (
         <Tag key={item.provider} color={PROVIDER_STATUS_COLOR[item.status]}>
-          {item.label} {item.status}
+          {item.label} {PROVIDER_STATUS_LABEL[item.status]}
         </Tag>
       ))}
   </div>

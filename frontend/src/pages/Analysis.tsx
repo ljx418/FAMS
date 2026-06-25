@@ -536,7 +536,7 @@ const AnalysisQuickPanel: React.FC<{
   <div className="space-y-3">
     <Card
       size="small"
-      className="bg-[#1a1a2e] border-[surface-border]"
+      className="bg-[#1a1a2e] border-surface-border"
       styles={{ body: { padding: 14 } }}
     >
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -647,7 +647,7 @@ const AnalysisQuickPanel: React.FC<{
 
     <Card
       size="small"
-      className="bg-[#1a1a2e] border-[surface-border]"
+      className="bg-[#1a1a2e] border-surface-border"
       styles={{ body: { padding: 14 } }}
     >
       <div className="grid grid-cols-2 gap-2">
@@ -866,7 +866,7 @@ const FivdRPanel: React.FC<{
     return (
       <Card
         title={<span className="text-white">FIVD-R 统一分析</span>}
-        className="bg-[#1a1a2e] border-[surface-border]"
+        className="bg-[#1a1a2e] border-surface-border"
         extra={<Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={onRefresh}>刷新</Button>}
       >
         {loading ? (
@@ -980,7 +980,7 @@ const FivdRPanel: React.FC<{
   return (
     <Card
       title={<span className="text-white">FIVD-R 统一分析</span>}
-      className="bg-[#1a1a2e] border-[surface-border]"
+      className="bg-[#1a1a2e] border-surface-border"
       extra={
         <div className="flex flex-wrap gap-2">
           <Button size="small" onClick={() => onSaveSnapshot?.(result)} loading={actionLoading === 'snapshot'}>保存快照</Button>
@@ -2489,7 +2489,7 @@ const Analysis: React.FC = () => {
 
       <Card
         size="small"
-        className="bg-[#1a1a2e] border-[surface-border]"
+        className="bg-[#1a1a2e] border-surface-border"
         styles={{ body: { padding: 14 } }}
       >
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -2601,7 +2601,7 @@ const Analysis: React.FC = () => {
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-6 min-w-0">
-              <div className="hidden lg:flex items-center justify-between gap-4 rounded-2xl border border-[rgba(37,99,235,0.28)] bg-[linear-gradient(135deg,rgba(37,99,235,0.16),rgba(15,23,42,0.92))] px-4 py-3 shadow-[0_12px_32px_rgba(15,23,42,0.28)]">
+              <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-[rgba(37,99,235,0.28)] bg-[linear-gradient(135deg,rgba(37,99,235,0.16),rgba(15,23,42,0.92))] px-4 py-3 shadow-[0_12px_32px_rgba(15,23,42,0.28)] lg:flex-row lg:items-center">
                 <div className="min-w-0">
                   <div className="text-xs uppercase tracking-[0.18em] text-blue-200/70 mb-2">分区视图</div>
                   <ChoicePills
@@ -2616,7 +2616,7 @@ const Analysis: React.FC = () => {
                     ]}
                   />
                 </div>
-                <div className="flex flex-col items-end gap-2 text-right">
+                <div className="flex flex-col items-start gap-2 text-left lg:items-end lg:text-right">
                   <Tag color="#2563eb" style={{ marginRight: 0 }}>
                     当前分区 {activeSection === 'overview' ? '概览' : activeSection === 'fivdr' ? 'FIVD-R' : activeSection === 'actions' ? '建议' : activeSection === 'holdings' ? '持仓' : '风险'}
                   </Tag>
@@ -2680,7 +2680,7 @@ const Analysis: React.FC = () => {
               {activeSection === 'overview' && researchResult && (
             <Card
               title={<span className="text-white">研究结论 - {researchResult.targetName || researchResult.input}</span>}
-              className="bg-[#1a1a2e] border-[surface-border]"
+              className="bg-[#1a1a2e] border-surface-border"
             >
               <div className="grid gap-4 md:grid-cols-4">
                 <div>
@@ -2825,7 +2825,7 @@ const Analysis: React.FC = () => {
               {activeSection === 'overview' && screenerResult && (
                 <Card
                   title={<span className="text-white">AI选股结果 - {screenerResult.strategy}</span>}
-                  className="bg-[#1a1a2e] border-[surface-border]"
+                  className="bg-[#1a1a2e] border-surface-border"
                 >
                   <div className="flex flex-wrap gap-2 mb-4">
                     <Button
@@ -3347,7 +3347,7 @@ const Analysis: React.FC = () => {
               {keySuggestions.length > 0 && (
             <Card
               title={<span className="text-white">重点建议</span>}
-              className="bg-[#1a1a2e] border-[surface-border]"
+              className="bg-[#1a1a2e] border-surface-border"
             >
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="text-sm text-gray-300">
@@ -3379,7 +3379,7 @@ const Analysis: React.FC = () => {
               {activeSection === 'actions' && (
             <Card
               title={<span className="text-white">{activeQuery ? `操作建议 - ${activeQuery}` : '操作建议'}</span>}
-              className="bg-[#1a1a2e] border-[surface-border]"
+              className="bg-[#1a1a2e] border-surface-border"
             >
               <div className="mb-4 rounded-xl border border-white/10 bg-[#161629] p-3">
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -3643,7 +3643,7 @@ const Analysis: React.FC = () => {
               {activeSection === 'overview' && (
                 <Card
                   title={<span className="text-white">概览说明</span>}
-                  className="bg-[#1a1a2e] border-[surface-border]"
+                  className="bg-[#1a1a2e] border-surface-border"
                 >
                   <div className="grid gap-3 lg:grid-cols-2">
                     <div className="rounded-xl border border-white/10 bg-[#161629] p-4">
@@ -3675,7 +3675,7 @@ const Analysis: React.FC = () => {
               <Col xs={24} lg={12}>
                 <Card
                   title={<span className="text-white">风险分析</span>}
-                  className="bg-[#1a1a2e] border-[surface-border]"
+                  className="bg-[#1a1a2e] border-surface-border"
                 >
                   <RiskIndicator level={riskLevel} />
                   <div className="grid grid-cols-3 gap-4">
@@ -3707,7 +3707,7 @@ const Analysis: React.FC = () => {
               <Col xs={24} lg={12}>
                 <Card
                   title={<span className="text-white">一键生成交易计划</span>}
-                  className="bg-[#1a1a2e] border-[surface-border]"
+                  className="bg-[#1a1a2e] border-surface-border"
                 >
                   <div className="text-center py-4">
                     <BulbOutlined className="text-4xl text-[#818cf8] mb-4" />
@@ -3755,7 +3755,7 @@ const Analysis: React.FC = () => {
               {activeSection === 'holdings' && (
             <Card
               title={<span className="text-white">当前持仓研究面板</span>}
-              className="bg-[#1a1a2e] border-[surface-border]"
+              className="bg-[#1a1a2e] border-surface-border"
             >
               {holdingsResearch.length === 0 ? (
                 <Empty description={<span className="text-gray-300">暂无持仓研究数据</span>} />

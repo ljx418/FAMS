@@ -195,12 +195,21 @@ function round(value: number, precision = 2) {
   return Math.round(value * factor) / factor
 }
 
-function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: number) {
+function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: number, options: { selectedSymbols?: string[]; selectionSource?: string } = {}) {
   const ready = readiness.readyForManualTradeDraft === true
   const candidates = Array.isArray(pool?.candidates) ? pool.candidates : []
-  const eligible = candidates
+  const selectedSymbols = Array.isArray(options.selectedSymbols)
+    ? options.selectedSymbols.map((symbol) => String(symbol)).filter(Boolean)
+    : []
+  const eligiblePool = candidates
     .filter((candidate: any) => !['avoid', 'data_insufficient'].includes(candidate.disposition))
-    .sort((left: any, right: any) => (right.scores?.evidenceAdjustedScore || 0) - (left.scores?.evidenceAdjustedScore || 0))
+  const eligible = selectedSymbols.length > 0
+    ? selectedSymbols
+      .map((symbol) => eligiblePool.find((candidate: any) => candidate.identity?.symbol === symbol))
+      .filter(Boolean)
+      .slice(0, topN)
+    : eligiblePool
+      .sort((left: any, right: any) => (right.scores?.evidenceAdjustedScore || 0) - (left.scores?.evidenceAdjustedScore || 0))
     .slice(0, topN)
   type DraftAction = {
     rank: number
@@ -305,6 +314,8 @@ function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: nu
     readiness,
     summary: {
       requestedTopN: topN,
+      selectionSource: options.selectionSource || (selectedSymbols.length > 0 ? 'selected_symbols' : 'backend_ranked_topn'),
+      selectedSymbols,
       draftActionCount: actions.length,
       holdingCount: actions.filter((action) => action.isHolding).length,
       newReviewCount: actions.filter((action) => !action.isHolding).length,
@@ -314,7 +325,7 @@ function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: nu
     userPath: [
       '进入左侧红利低波策略页面。',
       '查看人工交易计划草案 Gate 是否 READY。',
-      '按综合分/行业/红利/低波筛选候选。',
+      selectedSymbols.length > 0 ? '按当前筛选或勾选结果生成草案。' : '按综合分/行业/红利/低波筛选候选。',
       '展开候选查看持仓、研究目标、风险标签和 evidenceRefs。',
       '将本草案提交人工复核；不得直接下单。',
     ],
@@ -924,7 +935,9 @@ export async function strategyRoutes(app: FastifyInstance) {
         scope: 'all_latest_by_symbol',
       }),
     ])
-    const draft = buildDividendLowVolManualTradeDraft(pool, readiness, topN)
+    const selectedSymbols = Array.isArray(body?.selectedSymbols) ? body.selectedSymbols.map((symbol: unknown) => String(symbol)).filter(Boolean).slice(0, topN) : []
+    const selectionSource = typeof body?.selectionSource === 'string' ? body.selectionSource : undefined
+    const draft = buildDividendLowVolManualTradeDraft(pool, readiness, topN, { selectedSymbols, selectionSource })
     return persistDividendLowVolManualTradeDraft({
       ...draft,
       userId,
@@ -1065,11 +1078,16 @@ export async function strategyRoutes(app: FastifyInstance) {
     const body = request.body as any
     if (body?.persistedOnly === true) {
       const displayLimit = Math.max(1, Math.min(500, Number(body?.limit || 120)))
+      const requestedSymbols = parseSymbols(body?.symbols)
+      const requestedSymbolSet = new Set(requestedSymbols)
       const pool = await dividendLowVolStrategyService.getLatestCandidatePool(body?.userId || 'default', {
         limit: Math.max(displayLimit, Math.min(6000, Number(body?.poolLimit || 6000))),
         scope: 'all_latest_by_symbol',
       })
-      return dividendLowVolTradingZoneService.buildTradingZonesFromFactSets(pool.candidates, {
+      const candidates = requestedSymbolSet.size > 0
+        ? pool.candidates.filter((candidate) => requestedSymbolSet.has(candidate.identity.symbol))
+        : pool.candidates
+      return dividendLowVolTradingZoneService.buildTradingZonesFromFactSets(candidates, {
         limit: displayLimit,
       })
     }

@@ -119,6 +119,7 @@ async function main() {
       'permanent_portfolio',
       'all_weather',
       'current_holdings_buy_and_hold',
+      'dividend_low_vol_basket',
       'custom_weight_portfolio',
     ],
     startDate: '2024-01-01',
@@ -174,6 +175,21 @@ async function main() {
   } else {
     assert.equal(currentHoldings.validation.status, 'insufficient')
     assert.ok(currentHoldings.validation.blockedReasons.includes('current_holdings_missing'))
+  }
+
+  const dividendLowVolBasket = result.strategies.find((item) => item.strategyId === 'dividend_low_vol_basket')
+  assert.ok(dividendLowVolBasket, 'dividend low vol basket definition should exist')
+  assert.equal(dividendLowVolBasket.source, 'dividend_low_vol')
+  assert.equal(dividendLowVolBasket.snapshot?.weightPolicy, 'equal_weight')
+  assert.ok(Array.isArray(dividendLowVolBasket.snapshot?.selectionRules), 'dividend basket should expose selection rules')
+  assert.ok(
+    dividendLowVolBasket.validation.status === 'valid'
+      || dividendLowVolBasket.validation.blockedReasons.some((reason) => reason.startsWith('dividend_low_vol_candidate_snapshot')),
+    'dividend basket should be valid from latest candidate snapshot or explain snapshot insufficiency',
+  )
+  if (dividendLowVolBasket.validation.status === 'valid') {
+    assert.ok(dividendLowVolBasket.components.length >= 3, 'valid dividend basket should include at least three components')
+    assert.ok(dividendLowVolBasket.evidenceRefs.some((ref) => ref.includes('dividend_low_vol_daily')), 'valid dividend basket should expose persisted candidate evidence')
   }
 
   const validCustom = result.strategies.find((item) => item.strategyId === 'custom_valid_60_40')

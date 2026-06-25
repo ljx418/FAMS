@@ -5,6 +5,97 @@ export type PortfolioStrategySource = 'preset' | 'current_holdings' | 'dividend_
 export type PortfolioAssetClass = 'stock' | 'bond' | 'gold' | 'commodity' | 'cash' | 'fund' | 'etf'
 export type PortfolioRebalanceFrequency = 'none' | 'monthly' | 'quarterly' | 'annually'
 export type PortfolioDividendPolicy = 'cash' | 'reinvest'
+export type PortfolioBacktestGradeMode = 'research' | 'formal_review'
+export type PortfolioBenchmarkStatus = 'formal_total_return' | 'free_source_total_return' | 'price_index' | 'research_proxy' | 'unavailable'
+export type PortfolioSourceDataGrade = 'official_authorized' | 'free_source_cross_checked' | 'price_index_only' | 'research_proxy' | 'insufficient'
+export type PortfolioModelEffectivenessStatus = 'passed' | 'warning' | 'insufficient' | 'failed'
+
+export interface PortfolioDataGradeItem {
+  scope: 'price' | 'benchmark' | 'dividend' | 'tradeability'
+  grade: PortfolioSourceDataGrade
+  sourceProvider: string
+  sourceType: string
+  freshnessStatus: 'fresh' | 'stale' | 'unknown'
+  coveragePercent: number
+  blockingForFormalTrading: boolean
+  evidenceRefs: string[]
+  warnings: string[]
+}
+
+export interface PortfolioDataGradeAudit {
+  status: 'passed' | 'warning' | 'blocked'
+  aggregateGrade: PortfolioSourceDataGrade
+  formalTradingEligible: boolean
+  items: PortfolioDataGradeItem[]
+  blockers: string[]
+}
+
+export interface PortfolioModelEffectiveness {
+  status: PortfolioModelEffectivenessStatus
+  inSampleReturnPercent: number | null
+  outOfSampleReturnPercent: number | null
+  outOfSampleExcessReturnPercent: number | null
+  maxDrawdownPercent: number | null
+  walkForwardWindows: number
+  walkForwardPassedWindows: number
+  parameterSensitivityStatus: PortfolioModelEffectivenessStatus
+  groupStabilityStatus: PortfolioModelEffectivenessStatus | 'not_applicable'
+  failureTaxonomy: string[]
+  evidenceRefs: string[]
+}
+
+export interface PortfolioManualPlanDraft {
+  status: 'draft_ready' | 'blocked'
+  draftType: 'PLAN_DRAFT'
+  strategyId: string
+  currentWeightPercent: number | null
+  researchTargetWeightPercent: number | null
+  formalTargetWeightPercent: 0
+  driftPercent: number | null
+  suggestedActionTypes: PortfolioBacktestAllowedAction[]
+  portfolioRiskCheck: 'passed' | 'blocked' | 'insufficient'
+  tradeabilityCheck: 'passed' | 'blocked' | 'insufficient'
+  priceFreshnessCheck: 'passed' | 'blocked' | 'insufficient'
+  humanReviewChecklist: string[]
+  blockedReasons: string[]
+  evidenceRefs: string[]
+}
+
+export interface PortfolioFormalTradingUnlockChecklist {
+  status: 'blocked'
+  officialBenchmarkReviewed: boolean
+  modelEffectivenessReviewed: boolean
+  tradeConstraintsReviewed: boolean
+  portfolioRiskReviewed: boolean
+  priceFreshnessReviewed: boolean
+  humanReviewerConfirmed: false
+  formalTradingUnlocked: false
+  autoTradeUnlocked: false
+  blockers: string[]
+}
+
+export interface PortfolioBacktestFormalReviewReadiness {
+  status: 'passed' | 'blocked'
+  ready: boolean
+  blockers: string[]
+  warnings: string[]
+  benchmarkStatuses: Record<string, PortfolioBenchmarkStatus>
+  tradeConstraintCoverage: {
+    status: 'passed' | 'blocked'
+    requiredRows: number
+    coveredRows: number
+    coveragePercent: number
+    missingSymbols: string[]
+    evidenceRefs: string[]
+  }
+  dividendReturnCoverage: {
+    status: 'passed' | 'blocked'
+    strategyCount: number
+    coveredStrategies: number
+    coveragePercent: number
+    blockers: string[]
+  }
+}
 
 export interface PortfolioStrategyComponent {
   assetClass: PortfolioAssetClass
@@ -40,6 +131,14 @@ export interface PortfolioStrategyDefinition {
     capturedAt: string
     totalMarketValue?: number
     source: string
+    tradeDate?: string
+    refreshTime?: string
+    strategyVersion?: string
+    selectionRules?: string[]
+    candidateCount?: number
+    selectedCandidateCount?: number
+    weightPolicy?: 'equal_weight' | 'score_weighted' | 'custom'
+    evidenceRefs?: string[]
   }
   validation: {
     status: 'valid' | 'insufficient' | 'invalid'
@@ -60,6 +159,7 @@ export interface PortfolioBacktestRequest {
   feeRate: number
   slippageRate: number
   benchmarkIds: string[]
+  gradeMode?: PortfolioBacktestGradeMode
   customStrategies?: Array<{
     strategyId?: string
     displayName?: string
@@ -87,6 +187,7 @@ export interface PortfolioBacktestInputBuildResult {
     blockedReasons: string[]
     warnings: string[]
   }
+  runtimeHealth?: Record<string, unknown>
 }
 
 export interface PortfolioBacktestCurvePoint {
@@ -108,6 +209,7 @@ export interface PortfolioBacktestStrategyResult {
   drawdownCurve: Array<{ date: string; drawdownPercent: number }>
   metrics: {
     totalReturnPercent: number | null
+    priceOnlyReturnPercent?: number | null
     annualizedReturnPercent: number | null
     maxDrawdownPercent: number | null
     volatilityPercent: number | null
@@ -117,6 +219,7 @@ export interface PortfolioBacktestStrategyResult {
     turnoverRate: number | null
     dividendContributionPercent: number | null
     capitalGainContributionPercent: number | null
+    costDragPercent?: number | null
     benchmarkReturnPercent: number | null
     excessReturnPercent: number | null
   }
@@ -129,6 +232,10 @@ export interface PortfolioBacktestStrategyResult {
   blockedReasons: string[]
   warnings: string[]
   evidenceRefs: string[]
+  formalReviewReadiness?: PortfolioBacktestFormalReviewReadiness
+  dataGradeAudit?: PortfolioDataGradeAudit
+  modelEffectiveness?: PortfolioModelEffectiveness
+  manualPlanDraft?: PortfolioManualPlanDraft
 }
 
 export interface PortfolioBacktestResult {
@@ -140,6 +247,20 @@ export interface PortfolioBacktestResult {
   allowedActions: PortfolioBacktestAllowedAction[]
   prohibitedActions: PortfolioBacktestProhibitedAction[]
   notTradingAdvice: true
+  runtimeHealth?: Record<string, unknown>
+  formalReviewReadiness?: PortfolioBacktestFormalReviewReadiness
+  dataGradeAudit?: PortfolioDataGradeAudit
+  modelEffectiveness?: {
+    status: PortfolioModelEffectivenessStatus
+    strategyCount: number
+    passedStrategies: number
+    warningStrategies: number
+    insufficientStrategies: number
+    failedStrategies: number
+    blockers: string[]
+  }
+  manualPlanDrafts?: PortfolioManualPlanDraft[]
+  formalTradingUnlockChecklist?: PortfolioFormalTradingUnlockChecklist
 }
 
 export const PORTFOLIO_BACKTEST_ALLOWED_ACTIONS: PortfolioBacktestAllowedAction[] = [

@@ -7,6 +7,7 @@
 - `docs/DIVIDEND_LOW_VOL_PRD.md`
 - `docs/DIVIDEND_LOW_VOL_DEVELOPMENT_ACCEPTANCE_PLAN.md`
 - `docs/PORTFOLIO_STRATEGY_BACKTEST_PLAN.md`
+- `docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md`
 
 ## 当前执行约束
 
@@ -68,6 +69,52 @@
 
 2026-06-23 起，组合策略回测作为下一阶段 research-grade 开发目标进入主线。目标是让用户比较多个投资组合策略在不同起止时间段下的收益率曲线、回撤曲线、关键指标和 benchmark 表现。
 
+2026-06-24 起，本专项升级为“交互式策略回测与正式交易级前置阶段”。阶段目标不是直接放行正式交易，而是让用户能在前端完整使用 FAMS 对多种交互策略进行回测、比较、审计和人工计划草案生成。完成后系统应达到：
+
+```text
+interactiveStrategyBacktestReady=true
+researchGradeStrategyComparisonReady=true
+manualTradeDraftReady=true
+portfolioBacktestFormalReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+2026-06-24 实现验收同步：
+
+```text
+overallStatus=passed
+interactiveStrategyBacktestReady=true
+researchGradeStrategyComparisonReady=true
+manualDraftReady=true
+portfolioBacktestFormalReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+runtimeHealth=healthy
+proxyEtfCoverage=ready
+frontendRuntimeEvidence=passed
+completedStrategies=7/7
+tradeConstraintCoveragePercent=99.69
+freeSourceTotalReturnBenchmarkReady=true
+dividendLowVolBasketStatus=completed
+dividendLowVolBasketComponentCount=3
+dividendLowVolBasketSymbols=000513,601398,000333
+```
+
+状态来源：
+
+```text
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/SUMMARY_FOR_GPT.md
+```
+
+本阶段目标体验：
+
+- 用户进入“策略回测”页面，选择红利低波组合、当前持仓、永久组合、全天候组合、本地真实样本组合或自定义权重组合。
+- 用户设置起止时间、初始资金、再平衡频率、分红处理、手续费、滑点和 benchmark。
+- 页面展示多策略收益曲线、回撤曲线、指标表、benchmarkReturn、excessReturn、dividendContribution、dataCoverage、blockedReasons 和 evidenceRefs。
+- 用户可从回测结果进入红利低波候选、买卖观察区间和人工计划草案，但系统仍保持 `formalTargetWeight=0`、`canCreateOrder=false`。
+- 任务中心可追踪每次回测 Operation 和 artifact，审计包可复现输入、策略定义、曲线、benchmark、缺口和交易 gate。
+
 当前状态：
 
 - 已有 Backtest 页面、`/api/v1/backtest/run`、建议回测、策略锦标赛 equityCurve、任务中心 artifact 预览和红利低波滚动回测。
@@ -75,13 +122,17 @@
 - 已新增 `/api/v1/portfolio-backtest/templates` 与 `/api/v1/portfolio-backtest/run`。
 - 已在 Backtest 页面新增组合策略对比回测模块，默认可展示 3 条基于本地真实 `market_bar_canonical` 的 completed 策略曲线。
 - 已接入 `local_equal_weight_20` 研究 benchmark，并展示 benchmarkReturn 与 excessReturn。
-- 标准永久组合和全天候组合仍因 ETF 代理行情缺失保持 insufficient；当前用户 open positions 为 0，因此当前持仓组合也保持 insufficient。
-- 分红事件、除权调整和正式 total-return benchmark 未完成，组合回测仍不能升级为 formal validation。
+- 标准永久组合和全天候组合已有研究级代理行情路径：当 ETF 代理行情覆盖满足时可返回 completed 曲线；若本地代理行情不足则保持 insufficient。当前审计用户 `audit_portfolio_backtest_user` 已补齐真实持仓样本，因此当前持仓组合可在审计用户下返回 completed；默认用户无持仓时仍保持 insufficient。
+- 红利低波篮子已接入真实 `DividendLowVolDaily` 候选快照读取、等权 v1、tradeDate、selectionRules 和 evidenceRefs；当前真实入篮数量已达 3/3，入篮标的为 `000513 / 601398 / 000333`，可作为 formal-review-ready 曲线参与多策略比较，但不解锁正式交易。
+- Runtime Health 已统一接入 `/health`、`check:sqlite-health`、组合回测 API 和交互式策略回测审计包；当前 SQLite health 为 `healthy`。
+- `/backtest` 已通过无头浏览器运行态验收，页面可展示 runtime gate、组合回测结果、benchmark、分红贡献、成本拖累和非交易提示。
+- 免费源 total-return benchmark 已接入，组合回测可进入 formal-review-ready；官方授权 benchmark、人工复核和交易执行约束仍未解锁正式交易。
 - 本专项默认输出 `RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT`，禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
 
 专项文档：
 
 - `docs/PORTFOLIO_STRATEGY_BACKTEST_PLAN.md`
+- `docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md`
 
 目标体验：
 
@@ -89,23 +140,57 @@
 - 用户设置起止日期、初始资金、再平衡频率、分红处理、手续费、滑点和 benchmark。
 - 系统先以同步研究接口完成即时回测；下一阶段以 Operation 运行组合级回测，输出多组合收益率曲线、回撤曲线、指标表、benchmark 对比、数据缺口和 artifactRefs。
 - 页面明确显示“研究回测，不构成交易指令”；缺数据或 proxy benchmark 时不得升级为 formal validation。
+- `tradeActionReadiness=true` 在当前阶段只能解释为 `ready_for_manual_trade_draft`，不能解释为正式交易或自动交易已解锁。
 
 专项出门条件：
 
 - 能完成 `选择组合 -> 设置区间 -> 运行回测 -> 查看多组合曲线 -> 查看指标和缺口 -> 生成研究结论`。
 - 每条曲线必须有 `strategyId / strategyVersion / startDate / endDate / dataCoverage / evidenceRefs`。
 - 缺行情、分红、benchmark 或交易约束时必须输出 blockedReasons。
-- 默认页面路径至少有 3 条 completed 曲线来自真实本地行情，标准组合缺 ETF 数据时仍必须显示 insufficient。
+- 默认页面路径至少有 3 条 completed 曲线来自真实本地行情；标准组合只有在 ETF 代理行情覆盖达标时才能 completed，缺 ETF 数据时必须显示 insufficient。
 - `local_equal_weight_20` 只能标记为 research proxy benchmark，不能作为 formal benchmark。
 - 不得输出正式交易动作、自动再平衡或订单创建。
 
 自动化开发准入：
 
-- PBT-1 到 PBT-6 可自动化开发并验收。
+- PBT-0 到 PBT-6 可自动化开发并验收。PBT-0 的优先级最高，用于关闭 runtime health 口径冲突。
 - PBT-7 用户路径与端到端验收可自动化执行，但只能证明 research-grade 组合策略对比可用。
 - PBT-8 到 PBT-10 可继续自动化开发并验收，目标为标准 ETF 代理行情补齐、正式/免费 benchmark、分红总回报研究路径和 Operation artifact 化。
+- PBT-11 可自动化生成正式交易级评审前置 artifact，但不能自动解锁正式 `ADD / REDUCE`。
 - 正式组合交易、自动再平衡、自动下单和 formal validation 解锁仍需独立项目、正式数据和人工复核。
 - 当前组合回测文档支撑度评估为 `complete_for_research_grade_portfolio_backtest_PBT_1_to_PBT_10 / blocked_for_formal_trading`：可以指导组合策略定义、组合净值 replay、benchmark 对比、前端多曲线展示、审计包、交易 gate contract、标准代理行情补齐和研究级 total-return 开发；不能指导自动再平衡或订单创建出门。
+- 当前本阶段文档支撑度更新为 `complete_for_interactive_strategy_backtest_and_formal_review_prerequisites / blocked_for_formal_trading_unlock`：可以指导前端交互式策略回测、runtime health gate、组合 Operation artifact、红利低波联动、人工计划草案和正式交易级前置审计；不能把阶段完成解释为正式交易级已经达成。
+- 最新实现验收后，文档支撑度更新为 `complete_for_current_formal_review_ready_portfolio_backtest / blocked_for_formal_trading_unlock`。下一阶段若要进入正式交易级，必须补齐官方授权 benchmark、模型有效性验证、人工复核记录和正式交易执行约束。
+- 正式交易级前置开发计划已补充到 `docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md`，覆盖数据等级、模型有效性、人工计划草案、前端评审工作台、审计包升级和正式交易解锁闸门。
+
+本阶段开发顺序：
+
+1. `PBT-0 Runtime Health 与验收口径收口`：消除 `/health`、SQLite health、红利低波 audit 和全系统 E2E 的状态冲突。
+2. `PBT-8 标准组合代理行情补齐`：补齐永久组合和全天候组合代理 ETF 行情，至少 250 个交易日，不能用本地 A 股样本冒充 ETF。
+3. `PBT-9 Benchmark 与分红总回报`：接入宽基 benchmark、price-only / dividend cash / reinvest 三模式，明确 formal / price_index / research_proxy 状态。
+4. `PBT-10 Operation 与前端运行态验收`：组合回测支持 Operation、artifactRefs、任务中心追踪和无头浏览器用户路径验收。
+5. `PBT-11 正式交易级评审前置`：生成 formal review readiness artifact，聚合 runtime、provider、benchmark、tradeability、validation、manual review 和 frontend visibility。
+
+本阶段出门条件：
+
+```text
+interactive_strategy_backtest_ready
+research_grade_strategy_comparison_ready
+portfolio_backtest_formal_review_ready
+manual_trade_draft_ready
+runtime_health_gate_consistent
+formal_trading_locked
+auto_trade_locked
+```
+
+本阶段不能出门为：
+
+```text
+formal_trade_action_ready
+formal_add_reduce_unlocked
+auto_rebalance_ready
+auto_trade_ready
+```
 
 当前 `P0-P2` 已完成第一段但未正式收口，`P3` 已完成最小后端闭环和前端持仓研究面板接入，早期 `P5` 已完成持仓建议缓存、股票事实集缓存、stale-while-revalidate、批量事实集刷新 Operation、服务启动恢复、租约心跳、到期事实集调度入口、cron 定时器、调度租约和调度状态可视化第一段。`P4.34-P4.40` 已完成全 A canonical/feature cache 扫描、60 日 evidence、top-N 深度验证、factset 80% gate、validation decision、OOS 失败分析、OOS 多窗口/市场状态复验、候选组合处置、基础设施就绪评审、市场约束覆盖报告和 P4 收口评审；当前结论仍为 `CONTINUE_RESEARCH_ONLY`，除非候选四项 validation evidence 全部通过，否则不得进入交易动作。2026-06-01 起，P4 并入 FIVD-R Core，作为内部 `validation_tournament_agent` 和 `strategyValidation / candidateDisposition` 输出；对外统一入口为 `/api/v1/analysis/fivd-r`。最新 `P5.1-P5.12` 已完成 Shadow PG readiness、证券状态覆盖、validation failure taxonomy 审计 artifact、`SecurityStatusDaily / MarketTradeabilityDaily` canonical 第一段、quote-list canonical 多源身份升级、OOS 分层复验 artifact、`p5_closure_review.json`、Node `pg` shadow 实测路径、Tushare 可选正式交易状态接口、`test:production-readiness` 自检脚本、本机 PostgreSQL shadow 配置、GPT 优化建议机器核对、免费信源分析建议 readiness、交易动作动态 readiness gate、全 A top-N 深度验证配置、证券状态分批事务、全 A top-12 复验和前端三类选股策略验收。P1-P5 结论调整为：研究/分析建议链路可收口并基于免费来源放行，交易动作仍不放行。PostgreSQL shadow/staging 已通过 smoke 验证；Tushare 仅作为用户可选增强源，不再阻断分析建议；`tradeActionReadiness` 现在自动读取最新长样本 evidence，当前唯一真实交易动作 blocker 是 `validation_evidence`，top-12 复验显示样本外收益在“高波动震荡”窗口失效。
 

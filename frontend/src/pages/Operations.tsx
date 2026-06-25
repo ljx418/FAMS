@@ -6,6 +6,7 @@ import {
   Col,
   Collapse,
   Descriptions,
+  Dropdown,
   Empty,
   Input,
   Modal,
@@ -19,8 +20,9 @@ import {
   Tag,
   message,
 } from 'antd'
+import type { MenuProps } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { BellOutlined, DatabaseOutlined, HistoryOutlined, ReloadOutlined, SearchOutlined, SyncOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { BellOutlined, DatabaseOutlined, HistoryOutlined, MoreOutlined, ReloadOutlined, SearchOutlined, SyncOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import axios from 'axios'
 import { useLocation, useNavigate } from 'react-router-dom'
 import ProviderHealthSummary, { type ProviderHealthItem, ProviderHealthTags } from '../components/common/ProviderHealthSummary'
@@ -2841,6 +2843,50 @@ const Operations: React.FC = () => {
   ]
   const artifactReadableDetail = useMemo(() => getArtifactReadableDetail(artifactDetail), [artifactDetail])
   const screenerArtifactPreview = useMemo(() => renderScreenerArtifactPreview(artifactDetail), [artifactDetail])
+  const maintenanceMenuItems: MenuProps['items'] = [
+    {
+      key: 'full-a',
+      icon: <SearchOutlined />,
+      label: '全A选股扫描',
+      onClick: () => startStockScreenerFullScan(),
+      disabled: startingScreenerScan,
+    },
+    {
+      key: 'long-sample',
+      icon: <SearchOutlined />,
+      label: '长样本验收',
+      onClick: () => startStockScreenerFullScan('long_sample_dry_run'),
+      disabled: startingLongSampleDryRun,
+    },
+    {
+      key: 'factset',
+      icon: <DatabaseOutlined />,
+      label: '刷新事实集',
+      onClick: startFactsetRefresh,
+      disabled: startingFactsetRefresh,
+    },
+    {
+      key: 'due-factset',
+      icon: <HistoryOutlined />,
+      label: '刷新到期事实集',
+      onClick: startDueFactsetRefresh,
+      disabled: startingDueFactsetRefresh,
+    },
+    {
+      key: 'market-cap',
+      icon: <DatabaseOutlined />,
+      label: '补齐市值',
+      onClick: startMarketCapWarmup,
+      disabled: startingMarketCapWarmup,
+    },
+    {
+      key: 'market-bar',
+      icon: <DatabaseOutlined />,
+      label: '预热K线',
+      onClick: startMarketBarPreheat,
+      disabled: startingMarketBarPreheat,
+    },
+  ]
 
   return (
     <div className="operations-page min-w-0 space-y-6" data-fams-artifact-ref={pendingArtifactRef || ''}>
@@ -2859,27 +2905,12 @@ const Operations: React.FC = () => {
           <Button icon={<BellOutlined />} onClick={startCheckAlerts} loading={startingAlertCheck}>
             检查告警
           </Button>
-          <Button icon={<SearchOutlined />} onClick={() => startStockScreenerFullScan()} loading={startingScreenerScan}>
-            全A选股扫描
-          </Button>
-          <Button icon={<SearchOutlined />} onClick={() => startStockScreenerFullScan('long_sample_dry_run')} loading={startingLongSampleDryRun}>
-            长样本验收
-          </Button>
-          <Button icon={<DatabaseOutlined />} onClick={startFactsetRefresh} loading={startingFactsetRefresh}>
-            刷新事实集
-          </Button>
-          <Button icon={<HistoryOutlined />} onClick={startDueFactsetRefresh} loading={startingDueFactsetRefresh}>
-            刷新到期事实集
-          </Button>
-          <Button icon={<DatabaseOutlined />} onClick={startMarketCapWarmup} loading={startingMarketCapWarmup}>
-            补齐市值
-          </Button>
-          <Button icon={<DatabaseOutlined />} onClick={startMarketBarPreheat} loading={startingMarketBarPreheat}>
-            预热K线
-          </Button>
           <Button type="primary" icon={<ThunderboltOutlined />} onClick={startDailyAdvice} loading={startingAdvice}>
             生成每日建议
           </Button>
+          <Dropdown menu={{ items: maintenanceMenuItems }} trigger={['click']}>
+            <Button icon={<MoreOutlined />}>更多维护任务</Button>
+          </Dropdown>
         </Space>
       </div>
 
@@ -2916,7 +2947,7 @@ const Operations: React.FC = () => {
         size="small"
         loading={schedulerLoading}
         title={<span className="text-white"><DatabaseOutlined /> 事实集后台调度</span>}
-        className="bg-[#1a1a2e] border-[surface-border]"
+        className="bg-[#1a1a2e] border-surface-border"
         extra={(
           <Button size="small" onClick={fetchFactsetSchedulerStatus}>
             刷新状态
@@ -2976,33 +3007,33 @@ const Operations: React.FC = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={12} lg={4}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <Statistic title="任务总数" value={stats.total} valueStyle={{ color: '#fff' }} />
           </Card>
         </Col>
         <Col xs={12} lg={4}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <Statistic title="排队中" value={stats.queued} valueStyle={{ color: '#60a5fa' }} />
           </Card>
         </Col>
         <Col xs={12} lg={4}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <Statistic title="执行中" value={stats.running} valueStyle={{ color: '#818cf8' }} />
           </Card>
         </Col>
         <Col xs={12} lg={4}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <Statistic title="已完成" value={stats.completed} valueStyle={{ color: '#34d399' }} />
           </Card>
         </Col>
         <Col xs={12} lg={4}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <Statistic title="失败" value={stats.failed} valueStyle={{ color: '#f87171' }} />
           </Card>
         </Col>
       </Row>
 
-      <Card className="bg-[#1a1a2e] border-[surface-border]">
+      <Card className="bg-[#1a1a2e] border-surface-border">
         <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_160px]">
           <Input
             allowClear
@@ -3039,7 +3070,7 @@ const Operations: React.FC = () => {
       </Card>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-4">
-        <Card size="small" title="最近价格刷新" className="bg-[#1a1a2e] border-[surface-border]">
+        <Card size="small" title="最近价格刷新" className="bg-[#1a1a2e] border-surface-border">
           {latestHighlights.refresh ? (
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
@@ -3063,7 +3094,7 @@ const Operations: React.FC = () => {
           )}
         </Card>
 
-        <Card size="small" title="最近告警检查" className="bg-[#1a1a2e] border-[surface-border]">
+        <Card size="small" title="最近告警检查" className="bg-[#1a1a2e] border-surface-border">
           {latestHighlights.alerts ? (
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
@@ -3085,7 +3116,7 @@ const Operations: React.FC = () => {
           )}
         </Card>
 
-        <Card size="small" title="最近每日建议" className="bg-[#1a1a2e] border-[surface-border]">
+        <Card size="small" title="最近每日建议" className="bg-[#1a1a2e] border-surface-border">
           {latestHighlights.advice ? (
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
@@ -3109,7 +3140,7 @@ const Operations: React.FC = () => {
           )}
         </Card>
 
-        <Card size="small" title="最近回测任务" className="bg-[#1a1a2e] border-[surface-border]">
+        <Card size="small" title="最近回测任务" className="bg-[#1a1a2e] border-surface-border">
           {latestHighlights.backtest ? (
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
@@ -3144,7 +3175,7 @@ const Operations: React.FC = () => {
         </Card>
       </div>
 
-      <Card title={<span className="text-white"><HistoryOutlined /> 任务历史</span>} className="bg-[#1a1a2e] border-[surface-border]">
+      <Card title={<span className="text-white"><HistoryOutlined /> 任务历史</span>} className="bg-[#1a1a2e] border-surface-border">
         <Table
           rowKey="id"
           loading={loading}

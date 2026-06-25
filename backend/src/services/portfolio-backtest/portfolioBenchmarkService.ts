@@ -1,9 +1,11 @@
 import { prisma } from '../../db/prisma.js'
 import { getChinaIndexHistory } from '../../utils/stockUtils.js'
 import { PortfolioBacktestCurvePoint } from './portfolioBacktestTypes.js'
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 
 type BenchmarkSeries = Map<string, { netValue: number; cumulativeReturnPercent: number }>
-type BenchmarkStatus = 'formal_total_return' | 'price_index' | 'research_proxy' | 'unavailable'
+type BenchmarkStatus = 'formal_total_return' | 'free_source_total_return' | 'price_index' | 'research_proxy' | 'unavailable'
 
 export type PortfolioBenchmarkResult = {
   seriesById: Record<string, BenchmarkSeries>
@@ -65,7 +67,20 @@ export class PortfolioBenchmarkService {
       }
     }
 
-    const unsupported = benchmarkIds.filter((id) => !['cash_cny', 'csi300_price_index', 'local_equal_weight_20'].includes(id))
+    if (benchmarkIds.includes('free_source_total_return')) {
+      const freeSource = await this.buildFreeSourceTotalReturnBenchmark(dates)
+      if (freeSource.series.size > 0) {
+        seriesById.free_source_total_return = freeSource.series
+        statusById.free_source_total_return = 'free_source_total_return'
+        evidenceRefs.push(...freeSource.evidenceRefs)
+        warnings.push('free_source_total_return_benchmark_is_not_official_authorized_index')
+      } else {
+        statusById.free_source_total_return = 'unavailable'
+        warnings.push('free_source_total_return_benchmark_unavailable')
+      }
+    }
+
+    const unsupported = benchmarkIds.filter((id) => !['cash_cny', 'csi300_price_index', 'local_equal_weight_20', 'free_source_total_return'].includes(id))
     for (const id of unsupported) {
       statusById[id] = 'unavailable'
       warnings.push(`benchmark_unavailable_or_not_formal:${id}`)
@@ -197,6 +212,47 @@ export class PortfolioBenchmarkService {
         `portfolio-benchmark:local_equal_weight_20:${startDate}:${endDate}`,
         ...symbols.map((symbol) => `market_bar_canonical:${symbol}`),
       ],
+    }
+  }
+
+  private async buildFreeSourceTotalReturnBenchmark(dates: string[]) {
+    const path = resolve(process.cwd(), 'data/market-benchmarks/h30269-total-return-free-source.json')
+    const series = new Map<string, { netValue: number; cumulativeReturnPercent: number }>()
+    try {
+      const artifact = JSON.parse(await readFile(path, 'utf8')) as {
+        validation?: { status?: string }
+        points?: Array<{ date: string; value: number; evidenceRef?: string }>
+        evidenceRefs?: string[]
+      }
+      if (artifact.validation?.status !== 'available') {
+        return { series, evidenceRefs: ['portfolio-benchmark:free_source_total_return:insufficient'] }
+      }
+      const byDate = new Map((artifact.points || [])
+        .filter((point) => /^\d{4}-\d{2}-\d{2}$/.test(point.date) && Number.isFinite(point.value) && point.value > 0)
+        .map((point) => [point.date, point]))
+      const baseDate = dates.find((date) => byDate.has(date))
+      const baseValue = baseDate ? byDate.get(baseDate)?.value : undefined
+      if (!baseDate || !baseValue || baseValue <= 0) {
+        return { series, evidenceRefs: ['portfolio-benchmark:free_source_total_return:no_overlap'] }
+      }
+      for (const date of dates) {
+        const point = byDate.get(date)
+        if (!point || point.value <= 0) continue
+        const netValue = point.value / baseValue
+        series.set(date, {
+          netValue: round(netValue, 6),
+          cumulativeReturnPercent: round((netValue - 1) * 100, 4),
+        })
+      }
+      return {
+        series,
+        evidenceRefs: [
+          `portfolio-benchmark:free_source_total_return:${baseDate}:${dates.at(-1) || baseDate}`,
+          ...(artifact.evidenceRefs || []).slice(0, 20),
+        ],
+      }
+    } catch {
+      return { series, evidenceRefs: ['portfolio-benchmark:free_source_total_return:missing_file'] }
     }
   }
 }

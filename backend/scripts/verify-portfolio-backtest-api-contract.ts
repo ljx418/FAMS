@@ -28,6 +28,7 @@ async function main() {
         'local_real_data_sample_60_40',
         'local_real_data_equal_weight_5',
         'local_real_data_concentrated_3',
+        'dividend_low_vol_basket',
         'permanent_portfolio',
         'all_weather',
         'current_holdings_buy_and_hold',
@@ -50,6 +51,12 @@ async function main() {
   assert.ok(Array.isArray(result.strategies))
   assert.ok(result.strategies.length >= 6)
   assert.ok(result.strategies.some((item: any) => item.definition?.strategyId === 'current_holdings_buy_and_hold'))
+  assert.ok(result.dataGradeAudit, 'result should include aggregate data grade audit')
+  assert.ok(result.modelEffectiveness, 'result should include aggregate model effectiveness')
+  assert.ok(Array.isArray(result.manualPlanDrafts), 'result should include manual plan drafts')
+  assert.ok(result.formalTradingUnlockChecklist, 'result should include formal trading unlock checklist')
+  assert.equal(result.formalTradingUnlockChecklist.formalTradingUnlocked, false)
+  assert.equal(result.formalTradingUnlockChecklist.autoTradeUnlocked, false)
   const localCompleted = result.strategies.filter((item: any) => item.definition?.strategyId?.startsWith('local_real_data_') && item.status === 'completed')
   assert.ok(localCompleted.length >= 3, 'expected at least three completed local real-data strategies')
   const localSample = result.strategies.find((item: any) => item.definition?.strategyId === 'local_real_data_sample_60_40')
@@ -66,6 +73,20 @@ async function main() {
   const allWeather = result.strategies.find((item: any) => item.definition?.strategyId === 'all_weather')
   assert.ok(allWeather, 'all weather strategy should be returned')
   assert.equal(allWeather.status, 'completed', 'all weather should complete once ETF proxy bars are ready')
+  const dividendLowVolBasket = result.strategies.find((item: any) => item.definition?.strategyId === 'dividend_low_vol_basket')
+  assert.ok(dividendLowVolBasket, 'dividend low vol basket strategy should be returned')
+  assert.equal(dividendLowVolBasket.definition?.source, 'dividend_low_vol')
+  assert.equal(dividendLowVolBasket.definition?.snapshot?.weightPolicy, 'equal_weight')
+  assert.ok(Array.isArray(dividendLowVolBasket.definition?.snapshot?.selectionRules), 'dividend basket must expose selection rules')
+  assert.ok(
+    dividendLowVolBasket.status === 'completed'
+      || dividendLowVolBasket.blockedReasons?.some((reason: string) => reason.startsWith('dividend_low_vol_candidate_snapshot')),
+    'dividend basket must complete from real snapshot or expose snapshot blocked reason',
+  )
+  if (dividendLowVolBasket.status === 'completed') {
+    assert.ok((dividendLowVolBasket.definition?.components?.length || 0) >= 3, 'completed dividend basket should contain real snapshot components')
+    assert.ok((dividendLowVolBasket.evidenceRefs || []).some((ref: string) => ref.includes('dividend_low_vol_daily')), 'completed dividend basket should expose dividend snapshot evidence')
+  }
   for (const strategy of result.strategies) {
     if ((strategy.equityCurve?.length || 0) === 0) continue
     assert.ok(
@@ -98,10 +119,18 @@ async function main() {
   assert.equal(operationSubmission.status, 'completed')
   assert.ok(operationSubmission.operationId)
   assert.ok(Array.isArray(operationSubmission.artifactRefs))
-  assert.ok(operationSubmission.artifactRefs.length >= 6)
+  assert.ok(operationSubmission.artifactRefs.length >= 11)
   assert.deepEqual(operationSubmission.prohibitedActions, ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'])
   const artifactRef = operationSubmission.artifactRefs.find((ref: string) => ref.includes('06_trade_gate_contract.json'))
   assert.ok(artifactRef, 'operation should expose trade gate artifact')
+  for (const requiredArtifact of [
+    '08_data_grade_audit.json',
+    '09_model_effectiveness_audit.json',
+    '10_manual_plan_draft_audit.json',
+    '11_formal_trading_unlock_checklist.json',
+  ]) {
+    assert.ok(operationSubmission.artifactRefs.some((ref: string) => ref.includes(requiredArtifact)), `operation should expose ${requiredArtifact}`)
+  }
   const artifactResponse = await app.inject({
     method: 'GET',
     url: `/api/v1/operations/artifacts/${encodeURIComponent(artifactRef)}`,

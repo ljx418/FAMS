@@ -1,22 +1,47 @@
 # 组合策略回测阶段开发准入与验收审计
 
-更新时间：2026-06-23
+更新时间：2026-06-24
 
 ## 1. 审计结论
 
 ```text
 stage=portfolio_strategy_backtest_research_grade
 entryDecision=approved_for_development
+implementationDecision=research_grade_passed
 fatalSpecDeviation=none
 majorSpecDeviation=none
 overPromiseRisk=controlled
+manualDraftReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
-本阶段可以进入实质开发。开发目标限定为 research-grade 组合策略回测：多组合、多时间段收益率曲线、回撤曲线、指标表、benchmark 对比、数据缺口和审计产物。
+本阶段已完成 research-grade 组合策略回测实现验收。开发目标限定为 research-grade 组合策略回测：多组合、多时间段收益率曲线、回撤曲线、指标表、benchmark 对比、数据缺口和审计产物。
 
 本阶段不得输出正式交易动作、自动再平衡或订单创建。
+
+最新实现状态：
+
+```text
+overallStatus=passed
+runtimeHealth=healthy
+proxyEtfCoverage=ready
+frontendRuntimeEvidence=passed
+completedStrategies=6/7
+dividendLowVolBasketStatus=completed
+dividendLowVolBasketComponentCount=3
+dividendLowVolBasketSymbols=000513,601398,000333
+researchGradeStrategyComparisonReady=true
+formalReviewReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+状态来源：
+
+```text
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T11-58-33-608Z/SUMMARY_FOR_GPT.md
+```
 
 ## 2. 已审计文档
 
@@ -62,6 +87,8 @@ docs/HIGH_RELIABILITY_CORRECTNESS_PLAN.md
 
 ### PBT-2 组合策略定义与输入构建
 
+状态：已完成 research-grade 验收。
+
 开发项：
 
 - 新增 portfolio strategy registry。
@@ -76,6 +103,8 @@ docs/HIGH_RELIABILITY_CORRECTNESS_PLAN.md
 - 当前持仓组合必须记录持仓快照时间。
 
 ### PBT-3 组合级回测引擎
+
+状态：已完成 research-grade 验收。
 
 开发项：
 
@@ -103,6 +132,8 @@ docs/HIGH_RELIABILITY_CORRECTNESS_PLAN.md
 
 ### PBT-5 前端组合回测页面
 
+状态：已完成 runtime 验收。
+
 开发项：
 
 - 在策略回测页面增加组合回测模式，或新增组合回测页面。
@@ -116,6 +147,8 @@ docs/HIGH_RELIABILITY_CORRECTNESS_PLAN.md
 
 ### PBT-6 审计与交易边界
 
+状态：已完成 research-grade 审计包与 trade gate contract 验收。
+
 开发项：
 
 - 生成组合回测审计包。
@@ -127,6 +160,8 @@ docs/HIGH_RELIABILITY_CORRECTNESS_PLAN.md
 - `test:trade-action-readiness` 不得因组合回测 research-ready 解锁正式交易。
 
 ### PBT-7 用户路径与端到端验收
+
+状态：已完成 `/backtest` 无头浏览器专项验收；红利低波篮子真实候选快照读取已接入，当前真实入篮数量为 3/3，已可作为研究级 completed 曲线参与组合策略比较。
 
 开发项：
 
@@ -175,5 +210,5 @@ minor：
 ```text
 canStartImplementation=true
 requiredHumanConfirmation=false
-nextStep=PBT-2
+nextStep=dividend_low_vol_basket_candidate_expansion_and_formal_data_upgrade
 ```

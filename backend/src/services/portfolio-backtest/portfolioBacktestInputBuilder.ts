@@ -1,4 +1,5 @@
 import { prisma } from '../../db/prisma.js'
+import { dividendLowVolPortfolioBasketService } from './dividendLowVolPortfolioBasketService.js'
 import { portfolioProxyMarketDataService } from './portfolioProxyMarketDataService.js'
 import { portfolioStrategyRegistry } from './portfolioStrategyRegistry.js'
 import {
@@ -51,6 +52,7 @@ export class PortfolioBacktestInputBuilder {
       feeRate: request.feeRate ?? DEFAULT_REQUEST.feeRate,
       slippageRate: request.slippageRate ?? DEFAULT_REQUEST.slippageRate,
       benchmarkIds: request.benchmarkIds?.length ? request.benchmarkIds : DEFAULT_REQUEST.benchmarkIds,
+      gradeMode: request.gradeMode === 'formal_review' ? 'formal_review' : 'research',
       customStrategies: request.customStrategies || [],
     }
 
@@ -77,7 +79,7 @@ export class PortfolioBacktestInputBuilder {
       }
 
       if (strategyId === 'dividend_low_vol_basket') {
-        strategies.push(this.buildDividendLowVolBasketStrategy(resolved))
+        strategies.push(await dividendLowVolPortfolioBasketService.build(resolved))
         continue
       }
 
@@ -249,6 +251,7 @@ export class PortfolioBacktestInputBuilder {
         capturedAt: new Date().toISOString(),
         totalMarketValue: round(totalMarketValue, 2),
         source: 'positions:open',
+        evidenceRefs: components.flatMap((item) => item.evidenceRefs),
       },
       validation: {
         status: blockedReasons.length > 0 ? 'insufficient' : 'valid',
@@ -256,32 +259,6 @@ export class PortfolioBacktestInputBuilder {
         warnings,
       },
       evidenceRefs: ['portfolio-strategy:current_holdings_buy_and_hold:v1', ...components.flatMap((item) => item.evidenceRefs)],
-    }
-  }
-
-  private buildDividendLowVolBasketStrategy(request: PortfolioBacktestRequest): PortfolioStrategyDefinition {
-    return {
-      strategyId: 'dividend_low_vol_basket',
-      strategyVersion: 'portfolio.strategy.dividend_low_vol_basket.v1',
-      displayName: '红利低波候选篮子',
-      source: 'dividend_low_vol',
-      components: [],
-      rebalancePolicy: { frequency: request.rebalanceFrequency },
-      dividendPolicy: request.dividendMode,
-      costModel: {
-        feeRate: request.feeRate,
-        slippageRate: request.slippageRate,
-      },
-      benchmarkPolicy: {
-        benchmarkIds: request.benchmarkIds,
-        proxyAllowed: true,
-      },
-      validation: {
-        status: 'insufficient',
-        blockedReasons: ['dividend_low_vol_candidate_snapshot_not_loaded'],
-        warnings: ['PBT-2 only builds strategy inputs; basket components require candidate snapshot wiring in PBT-3/PBT-4.'],
-      },
-      evidenceRefs: ['portfolio-strategy:dividend_low_vol_basket:v1'],
     }
   }
 
