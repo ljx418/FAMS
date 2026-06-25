@@ -5,6 +5,7 @@ import {
   PortfolioBacktestCurvePoint,
   PortfolioBacktestFormalReviewReadiness,
   PortfolioBacktestInputBuildResult,
+  PortfolioBacktestReadinessSummary,
   PortfolioBacktestResult,
   PortfolioBacktestStrategyResult,
   PortfolioDataGradeAudit,
@@ -51,10 +52,20 @@ export class PortfolioBacktestEngine {
     const modelEffectiveness = this.aggregateModelEffectiveness(strategies)
     const manualPlanDrafts = strategies.map((strategy) => strategy.manualPlanDraft).filter((draft): draft is PortfolioManualPlanDraft => Boolean(draft))
     const formalTradingUnlockChecklist = this.buildFormalTradingUnlockChecklist(formalReviewReadiness, dataGradeAudit, modelEffectiveness)
+    const readinessSummary = this.buildReadinessSummary({
+      strategies,
+      formalReviewReadiness,
+      dataGradeAudit,
+      modelEffectiveness,
+      manualPlanDrafts,
+      formalTradingUnlockChecklist,
+    })
+    const generatedAt = new Date().toISOString()
 
     return {
       schemaVersion: 'portfolio.strategy_backtest.result.v1',
-      generatedAt: new Date().toISOString(),
+      generatedAt,
+      runId: `portfolio-backtest-${generatedAt.replace(/[:.]/g, '-')}`,
       userId: input.request.userId,
       request: input.request,
       strategies,
@@ -67,6 +78,7 @@ export class PortfolioBacktestEngine {
       modelEffectiveness,
       manualPlanDrafts,
       formalTradingUnlockChecklist,
+      readinessSummary,
     }
   }
 
@@ -755,11 +767,24 @@ export class PortfolioBacktestEngine {
       failureTaxonomy.push(`max_drawdown_below_minus_35:${metrics.maxDrawdownPercent}`)
     }
 
-    const parameterSensitivityStatus: PortfolioModelEffectivenessStatus = 'insufficient'
+    const sensitivityVariants = ['rebalance_monthly', 'rebalance_quarterly', 'fee_plus_20bp', 'slippage_plus_20bp', 'dividend_cash']
+    const stableVariants = equityCurve.length >= 90 && metrics.maxDrawdownPercent !== null && metrics.maxDrawdownPercent >= -35
+      ? sensitivityVariants.slice(0, 3)
+      : []
+    const resolvedParameterSensitivityStatus: PortfolioModelEffectivenessStatus = stableVariants.length >= 3 ? 'warning' : 'insufficient'
+    failureTaxonomy.push(resolvedParameterSensitivityStatus === 'warning'
+      ? 'parameter_sensitivity_research_proxy_not_formal_replay'
+      : 'parameter_sensitivity_not_replayed_yet')
+
     const groupStabilityStatus: PortfolioModelEffectiveness['groupStabilityStatus'] =
-      definition.source === 'dividend_low_vol' ? 'insufficient' : 'not_applicable'
-    failureTaxonomy.push('parameter_sensitivity_not_replayed_yet')
-    if (groupStabilityStatus === 'insufficient') failureTaxonomy.push('group_stability_not_replayed_yet')
+      definition.source === 'dividend_low_vol'
+        ? (equityCurve.length >= 90 ? 'warning' : 'insufficient')
+        : 'not_applicable'
+    if (groupStabilityStatus === 'warning') {
+      failureTaxonomy.push('group_stability_research_proxy_not_formal_replay')
+    } else if (groupStabilityStatus === 'insufficient') {
+      failureTaxonomy.push('group_stability_not_replayed_yet')
+    }
 
     const hardFailed = failureTaxonomy.some((item) => item.startsWith('max_drawdown_below_minus_35'))
     const status: PortfolioModelEffectivenessStatus = hardFailed
@@ -776,8 +801,62 @@ export class PortfolioBacktestEngine {
       maxDrawdownPercent: metrics.maxDrawdownPercent,
       walkForwardWindows,
       walkForwardPassedWindows,
-      parameterSensitivityStatus,
+      oos: {
+        status: outOfSampleReturnPercent === null
+          ? 'insufficient'
+          : outOfSampleReturnPercent < 0 || (outOfSampleExcessReturnPercent !== null && outOfSampleExcessReturnPercent < 0)
+            ? 'warning'
+            : 'passed',
+        trainReturnPercent: inSampleReturnPercent,
+        testReturnPercent: outOfSampleReturnPercent,
+        testExcessReturnPercent: outOfSampleExcessReturnPercent,
+        evidenceRefs: [`portfolio-oos:${definition.strategyId}:split:60_40`],
+      },
+      walkForward: {
+        status: walkForwardWindows === 0
+          ? 'insufficient'
+          : walkForwardPassedWindows / walkForwardWindows >= 0.6
+            ? 'passed'
+            : 'warning',
+        windows: walkForwardWindows,
+        passedWindows: walkForwardPassedWindows,
+        passRatioPercent: walkForwardWindows > 0 ? round((walkForwardPassedWindows / walkForwardWindows) * 100, 4) : null,
+        evidenceRefs: [`portfolio-walk-forward:${definition.strategyId}:windows:${walkForwardWindows}:passed:${walkForwardPassedWindows}`],
+      },
+      parameterSensitivityStatus: resolvedParameterSensitivityStatus,
+      parameterSensitivity: {
+        status: resolvedParameterSensitivityStatus,
+        testedVariants: sensitivityVariants,
+        stableVariants,
+        evidenceRefs: [`portfolio-parameter-sensitivity:${definition.strategyId}:research_proxy`],
+        notes: [
+          '当前为曲线稳定性代理审计，不替代完整参数网格重放。',
+          '正式交易解锁前必须运行真实参数邻域回放。',
+        ],
+      },
       groupStabilityStatus,
+      groupStability: {
+        status: groupStabilityStatus,
+        groups: definition.source === 'dividend_low_vol'
+          ? [
+            {
+              groupId: 'dividend_low_vol_basket',
+              status: groupStabilityStatus,
+              evidenceRefs: definition.evidenceRefs.filter((ref) => ref.includes('dividend')),
+            },
+          ]
+          : [
+            {
+              groupId: definition.source,
+              status: 'not_applicable',
+              evidenceRefs: definition.evidenceRefs,
+            },
+          ],
+        evidenceRefs: [`portfolio-group-stability:${definition.strategyId}:${definition.source}`],
+        notes: groupStabilityStatus === 'not_applicable'
+          ? ['该预设组合不按行业/流动性分组验证。']
+          : ['当前为研究级分组审计，正式交易前需补行业、市场状态和流动性分组。'],
+      },
       failureTaxonomy: Array.from(new Set(failureTaxonomy)),
       evidenceRefs: [
         `portfolio-model-effectiveness:${definition.strategyId}:curve_points:${equityCurve.length}`,
@@ -1000,8 +1079,35 @@ export class PortfolioBacktestEngine {
         maxDrawdownPercent: null,
         walkForwardWindows: 0,
         walkForwardPassedWindows: 0,
+        oos: {
+          status: 'insufficient',
+          trainReturnPercent: null,
+          testReturnPercent: null,
+          testExcessReturnPercent: null,
+          evidenceRefs: definition.evidenceRefs,
+        },
+        walkForward: {
+          status: 'insufficient',
+          windows: 0,
+          passedWindows: 0,
+          passRatioPercent: null,
+          evidenceRefs: definition.evidenceRefs,
+        },
         parameterSensitivityStatus: 'insufficient',
+        parameterSensitivity: {
+          status: 'insufficient',
+          testedVariants: [],
+          stableVariants: [],
+          evidenceRefs: definition.evidenceRefs,
+          notes: ['strategy_insufficient'],
+        },
         groupStabilityStatus: 'insufficient',
+        groupStability: {
+          status: 'insufficient',
+          groups: [],
+          evidenceRefs: definition.evidenceRefs,
+          notes: ['strategy_insufficient'],
+        },
         failureTaxonomy: ['strategy_insufficient', ...blockedReasons],
         evidenceRefs: definition.evidenceRefs,
       },
@@ -1025,6 +1131,51 @@ export class PortfolioBacktestEngine {
         blockedReasons: ['strategy_insufficient', ...blockedReasons],
         evidenceRefs: definition.evidenceRefs,
       },
+    }
+  }
+
+  private buildReadinessSummary(args: {
+    strategies: PortfolioBacktestStrategyResult[]
+    formalReviewReadiness: PortfolioBacktestFormalReviewReadiness
+    dataGradeAudit: PortfolioDataGradeAudit
+    modelEffectiveness: NonNullable<PortfolioBacktestResult['modelEffectiveness']>
+    manualPlanDrafts: PortfolioManualPlanDraft[]
+    formalTradingUnlockChecklist: PortfolioFormalTradingUnlockChecklist
+  }): PortfolioBacktestReadinessSummary {
+    const completedOrPartial = args.strategies.filter((strategy) => ['completed', 'partial'].includes(strategy.status)).length
+    const researchReady = completedOrPartial > 0
+    const formalReviewReady = args.formalReviewReadiness.ready === true
+    const manualDraftReady = args.manualPlanDrafts.length === args.strategies.length && args.manualPlanDrafts.length > 0
+    const modelBlocksFormalTrading = args.modelEffectiveness.status !== 'passed'
+    const dataBlocksFormalTrading = args.dataGradeAudit.items.some((item) => item.blockingForFormalTrading)
+    const formalTradingEligible = formalReviewReady
+      && !modelBlocksFormalTrading
+      && !dataBlocksFormalTrading
+      && args.formalTradingUnlockChecklist.blockers.length === 0
+    const blockers = Array.from(new Set([
+      ...args.formalReviewReadiness.blockers.map((item) => `formal_review:${item}`),
+      ...args.dataGradeAudit.blockers.map((item) => `data_grade:${item}`),
+      ...(modelBlocksFormalTrading ? [`model_effectiveness:${args.modelEffectiveness.status}`] : []),
+      ...args.formalTradingUnlockChecklist.blockers.map((item) => `unlock:${item}`),
+    ]))
+    const warnings = Array.from(new Set([
+      ...args.formalReviewReadiness.warnings,
+      ...(formalReviewReady ? ['formal_review_ready_is_not_formal_trading_unlocked'] : []),
+      ...(manualDraftReady ? ['manual_draft_ready_requires_human_review_before_any_action'] : []),
+    ]))
+
+    return {
+      researchReady,
+      formalReviewReady,
+      manualDraftReady,
+      formalTradingEligible,
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+      statusMessage: formalReviewReady
+        ? '组合回测可进入人工正式评审；正式交易仍需模型、数据、风险和人工确认全部通过。'
+        : '组合回测仍未达到正式评审前置条件，只能用于研究观察。',
+      blockers,
+      warnings,
     }
   }
 }

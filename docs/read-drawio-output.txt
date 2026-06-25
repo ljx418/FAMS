@@ -1,0 +1,175 @@
+
+# docs/target-architecture-gap.drawio
+
+## 1 目标体验与用户路径
+Nodes: 12; Edges: 8
+
+Nodes
+- 目标体验与用户路径：从研究到人工计划草案，不释放交易动作
+- 本页回答“用户怎么用”：三条主路径都必须能在前端走通，并且每一步都能看到数据状态、阻断原因和审计入口。
+- 颜色规则 / 灰色=已实现 / 黄色=需修改 / 橘黄=需新增 / 红色=交易硬边界 / 蓝/绿=目标状态或出门证据
+- 红利低波研究路径 / 入口：左侧菜单 /dividend-low-vol / 动作：筛选行业/分数/综合排序 / 用户看到：候选指标、解释、缺口、Top3
+- 买卖观察与滚动策略 / 服务：tradingZone + rollingBacktest / 用户看到：建仓区间、卖出区间、胜率、收益、失效条件 / 异常：stale/unknown 时显示需刷新后重算
+- 人工计划草案 / 接口：manual-trade-draft?topN=3 / 输出：formalTargetWeight=0、blockedReasons、checklist / 含义：只给人工复核材料
+- 组合策略回测路径 / 入口：/backtest / 动作：选择红利低波/永久/全天候/当前持仓/自定义组合 / 参数：日期、资金、再平衡、分红、费用、benchmark
+- 多曲线与指标 / 前端展示：equityCurve、drawdown、收益、回撤、Sharpe、分红贡献、成本拖累、超额收益 / 每条策略保留 evidenceRefs
+- 正式评审摘要 / 展示：dataGrade、modelEffectivenessStatus、formalTradingBlockers、manualPlanDraft / 用户能判断为什么还不能交易
+- 审计路径 / 入口：/operations 或审计报告 / 查看：Operation、artifactRefs、SUMMARY_FOR_GPT、acceptance-report.html、截图证据
+- 本阶段出门体验 / 用户能完成：选策略 -> 设置区间 -> 看曲线/指标 -> 看数据等级/模型有效性 -> 生成人工草案 -> 看阻断原因
+- 硬边界 / 允许：RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT / MANUAL_TRADE_DRAFT / 禁止：ADD / REDUCE / ORDER_CREATE / AUTO_TRADE / formalTradingUnlocked=false / autoTradeUnlocked=false
+
+Edges
+- 红利低波研究路径 / 入口：左侧菜单 /dividend-low-vol / 动作：筛选行业/分数/综合排序 / 用户看到：候选指标、解释、缺口、Top3 -> 买卖观察与滚动策略 / 服务：tradingZone + rollingBacktest / 用户看到：建仓区间、卖出区间、胜率、收益、失效条件 / 异常：stale/unknown 时显示需刷新后重算
+- 买卖观察与滚动策略 / 服务：tradingZone + rollingBacktest / 用户看到：建仓区间、卖出区间、胜率、收益、失效条件 / 异常：stale/unknown 时显示需刷新后重算 -> 人工计划草案 / 接口：manual-trade-draft?topN=3 / 输出：formalTargetWeight=0、blockedReasons、checklist / 含义：只给人工复核材料
+- 组合策略回测路径 / 入口：/backtest / 动作：选择红利低波/永久/全天候/当前持仓/自定义组合 / 参数：日期、资金、再平衡、分红、费用、benchmark -> 多曲线与指标 / 前端展示：equityCurve、drawdown、收益、回撤、Sharpe、分红贡献、成本拖累、超额收益 / 每条策略保留 evidenceRefs
+- 多曲线与指标 / 前端展示：equityCurve、drawdown、收益、回撤、Sharpe、分红贡献、成本拖累、超额收益 / 每条策略保留 evidenceRefs -> 正式评审摘要 / 展示：dataGrade、modelEffectivenessStatus、formalTradingBlockers、manualPlanDraft / 用户能判断为什么还不能交易
+- 正式评审摘要 / 展示：dataGrade、modelEffectivenessStatus、formalTradingBlockers、manualPlanDraft / 用户能判断为什么还不能交易 -> 本阶段出门体验 / 用户能完成：选策略 -> 设置区间 -> 看曲线/指标 -> 看数据等级/模型有效性 -> 生成人工草案 -> 看阻断原因
+- 人工计划草案 / 接口：manual-trade-draft?topN=3 / 输出：formalTargetWeight=0、blockedReasons、checklist / 含义：只给人工复核材料 -> 本阶段出门体验 / 用户能完成：选策略 -> 设置区间 -> 看曲线/指标 -> 看数据等级/模型有效性 -> 生成人工草案 -> 看阻断原因
+- 本阶段出门体验 / 用户能完成：选策略 -> 设置区间 -> 看曲线/指标 -> 看数据等级/模型有效性 -> 生成人工草案 -> 看阻断原因 -> 硬边界 / 允许：RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT / MANUAL_TRADE_DRAFT / 禁止：ADD / REDUCE / ORDER_CREATE / AUTO_TRADE / formalTradingUnlocked=false / autoTradeUnlocked=false
+- 审计路径 / 入口：/operations 或审计报告 / 查看：Operation、artifactRefs、SUMMARY_FOR_GPT、acceptance-report.html、截图证据 -> 本阶段出门体验 / 用户能完成：选策略 -> 设置区间 -> 看曲线/指标 -> 看数据等级/模型有效性 -> 生成人工草案 -> 看阻断原因
+
+## 2 分层架构与调用关系
+Nodes: 11; Edges: 8
+
+Nodes
+- 分层架构与调用关系：页面、API、服务、数据、审计
+- 本页回答“系统怎么连”：从前端交互到后端服务、数据证据和审计产物的实际依赖。
+- 颜色规则 / 灰色=已实现 / 黄色=需修改 / 橘黄=需新增 / 红色=交易硬边界 / 蓝/绿=目标状态或出门证据
+- 前端层 / DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx / 展示研究模式、筛选、曲线、草案、阻断原因
+- API 层 / /api/v1/strategy/dividend-low-vol/* / /api/v1/portfolio-backtest/templates / /api/v1/portfolio-backtest/run / /api/v1/operations/* / /api/v1/analysis/fivd-r/*
+- 策略服务层 / dividendLowVolStrategyService / dividendLowVolTradingZoneService / dividendLowVolBacktestService / dividendLowVolFivdRAdapter
+- 组合回测服务层 / PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService / portfolioBacktestReviewService / 输出 readinessSummary
+- 数据证据层 / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / PriceHistory / market benchmarks / free-source benchmark
+- 运行与产物层 / operationService / Operation artifactRefs / SUMMARY_FOR_GPT.md / acceptance-report.html / interactive audit package
+- 正式交易前置层 / 09 dataGrade audit / 10 modelEffectiveness audit / 11 manualPlanDraft audit / 12 formalTradingBlockers / review endpoint 只记审计
+- 交易边界层 / 不接订单创建 / 不自动再平衡 / 不开放 AUTO_TRADE / 正式 ADD/REDUCE 仍需后续独立人工解锁
+
+Edges
+- 前端层 / DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx / 展示研究模式、筛选、曲线、草案、阻断原因 -> API 层 / /api/v1/strategy/dividend-low-vol/* / /api/v1/portfolio-backtest/templates / /api/v1/portfolio-backtest/run / /api/v1/operations/* / /api/v1/analysis/fivd-r/*
+- API 层 / /api/v1/strategy/dividend-low-vol/* / /api/v1/portfolio-backtest/templates / /api/v1/portfolio-backtest/run / /api/v1/operations/* / /api/v1/analysis/fivd-r/* -> 策略服务层 / dividendLowVolStrategyService / dividendLowVolTradingZoneService / dividendLowVolBacktestService / dividendLowVolFivdRAdapter
+- API 层 / /api/v1/strategy/dividend-low-vol/* / /api/v1/portfolio-backtest/templates / /api/v1/portfolio-backtest/run / /api/v1/operations/* / /api/v1/analysis/fivd-r/* -> 组合回测服务层 / PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService / portfolioBacktestReviewService / 输出 readinessSummary
+- 策略服务层 / dividendLowVolStrategyService / dividendLowVolTradingZoneService / dividendLowVolBacktestService / dividendLowVolFivdRAdapter -> 数据证据层 / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / PriceHistory / market benchmarks / free-source benchmark
+- 组合回测服务层 / PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService / portfolioBacktestReviewService / 输出 readinessSummary -> 数据证据层 / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / PriceHistory / market benchmarks / free-source benchmark
+- 数据证据层 / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / PriceHistory / market benchmarks / free-source benchmark -> 运行与产物层 / operationService / Operation artifactRefs / SUMMARY_FOR_GPT.md / acceptance-report.html / interactive audit package
+- 运行与产物层 / operationService / Operation artifactRefs / SUMMARY_FOR_GPT.md / acceptance-report.html / interactive audit package -> 正式交易前置层 / 09 dataGrade audit / 10 modelEffectiveness audit / 11 manualPlanDraft audit / 12 formalTradingBlockers / review endpoint 只记审计
+- 正式交易前置层 / 09 dataGrade audit / 10 modelEffectiveness audit / 11 manualPlanDraft audit / 12 formalTradingBlockers / review endpoint 只记审计 -> 交易边界层 / 不接订单创建 / 不自动再平衡 / 不开放 AUTO_TRADE / 正式 ADD/REDUCE 仍需后续独立人工解锁
+
+## 3 组合回测实现路径
+Nodes: 13; Edges: 10
+
+Nodes
+- 组合策略回测端到端实现路径
+- 本页回答“回测怎么实现”：请求、输入构建、净值计算、benchmark、验证字段和前端结果的完整链路。
+- 颜色规则 / 灰色=已实现 / 黄色=需修改 / 橘黄=需新增 / 红色=交易硬边界 / 蓝/绿=目标状态或出门证据
+- 1 前端请求 / /backtest / 选择 portfolioStrategyIds / 输入 start/end、initialCapital、rebalanceFrequency、dividendMode、fee/slippage、benchmarkIds
+- 2 路由入口 / portfolioBacktestRoutes / GET /templates / POST /run / GET/POST /reviews/:runId / operation 模式写 artifactRefs
+- 3 输入构建 / PortfolioBacktestInputBuilder / 读取模板、当前持仓、红利低波篮子快照 / 校验 blockedReasons / warnings
+- 4 策略输入类型 / 永久组合、全天候 / 当前持仓 / 红利低波篮子 / 本地真实样本 / 自定义权重组合
+- 5 回测引擎 / PortfolioBacktestEngine / 读取真实价格序列 / 按再平衡和成本计算 equityCurve、drawdownCurve、turnover、costDrag
+- 6 benchmark 与总回报 / PortfolioBenchmarkService / free_source_total_return / csi300_price_index / research_proxy / 输出 benchmarkReturn / excessReturn
+- 7 正式评审字段 / readinessSummary / dataGrade / modelEffectivenessStatus / manualPlanDraft / formalTradingBlockers / prohibitedActions
+- 8 前端展示 / 多策略曲线、指标卡、数据等级、模型有效性、草案状态、正式交易锁定、阻断原因
+- 9 Operation 审计 / SUMMARY_FOR_GPT.md / 09_data_grade_audit.json / 10_model_effectiveness_audit.json / 11_manual_plan_draft_audit.json / 12_formal_trading_unlock_blockers.json
+- 验收输出 / portfolioBacktestFormalReviewReady=true / manualTradePlanDraftReviewReady=true / formalTradingUnlocked=false / autoTradeUnlocked=false
+
+Edges
+- 1 前端请求 / /backtest / 选择 portfolioStrategyIds / 输入 start/end、initialCapital、rebalanceFrequency、dividendMode、fee/slippage、benchmarkIds -> 2 路由入口 / portfolioBacktestRoutes / GET /templates / POST /run / GET/POST /reviews/:runId / operation 模式写 artifactRefs
+- 2 路由入口 / portfolioBacktestRoutes / GET /templates / POST /run / GET/POST /reviews/:runId / operation 模式写 artifactRefs -> 3 输入构建 / PortfolioBacktestInputBuilder / 读取模板、当前持仓、红利低波篮子快照 / 校验 blockedReasons / warnings
+- 3 输入构建 / PortfolioBacktestInputBuilder / 读取模板、当前持仓、红利低波篮子快照 / 校验 blockedReasons / warnings -> 4 策略输入类型 / 永久组合、全天候 / 当前持仓 / 红利低波篮子 / 本地真实样本 / 自定义权重组合
+- 4 策略输入类型 / 永久组合、全天候 / 当前持仓 / 红利低波篮子 / 本地真实样本 / 自定义权重组合 -> 5 回测引擎 / PortfolioBacktestEngine / 读取真实价格序列 / 按再平衡和成本计算 equityCurve、drawdownCurve、turnover、costDrag
+- 5 回测引擎 / PortfolioBacktestEngine / 读取真实价格序列 / 按再平衡和成本计算 equityCurve、drawdownCurve、turnover、costDrag -> 6 benchmark 与总回报 / PortfolioBenchmarkService / free_source_total_return / csi300_price_index / research_proxy / 输出 benchmarkReturn / excessReturn
+- 5 回测引擎 / PortfolioBacktestEngine / 读取真实价格序列 / 按再平衡和成本计算 equityCurve、drawdownCurve、turnover、costDrag -> 7 正式评审字段 / readinessSummary / dataGrade / modelEffectivenessStatus / manualPlanDraft / formalTradingBlockers / prohibitedActions
+- 7 正式评审字段 / readinessSummary / dataGrade / modelEffectivenessStatus / manualPlanDraft / formalTradingBlockers / prohibitedActions -> 8 前端展示 / 多策略曲线、指标卡、数据等级、模型有效性、草案状态、正式交易锁定、阻断原因
+- 7 正式评审字段 / readinessSummary / dataGrade / modelEffectivenessStatus / manualPlanDraft / formalTradingBlockers / prohibitedActions -> 9 Operation 审计 / SUMMARY_FOR_GPT.md / 09_data_grade_audit.json / 10_model_effectiveness_audit.json / 11_manual_plan_draft_audit.json / 12_formal_trading_unlock_blockers.json
+- 8 前端展示 / 多策略曲线、指标卡、数据等级、模型有效性、草案状态、正式交易锁定、阻断原因 -> 验收输出 / portfolioBacktestFormalReviewReady=true / manualTradePlanDraftReviewReady=true / formalTradingUnlocked=false / autoTradeUnlocked=false
+- 9 Operation 审计 / SUMMARY_FOR_GPT.md / 09_data_grade_audit.json / 10_model_effectiveness_audit.json / 11_manual_plan_draft_audit.json / 12_formal_trading_unlock_blockers.json -> 验收输出 / portfolioBacktestFormalReviewReady=true / manualTradePlanDraftReviewReady=true / formalTradingUnlocked=false / autoTradeUnlocked=false
+
+## 4 红利低波实现路径
+Nodes: 12; Edges: 8
+
+Nodes
+- 红利低波实现路径：全 A 候选到组合篮子和人工草案
+- 本页回答“红利低波怎么落到系统”：候选事实、交易区间、滚动回测、组合回测和人工草案共用同一批证据。
+- 颜色规则 / 灰色=已实现 / 黄色=需修改 / 橘黄=需新增 / 红色=交易硬边界 / 蓝/绿=目标状态或出门证据
+- 1 免费源/本地缓存 / quote list / market_bar_canonical / DividendLowVolDaily / market_tradeability_daily / priceAudit freshness/sanity
+- 2 候选事实集 / dividendFactSetService / 连续分红、股息率、支付率、DPS、分红风险、evidenceRefs
+- 3 策略评分 / dividendLowVolScoringService / LeaderScore、DividendScore、Quality、LowVol、Valuation、Timing、Risk
+- 4 前端候选池 / DividendLowVol.tsx / 行业筛选、分数筛选、综合排序、剔除原因分类、指标解释 / 空值显示 insufficient/stale/unknown
+- 5 锁定 Top3 / 同一筛选/排序上下文 / 用于买卖区间、滚动回测、人工计划草案 / 避免前后口径漂移
+- 6 买卖观察区间 / dividendLowVolTradingZoneService / 建仓区间、卖出区间、支撑/压力、失效条件 / 异常时需刷新后重算
+- 7 滚动策略回测 / 股息率分位+长期均线 / 布林均值回归 / 输出胜率、收益、回撤、样本数
+- 8 进入组合回测 / dividend_low_vol_basket / dividendLowVolPortfolioBasketService / 等权/分数权重、行业上限、单票上限、真实快照 evidenceRefs
+- 9 人工草案 Gate / manualTradeDraftReady=true / formalTargetWeight=0 / canCreateOrder=false / ADD/REDUCE 仍禁止
+
+Edges
+- 1 免费源/本地缓存 / quote list / market_bar_canonical / DividendLowVolDaily / market_tradeability_daily / priceAudit freshness/sanity -> 2 候选事实集 / dividendFactSetService / 连续分红、股息率、支付率、DPS、分红风险、evidenceRefs
+- 2 候选事实集 / dividendFactSetService / 连续分红、股息率、支付率、DPS、分红风险、evidenceRefs -> 3 策略评分 / dividendLowVolScoringService / LeaderScore、DividendScore、Quality、LowVol、Valuation、Timing、Risk
+- 3 策略评分 / dividendLowVolScoringService / LeaderScore、DividendScore、Quality、LowVol、Valuation、Timing、Risk -> 4 前端候选池 / DividendLowVol.tsx / 行业筛选、分数筛选、综合排序、剔除原因分类、指标解释 / 空值显示 insufficient/stale/unknown
+- 4 前端候选池 / DividendLowVol.tsx / 行业筛选、分数筛选、综合排序、剔除原因分类、指标解释 / 空值显示 insufficient/stale/unknown -> 5 锁定 Top3 / 同一筛选/排序上下文 / 用于买卖区间、滚动回测、人工计划草案 / 避免前后口径漂移
+- 5 锁定 Top3 / 同一筛选/排序上下文 / 用于买卖区间、滚动回测、人工计划草案 / 避免前后口径漂移 -> 6 买卖观察区间 / dividendLowVolTradingZoneService / 建仓区间、卖出区间、支撑/压力、失效条件 / 异常时需刷新后重算
+- 6 买卖观察区间 / dividendLowVolTradingZoneService / 建仓区间、卖出区间、支撑/压力、失效条件 / 异常时需刷新后重算 -> 7 滚动策略回测 / 股息率分位+长期均线 / 布林均值回归 / 输出胜率、收益、回撤、样本数
+- 7 滚动策略回测 / 股息率分位+长期均线 / 布林均值回归 / 输出胜率、收益、回撤、样本数 -> 8 进入组合回测 / dividend_low_vol_basket / dividendLowVolPortfolioBasketService / 等权/分数权重、行业上限、单票上限、真实快照 evidenceRefs
+- 8 进入组合回测 / dividend_low_vol_basket / dividendLowVolPortfolioBasketService / 等权/分数权重、行业上限、单票上限、真实快照 evidenceRefs -> 9 人工草案 Gate / manualTradeDraftReady=true / formalTargetWeight=0 / canCreateOrder=false / ADD/REDUCE 仍禁止
+
+## 5 数据可信与模型验证
+Nodes: 12; Edges: 8
+
+Nodes
+- 数据可信与模型验证链路：能解释，不伪造通过
+- 本页回答“为什么可信/为什么阻断”：数据等级、模型有效性、交易约束和人工审核共同决定是否只能停留在草案。
+- 颜色规则 / 灰色=已实现 / 黄色=需修改 / 橘黄=需新增 / 红色=交易硬边界 / 蓝/绿=目标状态或出门证据
+- 数据等级 dataGrade / official_authorized / free_source_cross_checked / price_index_only / research_proxy / insufficient
+- 价格与新鲜度 / priceCoveragePercent / freshnessStatus=fresh/stale/unknown / priceAudit.sanityStatus / 异常进入 blockedReasons
+- Benchmark 状态 / formal_total_return / free_source_total_return / price_index / research_proxy / unavailable / proxy 不可 formal 解锁
+- 分红与交易约束 / dividendContribution / capitalGainContribution / market_tradeability_daily / 涨跌停/停牌覆盖率 / coverage 不足即阻断
+- 模型有效性 / OOS / walk-forward >= 6 窗口 / 参数敏感性 / 行业/市场/流动性分组稳定性 / failureTaxonomy
+- 人工复核清单 / portfolioBacktestReviewService / 官方/免费源复核 / 模型有效性复核 / 交易约束复核 / 组合风险复核 / 最终人工确认
+- 正式交易解锁条件 / 所有正式 gate 通过 + 人工确认 / 本阶段只生成 checklist 和 blockers / 不自动改状态
+- 审计输出 / 09_data_grade_audit.json / 10_model_effectiveness_audit.json / 11_manual_plan_draft_audit.json / 12_formal_trading_unlock_blockers.json
+- 固定结论 / formalTradingUnlocked=false / autoTradeUnlocked=false / prohibitedActions 包含 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+
+Edges
+- 数据等级 dataGrade / official_authorized / free_source_cross_checked / price_index_only / research_proxy / insufficient -> 模型有效性 / OOS / walk-forward >= 6 窗口 / 参数敏感性 / 行业/市场/流动性分组稳定性 / failureTaxonomy
+- 价格与新鲜度 / priceCoveragePercent / freshnessStatus=fresh/stale/unknown / priceAudit.sanityStatus / 异常进入 blockedReasons -> 模型有效性 / OOS / walk-forward >= 6 窗口 / 参数敏感性 / 行业/市场/流动性分组稳定性 / failureTaxonomy
+- Benchmark 状态 / formal_total_return / free_source_total_return / price_index / research_proxy / unavailable / proxy 不可 formal 解锁 -> 模型有效性 / OOS / walk-forward >= 6 窗口 / 参数敏感性 / 行业/市场/流动性分组稳定性 / failureTaxonomy
+- 分红与交易约束 / dividendContribution / capitalGainContribution / market_tradeability_daily / 涨跌停/停牌覆盖率 / coverage 不足即阻断 -> 模型有效性 / OOS / walk-forward >= 6 窗口 / 参数敏感性 / 行业/市场/流动性分组稳定性 / failureTaxonomy
+- 模型有效性 / OOS / walk-forward >= 6 窗口 / 参数敏感性 / 行业/市场/流动性分组稳定性 / failureTaxonomy -> 人工复核清单 / portfolioBacktestReviewService / 官方/免费源复核 / 模型有效性复核 / 交易约束复核 / 组合风险复核 / 最终人工确认
+- 人工复核清单 / portfolioBacktestReviewService / 官方/免费源复核 / 模型有效性复核 / 交易约束复核 / 组合风险复核 / 最终人工确认 -> 正式交易解锁条件 / 所有正式 gate 通过 + 人工确认 / 本阶段只生成 checklist 和 blockers / 不自动改状态
+- 正式交易解锁条件 / 所有正式 gate 通过 + 人工确认 / 本阶段只生成 checklist 和 blockers / 不自动改状态 -> 审计输出 / 09_data_grade_audit.json / 10_model_effectiveness_audit.json / 11_manual_plan_draft_audit.json / 12_formal_trading_unlock_blockers.json
+- 正式交易解锁条件 / 所有正式 gate 通过 + 人工确认 / 本阶段只生成 checklist 和 blockers / 不自动改状态 -> 固定结论 / formalTradingUnlocked=false / autoTradeUnlocked=false / prohibitedActions 包含 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+
+## 6 开发及验收计划
+Nodes: 10; Edges: 0
+
+Nodes
+- 开发及验收计划：目标、实现位置、产物、用户效果
+- 本页回答“开发怎么做、怎么验收”：FT-1 到 FT-6 每项都映射到服务、字段、审计文件和用户可见结果。
+- 颜色规则 / 灰色=已实现 / 黄色=需修改 / 橘黄=需新增 / 红色=交易硬边界 / 蓝/绿=目标状态或出门证据
+- FT-1 数据等级 / 实现：PortfolioBacktestEngine + Routes + Backtest.tsx / 字段：dataGrade / dataGradeAudit / 产物：09_data_grade_audit.json / 用户效果：看懂官方/免费/代理/不足
+- FT-2 模型有效性 / 实现：组合 OOS / walk-forward / sensitivity / group stability / 字段：modelEffectivenessStatus / 产物：10_model_effectiveness_audit.json / 用户效果：知道策略是否只是历史拟合
+- FT-3 人工草案 / 实现：portfolioBacktestReviewService + manualPlanDraft + trade gate / 字段：formalTargetWeight=0、blockedReasons、checklist / 产物：11_manual_plan_draft_audit.json / 用户效果：只拿到复核草案，不会下单
+- FT-4 前端评审工作台 / 实现：/backtest 正式评审摘要、策略卡、阻断标签 / 验收：portfolio-backtest-frontend-runtime / 用户效果：一屏看清曲线、数据、模型、gate
+- FT-5 审计包升级 / 实现：run:interactive-strategy-backtest-audit-package / 产物：SUMMARY_FOR_GPT.md + 09-12 JSON / 用户效果：ChatGPT/人工能复审，不靠口头汇报
+- FT-6 解锁清单 / 实现：formalTradingUnlockChecklist / 规则：人工未确认时 blocked / 产物：12_formal_trading_unlock_blockers.json / 用户效果：明确为什么仍不能正式交易
+- 统一验收命令 / backend: tsc、portfolio-backtest-formal-review-readiness、api-contract、frontend-runtime、trade-action-readiness、fivd-r-trade-gate-contract、audit-package、full-system-e2e / frontend: npm run build
+
+## 7 里程碑出门与审计
+Nodes: 10; Edges: 4
+
+Nodes
+- 里程碑、出门条件与审计路径
+- 本页回答“什么时候算完成、什么不能说完成”：阶段出门只到正式交易前置评审，不到正式交易 release。
+- 颜色规则 / 灰色=已实现 / 黄色=需修改 / 橘黄=需新增 / 红色=交易硬边界 / 蓝/绿=目标状态或出门证据
+- 本阶段可声明 / interactive_strategy_backtest_ready / research_grade_strategy_comparison_ready / portfolio_backtest_formal_review_ready / manual_trade_draft_ready / formal_trading_locked / auto_trade_locked
+- 本阶段不能声明 / formal_trade_action_ready / formal_add_reduce_unlocked / order_create_allowed / auto_rebalance_ready / auto_trade_ready / official_benchmark_certified
+- 下一阶段 blocker / 官方授权 benchmark / 正式 provider 与授权 / 完整交易约束 / 人工复核记录持久化 / 合规/风控签核 / 订单执行系统隔离评审
+- 审计材料路径 / docs/target-architecture-gap.drawio / docs/TARGET_ARCHITECTURE_GAP.md / docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md / backend/data/gpt-audit/.../SUMMARY_FOR_GPT.md / acceptance-report.html
+- 人工/ChatGPT 审计重点 / 1 数据是否可信 / 2 模型是否有效 / 3 草案是否不越权 / 4 前端是否不误导 / 5 blockers 是否完整 / 6 是否仍禁止 AUTO_TRADE
+- 最终边界 / 正式交易解锁不是自动化验收结果 / 必须由独立人工确认和后续正式数据/执行约束评审完成 / 本图不得被解释为交易授权
+- 完成判定 / 文档清楚 + 图可读 + E2E 报告通过 + 审计包可复核 + 前端路径可走通 + 交易仍锁定
+
+Edges
+- 本阶段可声明 / interactive_strategy_backtest_ready / research_grade_strategy_comparison_ready / portfolio_backtest_formal_review_ready / manual_trade_draft_ready / formal_trading_locked / auto_trade_locked -> 审计材料路径 / docs/target-architecture-gap.drawio / docs/TARGET_ARCHITECTURE_GAP.md / docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md / backend/data/gpt-audit/.../SUMMARY_FOR_GPT.md / acceptance-report.html
+- 审计材料路径 / docs/target-architecture-gap.drawio / docs/TARGET_ARCHITECTURE_GAP.md / docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md / backend/data/gpt-audit/.../SUMMARY_FOR_GPT.md / acceptance-report.html -> 人工/ChatGPT 审计重点 / 1 数据是否可信 / 2 模型是否有效 / 3 草案是否不越权 / 4 前端是否不误导 / 5 blockers 是否完整 / 6 是否仍禁止 AUTO_TRADE
+- 人工/ChatGPT 审计重点 / 1 数据是否可信 / 2 模型是否有效 / 3 草案是否不越权 / 4 前端是否不误导 / 5 blockers 是否完整 / 6 是否仍禁止 AUTO_TRADE -> 最终边界 / 正式交易解锁不是自动化验收结果 / 必须由独立人工确认和后续正式数据/执行约束评审完成 / 本图不得被解释为交易授权
+- 最终边界 / 正式交易解锁不是自动化验收结果 / 必须由独立人工确认和后续正式数据/执行约束评审完成 / 本图不得被解释为交易授权 -> 完成判定 / 文档清楚 + 图可读 + E2E 报告通过 + 审计包可复核 + 前端路径可走通 + 交易仍锁定

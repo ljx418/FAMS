@@ -1,6 +1,6 @@
 # 红利低波行业龙头策略开发与验收计划
 
-更新时间：2026-06-24
+更新时间：2026-06-25
 
 ## 1. 本阶段目标
 
@@ -29,6 +29,18 @@ runtimeHealth=healthy
 proxyEtfCoverage=ready
 frontendRuntimeEvidence=passed
 ```
+
+2026-06-25 正式交易级前置阶段校准：
+
+```text
+formalTradingPrerequisitesDocumented=true
+portfolioStrategyBacktestFormalReviewReady=true
+manualTradePlanDraftReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+本阶段把红利低波从“研究策略页面可用”继续校准为“可进入正式交易评审的前置材料完整”。开发和验收聚焦数据等级、模型有效性、人工草案、前端评审工作台、审计包和正式交易解锁清单；不释放正式交易动作。
 
 最新阶段审计包：
 
@@ -205,6 +217,22 @@ autoTradeUnlocked=false
 - 所有 formal gates passed。
 - 人工确认允许进入正式交易评审。
 - 即使正式交易评审通过，`AUTO_TRADE` 仍保持禁止，除非另立独立项目和人工授权。
+
+### D8 正式交易级前置文档与审计升级
+
+开发项：
+
+- 对齐红利低波 PRD、组合策略回测 PRD、目标架构、里程碑、验收门槛和 drawio。
+- 明确 `formalReviewReady=true` 只代表可进入正式评审，不代表正式交易解锁。
+- 为红利低波联动组合回测补充数据等级、模型有效性、人工草案和阻断项的验收口径。
+- drawio 维持不超过 8 页，使用灰色表示已实现、黄色表示需修改、橘黄表示新增，红色表示交易边界。
+
+验收标准：
+
+- 文档中当前状态统一为 `formalTradingUnlocked=false`、`autoTradeUnlocked=false`。
+- 用户能从文档理解：已能研究筛选、组合回测和出人工计划草案；仍不能下单或自动交易。
+- 每个正式交易级前置开发项都有用户体验目标、技术产物和验收标准。
+- drawio 能完整表达目标体验、当前/目标架构关系、开发计划、里程碑、验收门槛、出门条件和关键用户路径。
 
 ### D7 交互式策略回测联动
 
@@ -383,3 +411,44 @@ overPromiseRisk=controlled
 - 若实现内容会让用户误以为系统已经可以正式买入、加仓、减仓、卖出或自动交易，应改为研究提醒、观察状态、人工草案或阻断提示。
 - 若正式数据、正式 benchmark、人工验收或监管合规结论缺失，不得把状态从 `researchWorkflowReady` 升级为 `formalTradeActionReady`。
 - 若前端展示出现空白指标，应改为数值、状态、`insufficient`、`stale`、`unknown` 或“需刷新后重算”，不得静默留空。
+
+## 9. 本阶段开发字段与验收索引
+
+后续开发和自动化验收必须把红利低波、组合回测、任务中心和审计包对齐到
+同一组阶段状态：
+
+```text
+portfolioBacktestFormalReviewReady=true
+portfolioStrategyBacktestFormalReviewReady=true
+manualTradePlanDraftReviewReady=true
+manualTradeDraftReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+必须实现和验证的公共字段：
+
+```text
+dataGrade
+modelEffectiveness
+modelEffectivenessStatus
+manualPlanDraft
+formalTradingUnlockChecklist
+formalTradingBlockers
+allowedActions=RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT / MANUAL_TRADE_DRAFT
+prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+```
+
+必要审计产物：
+
+```text
+09_data_grade_audit.json
+10_model_effectiveness_audit.json
+11_manual_plan_draft_audit.json
+12_formal_trading_unlock_blockers.json
+acceptance-report.html
+SUMMARY_FOR_GPT.md
+```
+
+验收结论只能写为“正式交易前置评审 ready”或“人工交易计划草案 ready”；
+不得写为与 `formalTradingUnlocked=false` 或 `autoTradeUnlocked=false` 相反的结论。

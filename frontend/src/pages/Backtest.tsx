@@ -261,6 +261,8 @@ const Backtest: React.FC = () => {
   const [portfolioRuntimeHealth, setPortfolioRuntimeHealth] = useState<any | null>(null)
   const [portfolioBacktestResult, setPortfolioBacktestResult] = useState<any | null>(null)
   const [portfolioBacktestOperation, setPortfolioBacktestOperation] = useState<any | null>(null)
+  const [portfolioManualReview, setPortfolioManualReview] = useState<any | null>(null)
+  const [portfolioManualReviewLoading, setPortfolioManualReviewLoading] = useState(false)
   const [portfolioBacktestParams, setPortfolioBacktestParams] = useState({
     userId: 'audit_portfolio_backtest_user',
     gradeMode: 'formal_review',
@@ -543,6 +545,7 @@ const Backtest: React.FC = () => {
       })
       setPortfolioBacktestOperation(response.data?.operationId ? response.data : null)
       setPortfolioBacktestResult(response.data?.result || response.data)
+      setPortfolioManualReview(null)
       message.success(response.data?.result || response.data?.strategies ? '组合策略研究回测已生成结果' : '组合策略研究回测任务已提交')
       window.setTimeout(() => document.getElementById('portfolio-backtest-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
     } catch (error) {
@@ -557,6 +560,36 @@ const Backtest: React.FC = () => {
       }
     } finally {
       setPortfolioBacktestLoading(false)
+    }
+  }
+
+  const handleSavePortfolioManualReview = async () => {
+    if (!portfolioBacktestResult?.runId) {
+      message.warning('当前回测结果缺少 runId，无法记录复核')
+      return
+    }
+    setPortfolioManualReviewLoading(true)
+    try {
+      const response = await axios.post(`/api/v1/portfolio-backtest/reviews/${encodeURIComponent(portfolioBacktestResult.runId)}`, {
+        reviewerId: 'local_reviewer',
+        decision: 'approve_for_manual_review',
+        notes: '页面人工复核记录：允许进入人工计划草案复核，不释放正式交易动作。',
+        blockedReasons: portfolioBacktestResult.readinessSummary?.blockers || portfolioBacktestResult.formalTradingUnlockChecklist?.blockers || [],
+        humanReviewChecklist: [
+          'review_data_grade',
+          'review_model_effectiveness',
+          'review_portfolio_risk',
+          'review_price_freshness',
+          'final_human_confirmation_outside_system',
+        ],
+      })
+      setPortfolioManualReview(response.data)
+      message.success('已记录人工计划复核审计；正式交易仍未解锁')
+    } catch (error) {
+      console.error('Failed to save portfolio manual review:', error)
+      message.error('记录人工计划复核失败')
+    } finally {
+      setPortfolioManualReviewLoading(false)
     }
   }
 
@@ -682,10 +715,10 @@ const Backtest: React.FC = () => {
     const unlocked = portfolioBacktestResult.formalTradingUnlockChecklist?.formalTradingUnlocked === true
     const blockers = portfolioBacktestResult.formalTradingUnlockChecklist?.blockers || portfolioBacktestResult.formalReviewReadiness?.blockers || []
     return {
-      status: unlocked ? '正式交易已解锁' : '正式交易未解锁',
-      color: unlocked ? '#34d399' : '#ef4444',
+      status: unlocked ? '正式交易待人工最终确认' : '正式交易未解锁',
+      color: unlocked ? '#fbbf24' : '#ef4444',
       description: unlocked
-        ? '正式交易 gate 已满足，但 AUTO_TRADE 仍需要单独人工治理。'
+        ? '正式交易前置 gate 已满足；仍需人工最终确认和外部执行治理，本页不会创建订单或自动交易。'
         : `当前只能用于研究比较和计划草案。阻断原因：${blockers.slice(0, 4).join('、') || '人工确认、模型有效性或正式数据审计未完成'}`,
     }
   }, [portfolioBacktestResult])
@@ -872,6 +905,24 @@ const Backtest: React.FC = () => {
               </div>
               <div className="text-sm text-gray-300">{portfolioGateSummary.description}</div>
             </div>
+            {portfolioBacktestResult.readinessSummary && (
+              <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+                <div className="mb-2 flex flex-wrap gap-2">
+                  <Tag color={portfolioBacktestResult.readinessSummary.researchReady ? '#34d399' : '#ef4444'}>研究 {portfolioBacktestResult.readinessSummary.researchReady ? 'ready' : 'blocked'}</Tag>
+                  <Tag color={portfolioBacktestResult.readinessSummary.formalReviewReady ? '#34d399' : '#fbbf24'}>正式评审 {portfolioBacktestResult.readinessSummary.formalReviewReady ? 'ready' : 'blocked'}</Tag>
+                  <Tag color={portfolioBacktestResult.readinessSummary.manualDraftReady ? '#34d399' : '#fbbf24'}>人工计划草案 {portfolioBacktestResult.readinessSummary.manualDraftReady ? 'ready' : 'blocked'}</Tag>
+                  <Tag color={portfolioBacktestResult.readinessSummary.formalTradingEligible ? '#34d399' : '#ef4444'}>正式交易资格 {portfolioBacktestResult.readinessSummary.formalTradingEligible ? '满足' : '不满足'}</Tag>
+                  <Tag color="#ef4444">formalTradingUnlocked=false</Tag>
+                  <Tag color="#ef4444">autoTradeUnlocked=false</Tag>
+                </div>
+                <div className="text-gray-300">{portfolioBacktestResult.readinessSummary.statusMessage}</div>
+                {(portfolioBacktestResult.readinessSummary.blockers || []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {portfolioBacktestResult.readinessSummary.blockers.slice(0, 10).map((blocker: string) => <Tag key={blocker} color="#ef4444">{blocker}</Tag>)}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <Tag color="#34d399">{portfolioBacktestResult.schemaVersion}</Tag>
               <Tag color={portfolioBacktestResult.formalReviewReadiness?.ready ? '#34d399' : '#ef4444'}>
@@ -937,6 +988,27 @@ const Backtest: React.FC = () => {
                 </div>
               </div>
             )}
+            <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Tag color="#38bdf8">人工计划复核记录</Tag>
+                <Tag color="#ef4444">不创建订单</Tag>
+                <Tag color="#ef4444">formalTargetWeight 0%</Tag>
+                <Button size="small" loading={portfolioManualReviewLoading} onClick={handleSavePortfolioManualReview}>
+                  记录复核审计
+                </Button>
+              </div>
+              <div className="text-gray-300">
+                该操作只保存人工计划草案复核记录，用于审计追溯；不会生成 ADD、REDUCE、ORDER_CREATE 或 AUTO_TRADE。
+              </div>
+              {portfolioManualReview && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <Tag color="#34d399">{portfolioManualReview.status}</Tag>
+                  <Tag color="#ef4444">canCreateOrder={String(portfolioManualReview.canCreateOrder)}</Tag>
+                  <Tag color="#ef4444">autoTrade={String(portfolioManualReview.autoTradeUnlocked)}</Tag>
+                  {(portfolioManualReview.review?.blockedReasons || []).slice(0, 6).map((reason: string) => <Tag key={reason} color="#ef4444">{reason}</Tag>)}
+                </div>
+              )}
+            </div>
             <PortfolioCurveChart strategies={portfolioBacktestResult.strategies || []} />
             <div className="grid gap-3 xl:grid-cols-3">
               {(portfolioBacktestResult.strategies || []).map((strategy: any) => (

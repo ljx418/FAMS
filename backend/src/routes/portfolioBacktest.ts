@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import { portfolioBacktestEngine } from '../services/portfolio-backtest/portfolioBacktestEngine.js'
 import { portfolioBacktestInputBuilder } from '../services/portfolio-backtest/portfolioBacktestInputBuilder.js'
+import { portfolioBacktestReviewService } from '../services/portfolio-backtest/portfolioBacktestReviewService.js'
 import { portfolioStrategyRegistry } from '../services/portfolio-backtest/portfolioStrategyRegistry.js'
 import { runtimeHealthService } from '../services/runtime/runtimeHealthService.js'
 import { ensureUser } from '../utils/user.js'
@@ -115,6 +116,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           generatedAt: generatedAt.toISOString(),
           allowedActions: result.allowedActions,
           prohibitedActions: result.prohibitedActions,
+          readinessSummary: result.readinessSummary,
           formalTradingUnlocked: false,
           autoTradeUnlocked: false,
           formalTradingUnlockChecklist: result.formalTradingUnlockChecklist,
@@ -125,6 +127,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           schemaVersion: 'portfolio.backtest.formal_review_readiness.v1',
           generatedAt: generatedAt.toISOString(),
           gradeMode: input.request.gradeMode || 'research',
+          readinessSummary: result.readinessSummary,
           formalReviewReadiness: result.formalReviewReadiness,
           formalTradingUnlocked: false,
           autoTradeUnlocked: false,
@@ -197,12 +200,14 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
             schemaVersion: 'portfolio.backtest.operation_result.v1',
             generatedAt: generatedAt.toISOString(),
             status: 'completed',
+            runId: result.runId,
             strategyCount: result.strategies.length,
             completedStrategyCount: result.strategies.filter((strategy) => strategy.status === 'completed').length,
             partialStrategyCount: result.strategies.filter((strategy) => strategy.status === 'partial').length,
             insufficientStrategyCount: result.strategies.filter((strategy) => strategy.status === 'insufficient').length,
             allowedActions: result.allowedActions,
             prohibitedActions: result.prohibitedActions,
+            readinessSummary: result.readinessSummary,
             runtimeHealth: result.runtimeHealth,
             notTradingAdvice: true,
             artifacts,
@@ -228,5 +233,35 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
       }
     }
     return result
+  })
+
+  app.get('/reviews/:runId', async (request) => {
+    const { runId } = request.params as { runId: string }
+    return portfolioBacktestReviewService.getReview(runId)
+  })
+
+  app.post('/reviews/:runId', async (request, reply) => {
+    const { runId } = request.params as { runId: string }
+    const body = request.body as {
+      reviewerId?: string
+      decision?: string
+      notes?: string
+      blockedReasons?: string[]
+      humanReviewChecklist?: string[]
+    }
+    if (!body?.reviewerId) {
+      return reply.status(400).send({ error: 'reviewerId is required' })
+    }
+    if (!['approve_for_manual_review', 'request_changes', 'reject'].includes(String(body.decision))) {
+      return reply.status(400).send({ error: 'decision must be approve_for_manual_review, request_changes, or reject' })
+    }
+    return portfolioBacktestReviewService.saveReview({
+      runId,
+      reviewerId: body.reviewerId,
+      decision: body.decision as any,
+      notes: body.notes,
+      blockedReasons: body.blockedReasons,
+      humanReviewChecklist: body.humanReviewChecklist,
+    })
   })
 }

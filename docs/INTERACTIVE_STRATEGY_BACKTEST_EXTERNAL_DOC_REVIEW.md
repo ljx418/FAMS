@@ -90,8 +90,8 @@ overPromiseContent=not_found
 以下内容仍不能在产品、文档或前端中表达为“已完成”：
 
 ```text
-1. formalTradingUnlocked=true
-2. autoTradeUnlocked=true
+1. formalTradingUnlocked 被写成已解锁
+2. autoTradeUnlocked 被写成已解锁
 3. 正式 ADD / REDUCE 已放行
 4. ORDER_CREATE 已放行
 5. 自动再平衡或自动下单已放行

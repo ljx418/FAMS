@@ -9,6 +9,98 @@
 - `docs/PORTFOLIO_STRATEGY_BACKTEST_PLAN.md`
 - `docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md`
 
+## 2026-06-25 本阶段目标校准
+
+本阶段目标已从“研究级策略与组合回测可用”校准为“正式交易级前置材料完整”。该阶段允许系统继续输出研究、比较、观察提醒和人工计划草案，但不得释放正式交易动作。
+
+目标状态：
+
+```text
+formalTradingPrerequisitesDocumented=true
+portfolioStrategyBacktestFormalReviewReady=true
+portfolioBacktestFormalReviewReady=true
+manualTradePlanDraftReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+目标架构中的应用层、策略验证层、前端和审计包必须统一使用：
+
+```text
+dataGrade
+modelEffectiveness
+modelEffectivenessStatus
+manualPlanDraft
+formalTradingUnlockChecklist
+formalTradingBlockers
+allowedActions=RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT
+prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+```
+
+本阶段审计材料至少包含：
+
+```text
+09_data_grade_audit.json
+10_model_effectiveness_audit.json
+11_manual_plan_draft_audit.json
+12_formal_trading_unlock_blockers.json
+acceptance-report.html
+SUMMARY_FOR_GPT.md
+docs/read-drawio-output.txt
+docs/FORMAL_TRADING_PREREQUISITE_DOC_AUDIT.md
+doc_acceptance_audit.json
+```
+
+当前架构与目标架构关系：
+
+- 灰色已实现：React/Vite 前端、Fastify REST 后端、SQLite/Prisma、Operation artifact、红利低波候选池、组合回测、多策略曲线、人工计划草案 gate、全系统 E2E 报告。
+- 黄色需修改：数据等级传播、benchmark 状态、模型有效性验证、人工草案审计、前端正式评审可见性、文档术语一致性。
+- 橘黄需新增：formal trading unlock checklist、data grade audit、model effectiveness audit、manual plan draft audit、formal trading blockers artifact。
+- 红色硬边界：正式 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` 继续禁止，直到官方或可信数据、模型验证、交易约束和人工复核全部通过。
+
+本阶段架构图必须采用“实现实体优先”的表达方式。任何目标能力都必须能落到以下至少一种对象：
+
+- 前端页面：`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`Analysis.tsx`。
+- 后端路由：`strategy.ts`、`portfolioBacktest.ts`、`operation.ts`、FIVD-R analysis routes。
+- 服务模块：`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService`、`dividendLowVolBacktestService`、`PortfolioBacktestInputBuilder`、`PortfolioBacktestEngine`、`portfolioBacktestReviewService`、`operationService`。
+- 数据与证据：`DividendLowVolDaily`、`market_bar_canonical`、`market_tradeability_daily`、free-source benchmark、Operation artifact。
+- 审计产物：`SUMMARY_FOR_GPT.md`、`09_data_grade_audit.json`、`10_model_effectiveness_audit.json`、`11_manual_plan_draft_audit.json`、`12_formal_trading_unlock_blockers.json`、`acceptance-report.html`。
+
+如果后续文档只写“数据层、策略层、验证层、审计层”但没有绑定以上实体，应视为架构描述不合格。
+
+`docs/target-architecture-gap.drawio` 已调整为 7 页实现地图，用于指导后续开发和验收：
+
+1. **目标体验与用户路径**：红利低波、组合回测和任务审计三条用户路径，明确每一步的用户可见结果和禁止动作。
+2. **分层架构与调用关系**：前端页面、API、策略服务、组合回测服务、数据证据、运行产物和交易边界的调用关系。
+3. **组合回测实现路径**：`/backtest` -> `portfolioBacktestRoutes` -> `PortfolioBacktestInputBuilder` -> `PortfolioBacktestEngine` -> `PortfolioBenchmarkService` -> `portfolioBacktestReviewService` -> 前端与 Operation artifact。
+4. **红利低波实现路径**：免费源/本地缓存 -> 事实集 -> 评分 -> 候选池 -> Top3 -> 买卖观察区间 -> 滚动回测 -> 组合篮子 -> 人工草案 gate。
+5. **数据可信与模型验证**：`dataGrade`、价格新鲜度、benchmark 状态、分红/交易约束、OOS、walk-forward、参数敏感性和分组稳定性。
+6. **开发及验收计划**：FT-1 到 FT-6 映射到实现位置、输出字段、审计产物、验收命令和用户可见效果。
+7. **里程碑出门与审计**：可声明状态、不能声明状态、下一阶段 blocker、审计材料路径和最终边界。
+
+该图现在不仅说明“目标是什么”，也说明“从哪些页面、接口、服务、数据表和审计产物完成目标”。
+
+每页验收重点：
+
+| 页码 | 必须回答的问题 | 不合格表现 |
+| --- | --- | --- |
+| 1 目标体验与用户路径 | 用户如何完成研究筛选、组合回测、人工计划草案和审计追溯。 | 只画功能列表，不说明用户路径和禁止动作。 |
+| 2 分层架构与调用关系 | 前端页面调用哪些 API，API 进入哪些服务，服务读取哪些数据和 artifact。 | 出现不绑定代码实体的抽象架构层。 |
+| 3 组合回测实现路径 | `/backtest` 如何生成曲线、指标、数据等级、模型有效性和 readinessSummary。 | 只说“执行回测”，不说明输入构建、benchmark、审计输出。 |
+| 4 红利低波实现路径 | 候选池、Top3、买卖观察区间、滚动策略和组合篮子如何形成。 | 把观察区间写成正式交易建议。 |
+| 5 数据可信与模型验证 | dataGrade、priceAudit、benchmark、OOS、walk-forward 和 blocker 如何共同决定不可交易。 | 把 proxy 或 warning 当作正式验证通过。 |
+| 6 开发及验收计划 | FT-1 到 FT-6 的实现实体、输出字段、审计产物、用户效果和验收命令。 | 开发项没有可执行验收标准。 |
+| 7 里程碑出门与审计 | 本阶段可声明、不能声明、下一阶段 blocker 和审计入口。 | 把 formal-review-ready 写成 formal-trading-ready。 |
+
+本阶段出门条件：
+
+- 用户能完成“选择策略 -> 设置区间 -> 查看曲线和指标 -> 查看数据等级和模型有效性 -> 生成人工计划草案 -> 查看正式交易阻断原因”。
+- 文档和 drawio 能独立说明目标体验、当前/目标架构差异、开发计划、里程碑、验收门槛、出门条件和关键用户路径。
+- 审计包能解释为什么当前是 formal-review-ready，而不是 formal-trading-ready。
+- `formalTradingUnlocked=false` 和 `autoTradeUnlocked=false` 在所有主文档中保持一致。
+- `docs/read-drawio-output.txt` 能证明 drawio 原始 XML 本体可读，且页数不超过 8 页。
+- `doc_acceptance_audit.json` 状态必须为 `pass_formal_trading_prerequisite_docs`；该状态不等于正式交易 ready。
+
 ## 当前执行约束
 
 自 2026-05-10 起，开发主线切换为“高可靠与高正确开发计划”。在 `docs/HIGH_RELIABILITY_CORRECTNESS_PLAN.md` 完成前，不启动新的开发主线；V3.0 harnessOS 多 Agent 编排等扩展工作暂缓。
@@ -118,7 +210,7 @@ backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/SU
 当前状态：
 
 - 已有 Backtest 页面、`/api/v1/backtest/run`、建议回测、策略锦标赛 equityCurve、任务中心 artifact 预览和红利低波滚动回测。
-- 已新增 `PortfolioStrategyRegistry / PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService / PortfolioBacktestRoutes`。
+- 已新增组合回测实现实体：`PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService / portfolioBacktestRoutes`，并补充 `portfolioBacktestReviewService` 用于人工复核审计。
 - 已新增 `/api/v1/portfolio-backtest/templates` 与 `/api/v1/portfolio-backtest/run`。
 - 已在 Backtest 页面新增组合策略对比回测模块，默认可展示 3 条基于本地真实 `market_bar_canonical` 的 completed 策略曲线。
 - 已接入 `local_equal_weight_20` 研究 benchmark，并展示 benchmarkReturn 与 excessReturn。
@@ -140,7 +232,7 @@ backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/SU
 - 用户设置起止日期、初始资金、再平衡频率、分红处理、手续费、滑点和 benchmark。
 - 系统先以同步研究接口完成即时回测；下一阶段以 Operation 运行组合级回测，输出多组合收益率曲线、回撤曲线、指标表、benchmark 对比、数据缺口和 artifactRefs。
 - 页面明确显示“研究回测，不构成交易指令”；缺数据或 proxy benchmark 时不得升级为 formal validation。
-- `tradeActionReadiness=true` 在当前阶段只能解释为 `ready_for_manual_trade_draft`，不能解释为正式交易或自动交易已解锁。
+- `tradeActionReadiness=true` 在当前阶段只能解释为 `ready_for_manual_trade_draft`，不能解释为交易可用或自动执行可用。
 
 专项出门条件：
 

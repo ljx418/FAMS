@@ -55,6 +55,12 @@ async function main() {
   assert.ok(result.modelEffectiveness, 'result should include aggregate model effectiveness')
   assert.ok(Array.isArray(result.manualPlanDrafts), 'result should include manual plan drafts')
   assert.ok(result.formalTradingUnlockChecklist, 'result should include formal trading unlock checklist')
+  assert.ok(result.runId, 'result should include auditable runId')
+  assert.ok(result.readinessSummary, 'result should include unified readiness summary')
+  assert.equal(result.readinessSummary.researchReady, true)
+  assert.equal(result.readinessSummary.formalTradingUnlocked, false)
+  assert.equal(result.readinessSummary.autoTradeUnlocked, false)
+  assert.equal(result.readinessSummary.formalReviewReady, result.formalReviewReadiness?.ready === true)
   assert.equal(result.formalTradingUnlockChecklist.formalTradingUnlocked, false)
   assert.equal(result.formalTradingUnlockChecklist.autoTradeUnlocked, false)
   const localCompleted = result.strategies.filter((item: any) => item.definition?.strategyId?.startsWith('local_real_data_') && item.status === 'completed')
@@ -89,6 +95,10 @@ async function main() {
   }
   for (const strategy of result.strategies) {
     if ((strategy.equityCurve?.length || 0) === 0) continue
+    assert.ok(strategy.modelEffectiveness?.oos, `model effectiveness should expose OOS details for ${strategy.definition?.strategyId}`)
+    assert.ok(strategy.modelEffectiveness?.walkForward, `model effectiveness should expose walk-forward details for ${strategy.definition?.strategyId}`)
+    assert.ok(strategy.modelEffectiveness?.parameterSensitivity, `model effectiveness should expose parameter sensitivity details for ${strategy.definition?.strategyId}`)
+    assert.ok(strategy.modelEffectiveness?.groupStability, `model effectiveness should expose group stability details for ${strategy.definition?.strategyId}`)
     assert.ok(
       strategy.metrics?.dividendContributionPercent !== null
         || strategy.warnings?.includes('dividend_contribution_insufficient:no_audited_component_yield'),
@@ -118,6 +128,7 @@ async function main() {
   assert.equal(operationSubmission.schemaVersion, 'portfolio.strategy_backtest.operation_submission.v1')
   assert.equal(operationSubmission.status, 'completed')
   assert.ok(operationSubmission.operationId)
+  assert.ok(operationSubmission.result?.readinessSummary, 'operation result should expose readiness summary')
   assert.ok(Array.isArray(operationSubmission.artifactRefs))
   assert.ok(operationSubmission.artifactRefs.length >= 11)
   assert.deepEqual(operationSubmission.prohibitedActions, ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'])
@@ -140,6 +151,34 @@ async function main() {
   assert.equal(artifact.data?.schemaVersion, 'portfolio.backtest.trade_gate_contract.v1')
   assert.equal(artifact.data?.formalTradingUnlocked, false)
   assert.equal(artifact.data?.autoTradeUnlocked, false)
+  assert.equal(artifact.data?.readinessSummary?.formalTradingUnlocked, false)
+
+  const initialReviewResponse = await app.inject({
+    method: 'GET',
+    url: `/api/v1/portfolio-backtest/reviews/${encodeURIComponent(result.runId)}`,
+  })
+  assert.equal(initialReviewResponse.statusCode, 200)
+  const initialReview = initialReviewResponse.json()
+  assert.equal(initialReview.status, 'not_reviewed')
+  assert.equal(initialReview.canCreateOrder, false)
+
+  const saveReviewResponse = await app.inject({
+    method: 'POST',
+    url: `/api/v1/portfolio-backtest/reviews/${encodeURIComponent(result.runId)}`,
+    payload: {
+      reviewerId: 'api_contract_reviewer',
+      decision: 'approve_for_manual_review',
+      notes: 'contract test review record',
+      blockedReasons: result.readinessSummary.blockers,
+    },
+  })
+  assert.equal(saveReviewResponse.statusCode, 200)
+  const savedReview = saveReviewResponse.json()
+  assert.equal(savedReview.status, 'saved')
+  assert.equal(savedReview.formalTradingUnlocked, false)
+  assert.equal(savedReview.autoTradeUnlocked, false)
+  assert.equal(savedReview.canCreateOrder, false)
+  assert.deepEqual(savedReview.prohibitedActions, ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'])
 
   await app.close()
   console.log(JSON.stringify({

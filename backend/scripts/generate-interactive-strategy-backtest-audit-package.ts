@@ -251,6 +251,7 @@ async function main() {
     schemaVersion: 'interactive_strategy_backtest.formal_review_prerequisite_audit.v1',
     ...common,
     status: 'formal_review_prerequisites_documented',
+    readinessSummary: backtest.readinessSummary,
     stageStates: {
       researchGradeStrategyComparisonReady: completedStrategies.length >= 5 && proxyCoverage.status === 'ready',
       manualDraftReady: true,
@@ -288,6 +289,7 @@ async function main() {
     schemaVersion: 'interactive_strategy_backtest.trade_gate_contract.v1',
     ...common,
     status: 'passed',
+    readinessSummary: backtest.readinessSummary,
     formalReviewReady: backtest.formalReviewReadiness?.ready === true,
     formalReviewReadiness: backtest.formalReviewReadiness,
     formalTradingUnlockChecklist: backtest.formalTradingUnlockChecklist,
@@ -361,6 +363,7 @@ async function main() {
     schemaVersion: 'interactive_strategy_backtest.data_grade_audit.v1',
     ...common,
     status: backtest.dataGradeAudit?.status || 'missing',
+    readinessSummary: backtest.readinessSummary,
     aggregate: backtest.dataGradeAudit,
     strategies: backtest.strategies.map((strategy) => ({
       strategyId: strategy.definition.strategyId,
@@ -374,6 +377,7 @@ async function main() {
     schemaVersion: 'interactive_strategy_backtest.model_effectiveness_audit.v1',
     ...common,
     status: backtest.modelEffectiveness?.status || 'missing',
+    readinessSummary: backtest.readinessSummary,
     aggregate: backtest.modelEffectiveness,
     strategies: backtest.strategies.map((strategy) => ({
       strategyId: strategy.definition.strategyId,
@@ -387,6 +391,7 @@ async function main() {
     schemaVersion: 'interactive_strategy_backtest.manual_plan_draft_audit.v1',
     ...common,
     status: backtest.manualPlanDrafts?.length ? 'generated_blocked_drafts' : 'missing',
+    readinessSummary: backtest.readinessSummary,
     manualPlanDrafts: backtest.manualPlanDrafts,
     policy: {
       formalTargetWeightPercent: 0,
@@ -400,6 +405,7 @@ async function main() {
     schemaVersion: 'interactive_strategy_backtest.formal_trading_unlock_blockers.v1',
     ...common,
     status: 'blocked',
+    readinessSummary: backtest.readinessSummary,
     formalTradingUnlockChecklist: backtest.formalTradingUnlockChecklist,
     formalTradingUnlocked: false,
     autoTradeUnlocked: false,
@@ -415,7 +421,7 @@ async function main() {
     prdChecks.every((item) => item.status === 'passed') ? 'passed' : 'failed',
     frontendRuntime?.status === 'passed' ? 'passed' : 'insufficient',
   ])
-  await addText(files, 'SUMMARY_FOR_GPT.md', `# Summary For GPT\n\nGeneratedAt: ${GENERATED_AT}\n\nOverallStatus: ${status}\n\nAuditUserId: ${AUDIT_USER_ID}\n\nResearchGradeStrategyComparisonReady: ${completedStrategies.length >= 5 && proxyCoverage.status === 'ready'}\n\nPortfolioBacktestFormalReviewReady: ${backtest.formalReviewReadiness?.ready === true}\n\nManualDraftReady: ${(backtest.manualPlanDrafts?.length || 0) > 0}\n\nFormalTradingUnlocked: false\n\nAutoTradeUnlocked: false\n\nRuntimeHealth: ${runtimeHealth.status}\n\nProxyEtfCoverage: ${proxyCoverage.status}\n\nCompletedStrategies: ${completedStrategies.length}/${backtest.strategies.length}\n\nDataGrade: ${backtest.dataGradeAudit?.aggregateGrade || 'missing'} / ${backtest.dataGradeAudit?.status || 'missing'}\n\nModelEffectivenessStatus: ${backtest.modelEffectiveness?.status || 'missing'}\n\nManualPlanDraftCount: ${backtest.manualPlanDrafts?.length || 0}\n\nFrontendRuntimeEvidence: ${frontendRuntime?.status || 'missing'}\n\nBenchmarkStatuses: ${benchmarkStatuses.join(', ') || 'none'}\n\nFormal review blockers: ${(backtest.formalReviewReadiness?.blockers || []).join(', ') || 'none'}.\n\nFormal trading unlock blockers: ${(backtest.formalTradingUnlockChecklist?.blockers || []).join(', ') || 'none'}.\n\nTrading blockers that remain by policy: manual_review_not_completed, formal_trading_unlock_requires_explicit_human_confirmation, auto_trade_policy_locked.\n\nKey audit files:\n\n${files.map((file) => `- ${file}`).join('\n')}\n`)
+  await addText(files, 'SUMMARY_FOR_GPT.md', `# Summary For GPT\n\nGeneratedAt: ${GENERATED_AT}\n\nOverallStatus: ${status}\n\nAuditUserId: ${AUDIT_USER_ID}\n\nResearchGradeStrategyComparisonReady: ${completedStrategies.length >= 5 && proxyCoverage.status === 'ready'}\n\nPortfolioBacktestFormalReviewReady: ${backtest.formalReviewReadiness?.ready === true}\n\nManualDraftReady: ${(backtest.manualPlanDrafts?.length || 0) > 0}\n\nReadinessSummary: research=${backtest.readinessSummary?.researchReady}, formalReview=${backtest.readinessSummary?.formalReviewReady}, manualDraft=${backtest.readinessSummary?.manualDraftReady}, formalTradingEligible=${backtest.readinessSummary?.formalTradingEligible}\n\nFormalTradingUnlocked: false\n\nAutoTradeUnlocked: false\n\nRuntimeHealth: ${runtimeHealth.status}\n\nProxyEtfCoverage: ${proxyCoverage.status}\n\nCompletedStrategies: ${completedStrategies.length}/${backtest.strategies.length}\n\nDataGrade: ${backtest.dataGradeAudit?.aggregateGrade || 'missing'} / ${backtest.dataGradeAudit?.status || 'missing'}\n\nModelEffectivenessStatus: ${backtest.modelEffectiveness?.status || 'missing'}\n\nManualPlanDraftCount: ${backtest.manualPlanDrafts?.length || 0}\n\nFrontendRuntimeEvidence: ${frontendRuntime?.status || 'missing'}\n\nBenchmarkStatuses: ${benchmarkStatuses.join(', ') || 'none'}\n\nFormal review blockers: ${(backtest.formalReviewReadiness?.blockers || []).join(', ') || 'none'}.\n\nFormal trading unlock blockers: ${(backtest.formalTradingUnlockChecklist?.blockers || []).join(', ') || 'none'}.\n\nTrading blockers that remain by policy: manual_review_not_completed, formal_trading_unlock_requires_explicit_human_confirmation, auto_trade_policy_locked.\n\nKey audit files:\n\n${files.map((file) => `- ${file}`).join('\n')}\n`)
 
   await addJson(files, 'manifest.json', await manifest(files))
   const listed = await readdir(auditDir())

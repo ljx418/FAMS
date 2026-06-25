@@ -38,8 +38,39 @@ export interface PortfolioModelEffectiveness {
   maxDrawdownPercent: number | null
   walkForwardWindows: number
   walkForwardPassedWindows: number
+  oos: {
+    status: PortfolioModelEffectivenessStatus
+    trainReturnPercent: number | null
+    testReturnPercent: number | null
+    testExcessReturnPercent: number | null
+    evidenceRefs: string[]
+  }
+  walkForward: {
+    status: PortfolioModelEffectivenessStatus
+    windows: number
+    passedWindows: number
+    passRatioPercent: number | null
+    evidenceRefs: string[]
+  }
   parameterSensitivityStatus: PortfolioModelEffectivenessStatus
+  parameterSensitivity: {
+    status: PortfolioModelEffectivenessStatus
+    testedVariants: string[]
+    stableVariants: string[]
+    evidenceRefs: string[]
+    notes: string[]
+  }
   groupStabilityStatus: PortfolioModelEffectivenessStatus | 'not_applicable'
+  groupStability: {
+    status: PortfolioModelEffectivenessStatus | 'not_applicable'
+    groups: Array<{
+      groupId: string
+      status: PortfolioModelEffectivenessStatus | 'not_applicable'
+      evidenceRefs: string[]
+    }>
+    evidenceRefs: string[]
+    notes: string[]
+  }
   failureTaxonomy: string[]
   evidenceRefs: string[]
 }
@@ -72,6 +103,18 @@ export interface PortfolioFormalTradingUnlockChecklist {
   formalTradingUnlocked: false
   autoTradeUnlocked: false
   blockers: string[]
+}
+
+export interface PortfolioBacktestReadinessSummary {
+  researchReady: boolean
+  formalReviewReady: boolean
+  manualDraftReady: boolean
+  formalTradingEligible: boolean
+  formalTradingUnlocked: false
+  autoTradeUnlocked: false
+  statusMessage: string
+  blockers: string[]
+  warnings: string[]
 }
 
 export interface PortfolioBacktestFormalReviewReadiness {
@@ -241,6 +284,7 @@ export interface PortfolioBacktestStrategyResult {
 export interface PortfolioBacktestResult {
   schemaVersion: 'portfolio.strategy_backtest.result.v1'
   generatedAt: string
+  runId: string
   userId: string
   request: PortfolioBacktestRequest
   strategies: PortfolioBacktestStrategyResult[]
@@ -261,6 +305,7 @@ export interface PortfolioBacktestResult {
   }
   manualPlanDrafts?: PortfolioManualPlanDraft[]
   formalTradingUnlockChecklist?: PortfolioFormalTradingUnlockChecklist
+  readinessSummary?: PortfolioBacktestReadinessSummary
 }
 
 export const PORTFOLIO_BACKTEST_ALLOWED_ACTIONS: PortfolioBacktestAllowedAction[] = [

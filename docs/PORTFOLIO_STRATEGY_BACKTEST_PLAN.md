@@ -1,6 +1,6 @@
 # 交互式策略回测与正式交易级前置 PRD / 开发与验收计划
 
-更新时间：2026-06-24
+更新时间：2026-06-25
 
 ## 1. 阶段目标
 
@@ -58,6 +58,18 @@ dividendLowVolBasketComponentCount=3
 dividendLowVolBasketSymbols=000513,601398,000333
 ```
 
+2026-06-25 阶段目标校准：
+
+```text
+formalTradingPrerequisitesDocumented=true
+portfolioStrategyBacktestFormalReviewReady=true
+manualTradePlanDraftReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+本阶段完成后，用户应能在前端完成“选择策略 -> 设置区间 -> 查看多策略收益曲线 -> 查看数据等级和模型有效性 -> 生成人工计划草案 -> 查看正式交易阻断原因”的完整路径。该路径只支撑研究比较和人工评审，不支撑正式下单、自动再平衡或自动交易。
+
 最新审计包：
 
 ```text
@@ -66,7 +78,7 @@ backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/SU
 
 已完成能力：
 
-- 后端已新增 `PortfolioStrategyRegistry / PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService / PortfolioBacktestRoutes`。
+- 后端已新增组合回测实现实体：`PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService / portfolioBacktestRoutes`，并补充 `portfolioBacktestReviewService` 用于人工复核审计。
 - 前端已在 `/backtest` 页面新增“组合策略对比回测”模块。
 - 默认路径可展示 3 条基于本地真实 `market_bar_canonical` 的 completed 策略曲线：
   - `local_real_data_sample_60_40`
@@ -152,40 +164,69 @@ ADD / REDUCE / AUTO_TRADE / ORDER_CREATE
 - 审计用户 `audit_portfolio_backtest_user` 已有真实持仓样本，当前持仓组合在该用户下可 completed；默认用户无持仓时仍应保持 insufficient。
 - Operation + artifactRefs 已接入组合回测路径；后续重点是扩大正式数据源、模型有效性验证、人工复核记录和正式交易执行约束。
 
+2026-06-25 文档收口后的下一阶段缺口：
+
+- 数据等级需要在文档、审计包和前端统一展示，防止 `official_authorized / free_source_cross_checked / price_index_only / research_proxy / insufficient` 混用。
+- 模型有效性需要从“能回测”升级到“样本外、walk-forward、参数敏感性和分组稳定性可审计”。
+- 人工交易计划草案需要补齐复核 checklist、失效条件、当前/目标权重、组合约束和阻断原因。
+- 前端需要提供正式评审工作台，让用户看懂哪些策略可比较、哪些只能观察、哪些因数据或验证不足被阻断。
+- 审计包需要集中输出 data grade、model effectiveness、manual plan draft 和 formal trading blockers。
+- 正式交易解锁清单只能定义和展示，不得自动释放 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
+
 ## 4. 目标架构
 
-新增模块：
+当前实现实体：
 
 ```text
-PortfolioStrategyRegistry
-PortfolioBacktestInputBuilder
-PortfolioBacktestEngine
-PortfolioBenchmarkService
-PortfolioBacktestArtifactService
-PortfolioBacktestRoutes
-PortfolioBacktestPage
-```
-
-后端建议路径：
-
-```text
-backend/src/services/portfolio-backtest/portfolioStrategyRegistry.ts
+frontend/src/pages/Backtest.tsx
+frontend/src/pages/DividendLowVol.tsx
+frontend/src/pages/Operations.tsx
+backend/src/routes/portfolioBacktest.ts
+backend/src/routes/strategy.ts
 backend/src/services/portfolio-backtest/portfolioBacktestInputBuilder.ts
 backend/src/services/portfolio-backtest/portfolioBacktestEngine.ts
-backend/src/services/portfolio-backtest/portfolioBenchmarkService.ts
-backend/src/services/portfolio-backtest/portfolioBacktestArtifactService.ts
-backend/src/routes/portfolioBacktest.ts
-backend/scripts/verify-portfolio-strategy-backtest.ts
+backend/src/services/portfolio-backtest/portfolioBacktestReviewService.ts
+backend/src/services/dividend-low-vol/dividendLowVolStrategyService.ts
+backend/src/services/dividend-low-vol/dividendLowVolTradingZoneService.ts
+backend/src/services/operation/operationService.ts
 ```
 
-前端建议路径：
+组合回测主链路：
 
 ```text
-frontend/src/pages/PortfolioBacktest.tsx
-frontend/src/services/portfolioBacktestService.ts
-frontend/src/components/portfolio-backtest/PortfolioBacktestControls.tsx
-frontend/src/components/portfolio-backtest/PortfolioBacktestCurvePanel.tsx
-frontend/src/components/portfolio-backtest/PortfolioBacktestMetricsTable.tsx
+Backtest.tsx
+  -> /api/v1/portfolio-backtest/templates
+  -> /api/v1/portfolio-backtest/run
+  -> PortfolioBacktestInputBuilder
+  -> PortfolioBacktestEngine
+  -> benchmark / dataGrade / modelEffectiveness
+  -> readinessSummary / manualPlanDraft / formalTradingBlockers
+  -> Operation artifact / audit package
+  -> Backtest.tsx 正式评审摘要
+```
+
+红利低波篮子接入链路：
+
+```text
+DividendLowVol.tsx
+  -> /api/v1/strategy/dividend-low-vol/candidates
+  -> dividendLowVolStrategyService
+  -> DividendLowVolDaily 候选快照
+  -> dividendLowVolPortfolioBasketService / PortfolioBacktestInputBuilder
+  -> PortfolioBacktestEngine
+  -> research-grade completed 或 insufficient + blockedReasons
+```
+
+人工计划复核链路：
+
+```text
+Backtest.tsx
+  -> /api/v1/portfolio-backtest/reviews/:runId
+  -> portfolioBacktestReviewService
+  -> JSON 审计记录
+  -> canCreateOrder=false
+  -> formalTradingUnlocked=false
+  -> autoTradeUnlocked=false
 ```
 
 核心数据流：
@@ -199,6 +240,18 @@ frontend/src/components/portfolio-backtest/PortfolioBacktestMetricsTable.tsx
   -> equityCurve / drawdownCurve / metrics / audit
   -> 前端多组合曲线与指标表
 ```
+
+该目标架构要求所有新增策略和回测输出都接入同一套公共字段：
+
+```text
+readinessSummary
+dataGrade
+modelEffectivenessStatus
+manualPlanDraft
+formalTradingBlockers
+```
+
+不能新增绕过交易 gate 的独立字段或页面文案。
 
 ## 5. 组合策略范围
 
@@ -354,12 +407,16 @@ API 契约：
 ```http
 GET  /api/v1/portfolio-backtest/templates
 POST /api/v1/portfolio-backtest/run
+GET  /api/v1/portfolio-backtest/reviews/:runId
+POST /api/v1/portfolio-backtest/reviews/:runId
 ```
 
 当前 `POST /run` 支持两种模式：
 
 - 默认同步返回研究级组合回测结果，用于前端即时体验和真实数据验收。
 - `executionMode=operation` 时创建 Operation，返回 `operationId`、`artifactRefs` 和 result；artifact 通过任务中心既有 Operation artifact API 追溯。
+- `GET /reviews/:runId` 读取人工计划草案复核记录；未复核时返回 `status=not_reviewed`。
+- `POST /reviews/:runId` 只保存复核审计，返回 `canCreateOrder=false`、`formalTradingUnlocked=false`、`autoTradeUnlocked=false`，不得创建订单。
 
 ```json
 {
@@ -675,3 +732,43 @@ backend/data/gpt-audit/portfolio-backtest/<timestamp>/SUMMARY_FOR_GPT.md
 ```
 
 审计包不得包含 token、cookie、`.env`、数据库原始文件或用户隐私明细。持仓数据只允许以本地默认用户研究样例或脱敏聚合形式进入 GPT 审计包。
+
+## 12. 正式交易前置字段索引
+
+组合策略回测是本阶段正式交易前置评审的核心入口。后端结果、Operation
+artifact、前端策略回测页面和 GPT 审计包必须统一输出以下状态：
+
+```text
+portfolioBacktestFormalReviewReady=true
+portfolioStrategyBacktestFormalReviewReady=true
+manualTradePlanDraftReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+必须保留的公共字段：
+
+```text
+readinessSummary
+dataGrade
+modelEffectiveness
+modelEffectivenessStatus
+manualPlanDraft
+formalTradingUnlockChecklist
+formalTradingBlockers
+allowedActions=RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT
+prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+```
+
+`readinessSummary` 必须同时给出：
+
+```text
+researchReady
+formalReviewReady
+manualDraftReady
+formalTradingEligible
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+这些字段的产品含义是“可被人工复核”，不是“可自动执行交易”。

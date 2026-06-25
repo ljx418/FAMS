@@ -1,6 +1,6 @@
 # 红利低波行业龙头策略 PRD
 
-更新时间：2026-06-24
+更新时间：2026-06-25
 
 ## 1. 产品定位
 
@@ -25,6 +25,18 @@ formalReviewReady=false
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
+
+2026-06-25 正式交易级前置阶段校准：
+
+```text
+formalTradingPrerequisitesDocumented=true
+portfolioStrategyBacktestFormalReviewReady=true
+manualTradePlanDraftReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+本阶段的新增目标不是开放正式交易，而是把“红利低波策略 + 组合策略回测 + 人工交易计划草案”整理成正式交易评审前置材料完整的产品路径。用户应能看懂候选、曲线、数据等级、模型有效性、人工草案和阻断原因；系统仍不得创建订单、不得输出正式 `ADD / REDUCE`，也不得开放 `AUTO_TRADE`。
 
 红利低波策略可以作为组合回测目标架构中的策略篮子来源；当前已接入真实 `DividendLowVolDaily` 候选快照读取、等权 v1、tradeDate、selectionRules 和 evidenceRefs。若真实入篮数量低于最小 3 只、行业/单票约束不足或 evidenceRefs 不完整，`dividend_low_vol_basket` 必须保持 insufficient，不得用本地样本组合替代红利低波篮子。
 
@@ -65,6 +77,13 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 4. 不把 proxy benchmark 说成 formal benchmark。
 5. 不把 seed fallback 说成 verified industry leader。
 6. 不用测试绕过 `validation_evidence`。
+
+正式交易级前置阶段的非目标：
+
+1. 不把 `tradeActionReady=true` 解释为可自动交易。
+2. 不把免费源或 research proxy benchmark 解释为官方授权 benchmark。
+3. 不把 formal-review-ready 解释为 formal-trading-ready。
+4. 不在人工复核、正式 provider、官方 benchmark 和模型有效性验证完成前释放正式交易动作。
 
 ## 3. 用户角色与场景
 
@@ -226,6 +245,18 @@ price_zone_mismatch：价格与均线/区间锚点明显错配
 - 红利低波候选篮子已进入组合回测输入构建；通过免费源扩容后当前真实入篮数量为 3/3，入篮标的为 `000513 / 601398 / 000333`，可在研究级组合回测中展示 completed 曲线。
 - 红利低波独立策略的 formal validation 仍未解锁正式交易动作；`tradeActionReadiness=true` 只能解释为 `ready_for_manual_trade_draft`。
 
+2026-06-25 文档校准后的出门状态：
+
+```text
+researchReady=yes
+manualDraftReady=yes_if_gate_evidence_ready
+formalReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+该状态表示用户能完成研究筛选、策略回测、买卖观察区间查看、人工计划草案和审计追溯；不表示策略已经具备正式买入、卖出、下单或自动交易能力。
+
 ## 8.1 组合策略回测联动
 
 红利低波策略后续需要进入组合策略回测视角，而不是只看单只候选或单一策略曲线。组合回测能力的目标是让用户比较：
@@ -321,3 +352,108 @@ autoTradeUnlocked=false
 automationStatus = documentation_and_research_workflow_ready
 fullAutomationStatus = blocked_by_external_provider_and_manual_review
 ```
+
+## 10. 本阶段统一字段索引
+
+红利低波策略进入交互式组合回测和正式交易前置评审后，产品、后端、
+前端和审计包必须使用同一组字段，避免把研究级结论误解为正式交易放行。
+
+```text
+portfolioBacktestFormalReviewReady=true
+portfolioStrategyBacktestFormalReviewReady=true
+manualTradePlanDraftReviewReady=true
+manualTradeDraftReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+组合回测和红利低波联动页面必须展示或传递：
+
+```text
+readinessSummary
+dataGrade
+modelEffectiveness
+modelEffectivenessStatus
+manualPlanDraft
+formalTradingUnlockChecklist
+formalTradingBlockers
+allowedActions=RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT / MANUAL_TRADE_DRAFT
+prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+```
+
+`readinessSummary` 统一解释研究、正式评审前置、人工计划草案、正式交易资格和交易解锁状态：
+
+```text
+researchReady
+formalReviewReady
+manualDraftReady
+formalTradingEligible
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+这些字段只用于解释数据可信度、模型有效性、人工草案和阻断原因，不允许
+作为自动下单、自动再平衡或正式 ADD / REDUCE 的触发条件。
+
+状态 alias 规则：
+
+```text
+manualDraftReady == manualTradeDraftReady == manualTradePlanDraftReviewReady
+manual_trade_plan_draft_review_ready 是 manualTradePlanDraftReviewReady 的机器可读别名
+manualTradePlanDraftReviewReady != formalTradingUnlocked
+portfolioBacktestFormalReviewReady != formalTradingUnlocked
+```
+
+`tradeActionReadiness=true` 或测试 passed 在当前阶段只能解释为：
+
+```text
+tradeActionReadinessPassedMeaning = gate_contract_passed_or_manual_draft_ready
+formalTradingUnlocked = false
+orderCreateAllowed = false
+canCreateOrder = false
+```
+
+任何文档、前端文案或审计包不得把 `manualDraftReady`、`manualTradeDraftReady`、`manualTradePlanDraftReviewReady`、`portfolioBacktestFormalReviewReady` 解释为正式交易、正式下单或自动交易 ready。
+
+## 11. 本阶段文档开发收口要求
+
+本阶段文档只服务于“正式交易前置评审 ready”，不服务于交易执行。PRD、目标架构、阶段计划和 drawio 必须使用同一套实现实体和验收口径，避免开发者把抽象目标误解为新增交易能力。
+
+### 11.1 代码实体映射
+
+红利低波页面与组合回测页面必须在文档中明确绑定到以下实现实体：
+
+| 层级 | 实体 | 本阶段职责 |
+| --- | --- | --- |
+| 前端页面 | `DividendLowVol.tsx` | 展示候选、筛选排序、指标解释、买卖观察区间、滚动回测、人工计划草案入口和交易锁定提示。 |
+| 前端页面 | `Backtest.tsx` | 展示多策略回测、收益曲线、回撤、数据等级、模型有效性、人工复核记录和正式交易阻断原因。 |
+| 前端页面 | `Operations.tsx` | 展示 Operation 与 artifactRefs，支撑审计用户追溯扫描、回测和验收报告。 |
+| 后端 API | `/api/v1/strategy/dividend-low-vol/*` | 提供候选池、交易区间、滚动回测、FIVD-R adapter、manual acceptance 和 readiness 数据。 |
+| 后端 API | `/api/v1/portfolio-backtest/*` | 提供策略模板、组合回测运行、Operation artifact 和人工复核审计记录。 |
+| 红利低波服务 | `dividendLowVolStrategyService` | 生成候选池、拒绝原因、评分、disposition 和 evidenceRefs。 |
+| 红利低波服务 | `dividendLowVolTradingZoneService` | 生成买入/卖出观察区间、价格审计、区间失效条件和滚动策略结果。 |
+| 组合回测服务 | `PortfolioBacktestInputBuilder` | 将红利低波篮子、当前持仓、永久组合、全天候和自定义组合转换为回测输入。 |
+| 组合回测服务 | `PortfolioBacktestEngine` | 输出 equityCurve、drawdown、metrics、dataGrade、modelEffectiveness 和 readinessSummary。 |
+| 审计服务 | `portfolioBacktestReviewService` | 只保存人工复核审计，不创建订单，不改变交易锁定状态。 |
+
+### 11.2 用户体验验收门槛
+
+完成本阶段文档后，后续开发和验收必须能回答以下用户问题：
+
+- 我现在看到的是研究候选、观察区间还是正式买卖指令。
+- 这只红利股为什么入选、为什么被剔除、缺少什么数据。
+- 当前价格、均线和买卖观察区间的数据日期是否可信。
+- 红利低波篮子与其他组合在同一区间的收益、回撤、分红贡献和 benchmark 表现如何。
+- 哪些数据来自免费源、哪些是 proxy、哪些不足以进入正式交易。
+- 人工计划草案为什么不能直接创建订单。
+- 系统为什么仍保持 `formalTradingUnlocked=false` 和 `autoTradeUnlocked=false`。
+
+### 11.3 文档禁止事项
+
+以下表述不得出现在 PRD、架构图、阶段计划或审计摘要中：
+
+- 把 `manualTradeDraftReady` 写成正式买入、卖出或下单 ready。
+- 把 `portfolioBacktestFormalReviewReady` 写成正式交易 ready。
+- 把免费源 total-return 或 research proxy 写成官方授权 benchmark。
+- 把 `tradeActionReadiness=true` 写成交易动作已经放行。
+- 把 `formalTargetWeight=0` 之外的正式仓位写入当前阶段出门条件。

@@ -1,146 +1,89 @@
+# target-architecture-gap.drawio 摘要
 
-# docs/target-architecture-gap.drawio
+更新时间：2026-06-25
 
-## 1 目标体验
-Nodes: 8; Edges: 6
+本 drawio 文件用于说明 FAMS 当前阶段的目标体验、当前架构与目标架构差异、具体技术实现路径、开发及验收计划、项目里程碑、验收门槛、出门条件和关键用户路径。页数固定为 7 页，不超过 8 页。图内不使用无法落地的泛化模块，每个关键节点都必须绑定到真实页面、API、服务、数据/缓存或审计 artifact。
 
-Nodes
-- 本阶段目标体验：交互式策略回测 + 正式交易级前置，不自动交易
-- 入口体验 / 用户从左侧进入策略回测或红利低波页面。页面顶部显示研究模式、数据状态、禁止动作和最新审计状态。
-- 选择策略 / 红利低波篮子、当前持仓、永久组合、全天候组合、本地真实样本组合、自定义权重组合。
-- 设置参数 / 起止时间、初始资金、再平衡频率、分红处理、手续费、滑点、benchmark。
-- 查看结果 / 收益曲线、回撤曲线、指标表、benchmarkReturn、excessReturn、dividendContribution、dataCoverage、blockedReasons。
-- 追溯证据 / 打开每个策略的输入定义、行情覆盖、分红覆盖、benchmark 状态、交易约束、evidenceRefs 和 Operation artifact。
-- 人工计划草案 / 满足 gate 时只生成 manual draft / watchlist / pretrade check。formalTargetWeight=0，canCreateOrder=false。
-- 硬边界 / 禁止正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE。研究回测不能包装成正式交易验证。
+## 颜色规则
 
-Edges
-- 入口体验 / 用户从左侧进入策略回测或红利低波页面。页面顶部显示研究模式、数据状态、禁止动作和最新审计状态。 -> 选择策略 / 红利低波篮子、当前持仓、永久组合、全天候组合、本地真实样本组合、自定义权重组合。 (选择)
-- 选择策略 / 红利低波篮子、当前持仓、永久组合、全天候组合、本地真实样本组合、自定义权重组合。 -> 设置参数 / 起止时间、初始资金、再平衡频率、分红处理、手续费、滑点、benchmark。 (配置)
-- 设置参数 / 起止时间、初始资金、再平衡频率、分红处理、手续费、滑点、benchmark。 -> 查看结果 / 收益曲线、回撤曲线、指标表、benchmarkReturn、excessReturn、dividendContribution、dataCoverage、blockedReasons。 (运行)
-- 查看结果 / 收益曲线、回撤曲线、指标表、benchmarkReturn、excessReturn、dividendContribution、dataCoverage、blockedReasons。 -> 追溯证据 / 打开每个策略的输入定义、行情覆盖、分红覆盖、benchmark 状态、交易约束、evidenceRefs 和 Operation artifact。 (查看证据)
-- 追溯证据 / 打开每个策略的输入定义、行情覆盖、分红覆盖、benchmark 状态、交易约束、evidenceRefs 和 Operation artifact。 -> 人工计划草案 / 满足 gate 时只生成 manual draft / watchlist / pretrade check。formalTargetWeight=0，canCreateOrder=false。 (人工复核)
-- 人工计划草案 / 满足 gate 时只生成 manual draft / watchlist / pretrade check。formalTargetWeight=0，canCreateOrder=false。 -> 硬边界 / 禁止正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE。研究回测不能包装成正式交易验证。 (交易保护)
+- 灰色：已经实现或本阶段已有基础能力。
+- 黄色：需要修改、补齐或统一口径的能力。
+- 橘黄：需要新增的正式交易级前置能力。
+- 红色：交易硬边界或禁止事项。
+- 蓝色/绿色：目标体验、阶段输出或允许出门状态。
 
-## 2 当前架构与目标架构
-Nodes: 9; Edges: 7
+## 页面结构
 
-Nodes
-- 当前架构与目标架构关系：灰色已实现，黄色需修改，橘黄需新增，红色硬边界
-- 当前前端层（已实现） / React/Vite；资产、持仓、分析、策略回测、红利低波、任务中心。已具备多曲线展示和研究模式提示。
-- 当前 API/服务层（已实现） / Fastify REST；PortfolioBacktest、DividendLowVol、Operation、Validation、Manual workflow。
-- 当前数据层（已实现，仍需增强） / SQLite + 本地缓存 + 免费数据源；market_bar_canonical、provider health、freshness、coverage。Runtime Health 已统一，当前 healthy；免费源 total-return benchmark 与交易约束覆盖已达到组合回测正式评审 ready。
-- 当前审计层（已实现） / Operation artifact、GPT audit package、前端运行态截图、trade gate contract。组合回测最新审计包显示 7/7 策略完成，formal-review-ready。
-- 目标数据能力（已部分达成，继续增强） / ETF 代理行情 >=250 交易日已达成；免费源 total-return benchmark 已接入；后续增强官方授权 benchmark、分红事件、除权调整、正式 provider。
-- 目标回测能力（已实现正式评审前置） / 多策略同屏比较；price-only / dividend cash / reinvest 指标；费用、滑点、再平衡；Operation 化运行；任务中心追踪。
-- 组合回测正式评审前置（已达成） / formal review readiness artifact 聚合 runtime、benchmark、tradeability、frontend visibility。当前 portfolioBacktestFormalReviewReady=true；正式交易仍需人工确认。
-- 交易硬边界（当前与目标均保留） / 本阶段只允许 RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT。正式 ADD / REDUCE、订单创建、自动再平衡和 AUTO_TRADE 不放行。
+1. 目标体验与用户路径：用三条用户路径说明红利低波、组合回测和任务审计如何被实际使用，明确每一步用户可见结果。
+2. 分层架构与调用关系：按 `DividendLowVol.tsx / Backtest.tsx / Operations.tsx`、API、服务、数据证据、Operation artifact 和交易边界展示调用关系。
+3. 组合回测实现路径：从 `/backtest` 请求到 `portfolioBacktestRoutes`、`PortfolioBacktestInputBuilder`、`PortfolioBacktestEngine`、benchmark、`readinessSummary`、人工复核接口和 Operation artifact。
+4. 红利低波实现路径：从免费源/本地缓存到 `dividendLowVolStrategyService`、交易区间服务、滚动回测、组合篮子和人工草案。
+5. 数据可信与模型验证：展示 `dataGrade`、`priceAudit`、benchmark 状态、分红/交易约束、OOS、walk-forward、参数敏感性、分组稳定性和 blocker。
+6. 开发及验收计划：把 FT-1 到 FT-6 映射到实现实体、输出字段、审计产物、验收命令和用户可见效果。
+7. 里程碑出门与审计：区分可声明、不能声明、下一阶段 blocker、审计路径和最终交易边界。
 
-Edges
-- 当前前端层（已实现） / React/Vite；资产、持仓、分析、策略回测、红利低波、任务中心。已具备多曲线展示和研究模式提示。 -> 当前 API/服务层（已实现） / Fastify REST；PortfolioBacktest、DividendLowVol、Operation、Validation、Manual workflow。 (REST)
-- 当前 API/服务层（已实现） / Fastify REST；PortfolioBacktest、DividendLowVol、Operation、Validation、Manual workflow。 -> 当前数据层（已实现，仍需增强） / SQLite + 本地缓存 + 免费数据源；market_bar_canonical、provider health、freshness、coverage。Runtime Health 已统一，当前 healthy；免费源 total-return benchmark 与交易约束覆盖已达到组合回测正式评审 ready。 (读写)
-- 当前 API/服务层（已实现） / Fastify REST；PortfolioBacktest、DividendLowVol、Operation、Validation、Manual workflow。 -> 当前审计层（已实现） / Operation artifact、GPT audit package、前端运行态截图、trade gate contract。组合回测最新审计包显示 7/7 策略完成，formal-review-ready。 (产物)
-- 当前数据层（已实现，仍需增强） / SQLite + 本地缓存 + 免费数据源；market_bar_canonical、provider health、freshness、coverage。Runtime Health 已统一，当前 healthy；免费源 total-return benchmark 与交易约束覆盖已达到组合回测正式评审 ready。 -> 目标数据能力（已部分达成，继续增强） / ETF 代理行情 >=250 交易日已达成；免费源 total-return benchmark 已接入；后续增强官方授权 benchmark、分红事件、除权调整、正式 provider。 (补齐)
-- 目标数据能力（已部分达成，继续增强） / ETF 代理行情 >=250 交易日已达成；免费源 total-return benchmark 已接入；后续增强官方授权 benchmark、分红事件、除权调整、正式 provider。 -> 目标回测能力（已实现正式评审前置） / 多策略同屏比较；price-only / dividend cash / reinvest 指标；费用、滑点、再平衡；Operation 化运行；任务中心追踪。 (输入)
-- 目标回测能力（已实现正式评审前置） / 多策略同屏比较；price-only / dividend cash / reinvest 指标；费用、滑点、再平衡；Operation 化运行；任务中心追踪。 -> 组合回测正式评审前置（已达成） / formal review readiness artifact 聚合 runtime、benchmark、tradeability、frontend visibility。当前 portfolioBacktestFormalReviewReady=true；正式交易仍需人工确认。 (审计)
-- 组合回测正式评审前置（已达成） / formal review readiness artifact 聚合 runtime、benchmark、tradeability、frontend visibility。当前 portfolioBacktestFormalReviewReady=true；正式交易仍需人工确认。 -> 交易硬边界（当前与目标均保留） / 本阶段只允许 RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT。正式 ADD / REDUCE、订单创建、自动再平衡和 AUTO_TRADE 不放行。 (gate)
+## 阶段结论
 
-## 3 交互式策略回测架构
-Nodes: 8; Edges: 6
+当前阶段目标是 formal-trading-prerequisite，不是 formal-trading release。文档和图中统一保持：
 
-Nodes
-- 交互式策略回测目标架构：模板、输入、引擎、benchmark、artifact、前端展示
-- 策略模板层 / permanent_portfolio / all_weather / current_holdings_buy_and_hold / dividend_low_vol_basket / custom_weight_portfolio / local_real_data_*
-- 输入构建层 / strategyVersion、assetUniverse、weightPolicy、rebalancePolicy、dividendPolicy、costModel、benchmarkPolicy、evidenceRefs。
-- 数据与约束层 / 行情、分红、ETF 代理、benchmark、涨跌停、停牌、ST/退市、freshness、coverage、blockedReasons。
-- 组合 replay 引擎 / 按日净值、收益、回撤、再平衡、费用、滑点、分红现金/再投资、benchmark 对比。
-- Operation 与 artifact / 01 输入定义 / 02 数据覆盖 / 03 曲线和指标 / 04 benchmark / 05 前端路径 / 06 trade gate
-- 前端展示 / 多曲线图、回撤图、指标表、数据缺口、benchmark 状态、分红贡献、非交易提示。
-- 输出契约 / 每条曲线必须包含 strategyId、dateRange、dataCoverage、evidenceRefs、warnings、blockedReasons、notTradingAdvice。
+- portfolioBacktestFormalReviewReady=true
+- portfolioStrategyBacktestFormalReviewReady=true
+- manualTradePlanDraftReviewReady=true
+- dataGrade
+- modelEffectiveness / modelEffectivenessStatus
+- manualPlanDraft
+- formalTradingUnlockChecklist
+- formalTradingUnlocked=false
+- autoTradeUnlocked=false
+- 允许 RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT / MANUAL_TRADE_DRAFT
+- 禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
 
-Edges
-- 策略模板层 / permanent_portfolio / all_weather / current_holdings_buy_and_hold / dividend_low_vol_basket / custom_weight_portfolio / local_real_data_* -> 输入构建层 / strategyVersion、assetUniverse、weightPolicy、rebalancePolicy、dividendPolicy、costModel、benchmarkPolicy、evidenceRefs。 (选择)
-- 输入构建层 / strategyVersion、assetUniverse、weightPolicy、rebalancePolicy、dividendPolicy、costModel、benchmarkPolicy、evidenceRefs。 -> 数据与约束层 / 行情、分红、ETF 代理、benchmark、涨跌停、停牌、ST/退市、freshness、coverage、blockedReasons。 (构建输入)
-- 数据与约束层 / 行情、分红、ETF 代理、benchmark、涨跌停、停牌、ST/退市、freshness、coverage、blockedReasons。 -> 组合 replay 引擎 / 按日净值、收益、回撤、再平衡、费用、滑点、分红现金/再投资、benchmark 对比。 (回测)
-- 组合 replay 引擎 / 按日净值、收益、回撤、再平衡、费用、滑点、分红现金/再投资、benchmark 对比。 -> Operation 与 artifact / 01 输入定义 / 02 数据覆盖 / 03 曲线和指标 / 04 benchmark / 05 前端路径 / 06 trade gate (落盘)
-- Operation 与 artifact / 01 输入定义 / 02 数据覆盖 / 03 曲线和指标 / 04 benchmark / 05 前端路径 / 06 trade gate -> 前端展示 / 多曲线图、回撤图、指标表、数据缺口、benchmark 状态、分红贡献、非交易提示。 (展示)
-- 前端展示 / 多曲线图、回撤图、指标表、数据缺口、benchmark 状态、分红贡献、非交易提示。 -> 输出契约 / 每条曲线必须包含 strategyId、dateRange、dataCoverage、evidenceRefs、warnings、blockedReasons、notTradingAdvice。 (验收)
+本 drawio 文件对应的关键审计产物：
 
-## 4 红利低波联动
-Nodes: 7; Edges: 5
+- 09_data_grade_audit.json
+- 10_model_effectiveness_audit.json
+- 11_manual_plan_draft_audit.json
+- 12_formal_trading_unlock_blockers.json
+- acceptance-report.html
+- SUMMARY_FOR_GPT.md
+- docs/read-drawio-output.txt
+- docs/FORMAL_TRADING_PREREQUISITE_DOC_AUDIT.md
+- backend/data/gpt-audit/interactive-strategy-backtest/2026-06-25T09-14-45-971Z/doc_acceptance_audit.json
 
-Nodes
-- 红利低波策略进入组合回测视角：从单只候选到篮子比较
-- 候选池输入 / 全 A 筛选；股息率 >=4%；行业龙头；分红质量；低波动；估值；低位/高位；priceAudit。
-- 篮子构建（已完成正式评审前置） / 已读取 DividendLowVolDaily 快照、等权 v1、tradeDate、selectionRules、evidenceRefs。当前真实快照 3/3：000513、601398、000333；可用于组合回测正式评审，不用于自动交易。
-- 回测比较 / 红利低波篮子与当前持仓、永久组合、全天候、自定义组合比较；展示收益、回撤、benchmark、分红贡献和缺口。
-- 买卖观察区间 / yield + MA 模型、Bollinger 对照模型、买入观察区间、卖出观察区间、失效条件、需刷新后重算。
-- 人工计划草案 / 只有 validation/manual gate 支持时生成草案。当前仍是 manual draft，不是正式 ADD / REDUCE。
-- 红利低波交易边界 / formalTargetWeight=0；canCreateOrder=false；AUTO_TRADE=false；免费源 benchmark、proxy benchmark 或 insufficient 均不得自动解锁正式动作。
+## 技术实现路径索引
 
-Edges
-- 候选池输入 / 全 A 筛选；股息率 >=4%；行业龙头；分红质量；低波动；估值；低位/高位；priceAudit。 -> 篮子构建（已完成正式评审前置） / 已读取 DividendLowVolDaily 快照、等权 v1、tradeDate、selectionRules、evidenceRefs。当前真实快照 3/3：000513、601398、000333；可用于组合回测正式评审，不用于自动交易。 (生成篮子)
-- 篮子构建（已完成正式评审前置） / 已读取 DividendLowVolDaily 快照、等权 v1、tradeDate、selectionRules、evidenceRefs。当前真实快照 3/3：000513、601398、000333；可用于组合回测正式评审，不用于自动交易。 -> 回测比较 / 红利低波篮子与当前持仓、永久组合、全天候、自定义组合比较；展示收益、回撤、benchmark、分红贡献和缺口。 (进入回测)
-- 回测比较 / 红利低波篮子与当前持仓、永久组合、全天候、自定义组合比较；展示收益、回撤、benchmark、分红贡献和缺口。 -> 买卖观察区间 / yield + MA 模型、Bollinger 对照模型、买入观察区间、卖出观察区间、失效条件、需刷新后重算。 (查看区间)
-- 买卖观察区间 / yield + MA 模型、Bollinger 对照模型、买入观察区间、卖出观察区间、失效条件、需刷新后重算。 -> 人工计划草案 / 只有 validation/manual gate 支持时生成草案。当前仍是 manual draft，不是正式 ADD / REDUCE。 (人工复核)
-- 人工计划草案 / 只有 validation/manual gate 支持时生成草案。当前仍是 manual draft，不是正式 ADD / REDUCE。 -> 红利低波交易边界 / formalTargetWeight=0；canCreateOrder=false；AUTO_TRADE=false；免费源 benchmark、proxy benchmark 或 insufficient 均不得自动解锁正式动作。 (保护)
+- 前端入口：`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`Analysis.tsx`
+- API 入口：`/api/v1/strategy/dividend-low-vol/*`、`/api/v1/portfolio-backtest/*`、`/api/v1/operations/*`、`/api/v1/analysis/fivd-r/*`
+- 组合回测服务：`PortfolioBacktestInputBuilder`、`PortfolioBacktestEngine`、`PortfolioBenchmarkService`、`portfolioBacktestReviewService`
+- 红利低波服务：`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService`、`dividendLowVolBacktestService`、`dividendLowVolFivdRAdapter`
+- 数据证据：`DividendLowVolDaily`、`market_bar_canonical`、`market_tradeability_daily`、free-source benchmark、Operation artifacts
+- 审计产物：`09_data_grade_audit.json`、`10_model_effectiveness_audit.json`、`11_manual_plan_draft_audit.json`、`12_formal_trading_unlock_blockers.json`
 
-## 5 开发计划
-Nodes: 8; Edges: 6
+## 每页验收重点
 
-Nodes
-- 开发及验收计划：完成后用户可交互式比较策略并生成人工计划草案
-- PBT-0 Runtime Health（已完成） / 统一 /health、SQLite health、组合回测 API、红利低波 audit 和交互式回测审计包。当前 runtimeHealth=healthy。
-- PBT-8 ETF 代理行情（已完成） / 510300 / 511010 / 511260 / 518880 / 159985 代理行情覆盖 ready，可支撑永久组合和全天候组合 completed。
-- PBT-9 Benchmark + 分红总回报（已完成正式评审前置） / 已输出 price-only、分红贡献、资本利得、成本拖累、benchmark、超额收益；免费源 total-return benchmark 可支撑 formal review，官方授权 benchmark 后续增强。
-- PBT-10 Operation + 前端验收（已完成） / 组合回测 Operation 化；任务中心 artifact；无头浏览器已覆盖加载、配置、运行、曲线、指标、非交易提示。
-- PBT-11 组合回测正式评审前置（已达成，交易未解锁） / 审计包已记录 portfolioBacktestFormalReviewReady=true；正式交易仍需官方 benchmark、模型有效性验证和人工复核。
-- 下一阶段正式交易级前置计划 / FT-1 数据等级；FT-2 模型有效性；FT-3 人工草案；FT-4 前端评审工作台；FT-5 审计包升级；FT-6 解锁闸门。每项完成后做 PRD 规格检视和 E2E 验收。
-- 完成后目标体验 / 用户可比较策略、查看数据等级和模型有效性、打开 artifact、生成人工计划草案；系统显示正式交易解锁 blocker，仍不创建订单。
+- 第 1 页：必须能看懂用户从研究、回测到人工计划草案的完整路径，并看到禁止动作。
+- 第 2 页：必须能从前端页面追踪到 API、服务、数据证据和 artifact。
+- 第 3 页：必须说明组合回测如何输出曲线、指标、数据等级、模型有效性和 readiness。
+- 第 4 页：必须说明红利低波如何形成候选、观察区间、滚动策略、Top3 和组合篮子。
+- 第 5 页：必须说明数据不足、proxy benchmark、warning validation 如何阻断正式交易。
+- 第 6 页：必须说明每个 FT 开发项的实现位置、审计产物和用户体验结果。
+- 第 7 页：必须明确本阶段可声明、不能声明和下一阶段 blocker。
 
-Edges
-- PBT-0 Runtime Health（已完成） / 统一 /health、SQLite health、组合回测 API、红利低波 audit 和交互式回测审计包。当前 runtimeHealth=healthy。 -> PBT-8 ETF 代理行情（已完成） / 510300 / 511010 / 511260 / 518880 / 159985 代理行情覆盖 ready，可支撑永久组合和全天候组合 completed。 (健康先行)
-- PBT-8 ETF 代理行情（已完成） / 510300 / 511010 / 511260 / 518880 / 159985 代理行情覆盖 ready，可支撑永久组合和全天候组合 completed。 -> PBT-9 Benchmark + 分红总回报（已完成正式评审前置） / 已输出 price-only、分红贡献、资本利得、成本拖累、benchmark、超额收益；免费源 total-return benchmark 可支撑 formal review，官方授权 benchmark 后续增强。 (数据输入)
-- PBT-9 Benchmark + 分红总回报（已完成正式评审前置） / 已输出 price-only、分红贡献、资本利得、成本拖累、benchmark、超额收益；免费源 total-return benchmark 可支撑 formal review，官方授权 benchmark 后续增强。 -> PBT-10 Operation + 前端验收（已完成） / 组合回测 Operation 化；任务中心 artifact；无头浏览器已覆盖加载、配置、运行、曲线、指标、非交易提示。 (运行态)
-- PBT-10 Operation + 前端验收（已完成） / 组合回测 Operation 化；任务中心 artifact；无头浏览器已覆盖加载、配置、运行、曲线、指标、非交易提示。 -> PBT-11 组合回测正式评审前置（已达成，交易未解锁） / 审计包已记录 portfolioBacktestFormalReviewReady=true；正式交易仍需官方 benchmark、模型有效性验证和人工复核。 (评审前置)
-- PBT-11 组合回测正式评审前置（已达成，交易未解锁） / 审计包已记录 portfolioBacktestFormalReviewReady=true；正式交易仍需官方 benchmark、模型有效性验证和人工复核。 -> 下一阶段正式交易级前置计划 / FT-1 数据等级；FT-2 模型有效性；FT-3 人工草案；FT-4 前端评审工作台；FT-5 审计包升级；FT-6 解锁闸门。每项完成后做 PRD 规格检视和 E2E 验收。 (同步)
-- 下一阶段正式交易级前置计划 / FT-1 数据等级；FT-2 模型有效性；FT-3 人工草案；FT-4 前端评审工作台；FT-5 审计包升级；FT-6 解锁闸门。每项完成后做 PRD 规格检视和 E2E 验收。 -> 完成后目标体验 / 用户可比较策略、查看数据等级和模型有效性、打开 artifact、生成人工计划草案；系统显示正式交易解锁 blocker，仍不创建订单。 (出门)
+## 本体读取验收
 
-## 6 验收门槛与出门条件
-Nodes: 8; Edges: 5
+本文件不替代 drawio 原始文件验收。正式文档验收必须同时读取：
 
-Nodes
-- 验收门槛与出门条件：用户体验可见、数据证据可审计、交易动作不误放
-- 文档验收 / drawio 页数 <=8；中文书写；可解析；PRD、目标架构、里程碑、验收门槛、出门条件一致。
-- 用户体验验收 / 能选择多策略、设置时间区间和参数、运行回测、查看多曲线、指标、缺口、benchmark 和证据。
-- 数据验收 / runtime health gate 一致；ETF 代理 >=250 交易日；至少一个宽基 benchmark；分红贡献不恒为 null；stale/unknown/mismatch 显示阻断。
-- 验证验收 / 当前组合回测 formal-review-ready passed；OOS、walk-forward、参数敏感性、行业/市场/流动性分组仍是正式交易解锁前置，不由免费源 benchmark 自动解锁。
-- 机器验收命令 / read-drawio；backend tsc；portfolio-backtest tests；dividend-low-vol tests；production-readiness；trade-action-readiness；frontend build。
-- 本阶段可出门 / interactive_strategy_backtest_ready / research_grade_strategy_comparison_ready / portfolio_backtest_formal_review_ready / manual_trade_draft_ready / formal_trading_locked / auto_trade_locked
-- 本阶段不可出门 / formal_trade_action_ready / formal_add_reduce_unlocked / auto_rebalance_ready / auto_trade_ready / 免费源 100% 最新承诺 / 免费源 benchmark 等同官方授权 benchmark
+```text
+docs/target-architecture-gap.drawio
+docs/read-drawio-output.txt
+```
 
-Edges
-- 文档验收 / drawio 页数 <=8；中文书写；可解析；PRD、目标架构、里程碑、验收门槛、出门条件一致。 -> 用户体验验收 / 能选择多策略、设置时间区间和参数、运行回测、查看多曲线、指标、缺口、benchmark 和证据。 (规格到体验)
-- 用户体验验收 / 能选择多策略、设置时间区间和参数、运行回测、查看多曲线、指标、缺口、benchmark 和证据。 -> 数据验收 / runtime health gate 一致；ETF 代理 >=250 交易日；至少一个宽基 benchmark；分红贡献不恒为 null；stale/unknown/mismatch 显示阻断。 (真实数据)
-- 数据验收 / runtime health gate 一致；ETF 代理 >=250 交易日；至少一个宽基 benchmark；分红贡献不恒为 null；stale/unknown/mismatch 显示阻断。 -> 验证验收 / 当前组合回测 formal-review-ready passed；OOS、walk-forward、参数敏感性、行业/市场/流动性分组仍是正式交易解锁前置，不由免费源 benchmark 自动解锁。 (验证)
-- 验证验收 / 当前组合回测 formal-review-ready passed；OOS、walk-forward、参数敏感性、行业/市场/流动性分组仍是正式交易解锁前置，不由免费源 benchmark 自动解锁。 -> 本阶段可出门 / interactive_strategy_backtest_ready / research_grade_strategy_comparison_ready / portfolio_backtest_formal_review_ready / manual_trade_draft_ready / formal_trading_locked / auto_trade_locked (通过)
-- 验证验收 / 当前组合回测 formal-review-ready passed；OOS、walk-forward、参数敏感性、行业/市场/流动性分组仍是正式交易解锁前置，不由免费源 benchmark 自动解锁。 -> 本阶段不可出门 / formal_trade_action_ready / formal_add_reduce_unlocked / auto_rebalance_ready / auto_trade_ready / 免费源 100% 最新承诺 / 免费源 benchmark 等同官方授权 benchmark (阻断)
+当前验收结论：
 
-## 7 关键用户路径与审计
-Nodes: 7; Edges: 5
-
-Nodes
-- 关键用户场景：从策略选择到回测比较、草案生成和审计追溯
-- 路径 A：比较策略 / 策略回测页 -> 选择永久组合/全天候/红利低波/本地样本 -> 设置近 1 年或近 3 年 -> 运行 -> 查看曲线和指标。
-- 路径 B：红利低波草案 / 红利低波页 -> 筛选行业和分数 -> 查看候选详情和观察区间 -> 进入回测比较 -> 生成人工计划草案。
-- 路径 C：缺口处理 / 数据 stale、benchmark proxy、ETF 行情缺失、runtime critical、validation insufficient 时，页面显示 blockedReasons 和下一步。
-- 审计路径 / 任务中心 -> Operation -> artifactRefs -> 输入定义、数据覆盖、曲线指标、benchmark、前端截图、trade gate contract。
-- PRD 规格检视 / 每个子阶段结束后检查：功能是否覆盖目标体验、测试是否覆盖功能点、文档概念是否一致、是否存在虚假验收风险。
-- 人类只处理高风险流程 / 正式交易动作、正式 provider 凭证、人工复核结论、AUTO_TRADE 授权必须人工确认。自动化只能做前置和阻断审计。
-
-Edges
-- 路径 A：比较策略 / 策略回测页 -> 选择永久组合/全天候/红利低波/本地样本 -> 设置近 1 年或近 3 年 -> 运行 -> 查看曲线和指标。 -> 审计路径 / 任务中心 -> Operation -> artifactRefs -> 输入定义、数据覆盖、曲线指标、benchmark、前端截图、trade gate contract。 (产物)
-- 路径 B：红利低波草案 / 红利低波页 -> 筛选行业和分数 -> 查看候选详情和观察区间 -> 进入回测比较 -> 生成人工计划草案。 -> 审计路径 / 任务中心 -> Operation -> artifactRefs -> 输入定义、数据覆盖、曲线指标、benchmark、前端截图、trade gate contract。 (证据)
-- 路径 C：缺口处理 / 数据 stale、benchmark proxy、ETF 行情缺失、runtime critical、validation insufficient 时，页面显示 blockedReasons 和下一步。 -> PRD 规格检视 / 每个子阶段结束后检查：功能是否覆盖目标体验、测试是否覆盖功能点、文档概念是否一致、是否存在虚假验收风险。 (打回)
-- 审计路径 / 任务中心 -> Operation -> artifactRefs -> 输入定义、数据覆盖、曲线指标、benchmark、前端截图、trade gate contract。 -> PRD 规格检视 / 每个子阶段结束后检查：功能是否覆盖目标体验、测试是否覆盖功能点、文档概念是否一致、是否存在虚假验收风险。 (规格检视)
-- PRD 规格检视 / 每个子阶段结束后检查：功能是否覆盖目标体验、测试是否覆盖功能点、文档概念是否一致、是否存在虚假验收风险。 -> 人类只处理高风险流程 / 正式交易动作、正式 provider 凭证、人工复核结论、AUTO_TRADE 授权必须人工确认。自动化只能做前置和阻断审计。 (高风险确认)
+```text
+drawioRawFileReadable=true
+drawioPageCount=7
+formalTradingPrerequisiteDocAudit=pass_formal_trading_prerequisite_docs
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```

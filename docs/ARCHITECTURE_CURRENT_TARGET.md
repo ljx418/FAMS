@@ -162,6 +162,23 @@ The target architecture relationship is:
   upgrade, model effectiveness validation, human review records, and execution
   controls are still separate gates.
 
+2026-06-25 formal-trading-prerequisite documentation sync:
+
+- The active target is now a documented formal-trading-prerequisite stage, not a
+  formal-trading release.
+- Current implemented components remain the React/Vite frontend, Fastify REST
+  backend, SQLite/Prisma runtime, Operation artifacts, dividend-low-vol
+  strategy services, portfolio backtest services, local/free-source market
+  evidence, and manual draft gates.
+- Components requiring modification are data-grade propagation, official/free
+  benchmark status, model-effectiveness validation, manual-plan draft audit,
+  frontend formal-review visibility, and consolidated unlock blockers.
+- Components to add next are a formal trading unlock checklist, data-grade audit
+  artifacts, model-effectiveness artifacts, manual-plan-draft artifacts, and
+  blocker reports for human review.
+- The hard boundary remains unchanged: no formal `ADD / REDUCE`, no
+  `ORDER_CREATE`, no automatic rebalance, and no `AUTO_TRADE` in this stage.
+
 Exit status for this stage should be:
 
 ```text
@@ -172,6 +189,83 @@ manual_trade_draft_ready
 formal_trading_locked
 auto_trade_locked
 ```
+
+Exit status for the next documentation/development stage should be:
+
+```text
+formal_trading_prerequisites_documented
+portfolio_strategy_backtest_formal_review_ready
+manual_trade_plan_draft_review_ready
+formal_trading_locked
+auto_trade_locked
+```
+
+Machine-readable aliases for implementation and audit checks:
+
+```text
+portfolioBacktestFormalReviewReady=true
+portfolioStrategyBacktestFormalReviewReady=true
+manualTradePlanDraftReviewReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+The stage target API and artifact surface must expose:
+
+```text
+dataGrade
+modelEffectiveness
+modelEffectivenessStatus
+manualPlanDraft
+formalTradingUnlockChecklist
+formalTradingBlockers
+allowedActions=RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT
+prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+```
+
+Required formal-trading-prerequisite audit files:
+
+```text
+09_data_grade_audit.json
+10_model_effectiveness_audit.json
+11_manual_plan_draft_audit.json
+12_formal_trading_unlock_blockers.json
+SUMMARY_FOR_GPT.md
+acceptance-report.html
+```
+
+### Concrete Implementation Map For This Stage
+
+The draw.io architecture and the stage documents must describe concrete code
+and artifact entities, not generic boxes. The current implementation map is:
+
+| Layer | Implemented Entity | Responsibility In This Stage |
+| --- | --- | --- |
+| Frontend research page | `frontend/src/pages/DividendLowVol.tsx` | Shows dividend-low-vol candidates, filters, explanations, buy/sell observation zones, rolling backtest results, and non-trading warnings. |
+| Frontend backtest page | `frontend/src/pages/Backtest.tsx` | Runs interactive portfolio backtests and shows curves, metrics, data grade, model effectiveness, manual draft readiness, review records, and trade blockers. |
+| Frontend audit page | `frontend/src/pages/Operations.tsx` | Lets users trace Operation status and artifact references for scans, backtests, and acceptance reports. |
+| Dividend strategy API | `backend/src/routes/strategy.ts` | Serves dividend-low-vol candidate pool, trading zones, rolling backtest, FIVD-R adapter, and manual acceptance data. |
+| Portfolio backtest API | `backend/src/routes/portfolioBacktest.ts` | Serves strategy templates, run results, Operation artifacts, readiness summary, and review endpoints. |
+| Dividend strategy services | `dividendLowVolStrategyService`, `dividendLowVolTradingZoneService`, `dividendLowVolBacktestService`, `dividendLowVolFivdRAdapter` | Produce candidates, scores, rejection taxonomy, observation zones, rolling strategy evidence, and research-only FIVD-R integration. |
+| Portfolio backtest services | `PortfolioBacktestInputBuilder`, `PortfolioBacktestEngine`, `PortfolioBenchmarkService`, `portfolioBacktestReviewService` | Build portfolio inputs, replay strategies, calculate metrics, attach data/model readiness, and persist human review audit records without creating orders. |
+| Runtime and evidence | `operationService`, SQLite/Prisma, local/free-source market cache, `DividendLowVolDaily`, `market_bar_canonical`, `market_tradeability_daily` | Provide current research runtime, persisted artifacts, local evidence, and data freshness gates. |
+| Audit package | `SUMMARY_FOR_GPT.md`, `09_data_grade_audit.json`, `10_model_effectiveness_audit.json`, `11_manual_plan_draft_audit.json`, `12_formal_trading_unlock_blockers.json`, `acceptance-report.html` | Explains research readiness, formal review readiness, manual draft readiness, model/data gaps, and why formal trading remains locked. |
+
+The target relationship is intentionally incremental:
+
+- Gray in the diagram means the entity already exists and is part of the
+  current research/formal-review-ready flow.
+- Yellow means the entity exists but needs stronger data propagation,
+  validation detail, frontend visibility, or terminology alignment.
+- Orange means the entity is a new formal-trading-prerequisite artifact or
+  checklist, not a trading execution feature.
+- Red means a fixed boundary: no formal `ADD / REDUCE`, no `ORDER_CREATE`, no
+  automatic rebalance, and no `AUTO_TRADE`.
+
+This mapping is the source of truth for documentation-level architecture. If a
+future diagram includes an abstract module such as "strategy service" or
+"data layer", it must also name the concrete service, route, table/cache, or
+artifact that implements the behavior.
 
 ## Design Decisions
 
