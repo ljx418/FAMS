@@ -9,7 +9,7 @@ import { ensureUser } from '../utils/user.js'
 
 export async function portfolioBacktestRoutes(app: FastifyInstance) {
   app.get('/templates', async () => {
-    const runtimeHealth = await runtimeHealthService.check({ prisma })
+    const runtimeHealth = await runtimeHealthService.check({ prisma, lightweight: true })
     return {
       schemaVersion: 'portfolio.strategy_backtest.templates.v1',
       generatedAt: new Date().toISOString(),
@@ -27,7 +27,10 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
 
   app.post('/run', async (request, reply) => {
     const body = request.body as Record<string, unknown>
-    const runtimeHealth = await runtimeHealthService.check({ prisma })
+    const runtimeHealth = await runtimeHealthService.check({
+      prisma,
+      lightweight: body?.executionMode !== 'operation',
+    })
     if (body?.executionMode === 'operation' && runtimeHealth.decision.largeBacktestPersistenceAllowed !== true) {
       return reply.status(503).send({
         schemaVersion: 'portfolio.strategy_backtest.operation_submission_blocked.v1',
@@ -181,6 +184,100 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           autoTradeUnlocked: false,
           notTradingAdvice: true,
         },
+        '12_execution_isolation_audit.json': {
+          schemaVersion: 'portfolio.backtest.execution_isolation_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          executionIsolationAudit: result.executionIsolationAudit,
+          paperOrderIntents: result.paperOrderIntents,
+          productionAdapterEnabled: false,
+          realPositionMutationAllowed: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          notTradingAdvice: true,
+        },
+        '13_formal_trading_release_gate_audit.json': {
+          schemaVersion: 'portfolio.backtest.formal_trading_release_gate_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          releaseGateAudit: result.releaseGateAudit,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          notTradingAdvice: true,
+        },
+        '14_release_data_governance_audit.json': {
+          schemaVersion: 'portfolio.backtest.release_data_governance_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          dataGovernanceAudit: result.dataGovernanceAudit,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          notTradingAdvice: true,
+        },
+        '15_benchmark_qualification_audit.json': {
+          schemaVersion: 'portfolio.backtest.benchmark_qualification_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          benchmarkQualificationAudit: result.benchmarkQualificationAudit,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          notTradingAdvice: true,
+        },
+        '16_formal_validation_audit.json': {
+          schemaVersion: 'portfolio.backtest.formal_validation_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          formalValidationAudit: result.formalValidationAudit,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          notTradingAdvice: true,
+        },
+        '17_manual_signoff_audit.json': {
+          schemaVersion: 'portfolio.backtest.manual_signoff_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          manualSignoffAudit: result.manualSignoffAudit,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          notTradingAdvice: true,
+        },
+        '18_long_horizon_data_coverage_audit.json': {
+          schemaVersion: 'portfolio.backtest.long_horizon_data_coverage_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          longHorizonDataCoverageAudit: result.longHorizonDataCoverageAudit,
+          longHorizonRealDataBacktestReady: result.longHorizonDataCoverageAudit?.longHorizonRealDataBacktestReady === true,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          notTradingAdvice: true,
+        },
+        '19_multi_period_backtest_result.json': {
+          schemaVersion: 'portfolio.backtest.multi_period_backtest_result.v1',
+          generatedAt: generatedAt.toISOString(),
+          multiPeriodBacktestResult: result.multiPeriodBacktestResult,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          notTradingAdvice: true,
+        },
+        '20_dividend_total_return_audit.json': {
+          schemaVersion: 'portfolio.backtest.dividend_total_return_audit.v1',
+          generatedAt: generatedAt.toISOString(),
+          dividendTotalReturnAudit: result.dividendTotalReturnAudit,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          notTradingAdvice: true,
+        },
       }
       const operation = await prisma.operation.create({
         data: {
@@ -244,6 +341,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
     const { runId } = request.params as { runId: string }
     const body = request.body as {
       reviewerId?: string
+      role?: 'data' | 'model' | 'risk' | 'compliance' | 'final_release'
       decision?: string
       notes?: string
       blockedReasons?: string[]
@@ -258,6 +356,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
     return portfolioBacktestReviewService.saveReview({
       runId,
       reviewerId: body.reviewerId,
+      role: body.role,
       decision: body.decision as any,
       notes: body.notes,
       blockedReasons: body.blockedReasons,

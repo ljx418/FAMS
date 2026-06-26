@@ -43,6 +43,7 @@ async function main() {
   const limit = parseNumberEnv('FAMS_MARKET_BAR_PREHEAT_LIMIT', 120)
   const days = parseNumberEnv('FAMS_MARKET_BAR_PREHEAT_DAYS', 120)
   const concurrency = parseNumberEnv('FAMS_MARKET_BAR_PREHEAT_CONCURRENCY', 4)
+  const provider = process.env.FAMS_MARKET_BAR_PREHEAT_PROVIDER || 'sina'
   const forceRefresh = /^(1|true|yes)$/i.test(process.env.FAMS_MARKET_BAR_PREHEAT_FORCE || '')
   const requestedSymbols = parseSymbols()
   const startedAt = Date.now()
@@ -86,7 +87,7 @@ async function main() {
   const results = await mapWithConcurrency(targets, concurrency, async (symbol, index) => {
     const result = await marketBarCacheService.getHistory(symbol, days, {
       market: 'CN',
-      provider: 'sina',
+      provider,
       forceRefresh: forceRefresh || topUpSymbols.has(symbol),
     })
     if ((index + 1) % 20 === 0 || index === targets.length - 1) {

@@ -1,0 +1,1318 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FAMS 全系统端到端自动化验收报告</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --line:#334155; --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b; --info:#38bdf8; }
+    body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:var(--bg); color:#e5e7eb; }
+    main { max-width: 1180px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1, h2, h3 { margin: 0 0 12px; }
+    h2 { margin-top: 28px; border-bottom:1px solid var(--line); padding-bottom: 8px; }
+    p { color:#cbd5e1; line-height:1.65; }
+    .hero, .card, .shot { background:rgba(17,24,39,.92); border:1px solid var(--line); border-radius:8px; padding:18px; margin:16px 0; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+    .metric { border:1px solid var(--line); border-radius:8px; padding:14px; background:#0b1220; }
+    .metric .label { color:var(--muted); font-size:12px; }
+    .metric .value { font-size:22px; margin-top:8px; }
+    .status { display:inline-flex; align-items:center; border-radius:999px; padding:3px 10px; font-size:12px; font-weight:700; }
+    .passed { color:#052e16; background:var(--ok); }
+    .failed { color:#450a0a; background:var(--bad); }
+    .blocked { color:#422006; background:var(--warn); }
+    .not_applicable { color:#082f49; background:var(--info); }
+    table { width:100%; border-collapse: collapse; margin:12px 0 20px; }
+    th, td { border:1px solid var(--line); padding:10px; vertical-align:top; text-align:left; }
+    th { background:#0b1220; color:#dbeafe; }
+    code { color:#bfdbfe; }
+    pre { max-height:260px; overflow:auto; white-space:pre-wrap; background:#020617; border:1px solid #1e293b; border-radius:6px; padding:10px; color:#cbd5e1; }
+    img { max-width:100%; border:1px solid var(--line); border-radius:8px; margin-top:10px; background:#020617; }
+    .shot-head { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .warn { color:#fbbf24; }
+    .small { font-size:13px; color:var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <h1>FAMS 全系统端到端自动化验收报告</h1>
+    <p>生成时间：2026-06-26T20:20:33.765Z。本报告基于原始 PRD、目标架构文档、代码实现、自动化命令、API 交叉验证和无头浏览器截图生成。报告不构成投资建议，不将研究验证包装为正式交易验证。</p>
+    <div class="grid">
+      <div class="metric"><div class="label">总体结论</div><div class="value"><span class="status passed">通过</span></div></div>
+      <div class="metric"><div class="label">Research Ready</div><div class="value">yes</div></div>
+      <div class="metric"><div class="label">Manual Draft Ready</div><div class="value">yes_if_gate_evidence_ready</div></div>
+      <div class="metric"><div class="label">Formal Trading</div><div class="value">false</div></div>
+      <div class="metric"><div class="label">Auto Trade</div><div class="value">false</div></div>
+    </div>
+  </section>
+
+  <h2>目标架构与当前实现</h2>
+  <div class="card">
+    <p>目标架构是“数据源与证据层 → 策略/回测/验证层 → Operation 审计层 → 前端研究体验层 → 交易 Gate”。当前实现已经覆盖红利低波研究页、组合回测页、任务中心 artifact、人工计划草案和交易 gate；仍需对正式 total-return benchmark、免费数据最新性、正式交易验证做持续审计。</p>
+    <pre>{
+  &quot;target&quot;: [
+    &quot;数据源与证据层：免费数据源/Tushare 升级源、行情、分红、行业龙头、交易约束、evidenceRefs。&quot;,
+    &quot;策略与验证层：红利低波、组合回测、滚动策略、validation retest、failure taxonomy。&quot;,
+    &quot;Operation 审计层：所有重任务落 Operation 与 artifact，支持任务中心追溯。&quot;,
+    &quot;前端体验层：独立红利低波、组合回测、任务中心、持仓和告警路径。&quot;,
+    &quot;交易 Gate：研究/观察/计划草案与正式交易动作隔离，AUTO_TRADE 禁止。&quot;
+  ],
+  &quot;current&quot;: [
+    &quot;已实现红利低波独立菜单、候选池、筛选排序、买卖区间、滚动回测和人工草案 gate。&quot;,
+    &quot;已实现组合策略多曲线回测、永久组合/全天候代理 ETF 路径、Operation artifact。&quot;,
+    &quot;已实现生产/交易 gate 合同测试；正式自动交易仍未开放。&quot;,
+    &quot;仍需持续审计正式 total-return benchmark、免费数据最新性与文档漂移。&quot;
+  ]
+}</pre>
+  </div>
+
+  <h2>PRD 功能覆盖矩阵</h2>
+  <table><thead><tr><th>功能点</th><th>状态</th><th>证据</th></tr></thead><tbody>
+    <tr>
+      <td>红利低波独立菜单和研究模式说明</td>
+      <td><span class="status passed">通过</span></td>
+      <td>前端截图 /dividend-low-vol</td>
+    </tr>
+
+
+    <tr>
+      <td>候选池指标、筛选、排序和数据完整性展示</td>
+      <td><span class="status passed">通过</span></td>
+      <td>截图 + /api/v1/strategy/dividend-low-vol/candidates</td>
+    </tr>
+
+
+    <tr>
+      <td>买入/卖出观察区间和滚动策略展示</td>
+      <td><span class="status passed">通过</span></td>
+      <td>前端截图；若未先运行区间生成，报告为 blocked</td>
+    </tr>
+
+
+    <tr>
+      <td>人工计划草案与交易 gate</td>
+      <td><span class="status passed">通过</span></td>
+      <td>前端截图 + test:trade-action-readiness</td>
+    </tr>
+
+
+    <tr>
+      <td>组合策略多曲线回测</td>
+      <td><span class="status passed">通过</span></td>
+      <td>前端截图 + test:portfolio-backtest-api-contract</td>
+    </tr>
+
+
+    <tr>
+      <td>任务中心产物追溯</td>
+      <td><span class="status passed">通过</span></td>
+      <td>前端截图 /operations</td>
+    </tr>
+
+
+    <tr>
+      <td>正式交易和自动交易禁止</td>
+      <td><span class="status passed">通过</span></td>
+      <td>命令 + API prohibitedActions</td>
+    </tr>
+
+
+    <tr>
+      <td>FIVD-R 统一分析入口和交易阻断可见</td>
+      <td><span class="status passed">通过</span></td>
+      <td>截图 /analysis?section=fivdr + test:fivd-r-core</td>
+    </tr>
+
+
+    <tr>
+      <td>跨设备基础可读性截图</td>
+      <td><span class="status passed">通过</span></td>
+      <td>Playwright desktop/tablet/mobile screenshots</td>
+    </tr>
+  </tbody></table>
+
+  <h2>测试覆盖矩阵</h2>
+  <table><thead><tr><th>测试项</th><th>状态</th><th>证据</th></tr></thead><tbody>
+    <tr>
+      <td>TypeScript 编译</td>
+      <td><span class="status passed">通过</span></td>
+      <td>node node_modules/typescript/bin/tsc (5815ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>SQLite 运行时健康</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run check:sqlite-health (39065ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>红利低波 API 合同</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:dividend-low-vol-api (40011ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>红利低波审计包</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:dividend-low-vol-audit-package (52491ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>红利低波滚动回测</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:dividend-low-vol-rolling-backtest (683ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>红利低波验证 retest</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:dividend-low-vol-validation-retest (715ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>红利低波前端静态合同</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:dividend-low-vol-frontend-runtime (498ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>FIVD-R 核心合同</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:fivd-r-core (1847ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>FIVD-R 交易 gate 合同</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:fivd-r-trade-gate-contract (1920ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>组合策略回测服务</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:portfolio-strategy-backtest (2067ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>组合回测 API 与 artifact 合同</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:portfolio-backtest-api-contract (12610ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>生产就绪 gate</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:production-readiness (1671ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>交易动作 gate</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run test:trade-action-readiness (1705ms)</td>
+    </tr>
+
+
+    <tr>
+      <td>前端构建</td>
+      <td><span class="status passed">通过</span></td>
+      <td>npm run build (41760ms)</td>
+    </tr>
+  </tbody></table>
+
+  <h2>文档一致性审计</h2>
+  <table><thead><tr><th>检查项</th><th>状态</th><th>文档</th><th>备注</th></tr></thead><tbody>
+    <tr>
+      <td>PRD 明确研究/观察边界</td>
+      <td><span class="status passed">通过</span></td>
+      <td>DIVIDEND_LOW_VOL_PRD.md</td>
+      <td></td>
+    </tr>
+
+
+    <tr>
+      <td>PRD 覆盖人工交易计划草案路径</td>
+      <td><span class="status passed">通过</span></td>
+      <td>DIVIDEND_LOW_VOL_PRD.md</td>
+      <td></td>
+    </tr>
+
+
+    <tr>
+      <td>组合回测文档覆盖多组合曲线目标</td>
+      <td><span class="status passed">通过</span></td>
+      <td>PORTFOLIO_STRATEGY_BACKTEST_PLAN.md</td>
+      <td></td>
+    </tr>
+
+
+    <tr>
+      <td>Drawio 覆盖当前架构与目标架构差异</td>
+      <td><span class="status passed">通过</span></td>
+      <td>target-architecture-gap.drawio</td>
+      <td></td>
+    </tr>
+
+
+    <tr>
+      <td>组合回测文档仍可能保留 ETF proxy 阻塞旧描述</td>
+      <td><span class="status passed">通过</span></td>
+      <td>PORTFOLIO_STRATEGY_BACKTEST_PLAN.md</td>
+      <td>若自动化测试证明 permanent/all_weather 已完成，此项应作为文档漂移修复，而不是功能失败。</td>
+    </tr>
+
+
+    <tr>
+      <td>架构文档覆盖交易 gate 与审计边界</td>
+      <td><span class="status passed">通过</span></td>
+      <td>TARGET_ARCHITECTURE_GAP.md / ARCHITECTURE_CURRENT_TARGET.md</td>
+      <td></td>
+    </tr>
+  </tbody></table>
+
+  <h2>代码检视矩阵</h2>
+  <div class="card">
+    <p>该矩阵只检查代码中是否存在与 PRD 功能对应的入口、页面、接口和交易边界；它不是视觉验收，视觉结果以下方截图为准。</p>
+  </div>
+  <table><thead><tr><th>检查项</th><th>状态</th><th>证据文件</th></tr></thead><tbody>
+    <tr>
+      <td>前端存在红利低波独立路由</td>
+      <td><span class="status passed">通过</span></td>
+      <td>frontend/src/App.tsx / frontend/src/components/layout/AppLayout.tsx</td>
+    </tr>
+
+
+    <tr>
+      <td>前端存在组合策略回测入口</td>
+      <td><span class="status passed">通过</span></td>
+      <td>frontend/src/App.tsx / frontend/src/components/layout/AppLayout.tsx</td>
+    </tr>
+
+
+    <tr>
+      <td>前端存在任务中心追溯入口</td>
+      <td><span class="status passed">通过</span></td>
+      <td>frontend/src/App.tsx / frontend/src/components/layout/AppLayout.tsx</td>
+    </tr>
+
+
+    <tr>
+      <td>红利低波页面明确非交易指令和 AUTO_TRADE 禁止</td>
+      <td><span class="status passed">通过</span></td>
+      <td>frontend/src/pages/DividendLowVol.tsx</td>
+    </tr>
+
+
+    <tr>
+      <td>红利低波页面包含筛选排序、买卖观察区间和滚动回测</td>
+      <td><span class="status passed">通过</span></td>
+      <td>frontend/src/pages/DividendLowVol.tsx</td>
+    </tr>
+
+
+    <tr>
+      <td>组合回测页面展示数据等级、模型有效性、草案和正式交易锁</td>
+      <td><span class="status passed">通过</span></td>
+      <td>frontend/src/pages/Backtest.tsx</td>
+    </tr>
+
+
+    <tr>
+      <td>分析建议页包含 FIVD-R 统一分析与交易阻断说明</td>
+      <td><span class="status passed">通过</span></td>
+      <td>frontend/src/pages/Analysis.tsx</td>
+    </tr>
+
+
+    <tr>
+      <td>后端暴露红利低波候选、交易区间、回测和 FIVD-R adapter</td>
+      <td><span class="status passed">通过</span></td>
+      <td>backend/src/routes/strategy.ts</td>
+    </tr>
+
+
+    <tr>
+      <td>后端暴露组合回测 templates/run 与正式交易解锁审计产物</td>
+      <td><span class="status passed">通过</span></td>
+      <td>backend/src/index.ts / backend/src/routes/portfolioBacktest.ts</td>
+    </tr>
+
+
+    <tr>
+      <td>后端 Operation 支持 artifact 读取</td>
+      <td><span class="status passed">通过</span></td>
+      <td>backend/src/routes/operation.ts</td>
+    </tr>
+
+
+    <tr>
+      <td>前端服务封装 FIVD-R 与红利低波接口</td>
+      <td><span class="status passed">通过</span></td>
+      <td>frontend/src/services/analysisService.ts</td>
+    </tr>
+  </tbody></table>
+
+  <h2>用户场景截图证据</h2>
+
+    <section class="shot">
+      <div class="shot-head"><h3>总览与侧边栏</h3><span class="status passed">通过</span></div>
+      <p>证明左侧菜单和系统入口可见。</p>
+      <a href="screenshots/01-dashboard.png"><img src="screenshots/01-dashboard.png" alt="总览与侧边栏" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>FIVD-R 分析建议</h3><span class="status passed">通过</span></div>
+      <p>证明 FIVD-R 统一分析入口、研究/交易阻断语义可见。</p>
+      <a href="screenshots/02-analysis-fivd-r.png"><img src="screenshots/02-analysis-fivd-r.png" alt="FIVD-R 分析建议" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>红利低波策略页</h3><span class="status passed">通过</span></div>
+      <p>独立菜单页、研究模式 banner、禁止交易动作。</p>
+      <a href="screenshots/03-dividend-low-vol-overview.png"><img src="screenshots/03-dividend-low-vol-overview.png" alt="红利低波策略页" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>红利低波筛选与指标</h3><span class="status passed">通过</span></div>
+      <p>候选池筛选、排序和指标说明区域。</p>
+      <a href="screenshots/04-dividend-low-vol-filters.png"><img src="screenshots/04-dividend-low-vol-filters.png" alt="红利低波筛选与指标" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>红利低波买卖区间</h3><span class="status passed">通过</span></div>
+      <p>买入/卖出观察区间、滚动回测和区间免责声明。</p>
+      <a href="screenshots/05-dividend-low-vol-zones.png"><img src="screenshots/05-dividend-low-vol-zones.png" alt="红利低波买卖区间" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>人工计划草案 Gate</h3><span class="status passed">通过</span></div>
+      <p>人工计划草案 readiness、Top3 草案和交易 gate。</p>
+      <a href="screenshots/06-dividend-low-vol-manual-gate.png"><img src="screenshots/06-dividend-low-vol-manual-gate.png" alt="人工计划草案 Gate" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>平板端红利低波</h3><span class="status passed">通过</span></div>
+      <p>平板视口下验证红利低波页面可读性。</p>
+      <a href="screenshots/07-tablet-dividend-low-vol.png"><img src="screenshots/07-tablet-dividend-low-vol.png" alt="平板端红利低波" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>组合回测入口</h3><span class="status passed">通过</span></div>
+      <p>组合回测参数和非交易建议 banner。</p>
+      <a href="screenshots/08-backtest-before-run.png"><img src="screenshots/08-backtest-before-run.png" alt="组合回测入口" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>组合回测结果</h3><span class="status passed">通过</span></div>
+      <p>组合净值曲线、收益指标、benchmark 和分红贡献。</p>
+      <a href="screenshots/09-backtest-result.png"><img src="screenshots/09-backtest-result.png" alt="组合回测结果" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>移动端组合回测</h3><span class="status passed">通过</span></div>
+      <p>移动视口下验证组合回测结果仍可访问和阅读。</p>
+      <a href="screenshots/10-mobile-backtest-result.png"><img src="screenshots/10-mobile-backtest-result.png" alt="移动端组合回测" /></a>
+
+    </section>
+
+
+    <section class="shot">
+      <div class="shot-head"><h3>任务中心产物</h3><span class="status passed">通过</span></div>
+      <p>任务中心 operation 与 artifact 可追溯。</p>
+      <a href="screenshots/11-operations-artifact.png"><img src="screenshots/11-operations-artifact.png" alt="任务中心产物" /></a>
+
+    </section>
+
+
+  <h2>API 交叉验证</h2>
+  <table><thead><tr><th>检查</th><th>状态</th><th>请求</th><th>HTTP</th><th>摘要</th></tr></thead><tbody>
+    <tr>
+      <td>后端健康</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>GET http://127.0.0.1:4000/health</code></td>
+      <td>200</td>
+      <td><pre>{
+  &quot;status&quot;: &quot;ok&quot;,
+  &quot;database&quot;: &quot;ok&quot;,
+  &quot;operations&quot;: {
+    &quot;runningOperations&quot;: 2,
+    &quot;queuedOperations&quot;: 0,
+    &quot;activeFivdRRefresh&quot;: null
+  }
+}</pre></td>
+    </tr>
+
+
+    <tr>
+      <td>红利低波候选池</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>GET http://127.0.0.1:4000/api/v1/strategy/dividend-low-vol/candidates?limit=50&amp;scope=all&amp;persistedOnly=true</code></td>
+      <td>200</td>
+      <td><pre>{
+  &quot;schemaVersion&quot;: &quot;dividend.low_vol.candidate_pool.v1&quot;,
+  &quot;candidates&quot;: 50,
+  &quot;completeness&quot;: {
+    &quot;schemaVersion&quot;: &quot;dividend.low_vol.metric_completeness_summary.v1&quot;,
+    &quot;total&quot;: 50,
+    &quot;completeDisplayReadyCount&quot;: 50,
+    &quot;incompleteDisplayCount&quot;: 0,
+    &quot;completenessPercent&quot;: 100,
+    &quot;topMissingMetrics&quot;: [],
+    &quot;note&quot;: &quot;Main frontend strategy table should only display completeDisplayReady rows. Incomplete rows remain available through audit summaries, not as filled strategy metrics.&quot;
+  }
+}</pre></td>
+    </tr>
+
+
+    <tr>
+      <td>红利低波 V2 研究验证</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>GET http://127.0.0.1:4000/api/v1/strategy/dividend-low-vol/v2/research-validation</code></td>
+      <td>200</td>
+      <td><pre>{
+  &quot;status&quot;: &quot;research_candidate_passed&quot;,
+  &quot;usableForTradingAdvice&quot;: false,
+  &quot;prohibitedActions&quot;: [
+    &quot;ADD&quot;,
+    &quot;REDUCE&quot;,
+    &quot;AUTO_TRADE&quot;
+  ],
+  &quot;artifactRef&quot;: {
+    &quot;path&quot;: &quot;/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol-v2-research-validation-2026-06-11T08-06-50-078Z.json&quot;,
+    &quot;fileName&quot;: &quot;dividend-low-vol-v2-research-validation-2026-06-11T08-06-50-078Z.json&quot;
+  }
+}</pre></td>
+    </tr>
+
+
+    <tr>
+      <td>组合回测模板</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>GET http://127.0.0.1:4000/api/v1/portfolio-backtest/templates</code></td>
+      <td>200</td>
+      <td><pre>{
+  &quot;templates&quot;: [
+    &quot;permanent_portfolio&quot;,
+    &quot;all_weather&quot;,
+    &quot;current_holdings_buy_and_hold&quot;,
+    &quot;dividend_low_vol_basket&quot;,
+    &quot;custom_weight_portfolio&quot;,
+    &quot;local_real_data_sample_60_40&quot;,
+    &quot;local_real_data_equal_weight_5&quot;,
+    &quot;local_real_data_concentrated_3&quot;
+  ],
+  &quot;prohibitedActions&quot;: [
+    &quot;ADD&quot;,
+    &quot;REDUCE&quot;,
+    &quot;ORDER_CREATE&quot;,
+    &quot;AUTO_TRADE&quot;
+  ],
+  &quot;notTradingAdvice&quot;: true
+}</pre></td>
+    </tr>
+
+
+    <tr>
+      <td>组合回测 API</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>POST http://127.0.0.1:4000/api/v1/portfolio-backtest/run</code></td>
+      <td>200</td>
+      <td><pre>{
+  &quot;operationId&quot;: &quot;29a581fc-355d-4be8-86eb-dc0ac411f79b&quot;,
+  &quot;status&quot;: &quot;completed&quot;,
+  &quot;artifactCount&quot;: 20,
+  &quot;firstArtifactRef&quot;: &quot;operation_artifact:29a581fc-355d-4be8-86eb-dc0ac411f79b:01_request_and_strategy_definitions.json&quot;,
+  &quot;prohibitedActions&quot;: [
+    &quot;ADD&quot;,
+    &quot;REDUCE&quot;,
+    &quot;ORDER_CREATE&quot;,
+    &quot;AUTO_TRADE&quot;
+  ],
+  &quot;strategyStatuses&quot;: [
+    {
+      &quot;strategyId&quot;: &quot;local_real_data_sample_60_40&quot;,
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;curvePoints&quot;: 120,
+      &quot;totalReturnPercent&quot;: -2.2467,
+      &quot;dividendContributionPercent&quot;: 1.0019
+    },
+    {
+      &quot;strategyId&quot;: &quot;permanent_portfolio&quot;,
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;curvePoints&quot;: 120,
+      &quot;totalReturnPercent&quot;: 1.1098,
+      &quot;dividendContributionPercent&quot;: null
+    },
+    {
+      &quot;strategyId&quot;: &quot;all_weather&quot;,
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;curvePoints&quot;: 120,
+      &quot;totalReturnPercent&quot;: 2.1916,
+      &quot;dividendContributionPercent&quot;: null
+    }
+  ]
+}</pre></td>
+    </tr>
+  </tbody></table>
+
+  <h2>自动化命令证据</h2>
+  <table><thead><tr><th>命令</th><th>状态</th><th>执行</th><th>耗时</th><th>输出</th></tr></thead><tbody>
+    <tr>
+      <td>typescript</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ node node_modules/typescript/bin/tsc</code></td>
+      <td>5815ms</td>
+      <td></td>
+    </tr>
+
+
+    <tr>
+      <td>sqlite health</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run check:sqlite-health</code></td>
+      <td>39065ms</td>
+      <td><details><summary>stderr</summary><pre>(node:855550) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+</pre></details><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 check:sqlite-health
+&gt; node node_modules/tsx/dist/cli.mjs scripts/check-sqlite-health.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;status&quot;: &quot;healthy&quot;,
+  &quot;path&quot;: &quot;/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol/2026-06-26T20-21-18-640Z/11_runtime_health_audit.json&quot;,
+  &quot;sqliteHealthy&quot;: true,
+  &quot;strict&quot;: false
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>dividend low vol api</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:dividend-low-vol-api</code></td>
+      <td>40011ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:dividend-low-vol-api
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-api.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;scan&quot;: {
+    &quot;total&quot;: 2,
+    &quot;topDisposition&quot;: &quot;low_zone_alert&quot;,
+    &quot;prohibitedActions&quot;: [
+      &quot;ADD&quot;,
+      &quot;REDUCE&quot;,
+      &quot;AUTO_TRADE&quot;
+    ]
+  },
+  &quot;persisted&quot;: {
+    &quot;rows&quot;: 2,
+    &quot;total&quot;: 1,
+    &quot;source&quot;: {
+      &quot;persisted&quot;: true
+    }
+  },
+  &quot;candidates&quot;: {
+    &quot;total&quot;: 2,
+    &quot;dispositions&quot;: [
+      &quot;avoid&quot;,
+      &quot;avoid&quot;
+    ],
+    &quot;prohibitedActions&quot;: [
+      [
+        &quot;ADD&quot;,
+        &quot;REDUCE&quot;,
+        &quot;AUTO_TRADE&quot;
+      ],
+      [
+        &quot;ADD&quot;,
+        &quot;REDUCE&quot;,
+        &quot;AUTO_TRADE&quot;
+      ]
+    ]
+  },
+  &quot;allA&quot;: {
+    &quot;universeTotal&quot;: 5849,
+    &quot;selectedCount&quot;: 8,
+    &quot;total&quot;: 8,
+    &quot;alertSummary&quot;: {
+      &quot;lowZoneCount&quot;: 0,
+      &quot;buildPlanCount&quot;: 0,
+      &quot;highZoneCount&quot;: 1,
+      &quot;sellAlertCount&quot;: 1,
+      &quot;buildPlanSymbols&quot;: [],
+...
+ &quot;persistedAlerts&quot;: {
+    &quot;totalAlerts&quot;: 0
+  },
+  &quot;history&quot;: {
+    &quot;rows&quot;: 1
+  },
+  &quot;backtest&quot;: {
+    &quot;status&quot;: &quot;completed&quot;,
+    &quot;tradingDays&quot;: 160,
+    &quot;validationStatus&quot;: &quot;candidate_ready_for_validation&quot;,
+    &quot;benchmark&quot;: &quot;free_source_total_return&quot;,
+    &quot;estimatedCostDragPercent&quot;: 1.4
+  },
+  &quot;validationRetest&quot;: {
+    &quot;status&quot;: &quot;insufficient&quot;,
+    &quot;artifact&quot;: &quot;dividend-low-vol-validation-retest-2026-06-26T20-21-57-454Z.json&quot;,
+    &quot;prohibitedActions&quot;: [
+      &quot;ADD&quot;,
+      &quot;REDUCE&quot;,
+      &quot;AUTO_TRADE&quot;
+    ]
+  },
+  &quot;validationGapDiagnostics&quot;: {
+    &quot;status&quot;: &quot;research_validation_gap_clear_manual_acceptance_required&quot;,
+    &quot;gaps&quot;: 2,
+    &quot;blockers&quot;: 0
+  },
+  &quot;fivdR&quot;: {
+    &quot;candidates&quot;: 1,
+    &quot;prohibitedActions&quot;: [
+      &quot;ADD&quot;,
+      &quot;REDUCE&quot;,
+      &quot;AUTO_TRADE&quot;
+    ]
+  },
+  &quot;audit&quot;: {
+    &quot;fileName&quot;: &quot;dividend-low-vol-gpt-audit-2026-06-26T20-21-58-613Z.json&quot;,
+    &quot;candidateCount&quot;: 0
+  }
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>dividend low vol audit package</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:dividend-low-vol-audit-package</code></td>
+      <td>52491ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:dividend-low-vol-audit-package
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-audit-package.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;rejectionTypes&quot;: {
+    &quot;data_gap&quot;: 1,
+    &quot;hard_rule_failure&quot;: 5,
+    &quot;risk_flag&quot;: 4,
+    &quot;validation_blocker&quot;: 0
+  },
+  &quot;health&quot;: {
+    &quot;status&quot;: &quot;healthy&quot;,
+    &quot;path&quot;: &quot;/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol/2026-06-26T20-22-37-924Z/11_runtime_health_audit.json&quot;
+  },
+  &quot;package&quot;: {
+    &quot;path&quot;: &quot;/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol/2026-06-26T20-22-39-059Z&quot;,
+    &quot;fileCount&quot;: 42,
+    &quot;candidateSource&quot;: &quot;latest_persisted&quot;
+  }
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>dividend low vol rolling backtest</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:dividend-low-vol-rolling-backtest</code></td>
+      <td>683ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:dividend-low-vol-rolling-backtest
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-rolling-backtest.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;tradingZones&quot;: 3,
+  &quot;rollingBacktest&quot;: {
+    &quot;status&quot;: &quot;completed&quot;,
+    &quot;conclusion&quot;: {
+      &quot;bestStrategyId&quot;: &quot;dividend_low_vol_yield_ma_reversion_v1&quot;,
+      &quot;researchPassed&quot;: true,
+      &quot;reason&quot;: &quot;Best research model is 股息率分位+长期均线模型; winRate=75%, totalReturn=54.54%, formal actions remain locked.&quot;
+    },
+    &quot;strategyResults&quot;: [
+      {
+        &quot;label&quot;: &quot;布林低吸高抛模型&quot;,
+        &quot;status&quot;: &quot;completed&quot;,
+        &quot;tradeCount&quot;: 18,
+        &quot;winRatePercent&quot;: 0,
+        &quot;totalReturnPercent&quot;: -87.59,
+        &quot;maxDrawdownPercent&quot;: -87.59,
+        &quot;prohibitedActions&quot;: [
+          &quot;ADD&quot;,
+          &quot;REDUCE&quot;,
+          &quot;AUTO_TRADE&quot;
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;股息率分位+长期均线模型&quot;,
+        &quot;status&quot;: &quot;completed&quot;,
+        &quot;tradeCount&quot;: 12,
+        &quot;winRatePercent&quot;: 75,
+        &quot;totalReturnPercent&quot;: 54.54,
+        &quot;maxDrawdownPercent&quot;: -10.63,
+        &quot;prohibitedActions&quot;: [
+          &quot;ADD&quot;,
+          &quot;REDUCE&quot;,
+          &quot;AUTO_TRADE&quot;
+        ]
+      }
+    ]
+  }
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>dividend low vol validation retest</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:dividend-low-vol-validation-retest</code></td>
+      <td>715ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:dividend-low-vol-validation-retest
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-validation-retest.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;status&quot;: &quot;insufficient&quot;,
+  &quot;matrixStatus&quot;: &quot;insufficient&quot;,
+  &quot;completeTotalReturnGate&quot;: &quot;passed&quot;,
+  &quot;primaryBlocker&quot;: &quot;dividend_low_vol_validation_insufficient&quot;,
+  &quot;prohibitedActions&quot;: [
+    &quot;ADD&quot;,
+    &quot;REDUCE&quot;,
+    &quot;AUTO_TRADE&quot;
+  ],
+  &quot;artifact&quot;: &quot;dividend-low-vol-validation-retest-contract_fixture-2026-06-26T20-22-52-500Z.json&quot;
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>dividend low vol frontend runtime</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:dividend-low-vol-frontend-runtime</code></td>
+      <td>498ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:dividend-low-vol-frontend-runtime
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-frontend-runtime.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;auditPath&quot;: &quot;/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol-frontend-runtime-contract-2026-06-26T20-22-53-045Z.json&quot;,
+  &quot;checks&quot;: {
+    &quot;defaultAllALimit6000&quot;: true,
+    &quot;pageUsesPersistedOnlyAllScope&quot;: true,
+    &quot;pageLoadsV2ResearchValidation&quot;: true,
+    &quot;pageLoadsManualDraftReadiness&quot;: true,
+    &quot;pageLoadsManualTradeDraft&quot;: true,
+    &quot;pageLoadsManualWatchlist&quot;: true,
+    &quot;pageLoadsManualWorkflowAudit&quot;: true,
+    &quot;pageCreatesManualTradeDraft&quot;: true,
+    &quot;pageUsesCurrentFilteredTop3ForDraft&quot;: true,
+    &quot;pageLocksActiveTop3Selection&quot;: true,
+    &quot;pageUsesSameTop3ForTradingZones&quot;: true,
+    &quot;pageUsesSameTop3ForRollingBacktest&quot;: true,
+    &quot;pageShowsTop3InputScope&quot;: true,
+    &quot;pageShowsFiveSt
+...
+eptanceDecisionEndpoint&quot;: true,
+    &quot;serviceCanPersistManualAcceptanceDecision&quot;: true,
+    &quot;serviceExposesValidationGapDiagnosticsEndpoint&quot;: true,
+    &quot;serviceExposesTradingZoneEndpoint&quot;: true,
+    &quot;servicePassesSymbolsForPersistedTradingZones&quot;: true,
+    &quot;serviceExposesRollingBacktestEndpoint&quot;: true,
+    &quot;serviceCanPersistManualTradeDraft&quot;: true,
+    &quot;serviceCanReviewManualTradeDraft&quot;: true,
+    &quot;leftMenuHasIndependentEntry&quot;: true,
+    &quot;appRouteHasIndependentPage&quot;: true,
+    &quot;backendFiltersPersistedTradingZonesBySymbols&quot;: true,
+    &quot;v2ArtifactResearchOnly&quot;: true
+  },
+  &quot;v2ResearchValidation&quot;: {
+    &quot;artifactFileName&quot;: &quot;dividend-low-vol-v2-research-validation-2026-06-11T08-06-50-078Z.json&quot;,
+    &quot;status&quot;: &quot;research_candidate_passed&quot;,
+    &quot;v2ResearchCandidates&quot;: 109,
+    &quot;usableForTradingAdvice&quot;: false,
+    &quot;prohibitedActions&quot;: [
+      &quot;ADD&quot;,
+      &quot;REDUCE&quot;,
+      &quot;AUTO_TRADE&quot;
+    ]
+  }
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>fivd-r core</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:fivd-r-core</code></td>
+      <td>1847ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:fivd-r-core
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-core.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;contractStatus&quot;: &quot;blocked&quot;,
+  &quot;contractBlockedReasons&quot;: [
+    &quot;asset_identity_missing&quot;,
+    &quot;position_context_missing&quot;
+  ],
+  &quot;positionChecked&quot;: false,
+  &quot;validationSource&quot;: &quot;fivd_r_internal_validation_tournament&quot;
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>fivd-r trade gate contract</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:fivd-r-trade-gate-contract</code></td>
+      <td>1920ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:fivd-r-trade-gate-contract
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-trade-gate-contract.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;portfolioCapabilityState&quot;: &quot;DATA_INSUFFICIENT&quot;,
+  &quot;portfolioBlockedReasons&quot;: [],
+  &quot;dataGapSummaryCount&quot;: 0,
+  &quot;position&quot;: {
+    &quot;skipped&quot;: true
+  },
+  &quot;candidateCount&quot;: 5,
+  &quot;candidateTop&quot;: [
+    {
+      &quot;symbol&quot;: &quot;000001&quot;,
+      &quot;signalScore&quot;: 71,
+      &quot;researchScore&quot;: 69,
+      &quot;evidenceAdjustedScore&quot;: 69,
+      &quot;disposition&quot;: &quot;needs_more_evidence&quot;,
+      &quot;prohibitedActions&quot;: [
+        &quot;AUTO_TRADE&quot;
+      ]
+    },
+    {
+      &quot;symbol&quot;: &quot;601127&quot;,
+      &quot;signalScore&quot;: 74,
+      &quot;researchScore&quot;: 67,
+      &quot;evidenceAdjustedScore&quot;: 13,
+      &quot;disposition&quot;: &quot;needs_more_evidence&quot;,
+      &quot;prohibitedActions&quot;: [
+        &quot;AUTO_TRADE&quot;
+      ]
+    },
+    {
+      &quot;symbol&quot;: &quot;300750&quot;,
+      &quot;signalScore&quot;: 71,
+      &quot;researchScore&quot;: 65,
+      &quot;evidenceAdjustedScore&quot;: 13,
+      &quot;disposition&quot;: &quot;needs_more_evidence&quot;,
+      &quot;prohibitedActions&quot;: [
+        &quot;AUTO_TRADE&quot;
+      ]
+    }
+  ],
+  &quot;manualTradeDraftStatus&quot;: &quot;blocked&quot;
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>portfolio strategy backtest</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:portfolio-strategy-backtest</code></td>
+      <td>2067ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:portfolio-strategy-backtest
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-strategy-backtest.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;userId&quot;: &quot;default&quot;,
+  &quot;openPositionCount&quot;: 0,
+  &quot;schemaVersion&quot;: &quot;portfolio.strategy_backtest.input.v1&quot;,
+  &quot;dataQuality&quot;: {
+    &quot;status&quot;: &quot;partial&quot;,
+    &quot;strategyCount&quot;: 6,
+    &quot;validStrategyCount&quot;: 4,
+    &quot;blockedReasons&quot;: [
+      &quot;current_holdings_buy_and_hold:current_holdings_missing&quot;,
+      &quot;current_holdings_buy_and_hold:current_holdings_market_value_missing&quot;,
+      &quot;custom_invalid_80:weight_sum_not_100:80&quot;
+    ],
+    &quot;warnings&quot;: [
+      &quot;permanent_portfolio:proxy_market_data_coverage_status:ready&quot;,
+      &quot;all_weather:proxy_market_data_coverage_status:ready&quot;,
+      &quot;dividend_low_vol_basket:dividend_low_vol_basket_is_research_only_not_formal_trade_signal&quot;
+    ]
+  },
+  &quot;strategies&quot;: [
+    {
+      &quot;strategyId&quot;: &quot;permanent_portfolio
+...
+219,
+    &quot;status&quot;: &quot;completed&quot;,
+    &quot;metrics&quot;: {
+      &quot;totalReturnPercent&quot;: 56.6775,
+      &quot;priceOnlyReturnPercent&quot;: 56.6775,
+      &quot;annualizedReturnPercent&quot;: 14.3905,
+      &quot;maxDrawdownPercent&quot;: -25.7784,
+      &quot;volatilityPercent&quot;: 16.1331,
+      &quot;sharpe&quot;: 0.892,
+      &quot;calmar&quot;: 0.5582,
+      &quot;monthlyWinRate&quot;: 100,
+      &quot;turnoverRate&quot;: 209.3572,
+      &quot;dividendContributionPercent&quot;: 10.1777,
+      &quot;capitalGainContributionPercent&quot;: 46.4998,
+      &quot;costDragPercent&quot;: 0.1675,
+      &quot;benchmarkReturnPercent&quot;: 0,
+      &quot;excessReturnPercent&quot;: 56.6775
+    },
+    &quot;dataCoverage&quot;: {
+      &quot;priceCoveragePercent&quot;: 96.14,
+      &quot;dividendCoveragePercent&quot;: 100,
+      &quot;benchmarkCoveragePercent&quot;: 100,
+      &quot;missingSymbols&quot;: []
+    },
+    &quot;blockedReasons&quot;: [],
+    &quot;warnings&quot;: [
+      &quot;benchmark_status:cash_cny:price_index&quot;,
+      &quot;dividend_contribution_estimated_from_ttm_yield_research_only&quot;
+    ]
+  }
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>portfolio backtest API contract</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:portfolio-backtest-api-contract</code></td>
+      <td>12610ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:portfolio-backtest-api-contract
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-backtest-api-contract.ts
+
+{
+  &quot;ok&quot;: true,
+  &quot;templates&quot;: 8,
+  &quot;strategyStatuses&quot;: [
+    {
+      &quot;strategyId&quot;: &quot;local_real_data_sample_60_40&quot;,
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;curvePoints&quot;: 120,
+      &quot;blockedReasons&quot;: [],
+      &quot;warnings&quot;: [
+        &quot;local_real_data_sample_is_for_path_validation_not_recommendation&quot;,
+        &quot;csi300_price_index_is_price_index_not_total_return_benchmark&quot;,
+        &quot;local_equal_weight_20_is_research_proxy_not_formal_benchmark&quot;,
+        &quot;benchmark_status:cash_cny:price_index&quot;,
+        &quot;benchmark_status:csi300_price_index:price_index&quot;,
+        &quot;benchmark_status:local_equal_weight_20:research_proxy&quot;,
+        &quot;dividend_contribution_estimated_from_ttm_yield_research_only&quot;
+      ]
+    },
+    {
+      &quot;strategyId&quot;: &quot;local_real_data_equal_weight
+...
+ts&quot;: 120,
+      &quot;blockedReasons&quot;: [],
+      &quot;warnings&quot;: [
+        &quot;proxy_market_data_coverage_status:ready&quot;,
+        &quot;csi300_price_index_is_price_index_not_total_return_benchmark&quot;,
+        &quot;local_equal_weight_20_is_research_proxy_not_formal_benchmark&quot;,
+        &quot;benchmark_status:cash_cny:price_index&quot;,
+        &quot;benchmark_status:csi300_price_index:price_index&quot;,
+        &quot;benchmark_status:local_equal_weight_20:research_proxy&quot;,
+        &quot;dividend_contribution_insufficient:no_audited_component_yield&quot;
+      ]
+    },
+    {
+      &quot;strategyId&quot;: &quot;current_holdings_buy_and_hold&quot;,
+      &quot;status&quot;: &quot;insufficient&quot;,
+      &quot;curvePoints&quot;: 0,
+      &quot;blockedReasons&quot;: [
+        &quot;current_holdings_missing&quot;,
+        &quot;current_holdings_market_value_missing&quot;
+      ],
+      &quot;warnings&quot;: []
+    }
+  ],
+  &quot;prohibitedActions&quot;: [
+    &quot;ADD&quot;,
+    &quot;REDUCE&quot;,
+    &quot;ORDER_CREATE&quot;,
+    &quot;AUTO_TRADE&quot;
+  ],
+  &quot;notTradingAdvice&quot;: true
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>production readiness</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:production-readiness</code></td>
+      <td>1671ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:production-readiness
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-production-readiness.ts
+
+{
+  &quot;schemaVersion&quot;: &quot;fams.production_readiness_check.v1&quot;,
+  &quot;generatedAt&quot;: &quot;2026-06-26T20:23:13.160Z&quot;,
+  &quot;analysisAdviceReady&quot;: true,
+  &quot;tradeActionReady&quot;: true,
+  &quot;productionReady&quot;: true,
+  &quot;strict&quot;: false,
+  &quot;strictTrade&quot;: false,
+  &quot;symbols&quot;: [
+    &quot;000001&quot;,
+    &quot;600000&quot;
+  ],
+  &quot;environment&quot;: {
+    &quot;postgresShadowConfigured&quot;: true,
+    &quot;postgresShadowStatus&quot;: &quot;ready&quot;,
+    &quot;postgresClientTool&quot;: &quot;psql_missing&quot;,
+    &quot;tushareConfigured&quot;: false
+  },
+  &quot;gates&quot;: [
+    {
+      &quot;id&quot;: &quot;postgres_shadow_ready&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;message&quot;: &quot;PostgreSQL shadow schema/staging/smoke 验证通过。&quot;
+    },
+    {
+      &quot;id&quot;: &quot;free_source_security_coverage&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;message&quot;: &quot;免费源证券状态覆盖可用于分析建议：status=2, tradeability=2。&quot;
+    },
+    {
+      &quot;id&quot;: &quot;tusha
+...
+    &quot;bestSampleSize&quot;: 108,
+      &quot;bestCredibility&quot;: &quot;high&quot;,
+      &quot;blockerGateIds&quot;: []
+    },
+    &quot;gates&quot;: [
+      {
+        &quot;id&quot;: &quot;full_a_strategy_evidence&quot;,
+        &quot;status&quot;: &quot;passed&quot;,
+        &quot;message&quot;: &quot;全 A 证据达标：coverage=84.89%，窗口=120日，样本=108，可信度=high。&quot;
+      },
+      {
+        &quot;id&quot;: &quot;validation_evidence&quot;,
+        &quot;status&quot;: &quot;passed&quot;,
+        &quot;message&quot;: &quot;样本外、walk-forward、参数敏感性和分组稳定性已支持进入人工交易计划复核。&quot;
+      },
+      {
+        &quot;id&quot;: &quot;factset_coverage&quot;,
+        &quot;status&quot;: &quot;passed&quot;,
+        &quot;message&quot;: &quot;事实集覆盖可支撑分组审计。&quot;
+      },
+      {
+        &quot;id&quot;: &quot;manual_execution_review&quot;,
+        &quot;status&quot;: &quot;warning&quot;,
+        &quot;message&quot;: &quot;即使交易动作 gate 通过，也只允许进入人工确认交易计划草案；自动交易不开放。&quot;
+      }
+    ],
+    &quot;blockerGateIds&quot;: [],
+    &quot;nextActions&quot;: [
+      &quot;进入人工确认交易计划草案；执行前复核停复牌、涨跌停和持仓约束。&quot;
+    ]
+  },
+  &quot;nextActions&quot;: [
+    &quot;可选：配置 FAMS_TUSHARE_TOKEN / TUSHARE_TOKEN 作为正式交易状态增强源。&quot;,
+    &quot;交易动作已可进入人工确认交易计划草案；自动交易仍禁止。&quot;
+  ]
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>trade action readiness</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>backend$ npm run test:trade-action-readiness</code></td>
+      <td>1705ms</td>
+      <td><details><summary>stdout</summary><pre>
+&gt; fams-backend@0.1.0 test:trade-action-readiness
+&gt; node node_modules/tsx/dist/cli.mjs scripts/verify-production-readiness.ts --strict-trade
+
+{
+  &quot;schemaVersion&quot;: &quot;fams.production_readiness_check.v1&quot;,
+  &quot;generatedAt&quot;: &quot;2026-06-26T20:23:14.865Z&quot;,
+  &quot;analysisAdviceReady&quot;: true,
+  &quot;tradeActionReady&quot;: true,
+  &quot;productionReady&quot;: true,
+  &quot;strict&quot;: false,
+  &quot;strictTrade&quot;: true,
+  &quot;symbols&quot;: [
+    &quot;000001&quot;,
+    &quot;600000&quot;
+  ],
+  &quot;environment&quot;: {
+    &quot;postgresShadowConfigured&quot;: true,
+    &quot;postgresShadowStatus&quot;: &quot;ready&quot;,
+    &quot;postgresClientTool&quot;: &quot;psql_missing&quot;,
+    &quot;tushareConfigured&quot;: false
+  },
+  &quot;gates&quot;: [
+    {
+      &quot;id&quot;: &quot;postgres_shadow_ready&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;message&quot;: &quot;PostgreSQL shadow schema/staging/smoke 验证通过。&quot;
+    },
+    {
+      &quot;id&quot;: &quot;free_source_security_coverage&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;message&quot;: &quot;免费源证券状态覆盖可用于分析建议：status=2, tradeability=2。&quot;
+    },
+    {
+
+...
+    &quot;bestSampleSize&quot;: 108,
+      &quot;bestCredibility&quot;: &quot;high&quot;,
+      &quot;blockerGateIds&quot;: []
+    },
+    &quot;gates&quot;: [
+      {
+        &quot;id&quot;: &quot;full_a_strategy_evidence&quot;,
+        &quot;status&quot;: &quot;passed&quot;,
+        &quot;message&quot;: &quot;全 A 证据达标：coverage=84.89%，窗口=120日，样本=108，可信度=high。&quot;
+      },
+      {
+        &quot;id&quot;: &quot;validation_evidence&quot;,
+        &quot;status&quot;: &quot;passed&quot;,
+        &quot;message&quot;: &quot;样本外、walk-forward、参数敏感性和分组稳定性已支持进入人工交易计划复核。&quot;
+      },
+      {
+        &quot;id&quot;: &quot;factset_coverage&quot;,
+        &quot;status&quot;: &quot;passed&quot;,
+        &quot;message&quot;: &quot;事实集覆盖可支撑分组审计。&quot;
+      },
+      {
+        &quot;id&quot;: &quot;manual_execution_review&quot;,
+        &quot;status&quot;: &quot;warning&quot;,
+        &quot;message&quot;: &quot;即使交易动作 gate 通过，也只允许进入人工确认交易计划草案；自动交易不开放。&quot;
+      }
+    ],
+    &quot;blockerGateIds&quot;: [],
+    &quot;nextActions&quot;: [
+      &quot;进入人工确认交易计划草案；执行前复核停复牌、涨跌停和持仓约束。&quot;
+    ]
+  },
+  &quot;nextActions&quot;: [
+    &quot;可选：配置 FAMS_TUSHARE_TOKEN / TUSHARE_TOKEN 作为正式交易状态增强源。&quot;,
+    &quot;交易动作已可进入人工确认交易计划草案；自动交易仍禁止。&quot;
+  ]
+}
+</pre></details></td>
+    </tr>
+
+
+    <tr>
+      <td>frontend build</td>
+      <td><span class="status passed">通过</span></td>
+      <td><code>frontend$ npm run build</code></td>
+      <td>41760ms</td>
+      <td><details><summary>stderr</summary><pre>
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+</pre></details><details><summary>stdout</summary><pre>
+&gt; fams-frontend@0.1.0 build
+&gt; node node_modules/typescript/bin/tsc &amp;&amp; node node_modules/vite/bin/vite.js build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 3715 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                     0.71 kB │ gzip:   0.41 kB
+dist/assets/index-BhBcP6xz.css                     29.79 kB │ gzip:   6.56 kB
+dist/assets/api-Bq0ki--Q.js                         0.09 kB │ gzip:   0.11 kB │ map:     0.23 kB
+dist/assets/Portfolios-C5ZrCANk.js                  0.92 kB │ gzip:   0.47 kB │ map:     1.74 kB
+dist/assets/chartTheme-C7a2iQKl.js                  1.29 kB │ gzip:   0.58 kB │ map:     4.80 kB
+dist/assets/RefreshFailureTable-DZz3RX6g.js         1.37 kB │ gzip:   0.98 kB │ map:     4.90 kB
+dist/assets/ReliabilityWarnings-BnA12rXC.js         1.37 kB │ gzip:   0.78 kB │ map:     4.53 kB
+dist/assets/GoldWei
+...
+31.91 kB
+dist/assets/vendor-utils-CsZ8kA4A.js               52.73 kB │ gzip:  20.80 kB │ map:   222.16 kB
+dist/assets/DividendLowVol-DZ4o2VUs.js             72.53 kB │ gzip:  18.93 kB │ map:   187.35 kB
+dist/assets/vendor-table-BgUKEX9O.js               92.04 kB │ gzip:  30.72 kB │ map:   431.07 kB
+dist/assets/Operations-BebAr5Fa.js                129.40 kB │ gzip:  29.25 kB │ map:   351.43 kB
+dist/assets/Analysis-BH4RtNie.js                  155.98 kB │ gzip:  35.90 kB │ map:   403.91 kB
+dist/assets/vendor-react-Du4ebM-n.js              163.75 kB │ gzip:  53.26 kB │ map:   708.57 kB
+dist/assets/vendor-zrender-Bwfx8Sjs.js            219.93 kB │ gzip:  75.27 kB │ map: 1,025.44 kB
+dist/assets/vendor-echarts-core-Bs6ec-ON.js       826.36 kB │ gzip: 272.05 kB │ map: 4,834.35 kB
+dist/assets/vendor-antd-D6fYkZ0V.js             1,028.06 kB │ gzip: 321.62 kB │ map: 4,561.93 kB
+✓ built in 24.99s
+</pre></details></td>
+    </tr>
+  </tbody></table>
+
+  <h2>限制与不通过项</h2>
+  <div class="card">
+    <ul>
+      <li>报告仅使用无头浏览器截图，不抢占桌面焦点。</li>
+<li>若免费数据源或本地缓存不是最新交易日，报告会保留数据新鲜度风险，不会声明每日实时保证。</li>
+<li>tradeActionReadiness 通过只代表 gate 行为正确，不代表策略可以自动交易。</li>
+<li>若组合回测文档仍保留旧的 ETF proxy 阻塞描述，而 API 已通过，将作为文档漂移处理。</li>
+<li>正式 total-return benchmark 与完整外部数据源仍需单独审计，不能因此报告直接解锁正式交易。</li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>

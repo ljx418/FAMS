@@ -412,6 +412,118 @@ async function main() {
     userMessage: '正式交易解锁仍被人工复核、模型有效性、授权 benchmark 和自动交易政策阻断。',
   })
 
+  await addJson(files, '13_execution_isolation_audit.json', {
+    schemaVersion: 'interactive_strategy_backtest.execution_isolation_audit.v1',
+    ...common,
+    status: backtest.executionIsolationAudit?.status || 'missing',
+    executionIsolationAudit: backtest.executionIsolationAudit,
+    paperOrderIntents: backtest.paperOrderIntents,
+    productionAdapterEnabled: false,
+    realPositionMutationAllowed: false,
+    orderCreateAllowed: false,
+    canCreateOrder: false,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    userMessage: '纸面/沙盒意图只用于人工复核和模拟，不连接生产订单适配器，不改真实持仓。',
+  })
+
+  await addJson(files, '14_formal_trading_release_gate_audit.json', {
+    schemaVersion: 'interactive_strategy_backtest.formal_trading_release_gate_audit.v1',
+    ...common,
+    status: backtest.releaseGateAudit?.status || 'missing',
+    releaseGateAudit: backtest.releaseGateAudit,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    orderCreateAllowed: false,
+    canCreateOrder: false,
+    userMessage: 'Release Gate 当前用于列明正式交易放行前的阻断项；本阶段不得解释为正式交易已可用。',
+  })
+
+  await addJson(files, '15_release_data_governance_audit.json', {
+    schemaVersion: 'interactive_strategy_backtest.release_data_governance_audit.v1',
+    ...common,
+    status: backtest.dataGovernanceAudit?.status || 'missing',
+    dataGovernanceAudit: backtest.dataGovernanceAudit,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    orderCreateAllowed: false,
+    canCreateOrder: false,
+    userMessage: '字段级数据治理用于说明行情、benchmark、分红和交易约束的来源、覆盖率、新鲜度和交叉验证状态；不足项阻断正式 release。',
+  })
+
+  await addJson(files, '16_benchmark_qualification_audit.json', {
+    schemaVersion: 'interactive_strategy_backtest.benchmark_qualification_audit.v1',
+    ...common,
+    status: backtest.benchmarkQualificationAudit?.status || 'missing',
+    benchmarkQualificationAudit: backtest.benchmarkQualificationAudit,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    orderCreateAllowed: false,
+    canCreateOrder: false,
+    userMessage: '免费源 total-return 可支持正式评审前置；只有官方或授权 total-return benchmark 才能支持正式交易 release。',
+  })
+
+  await addJson(files, '17_formal_validation_audit.json', {
+    schemaVersion: 'interactive_strategy_backtest.formal_validation_audit.v1',
+    ...common,
+    status: backtest.formalValidationAudit?.status || 'missing',
+    formalValidationAudit: backtest.formalValidationAudit,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    orderCreateAllowed: false,
+    canCreateOrder: false,
+    userMessage: 'Formal validation 汇总 OOS、walk-forward、参数敏感性和分组稳定性；warning/insufficient 不得升级为正式交易 release passed。',
+  })
+
+  await addJson(files, '18_manual_signoff_audit.json', {
+    schemaVersion: 'interactive_strategy_backtest.manual_signoff_audit.v1',
+    ...common,
+    status: backtest.manualSignoffAudit?.status || 'missing',
+    manualSignoffAudit: backtest.manualSignoffAudit,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    orderCreateAllowed: false,
+    canCreateOrder: false,
+    userMessage: '人工签核需要数据、模型、风控、合规和最终 release 多角色全部完成；缺任一项不得创建订单。',
+  })
+
+  await addJson(files, '19_long_horizon_data_coverage_audit.json', {
+    schemaVersion: 'interactive_strategy_backtest.long_horizon_data_coverage_audit.v1',
+    ...common,
+    status: backtest.longHorizonDataCoverageAudit?.status || 'missing',
+    longHorizonDataCoverageAudit: backtest.longHorizonDataCoverageAudit,
+    longHorizonRealDataBacktestReady: backtest.longHorizonDataCoverageAudit?.longHorizonRealDataBacktestReady === true,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    orderCreateAllowed: false,
+    canCreateOrder: false,
+    userMessage: '长周期真实数据覆盖审计用于判断 1 年、3 年、5 年和自定义区间是否可验证；不足时不得用短窗口曲线替代。',
+  })
+
+  await addJson(files, '20_multi_period_backtest_result.json', {
+    schemaVersion: 'interactive_strategy_backtest.multi_period_backtest_result.v1',
+    ...common,
+    status: backtest.multiPeriodBacktestResult?.status || 'missing',
+    multiPeriodBacktestResult: backtest.multiPeriodBacktestResult,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    orderCreateAllowed: false,
+    canCreateOrder: false,
+    userMessage: '多区间回测结果用于说明各区间可比较策略数量和阻断原因；未物化的 1/3/5 年曲线必须明确标记。',
+  })
+
+  await addJson(files, '21_dividend_total_return_audit.json', {
+    schemaVersion: 'interactive_strategy_backtest.dividend_total_return_audit.v1',
+    ...common,
+    status: backtest.dividendTotalReturnAudit?.status || 'missing',
+    dividendTotalReturnAudit: backtest.dividendTotalReturnAudit,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    orderCreateAllowed: false,
+    canCreateOrder: false,
+    userMessage: '分红总回报审计区分价格收益、分红贡献、资本利得和成本拖累；正式 release 前必须补足可交叉验证分红事件。',
+  })
+
   await addText(files, 'README.md', `# Interactive Strategy Backtest Audit\n\nGeneratedAt: ${GENERATED_AT}\n\nThis package audits the current stage for interactive portfolio strategy backtesting and formal-trading prerequisites. It is not trading advice.\n`)
 
   const status = overallStatus([
@@ -421,7 +533,7 @@ async function main() {
     prdChecks.every((item) => item.status === 'passed') ? 'passed' : 'failed',
     frontendRuntime?.status === 'passed' ? 'passed' : 'insufficient',
   ])
-  await addText(files, 'SUMMARY_FOR_GPT.md', `# Summary For GPT\n\nGeneratedAt: ${GENERATED_AT}\n\nOverallStatus: ${status}\n\nAuditUserId: ${AUDIT_USER_ID}\n\nResearchGradeStrategyComparisonReady: ${completedStrategies.length >= 5 && proxyCoverage.status === 'ready'}\n\nPortfolioBacktestFormalReviewReady: ${backtest.formalReviewReadiness?.ready === true}\n\nManualDraftReady: ${(backtest.manualPlanDrafts?.length || 0) > 0}\n\nReadinessSummary: research=${backtest.readinessSummary?.researchReady}, formalReview=${backtest.readinessSummary?.formalReviewReady}, manualDraft=${backtest.readinessSummary?.manualDraftReady}, formalTradingEligible=${backtest.readinessSummary?.formalTradingEligible}\n\nFormalTradingUnlocked: false\n\nAutoTradeUnlocked: false\n\nRuntimeHealth: ${runtimeHealth.status}\n\nProxyEtfCoverage: ${proxyCoverage.status}\n\nCompletedStrategies: ${completedStrategies.length}/${backtest.strategies.length}\n\nDataGrade: ${backtest.dataGradeAudit?.aggregateGrade || 'missing'} / ${backtest.dataGradeAudit?.status || 'missing'}\n\nModelEffectivenessStatus: ${backtest.modelEffectiveness?.status || 'missing'}\n\nManualPlanDraftCount: ${backtest.manualPlanDrafts?.length || 0}\n\nFrontendRuntimeEvidence: ${frontendRuntime?.status || 'missing'}\n\nBenchmarkStatuses: ${benchmarkStatuses.join(', ') || 'none'}\n\nFormal review blockers: ${(backtest.formalReviewReadiness?.blockers || []).join(', ') || 'none'}.\n\nFormal trading unlock blockers: ${(backtest.formalTradingUnlockChecklist?.blockers || []).join(', ') || 'none'}.\n\nTrading blockers that remain by policy: manual_review_not_completed, formal_trading_unlock_requires_explicit_human_confirmation, auto_trade_policy_locked.\n\nKey audit files:\n\n${files.map((file) => `- ${file}`).join('\n')}\n`)
+  await addText(files, 'SUMMARY_FOR_GPT.md', `# Summary For GPT\n\nGeneratedAt: ${GENERATED_AT}\n\nOverallStatus: ${status}\n\nAuditUserId: ${AUDIT_USER_ID}\n\nResearchGradeStrategyComparisonReady: ${completedStrategies.length >= 5 && proxyCoverage.status === 'ready'}\n\nPortfolioBacktestFormalReviewReady: ${backtest.formalReviewReadiness?.ready === true}\n\nManualDraftReady: ${(backtest.manualPlanDrafts?.length || 0) > 0}\n\nPaperSandboxReviewReady: ${backtest.executionIsolationAudit?.paperTradingReady === true}\n\nLongHorizonRealDataBacktestReady: ${backtest.longHorizonDataCoverageAudit?.longHorizonRealDataBacktestReady === true}\n\nLongHorizonCoverageStatus: ${backtest.longHorizonDataCoverageAudit?.status || 'missing'}\n\nMultiPeriodBacktestStatus: ${backtest.multiPeriodBacktestResult?.status || 'missing'}\n\nDividendTotalReturnStatus: ${backtest.dividendTotalReturnAudit?.status || 'missing'}\n\nReleaseGateStatus: ${backtest.releaseGateAudit?.status || 'missing'}\n\nDataGovernanceStatus: ${backtest.dataGovernanceAudit?.status || 'missing'}\n\nBenchmarkQualificationStatus: ${backtest.benchmarkQualificationAudit?.status || 'missing'}\n\nFormalValidationStatus: ${backtest.formalValidationAudit?.status || 'missing'}\n\nManualSignoffStatus: ${backtest.manualSignoffAudit?.status || 'missing'}\n\nReadinessSummary: research=${backtest.readinessSummary?.researchReady}, formalReview=${backtest.readinessSummary?.formalReviewReady}, manualDraft=${backtest.readinessSummary?.manualDraftReady}, formalTradingEligible=${backtest.readinessSummary?.formalTradingEligible}\n\nFormalTradingUnlocked: false\n\nAutoTradeUnlocked: false\n\nOrderCreateAllowed: false\n\nRuntimeHealth: ${runtimeHealth.status}\n\nProxyEtfCoverage: ${proxyCoverage.status}\n\nCompletedStrategies: ${completedStrategies.length}/${backtest.strategies.length}\n\nDataGrade: ${backtest.dataGradeAudit?.aggregateGrade || 'missing'} / ${backtest.dataGradeAudit?.status || 'missing'}\n\nModelEffectivenessStatus: ${backtest.modelEffectiveness?.status || 'missing'}\n\nManualPlanDraftCount: ${backtest.manualPlanDrafts?.length || 0}\n\nPaperOrderIntentCount: ${backtest.paperOrderIntents?.length || 0}\n\nFrontendRuntimeEvidence: ${frontendRuntime?.status || 'missing'}\n\nBenchmarkStatuses: ${benchmarkStatuses.join(', ') || 'none'}\n\nFormal review blockers: ${(backtest.formalReviewReadiness?.blockers || []).join(', ') || 'none'}.\n\nFormal trading unlock blockers: ${(backtest.formalTradingUnlockChecklist?.blockers || []).join(', ') || 'none'}.\n\nRelease gate blockers: ${(backtest.releaseGateAudit?.blockers || []).join(', ') || 'none'}.\n\nLong horizon blockers: ${(backtest.longHorizonDataCoverageAudit?.blockers || []).join(', ') || 'none'}.\n\nTrading blockers that remain by policy: manual_review_not_completed, formal_trading_unlock_requires_explicit_human_confirmation, production_order_adapter_not_enabled, auto_trade_policy_locked.\n\nKey audit files:\n\n${files.map((file) => `- ${file}`).join('\n')}\n`)
 
   await addJson(files, 'manifest.json', await manifest(files))
   const listed = await readdir(auditDir())

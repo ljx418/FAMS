@@ -8,10 +8,11 @@
 - `docs/DIVIDEND_LOW_VOL_DEVELOPMENT_ACCEPTANCE_PLAN.md`
 - `docs/PORTFOLIO_STRATEGY_BACKTEST_PLAN.md`
 - `docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md`
+- `docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md`
 
 ## 2026-06-25 本阶段目标校准
 
-本阶段目标已从“研究级策略与组合回测可用”校准为“正式交易级前置材料完整”。该阶段允许系统继续输出研究、比较、观察提醒和人工计划草案，但不得释放正式交易动作。
+本阶段目标已从“研究级策略与组合回测可用”校准为“正式交易级前置材料完整”。该阶段允许系统继续输出研究、比较、观察提醒和人工计划草案，但不得释放正式交易动作。2026-06-25 的文档开发只更新 PRD、目标架构、里程碑、验收门槛和 drawio gap 图，不改变业务代码的交易锁定状态。
 
 目标状态：
 
@@ -20,6 +21,7 @@ formalTradingPrerequisitesDocumented=true
 portfolioStrategyBacktestFormalReviewReady=true
 portfolioBacktestFormalReviewReady=true
 manualTradePlanDraftReviewReady=true
+longHorizonRealDataBacktestReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
@@ -48,15 +50,30 @@ acceptance-report.html
 SUMMARY_FOR_GPT.md
 docs/read-drawio-output.txt
 docs/FORMAL_TRADING_PREREQUISITE_DOC_AUDIT.md
+docs/FORMAL_TRADING_RELEASE_DOC_AUDIT.md
 doc_acceptance_audit.json
 ```
 
+正式交易 release 阶段新增审计产物已经进入目标架构口径：
+
+```text
+13_execution_isolation_audit.json
+14_release_gate_audit.json
+15_data_governance_audit.json
+16_benchmark_qualification_audit.json
+17_formal_validation_audit.json
+18_manual_signoff_audit.json
+```
+
+这些文件用于说明“正式交易 release 还缺什么”，不是交易放行证明。
+
 当前架构与目标架构关系：
 
-- 灰色已实现：React/Vite 前端、Fastify REST 后端、SQLite/Prisma、Operation artifact、红利低波候选池、组合回测、多策略曲线、人工计划草案 gate、全系统 E2E 报告。
-- 黄色需修改：数据等级传播、benchmark 状态、模型有效性验证、人工草案审计、前端正式评审可见性、文档术语一致性。
-- 橘黄需新增：formal trading unlock checklist、data grade audit、model effectiveness audit、manual plan draft audit、formal trading blockers artifact。
-- 红色硬边界：正式 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` 继续禁止，直到官方或可信数据、模型验证、交易约束和人工复核全部通过。
+- 灰色已实现：`DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx`、`strategy.ts / portfolioBacktest.ts / operation.ts`、`dividendLowVolStrategyService / dividendLowVolTradingZoneService / PortfolioBacktestEngine / portfolioBacktestReviewService`、`SQLite/Prisma / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / free-source benchmark`、`09-12` 审计产物和 `acceptance-report.html`。
+- 黄色需修改：前端展示需要持续统一 `dataGrade / modelEffectiveness / manualPlanDraft / blockers / priceAudit freshness`；API 响应需要统一 `readinessSummary / releaseGateAudit / canCreateOrder=false`；服务输出需要稳定生成 `dataGovernanceAudit / benchmarkQualificationAudit / formalValidationAudit / manualSignoffAudit`；数据层需要字段级 `sourceProvider / asOfDate / fetchedAt / freshness / coverage / crossCheckStatus`；审计口径需要保证 blocked/warning/missing 不被升级 passed。
+- 橘黄需新增：`LongHorizonPortfolioBacktestAcceptance`、`FormalDataProviderService / BenchmarkQualificationService / FormalValidationService / ManualSignoffService`、`official_authorized provider`、官方或可信 total-return benchmark、formal tradeability constraints、release review API 契约、`13_execution_isolation_audit.json` 到 `18_manual_signoff_audit.json`。
+- 红色硬边界：正式 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` 继续禁止；`/reviews` 只保存审计，不创建订单；free source 只能 research/fallback；proxy benchmark 不得当 formal benchmark；release gate blocked 时必须保持 `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`。
+- 绿色用户出门体验：用户能看到候选、曲线、区间、数据等级、验证状态、阻断原因、数据来源、更新时间、覆盖率、缺口和可复核审计报告；用户不会看到下单按钮、自动再平衡入口或正式买卖文案。
 
 本阶段架构图必须采用“实现实体优先”的表达方式。任何目标能力都必须能落到以下至少一种对象：
 
@@ -68,15 +85,23 @@ doc_acceptance_audit.json
 
 如果后续文档只写“数据层、策略层、验证层、审计层”但没有绑定以上实体，应视为架构描述不合格。
 
-`docs/target-architecture-gap.drawio` 已调整为 7 页实现地图，用于指导后续开发和验收：
+正式交易 release 目标架构补充：
 
-1. **目标体验与用户路径**：红利低波、组合回测和任务审计三条用户路径，明确每一步的用户可见结果和禁止动作。
-2. **分层架构与调用关系**：前端页面、API、策略服务、组合回测服务、数据证据、运行产物和交易边界的调用关系。
-3. **组合回测实现路径**：`/backtest` -> `portfolioBacktestRoutes` -> `PortfolioBacktestInputBuilder` -> `PortfolioBacktestEngine` -> `PortfolioBenchmarkService` -> `portfolioBacktestReviewService` -> 前端与 Operation artifact。
-4. **红利低波实现路径**：免费源/本地缓存 -> 事实集 -> 评分 -> 候选池 -> Top3 -> 买卖观察区间 -> 滚动回测 -> 组合篮子 -> 人工草案 gate。
-5. **数据可信与模型验证**：`dataGrade`、价格新鲜度、benchmark 状态、分红/交易约束、OOS、walk-forward、参数敏感性和分组稳定性。
-6. **开发及验收计划**：FT-1 到 FT-6 映射到实现位置、输出字段、审计产物、验收命令和用户可见效果。
-7. **里程碑出门与审计**：可声明状态、不能声明状态、下一阶段 blocker、审计材料路径和最终边界。
+- 灰色已实现：1 年、3 年、5 年和自定义区间的真实数据组合回测验收包，当前 `longHorizonRealDataBacktestReady=true`，但只表示 formal review evidence ready。
+- 橘黄新增：正式 provider 字段级证据、官方或可信 total-return benchmark、formal validation artifact、人工签核 checklist、paper/sandbox 执行隔离、release gate audit package。
+- 黄色需修改：现有 `dataGrade`、`modelEffectivenessStatus`、`manualPlanDraft`、`formalTradingBlockers` 需要扩展到 release 口径，但不得改变当前锁定状态。
+- 红色硬边界：在 release gate 和人工签核全部通过前，`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`。
+- 实现约束：release 不能新增绕过 `portfolioBacktestReviewService`、Operation artifact、trade gate contract 的下单路径。
+
+`docs/target-architecture-gap.drawio` 已重排为 7 页实现地图，用于指导后续开发和验收。图中使用灰色表示已实现基础，黄色表示需修改或状态不达标，橘黄表示需新增的正式 release 能力，红色表示交易硬边界。所有关键节点均绑定真实页面、API、服务、数据实体或审计产物：
+
+1. **目标体验与用户路径**：红利低波、组合回测、人工计划草案和任务审计四段路径，明确每一步用户可见结果和禁止动作。
+2. **当前架构与目标架构差异**：使用 5 行 × 5 列泳道矩阵，按前端、API、服务、数据、审计/Gate 分层展示“当前实现 -> 需修改/补齐 -> 目标新增能力 -> 不可绕过边界 -> 用户出门体验”的强关联路径。
+3. **长周期组合回测目标架构**：展示 `Backtest.tsx / portfolioBacktest.ts / PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService` 如何承接 1 年、3 年、5 年和自定义区间 replay。
+4. **数据治理与真实数据链路**：说明行情、分红、交易约束、benchmark、字段级 evidence 和用户可见数据等级如何进入审计。
+5. **模型验证与 Release Gate**：展示 OOS、walk-forward、参数敏感性、分组稳定性、人工签核和 release gate 的关系。
+6. **开发及验收计划**：已完成的长周期 review-ready 基线和 FTR-1 到 FTR-6 的实现实体、用户效果、审计产物和命令验收。
+7. **里程碑与出门条件**：M1 到 M7、当前可声明、当前不能声明、审计路径和 ChatGPT 外部审计建议。
 
 该图现在不仅说明“目标是什么”，也说明“从哪些页面、接口、服务、数据表和审计产物完成目标”。
 
@@ -85,21 +110,48 @@ doc_acceptance_audit.json
 | 页码 | 必须回答的问题 | 不合格表现 |
 | --- | --- | --- |
 | 1 目标体验与用户路径 | 用户如何完成研究筛选、组合回测、人工计划草案和审计追溯。 | 只画功能列表，不说明用户路径和禁止动作。 |
-| 2 分层架构与调用关系 | 前端页面调用哪些 API，API 进入哪些服务，服务读取哪些数据和 artifact。 | 出现不绑定代码实体的抽象架构层。 |
-| 3 组合回测实现路径 | `/backtest` 如何生成曲线、指标、数据等级、模型有效性和 readinessSummary。 | 只说“执行回测”，不说明输入构建、benchmark、审计输出。 |
-| 4 红利低波实现路径 | 候选池、Top3、买卖观察区间、滚动策略和组合篮子如何形成。 | 把观察区间写成正式交易建议。 |
-| 5 数据可信与模型验证 | dataGrade、priceAudit、benchmark、OOS、walk-forward 和 blocker 如何共同决定不可交易。 | 把 proxy 或 warning 当作正式验证通过。 |
-| 6 开发及验收计划 | FT-1 到 FT-6 的实现实体、输出字段、审计产物、用户效果和验收命令。 | 开发项没有可执行验收标准。 |
-| 7 里程碑出门与审计 | 本阶段可声明、不能声明、下一阶段 blocker 和审计入口。 | 把 formal-review-ready 写成 formal-trading-ready。 |
+| 2 当前架构与目标架构差异 | 用户能按前端、API、服务、数据、审计/Gate 五层看清当前架构如何演进到目标架构，并看到每层对应的用户体验结果和禁止绕过点。 | 只按颜色堆列表，缺少分层结构、实体绑定、当前到目标的演进关系或用户体验结果。 |
+| 3 长周期组合回测目标架构 | 1 年、3 年、5 年和自定义区间如何从前端进入 API、服务、数据和审计；当前 replay 已 materialized，覆盖率已达到 formal-review-ready 基线。 | 把 longHorizonRealDataBacktestReady 误写成正式交易 release。 |
+| 4 数据治理与真实数据链路 | 行情、分红、交易约束、benchmark 和字段级 evidence 如何进入数据等级。 | proxy 或免费源被写成正式 provider。 |
+| 5 模型验证与 Release Gate | OOS、walk-forward、参数敏感性、分组稳定性、人工签核如何共同决定 release blocked。 | 把 blocked/warning/missing 当作 passed。 |
+| 6 开发及验收计划 | FTR-1 到 FTR-6 的实现实体、输出字段、审计产物、用户效果和验收命令。 | 开发项没有可执行验收标准。 |
+| 7 里程碑与出门条件 | 本阶段可声明、不能声明、下一阶段 blocker、审计入口和外部审计重点。 | 把 formal-review-ready 写成 formal-trading-ready。 |
 
 本阶段出门条件：
 
 - 用户能完成“选择策略 -> 设置区间 -> 查看曲线和指标 -> 查看数据等级和模型有效性 -> 生成人工计划草案 -> 查看正式交易阻断原因”。
+- 文档能解释当前 1 年、3 年、5 年和自定义区间真实数据组合回测已经达到 formal-review-ready，以及下一阶段如何继续关闭正式数据治理、可信 benchmark、formal validation 和人工签核。
 - 文档和 drawio 能独立说明目标体验、当前/目标架构差异、开发计划、里程碑、验收门槛、出门条件和关键用户路径。
 - 审计包能解释为什么当前是 formal-review-ready，而不是 formal-trading-ready。
 - `formalTradingUnlocked=false` 和 `autoTradeUnlocked=false` 在所有主文档中保持一致。
 - `docs/read-drawio-output.txt` 能证明 drawio 原始 XML 本体可读，且页数不超过 8 页。
 - `doc_acceptance_audit.json` 状态必须为 `pass_formal_trading_prerequisite_docs`；该状态不等于正式交易 ready。
+- `docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md` 已说明后续 release 的开发项、验收门槛和不能自动放行的边界。
+- `docs/FORMAL_TRADING_RELEASE_DOC_AUDIT.md` 已记录本轮文档审计结论：当前文档可支撑 release 后续开发规划，但不能声明正式交易 release。
+- 最新交互式策略回测审计包 `backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md` 是当前状态源；旧审计包只作为历史记录。
+- 最新前端 runtime 验收为 `backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-12-17-124Z/03_frontend_runtime_and_operation_audit.json`；该证据只证明用户路径可见，不解除 release gate。
+- FTR-1 字段级数据治理已补齐 `sourceProvider / sourceEndpoint / asOfDate / fetchedAt / freshnessStatus / coverageStatus / crossCheckStatus / evidenceRefs`，但正式 provider 和 official_authorized cross-check 仍未完成。
+- 高风险点已在 release 计划中集中记录：免费源覆盖、total-return benchmark、交易约束、formal validation 和人工签核缺一不可。推荐路线为“免费源 + 本地缓存 + 严格 evidence/freshness + proxy 明示 + 后续正式 provider 升级”，可支撑 research/formal-review-ready，但不能直接支撑正式交易 release。
+
+当前支撑度结论：
+
+```text
+documentationSupportsCurrentStageDevelopment=true
+documentationSupportsExitAcceptance=true
+documentationSupportsLongHorizonReviewReady=true
+documentationSupportsFormalTradingReleaseWithoutExternalEvidence=false
+fatalSpecificationGap=none_found
+majorOverPromiseRisk=controlled_by_release_gate
+```
+
+解释：
+
+- 当前文档足以指导后续自动化开发 FTR-1 到 FTR-6 的前置能力、审计产物、前端展示和出门验收。
+- 当前文档已把长周期真实数据回测校准为 formal-review-ready 基线；后续自动化开发应转向 FTR-1 到 FTR-6，剩余风险集中在正式数据治理、官方或可信 benchmark、formal validation、人工签核和 release gate，而不是文档规格缺失。
+- 本阶段开发完成后，可以达成“正式交易 release 前置材料完整、可进入人工评审”的预设目标。
+- 当前文档不能也不应承诺“正式交易 release 已完成”。正式 provider、官方或可信 benchmark、formal validation passed、人工签核 passed 仍是真实 release 的外部或人工 gate。
+- 若后续无法取得正式数据源、官方 benchmark 或人工签核，本项目仍可达到 research/formal-review-ready，但 release gate 必须继续 blocked。
+- 若后续确认免费源无法满足关键字段 freshness、coverage 或 cross-check，本阶段开发应切换为 provider 升级路线；在切换前不得把缺失字段、proxy benchmark 或短窗口验证写成已完成的正式交易级证据。
 
 ## 当前执行约束
 
@@ -196,7 +248,24 @@ dividendLowVolBasketSymbols=000513,601398,000333
 状态来源：
 
 ```text
-backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/SUMMARY_FOR_GPT.md
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md
+```
+
+2026-06-25 最新审计状态：
+
+```text
+overallStatus=passed
+portfolioBacktestFormalReviewReady=true
+manualDraftReady=true
+paperSandboxReviewReady=true
+releaseGateStatus=blocked
+dataGovernanceStatus=blocked
+benchmarkQualificationStatus=passed
+formalValidationStatus=warning
+manualSignoffStatus=missing
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+orderCreateAllowed=false
 ```
 
 本阶段目标体验：

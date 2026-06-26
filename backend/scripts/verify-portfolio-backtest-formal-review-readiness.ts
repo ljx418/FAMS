@@ -57,6 +57,64 @@ async function main() {
   assert.ok(result.formalTradingUnlockChecklist, 'formal trading unlock checklist should be present')
   assert.equal(result.formalTradingUnlockChecklist.formalTradingUnlocked, false)
   assert.equal(result.formalTradingUnlockChecklist.autoTradeUnlocked, false)
+  assert.ok(result.executionIsolationAudit, 'execution isolation audit should be present')
+  assert.equal(result.executionIsolationAudit.status, 'ready_for_paper_review')
+  assert.equal(result.executionIsolationAudit.paperTradingReady, true)
+  assert.equal(result.executionIsolationAudit.sandboxReady, true)
+  assert.equal(result.executionIsolationAudit.productionAdapterEnabled, false)
+  assert.equal(result.executionIsolationAudit.realPositionMutationAllowed, false)
+  assert.equal(result.executionIsolationAudit.orderCreateAllowed, false)
+  assert.equal(result.executionIsolationAudit.canCreateOrder, false)
+  assert.ok(Array.isArray(result.paperOrderIntents), 'paper order intents should be present')
+  assert.equal(result.paperOrderIntents.length, result.manualPlanDrafts.length)
+  assert.ok(result.releaseGateAudit, 'formal trading release gate audit should be present')
+  assert.equal(result.releaseGateAudit.status, 'blocked')
+  assert.equal(result.releaseGateAudit.formalTradingUnlocked, false)
+  assert.equal(result.releaseGateAudit.autoTradeUnlocked, false)
+  assert.equal(result.releaseGateAudit.orderCreateAllowed, false)
+  assert.equal(result.releaseGateAudit.canCreateOrder, false)
+  assert.ok(result.dataGovernanceAudit, 'release data governance audit should be present')
+  assert.ok(result.dataGovernanceAudit.items?.length >= 4, 'release data governance audit should cover release fields')
+  for (const item of result.dataGovernanceAudit.items) {
+    assert.ok(item.sourceProvider, `data governance item ${item.fieldId} should expose sourceProvider`)
+    assert.ok(item.sourceEndpoint, `data governance item ${item.fieldId} should expose sourceEndpoint`)
+    assert.ok(item.asOfDate, `data governance item ${item.fieldId} should expose asOfDate`)
+    assert.ok(item.fetchedAt, `data governance item ${item.fieldId} should expose fetchedAt`)
+    assert.ok(item.freshnessStatus, `data governance item ${item.fieldId} should expose freshnessStatus`)
+    assert.equal(typeof item.coveragePercent, 'number', `data governance item ${item.fieldId} should expose coveragePercent`)
+    assert.ok(Array.isArray(item.evidenceRefs), `data governance item ${item.fieldId} should expose evidenceRefs`)
+  }
+  assert.ok(result.benchmarkQualificationAudit, 'benchmark qualification audit should be present')
+  assert.ok(result.formalValidationAudit, 'formal validation audit should be present')
+  assert.ok(result.manualSignoffAudit, 'manual signoff audit should be present')
+  assert.ok(result.longHorizonDataCoverageAudit, 'long horizon data coverage audit should be present')
+  assert.ok(result.multiPeriodBacktestResult, 'multi-period backtest result should be present')
+  assert.ok(result.dividendTotalReturnAudit, 'dividend total return audit should be present')
+  assert.equal(result.benchmarkQualificationAudit.canSupportFormalReview, true)
+  assert.equal(result.benchmarkQualificationAudit.canSupportFormalTrading, false)
+  assert.equal(result.manualSignoffAudit.allRequiredSignedOff, false)
+  assert.equal(result.manualSignoffAudit.canCreateOrder, false)
+  assert.equal(
+    result.longHorizonDataCoverageAudit.longHorizonRealDataBacktestReady,
+    result.longHorizonDataCoverageAudit.blockers.length === 0,
+    'long horizon readiness should be derived from actual 1y/3y/5y evidence blockers',
+  )
+  assert.equal(result.multiPeriodBacktestResult.notTradingAdvice, true)
+  assert.ok(
+    !result.multiPeriodBacktestResult.blockers.includes('period_replay_not_materialized_in_current_request'),
+    'multi-period result must materially replay the requested periods',
+  )
+  assert.ok(result.multiPeriodBacktestResult.periods.every((period: any) => period.requestedStartDate && period.requestedEndDate))
+  assert.equal(result.dividendTotalReturnAudit.notTradingAdvice, true)
+  assert.ok(result.releaseGateAudit.checks.some((check: any) => check.id === 'field_level_data_governance'))
+  assert.ok(result.releaseGateAudit.checks.some((check: any) => check.id === 'long_horizon_real_data_backtest'))
+  assert.ok(result.releaseGateAudit.checks.some((check: any) => check.id === 'formal_validation'))
+  assert.ok(result.releaseGateAudit.checks.some((check: any) => check.id === 'manual_human_signoff'))
+  assert.ok(
+    result.releaseGateAudit.blockers.includes('human_reviewer_confirmation_not_completed')
+      || result.releaseGateAudit.blockers.includes('production_order_adapter_not_enabled'),
+    'release gate should keep human review or production adapter blockers',
+  )
   assert.deepEqual(result.prohibitedActions, ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'])
   assert.equal(result.notTradingAdvice, true)
   await app.close()

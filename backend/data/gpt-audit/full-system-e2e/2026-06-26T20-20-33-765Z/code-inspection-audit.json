@@ -1,0 +1,77 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "id": "frontend_route_dividend_low_vol",
+      "label": "前端存在红利低波独立路由",
+      "status": "passed",
+      "evidence": "frontend/src/App.tsx / frontend/src/components/layout/AppLayout.tsx"
+    },
+    {
+      "id": "frontend_route_backtest",
+      "label": "前端存在组合策略回测入口",
+      "status": "passed",
+      "evidence": "frontend/src/App.tsx / frontend/src/components/layout/AppLayout.tsx"
+    },
+    {
+      "id": "frontend_route_operations",
+      "label": "前端存在任务中心追溯入口",
+      "status": "passed",
+      "evidence": "frontend/src/App.tsx / frontend/src/components/layout/AppLayout.tsx"
+    },
+    {
+      "id": "frontend_dividend_research_boundary",
+      "label": "红利低波页面明确非交易指令和 AUTO_TRADE 禁止",
+      "status": "passed",
+      "evidence": "frontend/src/pages/DividendLowVol.tsx"
+    },
+    {
+      "id": "frontend_dividend_filters_and_zones",
+      "label": "红利低波页面包含筛选排序、买卖观察区间和滚动回测",
+      "status": "passed",
+      "evidence": "frontend/src/pages/DividendLowVol.tsx"
+    },
+    {
+      "id": "frontend_backtest_formal_review_fields",
+      "label": "组合回测页面展示数据等级、模型有效性、草案和正式交易锁",
+      "status": "passed",
+      "evidence": "frontend/src/pages/Backtest.tsx"
+    },
+    {
+      "id": "frontend_analysis_fivd_r",
+      "label": "分析建议页包含 FIVD-R 统一分析与交易阻断说明",
+      "status": "passed",
+      "evidence": "frontend/src/pages/Analysis.tsx"
+    },
+    {
+      "id": "backend_dividend_routes",
+      "label": "后端暴露红利低波候选、交易区间、回测和 FIVD-R adapter",
+      "status": "passed",
+      "evidence": "backend/src/routes/strategy.ts"
+    },
+    {
+      "id": "backend_portfolio_backtest_routes",
+      "label": "后端暴露组合回测 templates/run 与正式交易解锁审计产物",
+      "status": "passed",
+      "evidence": "backend/src/index.ts / backend/src/routes/portfolioBacktest.ts"
+    },
+    {
+      "id": "backend_operation_artifacts",
+      "label": "后端 Operation 支持 artifact 读取",
+      "status": "passed",
+      "evidence": "backend/src/routes/operation.ts"
+    },
+    {
+      "id": "frontend_service_fivd_and_dividend_api",
+      "label": "前端服务封装 FIVD-R 与红利低波接口",
+      "status": "passed",
+      "evidence": "frontend/src/services/analysisService.ts"
+    }
+  ],
+  "summary": {
+    "inspectedFiles": 12,
+    "passedChecks": 11,
+    "failedChecks": 0,
+    "blockedChecks": 0
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "status": "passed",
+  "rows": [
+    {
+      "name": "typescript",
+      "label": "TypeScript 编译",
+      "status": "passed",
+      "evidence": "node node_modules/typescript/bin/tsc (5815ms)"
+    },
+    {
+      "name": "sqlite health",
+      "label": "SQLite 运行时健康",
+      "status": "passed",
+      "evidence": "npm run check:sqlite-health (39065ms)"
+    },
+    {
+      "name": "dividend low vol api",
+      "label": "红利低波 API 合同",
+      "status": "passed",
+      "evidence": "npm run test:dividend-low-vol-api (40011ms)"
+    },
+    {
+      "name": "dividend low vol audit package",
+      "label": "红利低波审计包",
+      "status": "passed",
+      "evidence": "npm run test:dividend-low-vol-audit-package (52491ms)"
+    },
+    {
+      "name": "dividend low vol rolling backtest",
+      "label": "红利低波滚动回测",
+      "status": "passed",
+      "evidence": "npm run test:dividend-low-vol-rolling-backtest (683ms)"
+    },
+    {
+      "name": "dividend low vol validation retest",
+      "label": "红利低波验证 retest",
+      "status": "passed",
+      "evidence": "npm run test:dividend-low-vol-validation-retest (715ms)"
+    },
+    {
+      "name": "dividend low vol frontend runtime",
+      "label": "红利低波前端静态合同",
+      "status": "passed",
+      "evidence": "npm run test:dividend-low-vol-frontend-runtime (498ms)"
+    },
+    {
+      "name": "fivd-r core",
+      "label": "FIVD-R 核心合同",
+      "status": "passed",
+      "evidence": "npm run test:fivd-r-core (1847ms)"
+    },
+    {
+      "name": "fivd-r trade gate contract",
+      "label": "FIVD-R 交易 gate 合同",
+      "status": "passed",
+      "evidence": "npm run test:fivd-r-trade-gate-contract (1920ms)"
+    },
+    {
+      "name": "portfolio strategy backtest",
+      "label": "组合策略回测服务",
+      "status": "passed",
+      "evidence": "npm run test:portfolio-strategy-backtest (2067ms)"
+    },
+    {
+      "name": "portfolio backtest API contract",
+      "label": "组合回测 API 与 artifact 合同",
+      "status": "passed",
+      "evidence": "npm run test:portfolio-backtest-api-contract (12610ms)"
+    },
+    {
+      "name": "production readiness",
+      "label": "生产就绪 gate",
+      "status": "passed",
+      "evidence": "npm run test:production-readiness (1671ms)"
+    },
+    {
+      "name": "trade action readiness",
+      "label": "交易动作 gate",
+      "status": "passed",
+      "evidence": "npm run test:trade-action-readiness (1705ms)"
+    },
+    {
+      "name": "frontend build",
+      "label": "前端构建",
+      "status": "passed",
+      "evidence": "npm run build (41760ms)"
+    }
+  ]
+}

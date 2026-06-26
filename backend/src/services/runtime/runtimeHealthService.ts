@@ -14,6 +14,8 @@ type RuntimeHealthOptions = {
   prisma?: PrismaClient
   includeOperations?: boolean
   includeProviderHealth?: boolean
+  forceRefresh?: boolean
+  lightweight?: boolean
 }
 
 function backendRoot() {
@@ -146,7 +148,21 @@ function pragmaRowsContainOk(rows: Array<Record<string, unknown>>) {
 }
 
 export class RuntimeHealthService {
+  private cachedBasicHealth: { expiresAt: number; value: Awaited<ReturnType<RuntimeHealthService['compute']>> } | null = null
+
   async check(options: RuntimeHealthOptions = {}) {
+    const useBasicCache = !options.forceRefresh && (options.lightweight || (!options.includeOperations && !options.includeProviderHealth))
+    if (useBasicCache && this.cachedBasicHealth && this.cachedBasicHealth.expiresAt > Date.now()) {
+      return this.cachedBasicHealth.value
+    }
+    const value = await this.compute(options)
+    if (useBasicCache) {
+      this.cachedBasicHealth = { expiresAt: Date.now() + 60_000, value }
+    }
+    return value
+  }
+
+  private async compute(options: RuntimeHealthOptions = {}) {
     const generatedAt = new Date().toISOString()
     const client = options.prisma || defaultPrisma
     const db = resolveSqlitePath()
@@ -160,15 +176,25 @@ export class RuntimeHealthService {
       error: error instanceof Error ? error.message : String(error),
     })) : { exists: false, reason: 'not_sqlite_database_url' }
 
-    const [integrityCheck, quickCheck, writers, backups] = await Promise.all([
-      db.databaseUrlKind === 'sqlite' ? runSqlitePragma(client, db.path, 'PRAGMA integrity_check;') : Promise.resolve({ status: 'not_applicable', rows: [] as Array<Record<string, unknown>> }),
-      db.databaseUrlKind === 'sqlite' ? runSqlitePragma(client, db.path, 'PRAGMA quick_check;') : Promise.resolve({ status: 'not_applicable', rows: [] as Array<Record<string, unknown>> }),
-      lsof(db.path),
-      recentBackups(db.path),
-    ])
+    const lightweight = Boolean(options.lightweight)
+    const [integrityCheck, quickCheck, writers, backups] = lightweight
+      ? await Promise.all([
+        Promise.resolve({ status: 'skipped_lightweight', rows: [{ result: 'ok' }] as Array<Record<string, unknown>> }),
+        Promise.resolve({ status: 'skipped_lightweight', rows: [{ result: 'ok' }] as Array<Record<string, unknown>> }),
+        Promise.resolve({ status: 'skipped_lightweight', rows: [] as string[] }),
+        recentBackups(db.path),
+      ])
+      : await Promise.all([
+        db.databaseUrlKind === 'sqlite' ? runSqlitePragma(client, db.path, 'PRAGMA integrity_check;') : Promise.resolve({ status: 'not_applicable', rows: [] as Array<Record<string, unknown>> }),
+        db.databaseUrlKind === 'sqlite' ? runSqlitePragma(client, db.path, 'PRAGMA quick_check;') : Promise.resolve({ status: 'not_applicable', rows: [] as Array<Record<string, unknown>> }),
+        lsof(db.path),
+        recentBackups(db.path),
+      ])
 
     const sqliteHealthy = db.databaseUrlKind !== 'sqlite'
-      || (integrityCheck.status === 'completed' && quickCheck.status === 'completed' && pragmaRowsContainOk(integrityCheck.rows) && pragmaRowsContainOk(quickCheck.rows))
+      || (lightweight
+        ? dbStat.exists === true
+        : integrityCheck.status === 'completed' && quickCheck.status === 'completed' && pragmaRowsContainOk(integrityCheck.rows) && pragmaRowsContainOk(quickCheck.rows))
     const dbQueriesEnabled = db.databaseUrlKind !== 'sqlite' || sqliteHealthy
 
     const [operations, providerHealth] = await Promise.all([
@@ -208,7 +234,9 @@ export class RuntimeHealthService {
           ? ['research_scan', 'operation_backtest', 'audit_package']
           : ['small_non_persistent_research_dry_run', 'fixture_tests', 'audit_package'],
         reason: status === 'healthy'
-          ? (activeWriterRows.length > 0 ? 'sqlite_health_checks_passed_active_writers_recorded_for_audit' : 'sqlite_health_checks_passed')
+          ? lightweight
+            ? 'sqlite_lightweight_health_gate_passed_full_integrity_check_deferred_to_audit_or_persistence'
+            : (activeWriterRows.length > 0 ? 'sqlite_health_checks_passed_active_writers_recorded_for_audit' : 'sqlite_health_checks_passed')
           : 'sqlite_health_unconfirmed_or_integrity_check_failed',
         requiredFollowup: status === 'healthy' ? [] : [
           'Stop backend writers before repair or restore.',

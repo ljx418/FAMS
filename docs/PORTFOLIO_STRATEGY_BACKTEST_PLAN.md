@@ -17,6 +17,37 @@ formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
+2026-06-25 正式交易 release 文档校准：
+
+```text
+formalTradingReleaseDocsReady=true
+longHorizonRealDataBacktestReady=true
+formalTradingEligible=false
+orderCreateAllowed=false
+canCreateOrder=false
+```
+
+下一阶段正式交易 release 的开发和验收计划维护在：
+
+```text
+docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md
+```
+
+该计划用于指导正式数据源、官方 total-return benchmark、formal validation、人工计划签核、paper/sandbox 执行隔离和 release gate 审计；不改变当前 `formalTradingUnlocked=false` 和 `autoTradeUnlocked=false` 的系统边界。
+
+当前 release gate 状态快照：
+
+```text
+executionIsolationAudit=ready_for_review
+releaseGateAudit=blocked
+dataGovernanceAudit=blocked
+benchmarkQualificationAudit=review_ready
+formalValidationAudit=warning
+manualSignoffAudit=missing
+```
+
+这表示组合回测已经可以作为正式评审材料入口，但仍不能转化为正式 `ADD / REDUCE / ORDER_CREATE`。后续 release 必须按 `13_execution_isolation_audit.json` 到 `18_manual_signoff_audit.json` 的审计链路逐项关闭 blocker。
+
 本阶段完成后的目标体验：
 
 1. 用户进入“策略回测”页面。
@@ -58,6 +89,28 @@ dividendLowVolBasketComponentCount=3
 dividendLowVolBasketSymbols=000513,601398,000333
 ```
 
+2026-06-25 正式交易前置审计同步：
+
+```text
+overallStatus=passed
+researchGradeStrategyComparisonReady=true
+portfolioBacktestFormalReviewReady=true
+manualDraftReady=true
+paperSandboxReviewReady=true
+longHorizonRealDataBacktestReady=true
+releaseGateStatus=blocked
+dataGovernanceStatus=blocked
+benchmarkQualificationStatus=passed
+formalValidationStatus=warning
+manualSignoffStatus=missing
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+orderCreateAllowed=false
+completedStrategies=7/7
+manualPlanDraftCount=7
+paperOrderIntentCount=7
+```
+
 2026-06-25 阶段目标校准：
 
 ```text
@@ -70,10 +123,12 @@ autoTradeUnlocked=false
 
 本阶段完成后，用户应能在前端完成“选择策略 -> 设置区间 -> 查看多策略收益曲线 -> 查看数据等级和模型有效性 -> 生成人工计划草案 -> 查看正式交易阻断原因”的完整路径。该路径只支撑研究比较和人工评审，不支撑正式下单、自动再平衡或自动交易。
 
+当前已把 formal-review-ready 能力扩展为“长时间段真实数据组合策略回测可验收”。用户能选择 1 年、3 年、5 年或自定义区间，比较红利低波篮子、当前持仓、永久组合、全天候组合和自定义组合的收益率曲线、回撤曲线、benchmark、分红贡献、成本拖累、数据等级、模型有效性和阻断原因。该能力不等于正式交易 release。
+
 最新审计包：
 
 ```text
-backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/SUMMARY_FOR_GPT.md
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md
 ```
 
 已完成能力：
@@ -159,6 +214,8 @@ ADD / REDUCE / AUTO_TRADE / ORDER_CREATE
 剩余缺口：
 
 - 组合回测已达到 `portfolioBacktestFormalReviewReady=true`，但该状态只表示“可进入人工评审”，不表示正式交易解锁。
+- 长时间段真实数据组合回测已达到 formal-review-ready：当前已实际重放 1 年、3 年、5 年和自定义区间，7 个策略均可比较。
+- 最新长周期覆盖率：1 年 `96.43%`、3 年 `95.90%`、5 年 `95.71%`；自定义区间 `94.49%`。
 - 免费源 total-return benchmark 已接入并可支撑 formal review；官方授权 total-return benchmark 仍是正式交易级升级项。
 - 分红贡献、资本利得和成本拖累已可输出；后续仍需把分红事件、除权调整和再投资路径升级为官方源或可交叉验证源。
 - 审计用户 `audit_portfolio_backtest_user` 已有真实持仓样本，当前持仓组合在该用户下可 completed；默认用户无持仓时仍应保持 insufficient。
@@ -172,6 +229,7 @@ ADD / REDUCE / AUTO_TRADE / ORDER_CREATE
 - 前端需要提供正式评审工作台，让用户看懂哪些策略可比较、哪些只能观察、哪些因数据或验证不足被阻断。
 - 审计包需要集中输出 data grade、model effectiveness、manual plan draft 和 formal trading blockers。
 - 正式交易解锁清单只能定义和展示，不得自动释放 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
+- 正式交易 release 尚缺独立开发闭环：正式 provider、官方或可信 benchmark、formal validation passed、人工签核、paper/sandbox 隔离和订单 gate 审计。
 
 ## 4. 目标架构
 
@@ -429,7 +487,118 @@ POST /api/v1/portfolio-backtest/reviews/:runId
 
 ## 7. 开发计划与当前状态
 
-本节记录从 research-grade 到 formal-review-ready 的开发计划。2026-06-24 最新验收显示 PBT-0 到 PBT-11 已完成本阶段要求；后续正式交易级升级计划维护在 `docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md`。
+本节记录从 research-grade 到 formal-review-ready 的开发计划。2026-06-25 最新验收显示 PBT-0 到 PBT-11 已完成本阶段要求，并已生成正式交易 release 前置审计产物；后续正式交易 release 开发计划维护在 `docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md`。
+
+### Done-D1 长周期真实数据覆盖与多区间组合回测
+
+目标：把 1 年、3 年、5 年和自定义区间的真实数据组合回测作为当前 formal-review-ready 基线，而不是后续待办主线。
+
+当前状态：
+
+- `longHorizonRealDataBacktestReady=true`
+- `multiPeriodReplayMaterialized=true`
+- 1 年、3 年、5 年、自定义区间覆盖率分别为 `96.43% / 95.90% / 95.71% / 94.49%`
+- 7 个策略均可比较
+- `periodReplayPlaceholderBlocker=false`
+
+保留验收标准：
+
+- 1 年、3 年、5 年和自定义区间均有独立 artifact。
+- 至少三个组合在同一区间可比较。
+- 不同区间的结果互不覆盖，均可追溯 artifact。
+- 页面保留“研究回测，不构成交易指令”。
+
+用户效果：用户可以用 1 年、3 年、5 年和自定义区间判断组合表现是否稳定，并能看到不可比较项的阻断原因。
+
+### FTR-1 正式数据治理
+
+目标：把当前 free-source / cache / research-grade 证据升级为可进入正式 release 评审的数据治理证据。
+
+开发项：
+
+- 对行情、分红、除权、交易约束、行业、benchmark 建立字段级 provider contract。
+- 输出 `sourceProvider / asOfDate / fetchedAt / freshnessStatus / coverageStatus / crossCheckStatus / evidenceRefs`。
+- provider timeout、empty reply、stale cache 必须进入审计，不得静默忽略。
+
+验收标准：
+
+- `15_data_governance_audit.json` 中 release 关键字段均有字段级证据。
+- 免费源、proxy、手工补录不得标为 `official_authorized`。
+- 任一关键字段缺正式证据时，`formalTradingEligible=false`。
+
+用户效果：用户能看到每个关键数据字段来自哪里、是否新鲜、是否阻断 release。
+
+### FTR-2 可信 Benchmark 与分红总回报
+
+目标：让组合回测明确区分价格收益、分红收益、成本拖累和 benchmark 资格。
+
+开发项：
+
+- 扩展 total-return benchmark 状态：`formal_total_return / free_source_total_return / price_index / research_proxy / unavailable`。
+- 对分红事件、分红再投资、分红现金持有和除权调整输出 evidenceRefs。
+- 在前端和审计包中显示 benchmark 数据等级与正式 release 阻断项。
+
+验收标准：
+
+- `research_proxy` 不得参与 formal trading unlock。
+- `free_source_total_return` 可以支撑 formal-review-ready，但不得自动升级为官方或授权 benchmark。
+- 缺可信 total-return benchmark 时，formal validation 不能 passed。
+
+用户效果：用户能看懂收益来自价格上涨、分红还是 benchmark 选择差异。
+
+### FTR-3 Formal validation
+
+目标：把“能回测”升级为“历史有效性可进入正式评审”。
+
+开发项：
+
+- 对每个组合运行 OOS、walk-forward、参数敏感性、行业分组、市场状态分组和流动性分组稳定性。
+- 输出 `modelEffectivenessStatus`、failure taxonomy 和每个 gate 的证据引用。
+- 任一 gate warning/insufficient/failed 时，release gate 保持 blocked。
+
+验收标准：
+
+- Walk-forward 至少 6 个窗口。
+- OOS 或超额收益为负时不得标记 formal passed。
+- 参数敏感性和分组稳定性不得用单点或单组结果替代。
+
+用户效果：用户能知道“收益高”是否稳定，还是只在某个时间窗口有效。
+
+### FTR-4 人工签核与可视化验收
+
+目标：用多角色人工签核和自动化浏览器验收报告，确认用户路径和 release 材料可复核。
+
+开发项：
+
+- 维护数据、模型、风控、合规、最终 release 多角色签核。
+- 自动打开前端，完成策略选择、区间切换、运行回测、查看曲线、查看数据等级、查看阻断原因。
+- 保存截图证据、接口摘要、审计包路径和失败项。
+
+验收标准：
+
+- 任一签核缺失时 `manualSignoffStatus=missing` 且 release blocked。
+- HTML 报告包含截图、接口结果摘要、审计包路径和失败项。
+- 不允许虚假验收；无法跑通的用户路径必须写入阻断原因。
+
+用户效果：人类可以快速看懂系统当前到底能用到什么程度，并知道谁还没有签核。
+
+### FTR-5/FTR-6 执行隔离与 Release Gate
+
+目标：把正式交易 release 的全部前置 gate 收口到可审计的阻断清单，且不误触实盘订单。
+
+开发项：
+
+- 维护 `13_execution_isolation_audit.json` 到 `18_manual_signoff_audit.json` 的正式验收口径。
+- 维护 release blockers、manual signoff checklist 和 SUMMARY_FOR_GPT。
+- 明确 `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`orderCreateAllowed=false` 的保留条件。
+
+验收标准：
+
+- 缺正式数据、可信 benchmark、formal validation 或人工签核任一项时，release gate 必须 blocked。
+- `productionAdapterEnabled=false` 时不能创建订单。
+- 文档、前端、API 和审计包不能出现“交易可执行”的正向文案。
+
+用户效果：用户能看到正式交易 release 还差什么，而不是误以为回测通过就能下单。
 
 ### PBT-0 Runtime Health 与验收口径收口
 
@@ -625,6 +794,8 @@ POST /api/v1/portfolio-backtest/reviews/:runId
 portfolio_strategy_backtest_research_ready
 multi_portfolio_curve_compare_ready
 portfolio_backtest_audit_ready
+long_horizon_real_data_backtest_review_ready
+multi_period_portfolio_comparison_ready
 formal_trading_locked
 auto_trade_locked
 ```
@@ -644,6 +815,11 @@ auto_trade_locked
 下一阶段可以出门为：
 
 ```text
+formal_data_governance_review_ready
+trusted_total_return_benchmark_review_ready
+formal_validation_review_ready
+manual_signoff_workflow_ready
+release_gate_review_ready
 official_benchmark_upgrade_ready
 portfolio_model_effectiveness_review_ready
 manual_trade_review_workflow_ready
@@ -653,6 +829,7 @@ formal_trading_unlock_prerequisites_ready
 不能出门为：
 
 ```text
+formal_validation_passed_without_evidence
 formal_portfolio_trade_ready
 auto_rebalance_ready
 auto_trade_ready
@@ -709,6 +886,7 @@ test:portfolio-backtest-frontend-runtime
 ```text
 documentationCoverage=complete_for_research_grade_portfolio_backtest_PBT_1_to_PBT_7
 nextStageDocumentationCoverage=complete_for_PBT_8_to_PBT_10_research_grade
+longHorizonDocumentationCoverage=complete_for_formal_review_ready
 formalTradingCoverage=blocked_by_validation_and_manual_review
 overPromiseRisk=controlled
 ```

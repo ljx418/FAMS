@@ -988,6 +988,207 @@ const Backtest: React.FC = () => {
                 </div>
               </div>
             )}
+            {(portfolioBacktestResult.executionIsolationAudit || portfolioBacktestResult.releaseGateAudit) && (
+              <div className="grid gap-3 lg:grid-cols-2">
+                {portfolioBacktestResult.executionIsolationAudit && (
+                  <div className="rounded-lg border border-sky-400/20 bg-sky-500/10 p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Tag color="#38bdf8">纸面/沙盒隔离 {portfolioBacktestResult.executionIsolationAudit.status}</Tag>
+                      <Tag color={portfolioBacktestResult.executionIsolationAudit.paperTradingReady ? '#34d399' : '#fbbf24'}>
+                        纸面复核 {portfolioBacktestResult.executionIsolationAudit.paperTradingReady ? 'ready' : 'blocked'}
+                      </Tag>
+                      <Tag color="#ef4444">生产适配器 {String(portfolioBacktestResult.executionIsolationAudit.productionAdapterEnabled)}</Tag>
+                      <Tag color="#ef4444">真实持仓变更 {String(portfolioBacktestResult.executionIsolationAudit.realPositionMutationAllowed)}</Tag>
+                      <Tag color="#ef4444">ORDER_CREATE {String(portfolioBacktestResult.executionIsolationAudit.orderCreateAllowed)}</Tag>
+                    </div>
+                    <div className="text-gray-300">
+                      已生成 {(portfolioBacktestResult.paperOrderIntents || []).length} 条纸面复核意图；这些意图只用于人工检查，不会提交订单或修改真实持仓。
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {(portfolioBacktestResult.executionIsolationAudit.blockers || []).slice(0, 8).map((blocker: string) => (
+                        <Tag key={blocker} color="#ef4444">{blocker}</Tag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {portfolioBacktestResult.releaseGateAudit && (
+                  <div className="rounded-lg border border-red-400/20 bg-red-500/10 p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Tag color="#ef4444">Release Gate {portfolioBacktestResult.releaseGateAudit.status}</Tag>
+                      <Tag color="#ef4444">canCreateOrder={String(portfolioBacktestResult.releaseGateAudit.canCreateOrder)}</Tag>
+                      <Tag color="#ef4444">formalTradingUnlocked={String(portfolioBacktestResult.releaseGateAudit.formalTradingUnlocked)}</Tag>
+                      <Tag color="#ef4444">autoTradeUnlocked={String(portfolioBacktestResult.releaseGateAudit.autoTradeUnlocked)}</Tag>
+                    </div>
+                    <div className="text-gray-300">
+                      Release Gate 用于列明正式交易放行前的缺口；当前仍是正式交易前置评审，不代表交易已可用。
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {(portfolioBacktestResult.releaseGateAudit.checks || []).slice(0, 9).map((check: any) => (
+                        <Tag key={check.id} color={check.status === 'passed' ? '#34d399' : '#ef4444'}>
+                          {check.id}:{check.status}
+                        </Tag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {(portfolioBacktestResult.longHorizonDataCoverageAudit
+              || portfolioBacktestResult.multiPeriodBacktestResult
+              || portfolioBacktestResult.dividendTotalReturnAudit) && (
+              <div className="grid gap-3 xl:grid-cols-3">
+                {portfolioBacktestResult.longHorizonDataCoverageAudit && (
+                  <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Tag color={portfolioBacktestResult.longHorizonDataCoverageAudit.longHorizonRealDataBacktestReady ? '#34d399' : '#ef4444'}>
+                        长周期真实数据 {portfolioBacktestResult.longHorizonDataCoverageAudit.status}
+                      </Tag>
+                      <Tag color="#ef4444">
+                        ready={String(portfolioBacktestResult.longHorizonDataCoverageAudit.longHorizonRealDataBacktestReady)}
+                      </Tag>
+                    </div>
+                    <div className="space-y-1 text-gray-300">
+                      {(portfolioBacktestResult.longHorizonDataCoverageAudit.periods || []).map((period: any) => (
+                        <div key={period.periodId} className="rounded-md bg-white/5 p-2">
+                          <div className="flex justify-between gap-2">
+                            <span>{period.label}</span>
+                            <span>{period.coveragePercent}% / {period.comparableStrategyCount} 策略</span>
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">
+                            {period.requestedStartDate} 至 {period.requestedEndDate}，交易日 {period.availableTradingDays}/{period.requiredTradingDays}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {portfolioBacktestResult.multiPeriodBacktestResult && (
+                  <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Tag color={portfolioBacktestResult.multiPeriodBacktestResult.status === 'passed' ? '#34d399' : '#fbbf24'}>
+                        多区间回测 {portfolioBacktestResult.multiPeriodBacktestResult.status}
+                      </Tag>
+                    </div>
+                    <div className="space-y-1 text-gray-300">
+                      {(portfolioBacktestResult.multiPeriodBacktestResult.periods || []).map((period: any) => (
+                        <div key={period.periodId} className="rounded-md bg-white/5 p-2">
+                          <div className="flex justify-between gap-2">
+                            <span>{period.label}</span>
+                            <span>{period.completedStrategyCount}/{period.strategyCount} completed</span>
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">
+                            {period.requestedStartDate} 至 {period.requestedEndDate}，覆盖率 {period.coveragePercent}%
+                          </div>
+                          <div className="mt-1 space-y-1 text-xs text-gray-400">
+                            {(period.strategySummaries || []).slice(0, 3).map((strategy: any) => (
+                              <div key={strategy.strategyId} className="flex justify-between gap-2">
+                                <span className="truncate">{strategy.strategyId}</span>
+                                <span className="shrink-0">{strategy.totalReturnPercent ?? 'NA'}% / {strategy.equityCurvePoints} 点</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {(portfolioBacktestResult.multiPeriodBacktestResult.blockers || []).length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {(portfolioBacktestResult.multiPeriodBacktestResult.blockers || []).slice(0, 5).map((blocker: string) => (
+                          <Tag key={blocker} color="#fbbf24">{blocker}</Tag>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {portfolioBacktestResult.dividendTotalReturnAudit && (
+                  <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Tag color={portfolioBacktestResult.dividendTotalReturnAudit.status === 'passed' ? '#34d399' : '#fbbf24'}>
+                        分红总回报 {portfolioBacktestResult.dividendTotalReturnAudit.status}
+                      </Tag>
+                      <Tag color="#38bdf8">{portfolioBacktestResult.dividendTotalReturnAudit.mode}</Tag>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-gray-300">
+                      <span>覆盖策略</span><span className="text-right">{portfolioBacktestResult.dividendTotalReturnAudit.coveredStrategyCount}/{portfolioBacktestResult.dividendTotalReturnAudit.strategyCount}</span>
+                      <span>覆盖率</span><span className="text-right">{portfolioBacktestResult.dividendTotalReturnAudit.coveragePercent}%</span>
+                      <span>分红贡献</span><span className="text-right">{String(portfolioBacktestResult.dividendTotalReturnAudit.dividendContributionAvailable)}</span>
+                      <span>成本拖累</span><span className="text-right">{String(portfolioBacktestResult.dividendTotalReturnAudit.costDragAvailable)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {(portfolioBacktestResult.dataGovernanceAudit
+              || portfolioBacktestResult.benchmarkQualificationAudit
+              || portfolioBacktestResult.formalValidationAudit
+              || portfolioBacktestResult.manualSignoffAudit) && (
+              <div className="grid gap-3 xl:grid-cols-4">
+                {portfolioBacktestResult.dataGovernanceAudit && (
+                  <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Tag color={portfolioBacktestResult.dataGovernanceAudit.status === 'passed' ? '#34d399' : '#ef4444'}>
+                        数据治理 {portfolioBacktestResult.dataGovernanceAudit.status}
+                      </Tag>
+                      <Tag color="#fbbf24">字段 {portfolioBacktestResult.dataGovernanceAudit.items?.length || 0}</Tag>
+                    </div>
+                    <div className="space-y-1 text-gray-300">
+                      {(portfolioBacktestResult.dataGovernanceAudit.items || []).slice(0, 4).map((item: any) => (
+                        <div key={item.fieldId} className="flex justify-between gap-2">
+                          <span>{item.scope}</span>
+                          <span>{item.crossCheckStatus} / {item.coveragePercent}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {portfolioBacktestResult.benchmarkQualificationAudit && (
+                  <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Tag color={portfolioBacktestResult.benchmarkQualificationAudit.canSupportFormalReview ? '#34d399' : '#ef4444'}>
+                        Benchmark 评审 {String(portfolioBacktestResult.benchmarkQualificationAudit.canSupportFormalReview)}
+                      </Tag>
+                      <Tag color={portfolioBacktestResult.benchmarkQualificationAudit.canSupportFormalTrading ? '#34d399' : '#ef4444'}>
+                        正式交易基准 {String(portfolioBacktestResult.benchmarkQualificationAudit.canSupportFormalTrading)}
+                      </Tag>
+                    </div>
+                    <div className="text-gray-300">
+                      免费源 total-return：{String(portfolioBacktestResult.benchmarkQualificationAudit.hasFreeSourceTotalReturn)}；官方授权：{String(portfolioBacktestResult.benchmarkQualificationAudit.hasFormalTotalReturn)}
+                    </div>
+                  </div>
+                )}
+                {portfolioBacktestResult.formalValidationAudit && (
+                  <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Tag color={portfolioBacktestResult.formalValidationAudit.status === 'passed' ? '#34d399' : portfolioBacktestResult.formalValidationAudit.status === 'failed' ? '#ef4444' : '#fbbf24'}>
+                        Formal Validation {portfolioBacktestResult.formalValidationAudit.status}
+                      </Tag>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-gray-300">
+                      <span>passed</span><span className="text-right">{portfolioBacktestResult.formalValidationAudit.passedStrategies}</span>
+                      <span>warning</span><span className="text-right">{portfolioBacktestResult.formalValidationAudit.warningStrategies}</span>
+                      <span>insufficient</span><span className="text-right">{portfolioBacktestResult.formalValidationAudit.insufficientStrategies}</span>
+                      <span>failed</span><span className="text-right">{portfolioBacktestResult.formalValidationAudit.failedStrategies}</span>
+                    </div>
+                  </div>
+                )}
+                {portfolioBacktestResult.manualSignoffAudit && (
+                  <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Tag color={portfolioBacktestResult.manualSignoffAudit.allRequiredSignedOff ? '#34d399' : '#ef4444'}>
+                        人工签核 {portfolioBacktestResult.manualSignoffAudit.status}
+                      </Tag>
+                      <Tag color="#ef4444">canCreateOrder={String(portfolioBacktestResult.manualSignoffAudit.canCreateOrder)}</Tag>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {(portfolioBacktestResult.manualSignoffAudit.records || []).map((record: any) => (
+                        <Tag key={record.role} color={record.status === 'recorded' ? '#34d399' : '#ef4444'}>
+                          {record.role}:{record.status}
+                        </Tag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <Tag color="#38bdf8">人工计划复核记录</Tag>

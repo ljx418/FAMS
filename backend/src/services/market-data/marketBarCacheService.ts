@@ -605,10 +605,7 @@ class MarketBarCacheService {
       try {
         await this.assertProviderUsable(provider)
         const fetched = await Promise.race([
-          getSinaStockHistory(symbol, days).then(async (history) => {
-            if (history.length > 0) return history
-            return getStockHistory(symbol, days)
-          }),
+          this.fetchProviderHistory(symbol, days, provider),
           new Promise<StockHistoryData[]>((_, reject) => setTimeout(() => reject(new Error('provider timeout after 12000ms')), 12_000)),
         ])
         if (fetched.length > 0) {
@@ -624,6 +621,20 @@ class MarketBarCacheService {
       }
     }
     throw lastError
+  }
+
+  private async fetchProviderHistory(symbol: string, days: number, provider: string) {
+    const normalized = provider.toLowerCase()
+    if (normalized.includes('eastmoney')) {
+      const eastmoneyHistory = await getStockHistory(symbol, days)
+      if (eastmoneyHistory.length > 0) return eastmoneyHistory
+      return getSinaStockHistory(symbol, days)
+    }
+
+    const sinaHistory = await getSinaStockHistory(symbol, days)
+    if (sinaHistory.length >= Math.min(days, 90)) return sinaHistory
+    const fallbackHistory = await getStockHistory(symbol, days)
+    return fallbackHistory.length > sinaHistory.length ? fallbackHistory : sinaHistory
   }
 
   async getHistory(symbol: string, days: number, options: { market?: string; provider?: string; forceRefresh?: boolean } = {}): Promise<MarketBarCacheResult> {

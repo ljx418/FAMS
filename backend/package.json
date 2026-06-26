@@ -83,6 +83,7 @@
     "test:trade-action-readiness": "node node_modules/tsx/dist/cli.mjs scripts/verify-production-readiness.ts --strict-trade",
     "test:portfolio-strategy-backtest": "node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-strategy-backtest.ts",
     "test:portfolio-backtest-api-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-backtest-api-contract.ts",
+    "test:portfolio-backtest-long-horizon": "node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-backtest-long-horizon.ts",
     "test:portfolio-backtest-frontend-runtime": "node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-backtest-frontend-runtime.ts",
     "test:frontend-ux-consistency": "node node_modules/tsx/dist/cli.mjs scripts/verify-frontend-ux-consistency.ts",
     "test:dividend-low-vol-basket-snapshot": "node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-basket-snapshot.ts",

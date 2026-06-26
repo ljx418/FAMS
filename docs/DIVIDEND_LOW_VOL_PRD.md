@@ -1,6 +1,6 @@
 # 红利低波行业龙头策略 PRD
 
-更新时间：2026-06-25
+更新时间：2026-06-26
 
 ## 1. 产品定位
 
@@ -37,6 +37,47 @@ autoTradeUnlocked=false
 ```
 
 本阶段的新增目标不是开放正式交易，而是把“红利低波策略 + 组合策略回测 + 人工交易计划草案”整理成正式交易评审前置材料完整的产品路径。用户应能看懂候选、曲线、数据等级、模型有效性、人工草案和阻断原因；系统仍不得创建订单、不得输出正式 `ADD / REDUCE`，也不得开放 `AUTO_TRADE`。
+
+2026-06-25 正式交易 release 文档校准：
+
+```text
+formalTradingReleaseDocsReady=true
+longHorizonRealDataBacktestReady=true
+formalTradingEligible=false
+orderCreateAllowed=false
+canCreateOrder=false
+```
+
+正式交易 release 需要另行满足正式 provider、官方或可信 total-return benchmark、formal validation、人工签核、paper/sandbox 执行隔离和 release gate 审计。本 PRD 当前只把这些能力定义为后续开发目标，不把红利低波候选、买卖观察区间或人工计划草案升级为正式交易动作。
+
+红利低波篮子进入长周期组合回测时，必须按 1 年、3 年、5 年和自定义区间分别输出真实行情、分红、交易约束、benchmark 和模型验证证据。当前审计支持声明 `longHorizonRealDataBacktestReady=true`，但该声明只表示 formal-review-ready，不表示正式交易 release。
+
+当前文档开发主线已经从“补齐长周期 replay”切换为“正式交易 release 前置评审”：红利低波策略负责提供候选篮子、买卖观察区间、分红/质量/低波/估值证据、组合回测输入和模型有效性证据；后续 FTR-1 到 FTR-6 需要分别关闭正式数据治理、可信 total-return benchmark、formal validation、人工签核、执行隔离和 release gate。任一 gate 未通过时，红利低波页面只能展示研究结论、观察区间和人工计划草案。
+
+当前状态源：
+
+```text
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/15_release_data_governance_audit.json
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-12-17-124Z/03_frontend_runtime_and_operation_audit.json
+```
+
+该审计包已证明文档和前置审计路径可进入 formal review，但 release gate 仍 blocked。
+
+红利低波进入组合回测和 release 前置评审时，字段级数据治理必须至少展示 `sourceProvider / sourceEndpoint / asOfDate / fetchedAt / freshnessStatus / coverageStatus / crossCheckStatus / evidenceRefs`。最新审计包已补齐 `asOfDate`，但正式 provider、官方 benchmark、formal validation 和人工签核仍未完成，因此只能保持研究、观察和人工计划草案。
+
+当前 release gate 相关状态：
+
+```text
+executionIsolationAudit=ready_for_review
+releaseGateAudit=blocked
+dataGovernanceAudit=blocked
+benchmarkQualificationAudit=review_ready
+formalValidationAudit=warning
+manualSignoffAudit=missing
+```
+
+红利低波策略在正式交易 release 中的职责是提供可审计的候选、观察区间、回测输入和模型有效性证据；它不能单独解锁正式 `ADD / REDUCE / ORDER_CREATE`。
 
 红利低波策略可以作为组合回测目标架构中的策略篮子来源；当前已接入真实 `DividendLowVolDaily` 候选快照读取、等权 v1、tradeDate、selectionRules 和 evidenceRefs。若真实入篮数量低于最小 3 只、行业/单票约束不足或 evidenceRefs 不完整，`dividend_low_vol_basket` 必须保持 insufficient，不得用本地样本组合替代红利低波篮子。
 
@@ -84,6 +125,13 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 2. 不把免费源或 research proxy benchmark 解释为官方授权 benchmark。
 3. 不把 formal-review-ready 解释为 formal-trading-ready。
 4. 不在人工复核、正式 provider、官方 benchmark 和模型有效性验证完成前释放正式交易动作。
+
+正式交易 release 阶段的非目标：
+
+1. 不通过文档更新自动把 `formalTradingUnlocked` 改为 true。
+2. 不把 paper trading 或 sandbox 结果解释为实盘成交。
+3. 不在订单执行隔离评审前开放 `ORDER_CREATE`。
+4. 不把 `AUTO_TRADE` 纳入本阶段 release 范围。
 
 ## 3. 用户角色与场景
 
@@ -218,6 +266,21 @@ EvidenceAdjustedScore =
 - fallback provider 不能升级为 `verified_industry_leader`
 - 正式数据缺失时只能显示 `insufficient` 或 optional upgrade warning
 - 每日收盘扫描不能承诺 100% 最新，只能通过 freshness gate 和异常阻断保护用户体验
+
+正式交易 release 数据要求维护在：
+
+```text
+docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md
+```
+
+红利低波进入正式交易 release 前，至少需要补齐：
+
+- 正式 provider 或等价可信数据源的字段级 evidence。
+- 官方或可信 total-return benchmark。
+- 行情、分红、财务、行业、交易约束的 freshness 和 coverage 审计。
+- OOS、walk-forward、参数敏感性、行业/市场/流动性分组稳定性。
+- 数据、模型、风控、合规和最终 release 人工签核。
+- Paper trading / sandbox 执行隔离验证。
 
 数据最新性口径：
 

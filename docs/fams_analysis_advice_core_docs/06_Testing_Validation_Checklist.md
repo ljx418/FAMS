@@ -387,7 +387,7 @@ dataGapSummary
 ```text
 portfolio summary validation failed => prohibit ADD/REDUCE/AUTO_TRADE
 position detail validation failed => formalTradeActionAllowed=false
-candidate scoring validation failed => no ADD/REDUCE/AUTO_TRADE allowed
+candidate scoring validation failed => ADD/REDUCE/AUTO_TRADE must remain prohibited
 manual trade draft validation failed => status=blocked
 LLM explanation cannot output imperative trade instructions
 snapshot/watch/risk-alert cannot create transactions

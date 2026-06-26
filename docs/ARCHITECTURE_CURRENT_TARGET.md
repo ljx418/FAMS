@@ -14,6 +14,28 @@ The paired draw.io diagram is stored at `docs/fams-architecture.drawio`.
 A focused target-and-gap diagram is stored at
 `docs/target-architecture-gap.drawio`.
 
+2026-06-25 formal trading release documentation target:
+
+- Release development and acceptance plan:
+  `docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md`.
+- The current system remains locked:
+  `formalTradingUnlocked=false`, `autoTradeUnlocked=false`,
+  `canCreateOrder=false`, `orderCreateAllowed=false`.
+- Long-horizon real-data portfolio backtesting is formal-review-ready:
+  `longHorizonRealDataBacktestReady=true`.
+- The target architecture must mark formal provider data, official or trusted
+  total-return benchmarks, formal validation, human signoff, paper/sandbox
+  execution isolation, and release gate audit as future release capabilities.
+- The draw.io gap diagram must stay within 8 pages and express the release path
+  inside the existing 7-page structure without contradicting the current trade
+  lock.
+- The current release-gate audit model is explicit:
+  `executionIsolationAudit=ready_for_review`,
+  `releaseGateAudit=blocked`, `dataGovernanceAudit=blocked`,
+  `benchmarkQualificationAudit=review_ready`,
+  `formalValidationAudit=warning`, and
+  `manualSignoffAudit=missing`.
+
 ## Current Implementation
 
 ### Runtime Shape
@@ -122,6 +144,8 @@ The user-facing target experience is:
   all-weather, local real-data sample, or custom-weight strategies.
 - Configure start/end dates, initial capital, rebalance frequency, dividend
   mode, fees, slippage, and benchmark.
+- Compare 1-year, 3-year, 5-year, and custom-range results when the required
+  real data coverage exists; otherwise see explicit insufficiency reasons.
 - View multi-strategy equity curves, drawdown curves, metrics, benchmark
   returns, excess returns, dividend contribution, data coverage, blocked
   reasons, and evidence references.
@@ -161,6 +185,12 @@ The target architecture relationship is:
   package. This does not unlock formal trading because official benchmark
   upgrade, model effectiveness validation, human review records, and execution
   controls are still separate gates.
+- Multi-period portfolio replay is now materialized for 1-year, 3-year,
+  5-year, and custom windows through `PortfolioBacktestEngine`. The latest
+  audit sets `longHorizonRealDataBacktestReady=true`: 1-year `96.43%`,
+  3-year `95.90%`, and 5-year `95.71%` coverage across 7 comparable strategies.
+  This still does not unlock formal trading because data governance, model
+  validation, human signoff, and production order controls remain separate gates.
 
 2026-06-25 formal-trading-prerequisite documentation sync:
 
@@ -176,8 +206,28 @@ The target architecture relationship is:
 - Components to add next are a formal trading unlock checklist, data-grade audit
   artifacts, model-effectiveness artifacts, manual-plan-draft artifacts, and
   blocker reports for human review.
+- Release-stage artifacts are now part of the target architecture:
+  `13_execution_isolation_audit.json`, `14_release_gate_audit.json`,
+  `15_data_governance_audit.json`, `16_benchmark_qualification_audit.json`,
+  `17_formal_validation_audit.json`, and `18_manual_signoff_audit.json`.
+  These artifacts explain release blockers. They are not evidence that formal
+  trading has been unlocked.
 - The hard boundary remains unchanged: no formal `ADD / REDUCE`, no
   `ORDER_CREATE`, no automatic rebalance, and no `AUTO_TRADE` in this stage.
+
+2026-06-26 formal-trading-release planning sync:
+
+- Current state source is
+  `backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md`.
+- Frontend runtime evidence is
+  `backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-12-17-124Z/03_frontend_runtime_and_operation_audit.json`.
+- FTR-1 field-level data governance now requires and exposes
+  `sourceProvider`, `sourceEndpoint`, `asOfDate`, `fetchedAt`,
+  `freshnessStatus`, `coverageStatus`, `crossCheckStatus`, and `evidenceRefs`.
+- The latest release data governance audit has `asOfDate` populated for price,
+  benchmark, dividend, and tradeability fields. This improves formal-review
+  evidence, but official providers, official or trusted benchmark qualification,
+  formal validation, and human signoff still keep release blocked.
 
 Exit status for this stage should be:
 
@@ -206,8 +256,11 @@ Machine-readable aliases for implementation and audit checks:
 portfolioBacktestFormalReviewReady=true
 portfolioStrategyBacktestFormalReviewReady=true
 manualTradePlanDraftReviewReady=true
+longHorizonRealDataBacktestReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
+orderCreateAllowed=false
+canCreateOrder=false
 ```
 
 The stage target API and artifact surface must expose:

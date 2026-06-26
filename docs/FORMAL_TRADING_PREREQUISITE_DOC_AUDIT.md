@@ -1,6 +1,6 @@
 # 正式交易前置文档验收审计
 
-更新时间：2026-06-25
+更新时间：2026-06-26
 
 ## 1. 审计结论
 
@@ -11,7 +11,9 @@ formalTradingUnlocked = false
 autoTradeUnlocked = false
 ```
 
-本轮审计结论：当前文档可以支撑 `formal-trading-prerequisite` 阶段自动化开发。该结论只表示“正式交易解锁前置材料、组合回测正式评审材料、人工计划草案复核材料”已经具备文档支撑，不表示正式交易 release，不表示订单创建或自动交易可用。
+本轮审计结论：当前文档可以支撑 `formal-trading-prerequisite` 阶段自动化开发。该结论只表示“正式交易前置材料、组合回测正式评审材料、人工计划草案复核材料”已经具备文档支撑，不表示正式交易 release，不表示订单创建或自动交易放行。
+
+2026-06-26 追加审计结论：文档已同步最新交互式策略回测审计包 `backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md`。当前可以声明多区间 replay 已 materialized，且 `longHorizonRealDataBacktestReady=true`：1 年、3 年、5 年覆盖率分别为 `96.43% / 95.90% / 95.71%`，7 个策略均可比较。该结论仍不表示正式交易 release。
 
 ## 2. 本轮修订内容
 
@@ -78,12 +80,12 @@ pageLimit = 8
 
 ```text
 1 目标体验与用户路径
-2 分层架构与调用关系
-3 组合回测实现路径
-4 红利低波实现路径
-5 数据可信与模型验证
+2 当前架构与目标架构差异
+3 长周期组合回测目标架构
+4 数据治理与真实数据链路
+5 模型验证与 Release Gate
 6 开发及验收计划
-7 里程碑出门与审计
+7 里程碑与出门条件
 ```
 
 本体验收结论：通过。图中已绑定前端页面、后端 API、服务、数据证据、Operation artifact、审计产物和交易边界，不再只依赖摘要审计。
@@ -155,3 +157,11 @@ orderCreateAllowed=false
 ```
 
 正式交易 release 仍需后续独立完成官方 benchmark、正式 provider、完整交易约束、模型有效性 formal passed、人工签核、合规/风控签核和订单执行隔离评审。
+
+2026-06-25 release 文档补充：
+
+```text
+docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md
+```
+
+该文档用于指导后续正式交易 release 开发和验收。它不会改变当前审计结论：`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`。

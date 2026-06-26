@@ -254,7 +254,8 @@ export async function getChinaStockHistory(
   try {
     const endDate = new Date()
     const startDate = new Date()
-    startDate.setDate(startDate.getDate() - days)
+    const calendarLookbackDays = Math.ceil(days * (365 / 252)) + 14
+    startDate.setDate(startDate.getDate() - calendarLookbackDays)
 
     const startDateStr = startDate.toISOString().split('T')[0].replace(/-/g, '')
     const endDateStr = endDate.toISOString().split('T')[0].replace(/-/g, '')

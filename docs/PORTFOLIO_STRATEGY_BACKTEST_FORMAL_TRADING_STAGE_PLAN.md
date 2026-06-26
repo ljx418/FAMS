@@ -15,6 +15,14 @@ formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
+本文件定义的是正式交易前置阶段。正式交易 release 的下一阶段开发及验收计划维护在：
+
+```text
+docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md
+```
+
+该 release 计划只有在正式 provider、官方或可信 total-return benchmark、formal validation、人工签核、paper/sandbox 执行隔离和 release gate 审计准备完成后才可进入实现；当前仍保持 `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`。
+
 下一阶段目标不是立即放行交易，而是把系统从“组合回测正式评审 ready”推进到“正式交易级解锁前置材料完整”。完成后，项目应能让人工审核者清楚回答：
 
 1. 数据是否足够可信。
@@ -367,16 +375,19 @@ official_benchmark_certified
 下一轮 ChatGPT 或独立审计应先读取：
 
 ```text
+docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md
 docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md
 docs/PORTFOLIO_STRATEGY_BACKTEST_PLAN.md
 docs/TARGET_ARCHITECTURE_GAP.md
 docs/target-architecture-gap.drawio
 docs/drawio-summary.txt
 docs/INTERACTIVE_STRATEGY_BACKTEST_STAGE_AUDIT.md
-backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/SUMMARY_FOR_GPT.md
-backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/manifest.json
-backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/04_formal_review_prerequisite_audit.json
-backend/data/gpt-audit/interactive-strategy-backtest/2026-06-24T13-44-15-125Z/06_trade_gate_contract.json
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/manifest.json
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/04_formal_review_prerequisite_audit.json
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/06_trade_gate_contract.json
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/14_formal_trading_release_gate_audit.json
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/18_manual_signoff_audit.json
 ```
 
 ## 9. 文档开发验收清单

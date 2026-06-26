@@ -1,0 +1,742 @@
+{
+  "schemaVersion": "fams.full_system_e2e_acceptance.v1",
+  "generatedAt": "2026-06-26T20:20:33.765Z",
+  "reportDir": "/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/full-system-e2e/2026-06-26T20-20-33-765Z",
+  "overallStatus": "passed",
+  "summary": {
+    "researchReady": "yes",
+    "manualDraftReady": "yes_if_gate_evidence_ready",
+    "formalTradingUnlocked": "false",
+    "autoTradeUnlocked": "false"
+  },
+  "architecture": {
+    "target": [
+      "数据源与证据层：免费数据源/Tushare 升级源、行情、分红、行业龙头、交易约束、evidenceRefs。",
+      "策略与验证层：红利低波、组合回测、滚动策略、validation retest、failure taxonomy。",
+      "Operation 审计层：所有重任务落 Operation 与 artifact，支持任务中心追溯。",
+      "前端体验层：独立红利低波、组合回测、任务中心、持仓和告警路径。",
+      "交易 Gate：研究/观察/计划草案与正式交易动作隔离，AUTO_TRADE 禁止。"
+    ],
+    "current": [
+      "已实现红利低波独立菜单、候选池、筛选排序、买卖区间、滚动回测和人工草案 gate。",
+      "已实现组合策略多曲线回测、永久组合/全天候代理 ETF 路径、Operation artifact。",
+      "已实现生产/交易 gate 合同测试；正式自动交易仍未开放。",
+      "仍需持续审计正式 total-return benchmark、免费数据最新性与文档漂移。"
+    ]
+  },
+  "documentAudit": {
+    "status": "passed",
+    "checks": [
+      {
+        "id": "prd_research_boundary",
+        "label": "PRD 明确研究/观察边界",
+        "status": "passed",
+        "evidence": "DIVIDEND_LOW_VOL_PRD.md"
+      },
+      {
+        "id": "prd_manual_draft_path",
+        "label": "PRD 覆盖人工交易计划草案路径",
+        "status": "passed",
+        "evidence": "DIVIDEND_LOW_VOL_PRD.md"
+      },
+      {
+        "id": "portfolio_backtest_goal",
+        "label": "组合回测文档覆盖多组合曲线目标",
+        "status": "passed",
+        "evidence": "PORTFOLIO_STRATEGY_BACKTEST_PLAN.md"
+      },
+      {
+        "id": "drawio_current_target",
+        "label": "Drawio 覆盖当前架构与目标架构差异",
+        "status": "passed",
+        "evidence": "target-architecture-gap.drawio"
+      },
+      {
+        "id": "doc_drift_proxy_etf",
+        "label": "组合回测文档仍可能保留 ETF proxy 阻塞旧描述",
+        "status": "passed",
+        "evidence": "PORTFOLIO_STRATEGY_BACKTEST_PLAN.md",
+        "note": "若自动化测试证明 permanent/all_weather 已完成，此项应作为文档漂移修复，而不是功能失败。"
+      },
+      {
+        "id": "architecture_trade_gate",
+        "label": "架构文档覆盖交易 gate 与审计边界",
+        "status": "passed",
+        "evidence": "TARGET_ARCHITECTURE_GAP.md / ARCHITECTURE_CURRENT_TARGET.md"
+      }
+    ],
+    "summary": {
+      "prdLength": 14772,
+      "backtestPlanLength": 24459,
+      "targetGapLength": 121431,
+      "drawioLength": 52224
+    }
+  },
+  "codeInspection": {
+    "status": "passed",
+    "checks": [
+      {
+        "id": "frontend_route_dividend_low_vol",
+        "label": "前端存在红利低波独立路由",
+        "status": "passed",
+        "evidence": "frontend/src/App.tsx / frontend/src/components/layout/AppLayout.tsx"
+      },
+      {
+        "id": "frontend_route_backtest",
+        "label": "前端存在组合策略回测入口",
+        "status": "passed",
+        "evidence": "frontend/src/App.tsx / frontend/src/components/layout/AppLayout.tsx"
+      },
+      {
+        "id": "frontend_route_operations",
+        "label": "前端存在任务中心追溯入口",
+        "status": "passed",
+        "evidence": "frontend/src/App.tsx / frontend/src/components/layout/AppLayout.tsx"
+      },
+      {
+        "id": "frontend_dividend_research_boundary",
+        "label": "红利低波页面明确非交易指令和 AUTO_TRADE 禁止",
+        "status": "passed",
+        "evidence": "frontend/src/pages/DividendLowVol.tsx"
+      },
+      {
+        "id": "frontend_dividend_filters_and_zones",
+        "label": "红利低波页面包含筛选排序、买卖观察区间和滚动回测",
+        "status": "passed",
+        "evidence": "frontend/src/pages/DividendLowVol.tsx"
+      },
+      {
+        "id": "frontend_backtest_formal_review_fields",
+        "label": "组合回测页面展示数据等级、模型有效性、草案和正式交易锁",
+        "status": "passed",
+        "evidence": "frontend/src/pages/Backtest.tsx"
+      },
+      {
+        "id": "frontend_analysis_fivd_r",
+        "label": "分析建议页包含 FIVD-R 统一分析与交易阻断说明",
+        "status": "passed",
+        "evidence": "frontend/src/pages/Analysis.tsx"
+      },
+      {
+        "id": "backend_dividend_routes",
+        "label": "后端暴露红利低波候选、交易区间、回测和 FIVD-R adapter",
+        "status": "passed",
+        "evidence": "backend/src/routes/strategy.ts"
+      },
+      {
+        "id": "backend_portfolio_backtest_routes",
+        "label": "后端暴露组合回测 templates/run 与正式交易解锁审计产物",
+        "status": "passed",
+        "evidence": "backend/src/index.ts / backend/src/routes/portfolioBacktest.ts"
+      },
+      {
+        "id": "backend_operation_artifacts",
+        "label": "后端 Operation 支持 artifact 读取",
+        "status": "passed",
+        "evidence": "backend/src/routes/operation.ts"
+      },
+      {
+        "id": "frontend_service_fivd_and_dividend_api",
+        "label": "前端服务封装 FIVD-R 与红利低波接口",
+        "status": "passed",
+        "evidence": "frontend/src/services/analysisService.ts"
+      }
+    ],
+    "summary": {
+      "inspectedFiles": 12,
+      "passedChecks": 11,
+      "failedChecks": 0,
+      "blockedChecks": 0
+    }
+  },
+  "prdCoverage": {
+    "status": "passed",
+    "rows": [
+      {
+        "capability": "红利低波独立菜单和研究模式说明",
+        "status": "passed",
+        "evidence": "前端截图 /dividend-low-vol"
+      },
+      {
+        "capability": "候选池指标、筛选、排序和数据完整性展示",
+        "status": "passed",
+        "evidence": "截图 + /api/v1/strategy/dividend-low-vol/candidates"
+      },
+      {
+        "capability": "买入/卖出观察区间和滚动策略展示",
+        "status": "passed",
+        "evidence": "前端截图；若未先运行区间生成，报告为 blocked"
+      },
+      {
+        "capability": "人工计划草案与交易 gate",
+        "status": "passed",
+        "evidence": "前端截图 + test:trade-action-readiness"
+      },
+      {
+        "capability": "组合策略多曲线回测",
+        "status": "passed",
+        "evidence": "前端截图 + test:portfolio-backtest-api-contract"
+      },
+      {
+        "capability": "任务中心产物追溯",
+        "status": "passed",
+        "evidence": "前端截图 /operations"
+      },
+      {
+        "capability": "正式交易和自动交易禁止",
+        "status": "passed",
+        "evidence": "命令 + API prohibitedActions"
+      },
+      {
+        "capability": "FIVD-R 统一分析入口和交易阻断可见",
+        "status": "passed",
+        "evidence": "截图 /analysis?section=fivdr + test:fivd-r-core"
+      },
+      {
+        "capability": "跨设备基础可读性截图",
+        "status": "passed",
+        "evidence": "Playwright desktop/tablet/mobile screenshots"
+      }
+    ]
+  },
+  "testCoverage": {
+    "status": "passed",
+    "rows": [
+      {
+        "name": "typescript",
+        "label": "TypeScript 编译",
+        "status": "passed",
+        "evidence": "node node_modules/typescript/bin/tsc (5815ms)"
+      },
+      {
+        "name": "sqlite health",
+        "label": "SQLite 运行时健康",
+        "status": "passed",
+        "evidence": "npm run check:sqlite-health (39065ms)"
+      },
+      {
+        "name": "dividend low vol api",
+        "label": "红利低波 API 合同",
+        "status": "passed",
+        "evidence": "npm run test:dividend-low-vol-api (40011ms)"
+      },
+      {
+        "name": "dividend low vol audit package",
+        "label": "红利低波审计包",
+        "status": "passed",
+        "evidence": "npm run test:dividend-low-vol-audit-package (52491ms)"
+      },
+      {
+        "name": "dividend low vol rolling backtest",
+        "label": "红利低波滚动回测",
+        "status": "passed",
+        "evidence": "npm run test:dividend-low-vol-rolling-backtest (683ms)"
+      },
+      {
+        "name": "dividend low vol validation retest",
+        "label": "红利低波验证 retest",
+        "status": "passed",
+        "evidence": "npm run test:dividend-low-vol-validation-retest (715ms)"
+      },
+      {
+        "name": "dividend low vol frontend runtime",
+        "label": "红利低波前端静态合同",
+        "status": "passed",
+        "evidence": "npm run test:dividend-low-vol-frontend-runtime (498ms)"
+      },
+      {
+        "name": "fivd-r core",
+        "label": "FIVD-R 核心合同",
+        "status": "passed",
+        "evidence": "npm run test:fivd-r-core (1847ms)"
+      },
+      {
+        "name": "fivd-r trade gate contract",
+        "label": "FIVD-R 交易 gate 合同",
+        "status": "passed",
+        "evidence": "npm run test:fivd-r-trade-gate-contract (1920ms)"
+      },
+      {
+        "name": "portfolio strategy backtest",
+        "label": "组合策略回测服务",
+        "status": "passed",
+        "evidence": "npm run test:portfolio-strategy-backtest (2067ms)"
+      },
+      {
+        "name": "portfolio backtest API contract",
+        "label": "组合回测 API 与 artifact 合同",
+        "status": "passed",
+        "evidence": "npm run test:portfolio-backtest-api-contract (12610ms)"
+      },
+      {
+        "name": "production readiness",
+        "label": "生产就绪 gate",
+        "status": "passed",
+        "evidence": "npm run test:production-readiness (1671ms)"
+      },
+      {
+        "name": "trade action readiness",
+        "label": "交易动作 gate",
+        "status": "passed",
+        "evidence": "npm run test:trade-action-readiness (1705ms)"
+      },
+      {
+        "name": "frontend build",
+        "label": "前端构建",
+        "status": "passed",
+        "evidence": "npm run build (41760ms)"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "name": "typescript",
+      "command": "node node_modules/typescript/bin/tsc",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 5815,
+      "stdout": "",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "sqlite health",
+      "command": "npm run check:sqlite-health",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 39065,
+      "stdout": "\n> fams-backend@0.1.0 check:sqlite-health\n> node node_modules/tsx/dist/cli.mjs scripts/check-sqlite-health.ts\n\n{\n  \"ok\": true,\n  \"status\": \"healthy\",\n  \"path\": \"/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol/2026-06-26T20-21-18-640Z/11_runtime_health_audit.json\",\n  \"sqliteHealthy\": true,\n  \"strict\": false\n}\n",
+      "stderr": "(node:855550) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "timedOut": false
+    },
+    {
+      "name": "dividend low vol api",
+      "command": "npm run test:dividend-low-vol-api",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 40011,
+      "stdout": "\n> fams-backend@0.1.0 test:dividend-low-vol-api\n> node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-api.ts\n\n{\n  \"ok\": true,\n  \"scan\": {\n    \"total\": 2,\n    \"topDisposition\": \"low_zone_alert\",\n    \"prohibitedActions\": [\n      \"ADD\",\n      \"REDUCE\",\n      \"AUTO_TRADE\"\n    ]\n  },\n  \"persisted\": {\n    \"rows\": 2,\n    \"total\": 1,\n    \"source\": {\n      \"persisted\": true\n    }\n  },\n  \"candidates\": {\n    \"total\": 2,\n    \"dispositions\": [\n      \"avoid\",\n      \"avoid\"\n    ],\n    \"prohibitedActions\": [\n      [\n        \"ADD\",\n        \"REDUCE\",\n        \"AUTO_TRADE\"\n      ],\n      [\n        \"ADD\",\n        \"REDUCE\",\n        \"AUTO_TRADE\"\n      ]\n    ]\n  },\n  \"allA\": {\n    \"universeTotal\": 5849,\n    \"selectedCount\": 8,\n    \"total\": 8,\n    \"alertSummary\": {\n      \"lowZoneCount\": 0,\n      \"buildPlanCount\": 0,\n      \"highZoneCount\": 1,\n      \"sellAlertCount\": 1,\n      \"buildPlanSymbols\": [],\n...\n \"persistedAlerts\": {\n    \"totalAlerts\": 0\n  },\n  \"history\": {\n    \"rows\": 1\n  },\n  \"backtest\": {\n    \"status\": \"completed\",\n    \"tradingDays\": 160,\n    \"validationStatus\": \"candidate_ready_for_validation\",\n    \"benchmark\": \"free_source_total_return\",\n    \"estimatedCostDragPercent\": 1.4\n  },\n  \"validationRetest\": {\n    \"status\": \"insufficient\",\n    \"artifact\": \"dividend-low-vol-validation-retest-2026-06-26T20-21-57-454Z.json\",\n    \"prohibitedActions\": [\n      \"ADD\",\n      \"REDUCE\",\n      \"AUTO_TRADE\"\n    ]\n  },\n  \"validationGapDiagnostics\": {\n    \"status\": \"research_validation_gap_clear_manual_acceptance_required\",\n    \"gaps\": 2,\n    \"blockers\": 0\n  },\n  \"fivdR\": {\n    \"candidates\": 1,\n    \"prohibitedActions\": [\n      \"ADD\",\n      \"REDUCE\",\n      \"AUTO_TRADE\"\n    ]\n  },\n  \"audit\": {\n    \"fileName\": \"dividend-low-vol-gpt-audit-2026-06-26T20-21-58-613Z.json\",\n    \"candidateCount\": 0\n  }\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "dividend low vol audit package",
+      "command": "npm run test:dividend-low-vol-audit-package",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 52491,
+      "stdout": "\n> fams-backend@0.1.0 test:dividend-low-vol-audit-package\n> node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-audit-package.ts\n\n{\n  \"ok\": true,\n  \"rejectionTypes\": {\n    \"data_gap\": 1,\n    \"hard_rule_failure\": 5,\n    \"risk_flag\": 4,\n    \"validation_blocker\": 0\n  },\n  \"health\": {\n    \"status\": \"healthy\",\n    \"path\": \"/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol/2026-06-26T20-22-37-924Z/11_runtime_health_audit.json\"\n  },\n  \"package\": {\n    \"path\": \"/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol/2026-06-26T20-22-39-059Z\",\n    \"fileCount\": 42,\n    \"candidateSource\": \"latest_persisted\"\n  }\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "dividend low vol rolling backtest",
+      "command": "npm run test:dividend-low-vol-rolling-backtest",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 683,
+      "stdout": "\n> fams-backend@0.1.0 test:dividend-low-vol-rolling-backtest\n> node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-rolling-backtest.ts\n\n{\n  \"ok\": true,\n  \"tradingZones\": 3,\n  \"rollingBacktest\": {\n    \"status\": \"completed\",\n    \"conclusion\": {\n      \"bestStrategyId\": \"dividend_low_vol_yield_ma_reversion_v1\",\n      \"researchPassed\": true,\n      \"reason\": \"Best research model is 股息率分位+长期均线模型; winRate=75%, totalReturn=54.54%, formal actions remain locked.\"\n    },\n    \"strategyResults\": [\n      {\n        \"label\": \"布林低吸高抛模型\",\n        \"status\": \"completed\",\n        \"tradeCount\": 18,\n        \"winRatePercent\": 0,\n        \"totalReturnPercent\": -87.59,\n        \"maxDrawdownPercent\": -87.59,\n        \"prohibitedActions\": [\n          \"ADD\",\n          \"REDUCE\",\n          \"AUTO_TRADE\"\n        ]\n      },\n      {\n        \"label\": \"股息率分位+长期均线模型\",\n        \"status\": \"completed\",\n        \"tradeCount\": 12,\n        \"winRatePercent\": 75,\n        \"totalReturnPercent\": 54.54,\n        \"maxDrawdownPercent\": -10.63,\n        \"prohibitedActions\": [\n          \"ADD\",\n          \"REDUCE\",\n          \"AUTO_TRADE\"\n        ]\n      }\n    ]\n  }\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "dividend low vol validation retest",
+      "command": "npm run test:dividend-low-vol-validation-retest",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 715,
+      "stdout": "\n> fams-backend@0.1.0 test:dividend-low-vol-validation-retest\n> node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-validation-retest.ts\n\n{\n  \"ok\": true,\n  \"status\": \"insufficient\",\n  \"matrixStatus\": \"insufficient\",\n  \"completeTotalReturnGate\": \"passed\",\n  \"primaryBlocker\": \"dividend_low_vol_validation_insufficient\",\n  \"prohibitedActions\": [\n    \"ADD\",\n    \"REDUCE\",\n    \"AUTO_TRADE\"\n  ],\n  \"artifact\": \"dividend-low-vol-validation-retest-contract_fixture-2026-06-26T20-22-52-500Z.json\"\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "dividend low vol frontend runtime",
+      "command": "npm run test:dividend-low-vol-frontend-runtime",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 498,
+      "stdout": "\n> fams-backend@0.1.0 test:dividend-low-vol-frontend-runtime\n> node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-frontend-runtime.ts\n\n{\n  \"ok\": true,\n  \"auditPath\": \"/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol-frontend-runtime-contract-2026-06-26T20-22-53-045Z.json\",\n  \"checks\": {\n    \"defaultAllALimit6000\": true,\n    \"pageUsesPersistedOnlyAllScope\": true,\n    \"pageLoadsV2ResearchValidation\": true,\n    \"pageLoadsManualDraftReadiness\": true,\n    \"pageLoadsManualTradeDraft\": true,\n    \"pageLoadsManualWatchlist\": true,\n    \"pageLoadsManualWorkflowAudit\": true,\n    \"pageCreatesManualTradeDraft\": true,\n    \"pageUsesCurrentFilteredTop3ForDraft\": true,\n    \"pageLocksActiveTop3Selection\": true,\n    \"pageUsesSameTop3ForTradingZones\": true,\n    \"pageUsesSameTop3ForRollingBacktest\": true,\n    \"pageShowsTop3InputScope\": true,\n    \"pageShowsFiveSt\n...\neptanceDecisionEndpoint\": true,\n    \"serviceCanPersistManualAcceptanceDecision\": true,\n    \"serviceExposesValidationGapDiagnosticsEndpoint\": true,\n    \"serviceExposesTradingZoneEndpoint\": true,\n    \"servicePassesSymbolsForPersistedTradingZones\": true,\n    \"serviceExposesRollingBacktestEndpoint\": true,\n    \"serviceCanPersistManualTradeDraft\": true,\n    \"serviceCanReviewManualTradeDraft\": true,\n    \"leftMenuHasIndependentEntry\": true,\n    \"appRouteHasIndependentPage\": true,\n    \"backendFiltersPersistedTradingZonesBySymbols\": true,\n    \"v2ArtifactResearchOnly\": true\n  },\n  \"v2ResearchValidation\": {\n    \"artifactFileName\": \"dividend-low-vol-v2-research-validation-2026-06-11T08-06-50-078Z.json\",\n    \"status\": \"research_candidate_passed\",\n    \"v2ResearchCandidates\": 109,\n    \"usableForTradingAdvice\": false,\n    \"prohibitedActions\": [\n      \"ADD\",\n      \"REDUCE\",\n      \"AUTO_TRADE\"\n    ]\n  }\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "fivd-r core",
+      "command": "npm run test:fivd-r-core",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 1847,
+      "stdout": "\n> fams-backend@0.1.0 test:fivd-r-core\n> node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-core.ts\n\n{\n  \"ok\": true,\n  \"contractStatus\": \"blocked\",\n  \"contractBlockedReasons\": [\n    \"asset_identity_missing\",\n    \"position_context_missing\"\n  ],\n  \"positionChecked\": false,\n  \"validationSource\": \"fivd_r_internal_validation_tournament\"\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "fivd-r trade gate contract",
+      "command": "npm run test:fivd-r-trade-gate-contract",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 1920,
+      "stdout": "\n> fams-backend@0.1.0 test:fivd-r-trade-gate-contract\n> node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-trade-gate-contract.ts\n\n{\n  \"ok\": true,\n  \"portfolioCapabilityState\": \"DATA_INSUFFICIENT\",\n  \"portfolioBlockedReasons\": [],\n  \"dataGapSummaryCount\": 0,\n  \"position\": {\n    \"skipped\": true\n  },\n  \"candidateCount\": 5,\n  \"candidateTop\": [\n    {\n      \"symbol\": \"000001\",\n      \"signalScore\": 71,\n      \"researchScore\": 69,\n      \"evidenceAdjustedScore\": 69,\n      \"disposition\": \"needs_more_evidence\",\n      \"prohibitedActions\": [\n        \"AUTO_TRADE\"\n      ]\n    },\n    {\n      \"symbol\": \"601127\",\n      \"signalScore\": 74,\n      \"researchScore\": 67,\n      \"evidenceAdjustedScore\": 13,\n      \"disposition\": \"needs_more_evidence\",\n      \"prohibitedActions\": [\n        \"AUTO_TRADE\"\n      ]\n    },\n    {\n      \"symbol\": \"300750\",\n      \"signalScore\": 71,\n      \"researchScore\": 65,\n      \"evidenceAdjustedScore\": 13,\n      \"disposition\": \"needs_more_evidence\",\n      \"prohibitedActions\": [\n        \"AUTO_TRADE\"\n      ]\n    }\n  ],\n  \"manualTradeDraftStatus\": \"blocked\"\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "portfolio strategy backtest",
+      "command": "npm run test:portfolio-strategy-backtest",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 2067,
+      "stdout": "\n> fams-backend@0.1.0 test:portfolio-strategy-backtest\n> node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-strategy-backtest.ts\n\n{\n  \"ok\": true,\n  \"userId\": \"default\",\n  \"openPositionCount\": 0,\n  \"schemaVersion\": \"portfolio.strategy_backtest.input.v1\",\n  \"dataQuality\": {\n    \"status\": \"partial\",\n    \"strategyCount\": 6,\n    \"validStrategyCount\": 4,\n    \"blockedReasons\": [\n      \"current_holdings_buy_and_hold:current_holdings_missing\",\n      \"current_holdings_buy_and_hold:current_holdings_market_value_missing\",\n      \"custom_invalid_80:weight_sum_not_100:80\"\n    ],\n    \"warnings\": [\n      \"permanent_portfolio:proxy_market_data_coverage_status:ready\",\n      \"all_weather:proxy_market_data_coverage_status:ready\",\n      \"dividend_low_vol_basket:dividend_low_vol_basket_is_research_only_not_formal_trade_signal\"\n    ]\n  },\n  \"strategies\": [\n    {\n      \"strategyId\": \"permanent_portfolio\n...\n219,\n    \"status\": \"completed\",\n    \"metrics\": {\n      \"totalReturnPercent\": 56.6775,\n      \"priceOnlyReturnPercent\": 56.6775,\n      \"annualizedReturnPercent\": 14.3905,\n      \"maxDrawdownPercent\": -25.7784,\n      \"volatilityPercent\": 16.1331,\n      \"sharpe\": 0.892,\n      \"calmar\": 0.5582,\n      \"monthlyWinRate\": 100,\n      \"turnoverRate\": 209.3572,\n      \"dividendContributionPercent\": 10.1777,\n      \"capitalGainContributionPercent\": 46.4998,\n      \"costDragPercent\": 0.1675,\n      \"benchmarkReturnPercent\": 0,\n      \"excessReturnPercent\": 56.6775\n    },\n    \"dataCoverage\": {\n      \"priceCoveragePercent\": 96.14,\n      \"dividendCoveragePercent\": 100,\n      \"benchmarkCoveragePercent\": 100,\n      \"missingSymbols\": []\n    },\n    \"blockedReasons\": [],\n    \"warnings\": [\n      \"benchmark_status:cash_cny:price_index\",\n      \"dividend_contribution_estimated_from_ttm_yield_research_only\"\n    ]\n  }\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "portfolio backtest API contract",
+      "command": "npm run test:portfolio-backtest-api-contract",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 12610,
+      "stdout": "\n> fams-backend@0.1.0 test:portfolio-backtest-api-contract\n> node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-backtest-api-contract.ts\n\n{\n  \"ok\": true,\n  \"templates\": 8,\n  \"strategyStatuses\": [\n    {\n      \"strategyId\": \"local_real_data_sample_60_40\",\n      \"status\": \"completed\",\n      \"curvePoints\": 120,\n      \"blockedReasons\": [],\n      \"warnings\": [\n        \"local_real_data_sample_is_for_path_validation_not_recommendation\",\n        \"csi300_price_index_is_price_index_not_total_return_benchmark\",\n        \"local_equal_weight_20_is_research_proxy_not_formal_benchmark\",\n        \"benchmark_status:cash_cny:price_index\",\n        \"benchmark_status:csi300_price_index:price_index\",\n        \"benchmark_status:local_equal_weight_20:research_proxy\",\n        \"dividend_contribution_estimated_from_ttm_yield_research_only\"\n      ]\n    },\n    {\n      \"strategyId\": \"local_real_data_equal_weight\n...\nts\": 120,\n      \"blockedReasons\": [],\n      \"warnings\": [\n        \"proxy_market_data_coverage_status:ready\",\n        \"csi300_price_index_is_price_index_not_total_return_benchmark\",\n        \"local_equal_weight_20_is_research_proxy_not_formal_benchmark\",\n        \"benchmark_status:cash_cny:price_index\",\n        \"benchmark_status:csi300_price_index:price_index\",\n        \"benchmark_status:local_equal_weight_20:research_proxy\",\n        \"dividend_contribution_insufficient:no_audited_component_yield\"\n      ]\n    },\n    {\n      \"strategyId\": \"current_holdings_buy_and_hold\",\n      \"status\": \"insufficient\",\n      \"curvePoints\": 0,\n      \"blockedReasons\": [\n        \"current_holdings_missing\",\n        \"current_holdings_market_value_missing\"\n      ],\n      \"warnings\": []\n    }\n  ],\n  \"prohibitedActions\": [\n    \"ADD\",\n    \"REDUCE\",\n    \"ORDER_CREATE\",\n    \"AUTO_TRADE\"\n  ],\n  \"notTradingAdvice\": true\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "production readiness",
+      "command": "npm run test:production-readiness",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 1671,
+      "stdout": "\n> fams-backend@0.1.0 test:production-readiness\n> node node_modules/tsx/dist/cli.mjs scripts/verify-production-readiness.ts\n\n{\n  \"schemaVersion\": \"fams.production_readiness_check.v1\",\n  \"generatedAt\": \"2026-06-26T20:23:13.160Z\",\n  \"analysisAdviceReady\": true,\n  \"tradeActionReady\": true,\n  \"productionReady\": true,\n  \"strict\": false,\n  \"strictTrade\": false,\n  \"symbols\": [\n    \"000001\",\n    \"600000\"\n  ],\n  \"environment\": {\n    \"postgresShadowConfigured\": true,\n    \"postgresShadowStatus\": \"ready\",\n    \"postgresClientTool\": \"psql_missing\",\n    \"tushareConfigured\": false\n  },\n  \"gates\": [\n    {\n      \"id\": \"postgres_shadow_ready\",\n      \"status\": \"passed\",\n      \"message\": \"PostgreSQL shadow schema/staging/smoke 验证通过。\"\n    },\n    {\n      \"id\": \"free_source_security_coverage\",\n      \"status\": \"passed\",\n      \"message\": \"免费源证券状态覆盖可用于分析建议：status=2, tradeability=2。\"\n    },\n    {\n      \"id\": \"tusha\n...\n    \"bestSampleSize\": 108,\n      \"bestCredibility\": \"high\",\n      \"blockerGateIds\": []\n    },\n    \"gates\": [\n      {\n        \"id\": \"full_a_strategy_evidence\",\n        \"status\": \"passed\",\n        \"message\": \"全 A 证据达标：coverage=84.89%，窗口=120日，样本=108，可信度=high。\"\n      },\n      {\n        \"id\": \"validation_evidence\",\n        \"status\": \"passed\",\n        \"message\": \"样本外、walk-forward、参数敏感性和分组稳定性已支持进入人工交易计划复核。\"\n      },\n      {\n        \"id\": \"factset_coverage\",\n        \"status\": \"passed\",\n        \"message\": \"事实集覆盖可支撑分组审计。\"\n      },\n      {\n        \"id\": \"manual_execution_review\",\n        \"status\": \"warning\",\n        \"message\": \"即使交易动作 gate 通过，也只允许进入人工确认交易计划草案；自动交易不开放。\"\n      }\n    ],\n    \"blockerGateIds\": [],\n    \"nextActions\": [\n      \"进入人工确认交易计划草案；执行前复核停复牌、涨跌停和持仓约束。\"\n    ]\n  },\n  \"nextActions\": [\n    \"可选：配置 FAMS_TUSHARE_TOKEN / TUSHARE_TOKEN 作为正式交易状态增强源。\",\n    \"交易动作已可进入人工确认交易计划草案；自动交易仍禁止。\"\n  ]\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "trade action readiness",
+      "command": "npm run test:trade-action-readiness",
+      "cwd": "backend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 1705,
+      "stdout": "\n> fams-backend@0.1.0 test:trade-action-readiness\n> node node_modules/tsx/dist/cli.mjs scripts/verify-production-readiness.ts --strict-trade\n\n{\n  \"schemaVersion\": \"fams.production_readiness_check.v1\",\n  \"generatedAt\": \"2026-06-26T20:23:14.865Z\",\n  \"analysisAdviceReady\": true,\n  \"tradeActionReady\": true,\n  \"productionReady\": true,\n  \"strict\": false,\n  \"strictTrade\": true,\n  \"symbols\": [\n    \"000001\",\n    \"600000\"\n  ],\n  \"environment\": {\n    \"postgresShadowConfigured\": true,\n    \"postgresShadowStatus\": \"ready\",\n    \"postgresClientTool\": \"psql_missing\",\n    \"tushareConfigured\": false\n  },\n  \"gates\": [\n    {\n      \"id\": \"postgres_shadow_ready\",\n      \"status\": \"passed\",\n      \"message\": \"PostgreSQL shadow schema/staging/smoke 验证通过。\"\n    },\n    {\n      \"id\": \"free_source_security_coverage\",\n      \"status\": \"passed\",\n      \"message\": \"免费源证券状态覆盖可用于分析建议：status=2, tradeability=2。\"\n    },\n    {\n  \n...\n    \"bestSampleSize\": 108,\n      \"bestCredibility\": \"high\",\n      \"blockerGateIds\": []\n    },\n    \"gates\": [\n      {\n        \"id\": \"full_a_strategy_evidence\",\n        \"status\": \"passed\",\n        \"message\": \"全 A 证据达标：coverage=84.89%，窗口=120日，样本=108，可信度=high。\"\n      },\n      {\n        \"id\": \"validation_evidence\",\n        \"status\": \"passed\",\n        \"message\": \"样本外、walk-forward、参数敏感性和分组稳定性已支持进入人工交易计划复核。\"\n      },\n      {\n        \"id\": \"factset_coverage\",\n        \"status\": \"passed\",\n        \"message\": \"事实集覆盖可支撑分组审计。\"\n      },\n      {\n        \"id\": \"manual_execution_review\",\n        \"status\": \"warning\",\n        \"message\": \"即使交易动作 gate 通过，也只允许进入人工确认交易计划草案；自动交易不开放。\"\n      }\n    ],\n    \"blockerGateIds\": [],\n    \"nextActions\": [\n      \"进入人工确认交易计划草案；执行前复核停复牌、涨跌停和持仓约束。\"\n    ]\n  },\n  \"nextActions\": [\n    \"可选：配置 FAMS_TUSHARE_TOKEN / TUSHARE_TOKEN 作为正式交易状态增强源。\",\n    \"交易动作已可进入人工确认交易计划草案；自动交易仍禁止。\"\n  ]\n}\n",
+      "stderr": "",
+      "timedOut": false
+    },
+    {
+      "name": "frontend build",
+      "command": "npm run build",
+      "cwd": "frontend",
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 41760,
+      "stdout": "\n> fams-frontend@0.1.0 build\n> node node_modules/typescript/bin/tsc && node node_modules/vite/bin/vite.js build\n\nvite v5.4.21 building for production...\ntransforming...\n✓ 3715 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                                     0.71 kB │ gzip:   0.41 kB\ndist/assets/index-BhBcP6xz.css                     29.79 kB │ gzip:   6.56 kB\ndist/assets/api-Bq0ki--Q.js                         0.09 kB │ gzip:   0.11 kB │ map:     0.23 kB\ndist/assets/Portfolios-C5ZrCANk.js                  0.92 kB │ gzip:   0.47 kB │ map:     1.74 kB\ndist/assets/chartTheme-C7a2iQKl.js                  1.29 kB │ gzip:   0.58 kB │ map:     4.80 kB\ndist/assets/RefreshFailureTable-DZz3RX6g.js         1.37 kB │ gzip:   0.98 kB │ map:     4.90 kB\ndist/assets/ReliabilityWarnings-BnA12rXC.js         1.37 kB │ gzip:   0.78 kB │ map:     4.53 kB\ndist/assets/GoldWei\n...\n31.91 kB\ndist/assets/vendor-utils-CsZ8kA4A.js               52.73 kB │ gzip:  20.80 kB │ map:   222.16 kB\ndist/assets/DividendLowVol-DZ4o2VUs.js             72.53 kB │ gzip:  18.93 kB │ map:   187.35 kB\ndist/assets/vendor-table-BgUKEX9O.js               92.04 kB │ gzip:  30.72 kB │ map:   431.07 kB\ndist/assets/Operations-BebAr5Fa.js                129.40 kB │ gzip:  29.25 kB │ map:   351.43 kB\ndist/assets/Analysis-BH4RtNie.js                  155.98 kB │ gzip:  35.90 kB │ map:   403.91 kB\ndist/assets/vendor-react-Du4ebM-n.js              163.75 kB │ gzip:  53.26 kB │ map:   708.57 kB\ndist/assets/vendor-zrender-Bwfx8Sjs.js            219.93 kB │ gzip:  75.27 kB │ map: 1,025.44 kB\ndist/assets/vendor-echarts-core-Bs6ec-ON.js       826.36 kB │ gzip: 272.05 kB │ map: 4,834.35 kB\ndist/assets/vendor-antd-D6fYkZ0V.js             1,028.06 kB │ gzip: 321.62 kB │ map: 4,561.93 kB\n✓ built in 24.99s\n",
+      "stderr": "\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n",
+      "timedOut": false
+    }
+  ],
+  "servers": [
+    {
+      "name": "backend",
+      "status": "passed",
+      "reusedExisting": false,
+      "readyUrl": "http://127.0.0.1:4000/health"
+    },
+    {
+      "name": "frontend",
+      "status": "passed",
+      "reusedExisting": false,
+      "readyUrl": "http://127.0.0.1:3100"
+    }
+  ],
+  "api": [
+    {
+      "name": "后端健康",
+      "url": "http://127.0.0.1:4000/health",
+      "method": "GET",
+      "status": "passed",
+      "httpStatus": 200,
+      "durationMs": 4,
+      "summary": {
+        "status": "ok",
+        "database": "ok",
+        "operations": {
+          "runningOperations": 2,
+          "queuedOperations": 0,
+          "activeFivdRRefresh": null
+        }
+      }
+    },
+    {
+      "name": "红利低波候选池",
+      "url": "http://127.0.0.1:4000/api/v1/strategy/dividend-low-vol/candidates?limit=50&scope=all&persistedOnly=true",
+      "method": "GET",
+      "status": "passed",
+      "httpStatus": 200,
+      "durationMs": 184,
+      "summary": {
+        "schemaVersion": "dividend.low_vol.candidate_pool.v1",
+        "candidates": 50,
+        "completeness": {
+          "schemaVersion": "dividend.low_vol.metric_completeness_summary.v1",
+          "total": 50,
+          "completeDisplayReadyCount": 50,
+          "incompleteDisplayCount": 0,
+          "completenessPercent": 100,
+          "topMissingMetrics": [],
+          "note": "Main frontend strategy table should only display completeDisplayReady rows. Incomplete rows remain available through audit summaries, not as filled strategy metrics."
+        }
+      }
+    },
+    {
+      "name": "红利低波 V2 研究验证",
+      "url": "http://127.0.0.1:4000/api/v1/strategy/dividend-low-vol/v2/research-validation",
+      "method": "GET",
+      "status": "passed",
+      "httpStatus": 200,
+      "durationMs": 6,
+      "summary": {
+        "status": "research_candidate_passed",
+        "usableForTradingAdvice": false,
+        "prohibitedActions": [
+          "ADD",
+          "REDUCE",
+          "AUTO_TRADE"
+        ],
+        "artifactRef": {
+          "path": "/mnt/c/workspace/financial-asset-manager/backend/data/gpt-audit/dividend-low-vol-v2-research-validation-2026-06-11T08-06-50-078Z.json",
+          "fileName": "dividend-low-vol-v2-research-validation-2026-06-11T08-06-50-078Z.json"
+        }
+      }
+    },
+    {
+      "name": "组合回测模板",
+      "url": "http://127.0.0.1:4000/api/v1/portfolio-backtest/templates",
+      "method": "GET",
+      "status": "passed",
+      "httpStatus": 200,
+      "durationMs": 1,
+      "summary": {
+        "templates": [
+          "permanent_portfolio",
+          "all_weather",
+          "current_holdings_buy_and_hold",
+          "dividend_low_vol_basket",
+          "custom_weight_portfolio",
+          "local_real_data_sample_60_40",
+          "local_real_data_equal_weight_5",
+          "local_real_data_concentrated_3"
+        ],
+        "prohibitedActions": [
+          "ADD",
+          "REDUCE",
+          "ORDER_CREATE",
+          "AUTO_TRADE"
+        ],
+        "notTradingAdvice": true
+      }
+    },
+    {
+      "name": "组合回测 API",
+      "url": "http://127.0.0.1:4000/api/v1/portfolio-backtest/run",
+      "method": "POST",
+      "status": "passed",
+      "httpStatus": 200,
+      "durationMs": 3546,
+      "summary": {
+        "operationId": "29a581fc-355d-4be8-86eb-dc0ac411f79b",
+        "status": "completed",
+        "artifactCount": 20,
+        "firstArtifactRef": "operation_artifact:29a581fc-355d-4be8-86eb-dc0ac411f79b:01_request_and_strategy_definitions.json",
+        "prohibitedActions": [
+          "ADD",
+          "REDUCE",
+          "ORDER_CREATE",
+          "AUTO_TRADE"
+        ],
+        "strategyStatuses": [
+          {
+            "strategyId": "local_real_data_sample_60_40",
+            "status": "completed",
+            "curvePoints": 120,
+            "totalReturnPercent": -2.2467,
+            "dividendContributionPercent": 1.0019
+          },
+          {
+            "strategyId": "permanent_portfolio",
+            "status": "completed",
+            "curvePoints": 120,
+            "totalReturnPercent": 1.1098,
+            "dividendContributionPercent": null
+          },
+          {
+            "strategyId": "all_weather",
+            "status": "completed",
+            "curvePoints": 120,
+            "totalReturnPercent": 2.1916,
+            "dividendContributionPercent": null
+          }
+        ]
+      }
+    }
+  ],
+  "browser": {
+    "status": "passed",
+    "screenshots": [
+      {
+        "title": "总览与侧边栏",
+        "description": "证明左侧菜单和系统入口可见。",
+        "fileName": "01-dashboard.png",
+        "path": "screenshots/01-dashboard.png",
+        "status": "passed",
+        "requiredTexts": [
+          "FAMS",
+          "红利低波策略",
+          "策略回测"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "FIVD-R 分析建议",
+        "description": "证明 FIVD-R 统一分析入口、研究/交易阻断语义可见。",
+        "fileName": "02-analysis-fivd-r.png",
+        "path": "screenshots/02-analysis-fivd-r.png",
+        "status": "passed",
+        "requiredTexts": [
+          "FIVD-R",
+          "交易",
+          "建议"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "红利低波策略页",
+        "description": "独立菜单页、研究模式 banner、禁止交易动作。",
+        "fileName": "03-dividend-low-vol-overview.png",
+        "path": "screenshots/03-dividend-low-vol-overview.png",
+        "status": "passed",
+        "requiredTexts": [
+          "红利低波策略",
+          "不构成交易指令",
+          "AUTO_TRADE"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "红利低波筛选与指标",
+        "description": "候选池筛选、排序和指标说明区域。",
+        "fileName": "04-dividend-low-vol-filters.png",
+        "path": "screenshots/04-dividend-low-vol-filters.png",
+        "status": "passed",
+        "requiredTexts": [
+          "筛选与排序",
+          "排序指标",
+          "综合分"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "红利低波买卖区间",
+        "description": "买入/卖出观察区间、滚动回测和区间免责声明。",
+        "fileName": "05-dividend-low-vol-zones.png",
+        "path": "screenshots/05-dividend-low-vol-zones.png",
+        "status": "passed",
+        "requiredTexts": [
+          "买入/卖出观察区间",
+          "正式 ADD",
+          "正式 REDUCE"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "人工计划草案 Gate",
+        "description": "人工计划草案 readiness、Top3 草案和交易 gate。",
+        "fileName": "06-dividend-low-vol-manual-gate.png",
+        "path": "screenshots/06-dividend-low-vol-manual-gate.png",
+        "status": "passed",
+        "requiredTexts": [
+          "人工交易计划草案 Gate",
+          "正式买入/卖出"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "平板端红利低波",
+        "description": "平板视口下验证红利低波页面可读性。",
+        "fileName": "07-tablet-dividend-low-vol.png",
+        "path": "screenshots/07-tablet-dividend-low-vol.png",
+        "status": "passed",
+        "requiredTexts": [
+          "红利低波策略"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "组合回测入口",
+        "description": "组合回测参数和非交易建议 banner。",
+        "fileName": "08-backtest-before-run.png",
+        "path": "screenshots/08-backtest-before-run.png",
+        "status": "passed",
+        "requiredTexts": [
+          "组合策略对比回测",
+          "不构成交易指令",
+          "运行组合回测"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "组合回测结果",
+        "description": "组合净值曲线、收益指标、benchmark 和分红贡献。",
+        "fileName": "09-backtest-result.png",
+        "path": "screenshots/09-backtest-result.png",
+        "status": "passed",
+        "requiredTexts": [
+          "Benchmark",
+          "超额收益",
+          "总收益"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "移动端组合回测",
+        "description": "移动视口下验证组合回测结果仍可访问和阅读。",
+        "fileName": "10-mobile-backtest-result.png",
+        "path": "screenshots/10-mobile-backtest-result.png",
+        "status": "passed",
+        "requiredTexts": [
+          "策略回测"
+        ],
+        "missingTexts": []
+      },
+      {
+        "title": "任务中心产物",
+        "description": "任务中心 operation 与 artifact 可追溯。",
+        "fileName": "11-operations-artifact.png",
+        "path": "screenshots/11-operations-artifact.png",
+        "status": "passed",
+        "requiredTexts": [
+          "任务中心",
+          "任务产物"
+        ],
+        "missingTexts": []
+      }
+    ],
+    "consoleErrors": []
+  },
+  "limitations": [
+    "报告仅使用无头浏览器截图，不抢占桌面焦点。",
+    "若免费数据源或本地缓存不是最新交易日，报告会保留数据新鲜度风险，不会声明每日实时保证。",
+    "tradeActionReadiness 通过只代表 gate 行为正确，不代表策略可以自动交易。",
+    "若组合回测文档仍保留旧的 ETF proxy 阻塞描述，而 API 已通过，将作为文档漂移处理。",
+    "正式 total-return benchmark 与完整外部数据源仍需单独审计，不能因此报告直接解锁正式交易。"
+  ]
+}

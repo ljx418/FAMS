@@ -42,6 +42,14 @@ autoTradeUnlocked=false
 
 本阶段把红利低波从“研究策略页面可用”继续校准为“可进入正式交易评审的前置材料完整”。开发和验收聚焦数据等级、模型有效性、人工草案、前端评审工作台、审计包和正式交易解锁清单；不释放正式交易动作。
 
+正式交易 release 后续开发目标维护在：
+
+```text
+docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md
+```
+
+该文档把后续 release 拆为正式数据源、官方 total-return benchmark、formal validation、人工签核、paper/sandbox 执行隔离和 release gate 审计。红利低波当前仍只允许研究、观察、提醒、计划草案和人工计划草案。
+
 最新阶段审计包：
 
 ```text
@@ -264,6 +272,8 @@ autoTradeUnlocked=false
 | M5 Formal Validation Review | 进入正式交易 gate 评审 | OOS、walk-forward、参数、分组、交易约束全部通过 | 未完成 |
 | M6 Interactive Strategy Backtest Ready | 用户可交互式比较红利低波、永久组合、全天候、当前持仓和自定义组合 | 多曲线、指标、缺口、artifact、非交易 gate 全部可见 | 本阶段目标 |
 | M7 Formal Trading Review Prerequisites | 正式交易级评审前置证据齐全但不自动放行 | runtime/provider/benchmark/tradeability/validation/manual review artifact 完整 | 前置文档完成，formal review 未解锁 |
+| M8 Formal Trading Release Docs Ready | 后续正式交易 release 可开发、可验收、可审计 | release PRD、目标架构、drawio、验收门槛和审计清单一致 | 本轮文档目标 |
+| M9 Paper/Sandbox Trading Review | 模拟执行路径隔离验证 | paper/sandbox 不影响真实持仓，订单 gate 可审计 | 后续开发 |
 
 ## 5. 验收命令
 

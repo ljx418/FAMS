@@ -70,8 +70,7 @@ async function registerRoutes() {
       await prisma.$queryRaw`SELECT 1`
       runtimeHealth = await runtimeHealthService.check({
         prisma,
-        includeOperations: true,
-        includeProviderHealth: true,
+        lightweight: true,
       })
       const [runningOperations, queuedOperations, activeFivdRRefresh] = await Promise.all([
         prisma.operation.count({ where: { status: 'running' } }),

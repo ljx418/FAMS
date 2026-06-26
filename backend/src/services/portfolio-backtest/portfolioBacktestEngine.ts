@@ -10,10 +10,20 @@ import {
   PortfolioBacktestStrategyResult,
   PortfolioDataGradeAudit,
   PortfolioDataGradeItem,
+  PortfolioDividendTotalReturnAudit,
   PortfolioFormalTradingUnlockChecklist,
+  PortfolioExecutionIsolationAudit,
+  PortfolioLongHorizonDataCoverageAudit,
   PortfolioManualPlanDraft,
   PortfolioModelEffectiveness,
   PortfolioModelEffectivenessStatus,
+  PortfolioMultiPeriodBacktestResult,
+  PortfolioPaperOrderIntent,
+  PortfolioFormalTradingReleaseGateAudit,
+  PortfolioBenchmarkQualificationAudit,
+  PortfolioFormalValidationAudit,
+  PortfolioManualSignoffAudit,
+  PortfolioReleaseDataGovernanceAudit,
   PortfolioSourceDataGrade,
   PortfolioStrategyDefinition,
 } from './portfolioBacktestTypes.js'
@@ -25,6 +35,15 @@ type PriceSource = 'price_history' | 'market_bar_canonical'
 type LoadedPriceSeries = {
   source: PriceSource
   series: PriceSeries
+}
+
+type LongHorizonPeriodDefinition = {
+  periodId: '1y' | '3y' | '5y' | 'custom'
+  label: string
+  requestedStartDate: string
+  requestedEndDate: string
+  requiredTradingDays: number
+  requiredCalendarDays: number
 }
 
 function isoDate(date: Date) {
@@ -42,11 +61,15 @@ function annualizationFactor(days: number) {
 }
 
 export class PortfolioBacktestEngine {
+  private priceSeriesCache = new Map<string, Promise<LoadedPriceSeries>>()
+
   async run(input: PortfolioBacktestInputBuildResult): Promise<PortfolioBacktestResult> {
     const strategies: PortfolioBacktestStrategyResult[] = []
     for (const definition of input.strategies) {
       strategies.push(await this.runStrategy(definition, input))
     }
+    const generatedAt = new Date().toISOString()
+    const runId = `portfolio-backtest-${generatedAt.replace(/[:.]/g, '-')}`
     const formalReviewReadiness = await this.buildFormalReviewReadiness(input, strategies)
     const dataGradeAudit = this.aggregateDataGradeAudit(strategies)
     const modelEffectiveness = this.aggregateModelEffectiveness(strategies)
@@ -60,12 +83,33 @@ export class PortfolioBacktestEngine {
       manualPlanDrafts,
       formalTradingUnlockChecklist,
     })
-    const generatedAt = new Date().toISOString()
+    const executionIsolationAudit = this.buildExecutionIsolationAudit(runId, generatedAt, manualPlanDrafts)
+    const dataGovernanceAudit = this.buildDataGovernanceAudit(generatedAt, dataGradeAudit)
+    const benchmarkQualificationAudit = this.buildBenchmarkQualificationAudit(formalReviewReadiness)
+    const formalValidationAudit = this.buildFormalValidationAudit(strategies)
+    const manualSignoffAudit = this.buildManualSignoffAudit()
+    const multiPeriodBacktestResult = await this.buildMultiPeriodBacktestResult(input, strategies)
+    const longHorizonDataCoverageAudit = this.buildLongHorizonDataCoverageAudit(multiPeriodBacktestResult)
+    const dividendTotalReturnAudit = this.buildDividendTotalReturnAudit(input, strategies)
+    const releaseGateAudit = this.buildReleaseGateAudit({
+      formalReviewReadiness,
+      dataGradeAudit,
+      modelEffectiveness,
+      formalTradingUnlockChecklist,
+      readinessSummary,
+      executionIsolationAudit,
+      dataGovernanceAudit,
+      benchmarkQualificationAudit,
+      formalValidationAudit,
+      manualSignoffAudit,
+      longHorizonDataCoverageAudit,
+      runtimeHealth: input.runtimeHealth,
+    })
 
     return {
       schemaVersion: 'portfolio.strategy_backtest.result.v1',
       generatedAt,
-      runId: `portfolio-backtest-${generatedAt.replace(/[:.]/g, '-')}`,
+      runId,
       userId: input.request.userId,
       request: input.request,
       strategies,
@@ -79,6 +123,16 @@ export class PortfolioBacktestEngine {
       manualPlanDrafts,
       formalTradingUnlockChecklist,
       readinessSummary,
+      paperOrderIntents: executionIsolationAudit.intents,
+      executionIsolationAudit,
+      releaseGateAudit,
+      dataGovernanceAudit,
+      benchmarkQualificationAudit,
+      formalValidationAudit,
+      manualSignoffAudit,
+      longHorizonDataCoverageAudit,
+      multiPeriodBacktestResult,
+      dividendTotalReturnAudit,
     }
   }
 
@@ -174,6 +228,7 @@ export class PortfolioBacktestEngine {
       `portfolio-backtest:price-source:${Array.from(new Set(priceSourcesBySymbol.values())).join('+')}:${input.request.startDate}:${input.request.endDate}`,
     ]
     const dataGradeAudit = this.buildStrategyDataGradeAudit({
+      asOfDate: input.request.endDate,
       priceCoveragePercent,
       benchmarkStatuses: benchmarks.statusById,
       benchmarkCoveragePercent: benchmarks.coveragePercent,
@@ -219,6 +274,19 @@ export class PortfolioBacktestEngine {
   }
 
   private async loadPriceSeries(symbol: string, startDate: string, endDate: string): Promise<LoadedPriceSeries> {
+    const cacheKey = `${symbol}:${startDate}:${endDate}`
+    const cached = this.priceSeriesCache.get(cacheKey)
+    if (cached) return cached
+    const pending = this.loadPriceSeriesUncached(symbol, startDate, endDate)
+    this.priceSeriesCache.set(cacheKey, pending)
+    if (this.priceSeriesCache.size > 500) {
+      const firstKey = this.priceSeriesCache.keys().next().value
+      if (firstKey) this.priceSeriesCache.delete(firstKey)
+    }
+    return pending
+  }
+
+  private async loadPriceSeriesUncached(symbol: string, startDate: string, endDate: string): Promise<LoadedPriceSeries> {
     const asset = await prisma.asset.findFirst({
       where: { symbol },
       select: { id: true },
@@ -619,6 +687,7 @@ export class PortfolioBacktestEngine {
   }
 
   private buildStrategyDataGradeAudit(args: {
+    asOfDate: string
     priceCoveragePercent: number
     benchmarkStatuses: Record<string, any>
     benchmarkCoveragePercent: number
@@ -634,6 +703,7 @@ export class PortfolioBacktestEngine {
         grade: args.priceCoveragePercent >= 80 ? 'free_source_cross_checked' : 'insufficient',
         sourceProvider: 'price_history+market_bar_canonical',
         sourceType: 'historical_close',
+        asOfDate: args.asOfDate,
         freshnessStatus: args.priceCoveragePercent >= 80 ? 'fresh' : 'unknown',
         coveragePercent: args.priceCoveragePercent,
         blockingForFormalTrading: args.priceCoveragePercent < 80,
@@ -645,6 +715,7 @@ export class PortfolioBacktestEngine {
         grade: benchmarkGrade,
         sourceProvider: Object.entries(args.benchmarkStatuses).map(([id, status]) => `${id}:${status}`).join(',') || 'none',
         sourceType: 'benchmark_curve',
+        asOfDate: args.asOfDate,
         freshnessStatus: args.benchmarkCoveragePercent >= 80 ? 'fresh' : 'unknown',
         coveragePercent: args.benchmarkCoveragePercent,
         blockingForFormalTrading: benchmarkGrade !== 'official_authorized' && benchmarkGrade !== 'free_source_cross_checked',
@@ -656,6 +727,7 @@ export class PortfolioBacktestEngine {
         grade: args.dividendContributionPercent === null ? 'insufficient' : 'free_source_cross_checked',
         sourceProvider: 'dividend_low_vol_daily',
         sourceType: 'estimated_ttm_dividend_yield',
+        asOfDate: args.asOfDate,
         freshnessStatus: args.dividendContributionPercent === null ? 'unknown' : 'fresh',
         coveragePercent: args.dividendContributionPercent === null ? 0 : 100,
         blockingForFormalTrading: args.dividendContributionPercent === null,
@@ -669,6 +741,7 @@ export class PortfolioBacktestEngine {
         grade: args.formalReviewReadiness.tradeConstraintCoverage.status === 'passed' ? 'free_source_cross_checked' : 'insufficient',
         sourceProvider: 'market_tradeability_daily',
         sourceType: 'limit_up_down_and_suspension_state',
+        asOfDate: args.asOfDate,
         freshnessStatus: args.formalReviewReadiness.tradeConstraintCoverage.status === 'passed' ? 'fresh' : 'unknown',
         coveragePercent: args.formalReviewReadiness.tradeConstraintCoverage.coveragePercent,
         blockingForFormalTrading: args.formalReviewReadiness.tradeConstraintCoverage.status !== 'passed',
@@ -961,6 +1034,539 @@ export class PortfolioBacktestEngine {
     }
   }
 
+  private buildExecutionIsolationAudit(
+    runId: string,
+    generatedAt: string,
+    manualPlanDrafts: PortfolioManualPlanDraft[],
+  ): PortfolioExecutionIsolationAudit {
+    const intents: PortfolioPaperOrderIntent[] = manualPlanDrafts.map((draft) => ({
+      schemaVersion: 'portfolio.paper_order_intent.v1',
+      intentId: `paper-intent:${runId}:${draft.strategyId}`,
+      generatedAt,
+      source: 'manual_plan_draft',
+      executionMode: 'paper',
+      strategyId: draft.strategyId,
+      draftStatus: draft.status,
+      currentWeightPercent: draft.currentWeightPercent,
+      researchTargetWeightPercent: draft.researchTargetWeightPercent,
+      formalTargetWeightPercent: 0,
+      notionalAmount: null,
+      suggestedActionTypes: draft.suggestedActionTypes,
+      canCreateOrder: false,
+      orderCreateAllowed: false,
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+      blockedReasons: Array.from(new Set([
+        ...draft.blockedReasons,
+        'production_order_adapter_not_enabled',
+        'formal_trading_release_gate_not_passed',
+      ])),
+      evidenceRefs: draft.evidenceRefs,
+      notTradingAdvice: true,
+    }))
+
+    const blockers = Array.from(new Set([
+      ...(intents.length === 0 ? ['manual_plan_draft_missing'] : []),
+      'production_order_adapter_not_enabled',
+      'real_position_mutation_disabled',
+      'formal_trading_release_gate_not_passed',
+      'auto_trade_policy_locked',
+    ]))
+
+    return {
+      schemaVersion: 'portfolio.execution_isolation_audit.v1',
+      status: intents.length > 0 ? 'ready_for_paper_review' : 'blocked',
+      mode: 'paper_sandbox_only',
+      paperTradingReady: intents.length > 0,
+      sandboxReady: intents.length > 0,
+      productionAdapterEnabled: false,
+      realPositionMutationAllowed: false,
+      orderCreateAllowed: false,
+      canCreateOrder: false,
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+      intents,
+      blockers,
+      warnings: [
+        'paper_or_sandbox_intents_are_for_manual_review_only',
+        'no_real_order_or_position_mutation_is_permitted',
+      ],
+      evidenceRefs: Array.from(new Set(intents.flatMap((intent) => intent.evidenceRefs))),
+      notTradingAdvice: true,
+    }
+  }
+
+  private buildDataGovernanceAudit(
+    generatedAt: string,
+    dataGradeAudit: PortfolioDataGradeAudit,
+  ): PortfolioReleaseDataGovernanceAudit {
+    const items = dataGradeAudit.items.map((item) => {
+      const crossCheckStatus: PortfolioReleaseDataGovernanceAudit['items'][number]['crossCheckStatus'] =
+        item.grade === 'official_authorized'
+          ? 'official_authorized'
+          : item.grade === 'free_source_cross_checked'
+            ? 'free_source_cross_checked'
+            : item.grade === 'price_index_only' || item.grade === 'research_proxy'
+              ? 'single_source'
+              : 'proxy_or_insufficient'
+      const blockers = [
+        ...(item.blockingForFormalTrading ? [`${item.scope}_blocks_formal_trading:${item.grade}`] : []),
+        ...(item.freshnessStatus !== 'fresh' ? [`${item.scope}_freshness_${item.freshnessStatus}`] : []),
+        ...(item.coveragePercent < 80 ? [`${item.scope}_coverage_below_80:${item.coveragePercent}`] : []),
+        ...(item.grade !== 'official_authorized' && item.grade !== 'free_source_cross_checked'
+          ? [`${item.scope}_not_cross_checked_or_official:${item.grade}`]
+          : []),
+      ]
+      return {
+        fieldId: `portfolio_backtest.${item.scope}`,
+        scope: item.scope,
+        sourceProvider: item.sourceProvider,
+        sourceEndpoint: item.sourceType,
+        asOfDate: item.asOfDate,
+        fetchedAt: generatedAt,
+        freshnessStatus: item.freshnessStatus,
+        coverageStatus: item.coveragePercent >= 80 && blockers.length === 0 ? 'passed' as const : 'blocked' as const,
+        coveragePercent: item.coveragePercent,
+        crossCheckStatus,
+        evidenceRefs: item.evidenceRefs,
+        blockers,
+        warnings: item.warnings,
+      }
+    })
+    const blockers = Array.from(new Set(items.flatMap((item) => item.blockers)))
+    return {
+      schemaVersion: 'portfolio.release_data_governance_audit.v1',
+      status: blockers.length === 0 && items.length > 0 ? 'passed' : 'blocked',
+      formalTradingEligible: false,
+      items,
+      blockers,
+      warnings: Array.from(new Set(items.flatMap((item) => item.warnings))),
+      notTradingAdvice: true,
+    }
+  }
+
+  private buildBenchmarkQualificationAudit(
+    formalReviewReadiness: PortfolioBacktestFormalReviewReadiness,
+  ): PortfolioBenchmarkQualificationAudit {
+    const statuses = formalReviewReadiness.benchmarkStatuses
+    const hasFormalTotalReturn = Object.values(statuses).includes('formal_total_return')
+    const hasFreeSourceTotalReturn = Object.values(statuses).includes('free_source_total_return')
+    const canSupportFormalReview = hasFormalTotalReturn || hasFreeSourceTotalReturn
+    const canSupportFormalTrading = hasFormalTotalReturn
+    const blockers = [
+      ...(canSupportFormalReview ? [] : ['total_return_benchmark_missing']),
+      ...(hasFormalTotalReturn ? [] : ['official_authorized_total_return_benchmark_not_reviewed']),
+    ]
+    return {
+      schemaVersion: 'portfolio.benchmark_qualification_audit.v1',
+      status: canSupportFormalReview ? 'passed' : 'blocked',
+      benchmarkStatuses: statuses,
+      hasFormalTotalReturn,
+      hasFreeSourceTotalReturn,
+      canSupportFormalReview,
+      canSupportFormalTrading,
+      blockers,
+      warnings: [
+        ...(hasFreeSourceTotalReturn && !hasFormalTotalReturn
+          ? ['free_source_total_return_supports_formal_review_not_formal_trading_release']
+          : []),
+        ...formalReviewReadiness.warnings.filter((warning) => warning.includes('benchmark') || warning.includes('total_return')),
+      ],
+      evidenceRefs: Object.entries(statuses).map(([id, status]) => `portfolio-benchmark-status:${id}:${status}`),
+      notTradingAdvice: true,
+    }
+  }
+
+  private buildFormalValidationAudit(strategies: PortfolioBacktestStrategyResult[]): PortfolioFormalValidationAudit {
+    const checks = strategies.map((strategy) => {
+      const model = strategy.modelEffectiveness
+      const blockers = model
+        ? Array.from(new Set([
+          ...(model.status === 'passed' ? [] : [`model_effectiveness_${model.status}`]),
+          ...(model.oos.status === 'passed' ? [] : [`oos_${model.oos.status}`]),
+          ...(model.walkForward.status === 'passed' ? [] : [`walk_forward_${model.walkForward.status}`]),
+          ...(model.parameterSensitivityStatus === 'passed' ? [] : [`parameter_sensitivity_${model.parameterSensitivityStatus}`]),
+          ...(model.groupStabilityStatus === 'passed' || model.groupStabilityStatus === 'not_applicable' ? [] : [`group_stability_${model.groupStabilityStatus}`]),
+          ...model.failureTaxonomy,
+        ]))
+        : ['model_effectiveness_missing']
+      return {
+        strategyId: strategy.definition.strategyId,
+        status: model?.status || 'insufficient' as const,
+        oosStatus: model?.oos.status || 'insufficient' as const,
+        walkForwardStatus: model?.walkForward.status || 'insufficient' as const,
+        parameterSensitivityStatus: model?.parameterSensitivityStatus || 'insufficient' as const,
+        groupStabilityStatus: model?.groupStabilityStatus || 'insufficient' as const,
+        blockers,
+        evidenceRefs: model?.evidenceRefs || strategy.evidenceRefs,
+      }
+    })
+    const failedStrategies = checks.filter((check) => check.status === 'failed').length
+    const insufficientStrategies = checks.filter((check) => check.status === 'insufficient').length
+    const warningStrategies = checks.filter((check) => check.status === 'warning').length
+    const passedStrategies = checks.filter((check) => check.status === 'passed').length
+    const status: PortfolioFormalValidationAudit['status'] = failedStrategies > 0
+      ? 'failed'
+      : insufficientStrategies > 0
+        ? 'insufficient'
+        : warningStrategies > 0
+          ? 'warning'
+          : 'passed'
+    const blockers = Array.from(new Set(checks.flatMap((check) => check.blockers)))
+    return {
+      schemaVersion: 'portfolio.formal_validation_audit.v1',
+      status,
+      formalTradingEligible: status === 'passed' && blockers.length === 0,
+      strategyCount: checks.length,
+      passedStrategies,
+      warningStrategies,
+      insufficientStrategies,
+      failedStrategies,
+      checks,
+      blockers,
+      warnings: [
+        ...(status === 'passed' ? [] : ['formal_validation_not_all_gates_passed']),
+        'research_backtest_curve_is_not_sufficient_for_formal_trading_release',
+      ],
+      notTradingAdvice: true,
+    }
+  }
+
+  private buildManualSignoffAudit(): PortfolioManualSignoffAudit {
+    const requiredRoles: PortfolioManualSignoffAudit['requiredRoles'] = ['data', 'model', 'risk', 'compliance', 'final_release']
+    const records = requiredRoles.map((role) => ({
+      role,
+      status: 'missing' as const,
+      reviewerId: null,
+      reviewedAt: null,
+      decision: null,
+      notes: null,
+      blockedReasons: [`${role}_signoff_missing`],
+      evidenceRefs: [],
+    }))
+    return {
+      schemaVersion: 'portfolio.manual_signoff_audit.v1',
+      status: 'missing',
+      requiredRoles,
+      records,
+      allRequiredSignedOff: false,
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+      canCreateOrder: false,
+      blockers: records.flatMap((record) => record.blockedReasons),
+      warnings: ['manual_signoff_workflow_not_completed'],
+      notTradingAdvice: true,
+    }
+  }
+
+  private buildLongHorizonDataCoverageAudit(
+    multiPeriodBacktestResult: PortfolioMultiPeriodBacktestResult,
+  ): PortfolioLongHorizonDataCoverageAudit {
+    const periods = multiPeriodBacktestResult.periods.map((period) => ({
+      periodId: period.periodId,
+      label: period.label,
+      requestedStartDate: period.requestedStartDate,
+      requestedEndDate: period.requestedEndDate,
+      requiredTradingDays: period.requiredTradingDays,
+      availableTradingDays: period.availableTradingDays,
+      coveragePercent: period.coveragePercent,
+      comparableStrategyCount: period.comparableStrategyCount,
+      blockedReasons: period.blockedReasons,
+      evidenceRefs: [
+        `portfolio-long-horizon:${period.periodId}:${period.requestedStartDate}:${period.requestedEndDate}:available:${period.availableTradingDays}:required:${period.requiredTradingDays}`,
+        ...period.strategySummaries
+          .filter((strategy) => strategy.equityCurvePoints > 0)
+          .slice(0, 8)
+          .map((strategy) => `portfolio-curve:${period.periodId}:${strategy.strategyId}:points:${strategy.equityCurvePoints}:${strategy.firstCurveDate || 'none'}:${strategy.lastCurveDate || 'none'}`),
+      ],
+    }))
+
+    const blockers = Array.from(new Set(periods.flatMap((period) => period.blockedReasons)))
+    return {
+      schemaVersion: 'portfolio.long_horizon_data_coverage_audit.v1',
+      status: blockers.length === 0 ? 'passed' : 'blocked',
+      longHorizonRealDataBacktestReady: blockers.length === 0,
+      periods,
+      blockers,
+      warnings: [
+        ...(blockers.length === 0 ? [] : ['long_horizon_real_data_backtest_not_ready']),
+        'long_horizon_ready_does_not_unlock_formal_trading_without_release_gate',
+      ],
+      notTradingAdvice: true,
+    }
+  }
+
+  private async buildMultiPeriodBacktestResult(
+    input: PortfolioBacktestInputBuildResult,
+    currentPeriodStrategies: PortfolioBacktestStrategyResult[],
+  ): Promise<PortfolioMultiPeriodBacktestResult> {
+    const periods = []
+    for (const period of this.longHorizonPeriodDefinitions(input.request.startDate, input.request.endDate)) {
+      const periodInput: PortfolioBacktestInputBuildResult = {
+        ...input,
+        request: {
+          ...input.request,
+          startDate: period.requestedStartDate,
+          endDate: period.requestedEndDate,
+        },
+      }
+      const periodStrategies = period.periodId === 'custom'
+        ? currentPeriodStrategies
+        : await Promise.all(input.strategies.map((definition) => this.runStrategy(definition, periodInput)))
+      const completedStrategies = periodStrategies.filter((strategy) => strategy.status === 'completed')
+      const availableTradingDays = completedStrategies.length > 0
+        ? Math.min(...completedStrategies.map((strategy) => strategy.equityCurve.length))
+        : 0
+      const coveragePercent = Math.min(100, round((availableTradingDays / period.requiredTradingDays) * 100, 2) || 0)
+      const comparableStrategyCount = completedStrategies.filter((strategy) => strategy.equityCurve.length >= Math.min(period.requiredTradingDays, availableTradingDays)).length
+      const blockedReasons = [
+        ...(coveragePercent >= 80 ? [] : [`${period.periodId}_coverage_below_80:${coveragePercent}`]),
+        ...(comparableStrategyCount >= 3 ? [] : [`${period.periodId}_comparable_strategy_count_below_3:${comparableStrategyCount}`]),
+      ]
+
+      periods.push({
+        periodId: period.periodId,
+        label: period.label,
+        requestedStartDate: period.requestedStartDate,
+        requestedEndDate: period.requestedEndDate,
+        requiredTradingDays: period.requiredTradingDays,
+        availableTradingDays,
+        coveragePercent,
+        strategyCount: periodStrategies.length,
+        completedStrategyCount: completedStrategies.length,
+        comparableStrategyCount,
+        blockedReasons,
+        strategySummaries: periodStrategies.map((strategy) => ({
+          strategyId: strategy.definition.strategyId,
+          status: strategy.status,
+          totalReturnPercent: strategy.metrics.totalReturnPercent,
+          maxDrawdownPercent: strategy.metrics.maxDrawdownPercent,
+          benchmarkReturnPercent: strategy.metrics.benchmarkReturnPercent,
+          excessReturnPercent: strategy.metrics.excessReturnPercent,
+          equityCurvePoints: strategy.equityCurve.length,
+          firstCurveDate: strategy.equityCurve[0]?.date || null,
+          lastCurveDate: strategy.equityCurve.at(-1)?.date || null,
+        })),
+      })
+    }
+    const blockers = Array.from(new Set(periods.flatMap((period) => period.blockedReasons)))
+    return {
+      schemaVersion: 'portfolio.multi_period_backtest_result.v1',
+      status: blockers.length === 0 ? 'passed' : 'blocked',
+      periods,
+      blockers,
+      warnings: [
+        ...(blockers.length > 0 ? ['multi_period_backtest_has_insufficient_real_data_coverage'] : []),
+        'multi_period_backtest_is_formal_review_evidence_not_formal_trading_unlock',
+      ],
+      notTradingAdvice: true,
+    }
+  }
+
+  private longHorizonPeriodDefinitions(startDate: string, endDate: string): LongHorizonPeriodDefinition[] {
+    const requestedCalendarDays = Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1)
+    return [
+      this.buildPeriodDefinition('1y', '1 年', endDate, 365, 252),
+      this.buildPeriodDefinition('3y', '3 年', endDate, 365 * 3, 252 * 3),
+      this.buildPeriodDefinition('5y', '5 年', endDate, 365 * 5, 252 * 5),
+      {
+        periodId: 'custom',
+        label: '自定义区间',
+        requestedStartDate: startDate,
+        requestedEndDate: endDate,
+        requiredTradingDays: Math.max(1, Math.round(requestedCalendarDays * (252 / 365))),
+        requiredCalendarDays: requestedCalendarDays,
+      },
+    ]
+  }
+
+  private buildPeriodDefinition(
+    periodId: '1y' | '3y' | '5y',
+    label: string,
+    endDate: string,
+    requiredCalendarDays: number,
+    requiredTradingDays: number,
+  ): LongHorizonPeriodDefinition {
+    const start = new Date(`${endDate}T00:00:00.000Z`)
+    start.setUTCDate(start.getUTCDate() - requiredCalendarDays + 1)
+    return {
+      periodId,
+      label,
+      requestedStartDate: isoDate(start),
+      requestedEndDate: endDate,
+      requiredTradingDays,
+      requiredCalendarDays,
+    }
+  }
+
+  private buildDividendTotalReturnAudit(
+    input: PortfolioBacktestInputBuildResult,
+    strategies: PortfolioBacktestStrategyResult[],
+  ): PortfolioDividendTotalReturnAudit {
+    const items = strategies.map((strategy) => {
+      const dividendAvailable = strategy.metrics.dividendContributionPercent !== null
+      const noAuditedDividendComponent = strategy.warnings.includes('dividend_contribution_insufficient:no_audited_component_yield')
+      return {
+        strategyId: strategy.definition.strategyId,
+        priceOnlyReturnPercent: strategy.metrics.priceOnlyReturnPercent ?? strategy.metrics.totalReturnPercent,
+        dividendContributionPercent: strategy.metrics.dividendContributionPercent,
+        capitalGainContributionPercent: strategy.metrics.capitalGainContributionPercent,
+        costDragPercent: strategy.metrics.costDragPercent ?? null,
+        totalReturnMethod: dividendAvailable
+          ? 'price_plus_estimated_dividend' as const
+          : noAuditedDividendComponent
+            ? 'price_only_no_audited_dividend_component' as const
+            : 'price_only_or_insufficient' as const,
+        evidenceRefs: strategy.evidenceRefs.filter((ref) => ref.includes('dividend') || ref.includes('price-source') || ref.includes('benchmark')),
+        warnings: strategy.warnings.filter((warning) => warning.includes('dividend') || warning.includes('benchmark')),
+      }
+    })
+    const coveredStrategyCount = items.filter((item) => item.totalReturnMethod !== 'price_only_or_insufficient').length
+    const coveragePercent = strategies.length > 0 ? round((coveredStrategyCount / strategies.length) * 100, 2) || 0 : 0
+    const blockers = [
+      ...(coveredStrategyCount === strategies.length && strategies.length > 0 ? [] : [`dividend_total_return_coverage_incomplete:${coveredStrategyCount}/${strategies.length}`]),
+      ...(input.request.dividendMode === 'reinvest' || input.request.dividendMode === 'cash' ? [] : [`unsupported_dividend_mode:${input.request.dividendMode}`]),
+    ]
+
+    return {
+      schemaVersion: 'portfolio.dividend_total_return_audit.v1',
+      status: blockers.length === 0 ? 'passed' : 'blocked',
+      mode: input.request.dividendMode,
+      strategyCount: strategies.length,
+      coveredStrategyCount,
+      coveragePercent,
+      priceOnlyReturnAvailable: strategies.every((strategy) => strategy.metrics.priceOnlyReturnPercent !== null || strategy.metrics.totalReturnPercent !== null),
+      dividendContributionAvailable: coveredStrategyCount === strategies.length && strategies.length > 0,
+      capitalGainContributionAvailable: items.every((item) => item.capitalGainContributionPercent !== null),
+      costDragAvailable: items.every((item) => item.costDragPercent !== null),
+      items,
+      blockers,
+      warnings: [
+        'dividend_total_return_uses_research_estimated_ttm_yield_until_official_dividend_events_are_cross_checked',
+        ...(blockers.length > 0 ? ['dividend_total_return_not_formal_grade'] : []),
+      ],
+      notTradingAdvice: true,
+    }
+  }
+
+  private buildReleaseGateAudit(args: {
+    formalReviewReadiness: PortfolioBacktestFormalReviewReadiness
+    dataGradeAudit: PortfolioDataGradeAudit
+    modelEffectiveness: NonNullable<PortfolioBacktestResult['modelEffectiveness']>
+    formalTradingUnlockChecklist: PortfolioFormalTradingUnlockChecklist
+    readinessSummary: PortfolioBacktestReadinessSummary
+    executionIsolationAudit: PortfolioExecutionIsolationAudit
+    dataGovernanceAudit: PortfolioReleaseDataGovernanceAudit
+    benchmarkQualificationAudit: PortfolioBenchmarkQualificationAudit
+    formalValidationAudit: PortfolioFormalValidationAudit
+    manualSignoffAudit: PortfolioManualSignoffAudit
+    longHorizonDataCoverageAudit: PortfolioLongHorizonDataCoverageAudit
+    runtimeHealth?: Record<string, unknown>
+  }): PortfolioFormalTradingReleaseGateAudit {
+    const runtimeStatus = typeof args.runtimeHealth?.status === 'string' ? args.runtimeHealth.status : 'unknown'
+    const checks: PortfolioFormalTradingReleaseGateAudit['checks'] = [
+      {
+        id: 'runtime_health',
+        status: runtimeStatus === 'healthy' ? 'passed' : 'requires_review',
+        blocker: runtimeStatus === 'healthy' ? undefined : `runtime_health_not_confirmed:${runtimeStatus}`,
+        evidenceRefs: ['runtimeHealthService.check'],
+      },
+      {
+        id: 'formal_review_readiness',
+        status: args.formalReviewReadiness.ready ? 'passed' : 'blocked',
+        blocker: args.formalReviewReadiness.ready ? undefined : 'formal_review_readiness_not_passed',
+        evidenceRefs: ['portfolioBacktest.formalReviewReadiness'],
+      },
+      {
+        id: 'long_horizon_real_data_backtest',
+        status: args.longHorizonDataCoverageAudit.longHorizonRealDataBacktestReady ? 'passed' : 'blocked',
+        blocker: args.longHorizonDataCoverageAudit.longHorizonRealDataBacktestReady ? undefined : 'long_horizon_real_data_backtest_not_ready',
+        evidenceRefs: args.longHorizonDataCoverageAudit.periods.flatMap((period) => period.evidenceRefs),
+      },
+      {
+        id: 'data_grade',
+        status: args.dataGradeAudit.status === 'passed' ? 'passed' : 'blocked',
+        blocker: args.dataGradeAudit.status === 'passed' ? undefined : `data_grade_${args.dataGradeAudit.status}`,
+        evidenceRefs: args.dataGradeAudit.items.flatMap((item) => item.evidenceRefs),
+      },
+      {
+        id: 'field_level_data_governance',
+        status: args.dataGovernanceAudit.status === 'passed' ? 'passed' : 'blocked',
+        blocker: args.dataGovernanceAudit.status === 'passed' ? undefined : 'field_level_data_governance_not_passed',
+        evidenceRefs: args.dataGovernanceAudit.items.flatMap((item) => item.evidenceRefs),
+      },
+      {
+        id: 'official_or_cross_checked_benchmark',
+        status: args.benchmarkQualificationAudit.canSupportFormalTrading ? 'passed' : 'blocked',
+        blocker: args.benchmarkQualificationAudit.canSupportFormalTrading ? undefined : 'official_authorized_total_return_benchmark_not_reviewed',
+        evidenceRefs: args.benchmarkQualificationAudit.evidenceRefs,
+      },
+      {
+        id: 'model_effectiveness',
+        status: args.modelEffectiveness.status === 'passed' ? 'passed' : 'blocked',
+        blocker: args.modelEffectiveness.status === 'passed' ? undefined : `model_effectiveness_${args.modelEffectiveness.status}`,
+        evidenceRefs: ['portfolioBacktest.modelEffectiveness'],
+      },
+      {
+        id: 'formal_validation',
+        status: args.formalValidationAudit.status === 'passed' ? 'passed' : 'blocked',
+        blocker: args.formalValidationAudit.status === 'passed' ? undefined : `formal_validation_${args.formalValidationAudit.status}`,
+        evidenceRefs: args.formalValidationAudit.checks.flatMap((check) => check.evidenceRefs),
+      },
+      {
+        id: 'execution_isolation',
+        status: args.executionIsolationAudit.paperTradingReady && !args.executionIsolationAudit.orderCreateAllowed ? 'passed' : 'blocked',
+        blocker: args.executionIsolationAudit.paperTradingReady ? undefined : 'paper_or_sandbox_intent_missing',
+        evidenceRefs: args.executionIsolationAudit.evidenceRefs,
+      },
+      {
+        id: 'manual_human_signoff',
+        status: args.manualSignoffAudit.allRequiredSignedOff ? 'passed' : 'blocked',
+        blocker: args.manualSignoffAudit.allRequiredSignedOff ? undefined : 'human_reviewer_confirmation_not_completed',
+        evidenceRefs: args.manualSignoffAudit.records.flatMap((record) => record.evidenceRefs),
+      },
+      {
+        id: 'production_order_adapter',
+        status: 'blocked',
+        blocker: 'production_order_adapter_not_enabled',
+        evidenceRefs: ['portfolio.execution_isolation_audit.v1'],
+      },
+      {
+        id: 'auto_trade_policy',
+        status: 'blocked',
+        blocker: 'auto_trade_policy_locked',
+        evidenceRefs: ['portfolio.backtest.trade_gate_contract.v1'],
+      },
+    ]
+    const blockers = Array.from(new Set([
+      ...checks.map((check) => check.blocker).filter((blocker): blocker is string => Boolean(blocker)),
+      ...args.dataGovernanceAudit.blockers,
+      ...args.benchmarkQualificationAudit.blockers,
+      ...args.formalValidationAudit.blockers,
+      ...args.manualSignoffAudit.blockers,
+      ...args.longHorizonDataCoverageAudit.blockers,
+      ...args.formalTradingUnlockChecklist.blockers,
+      ...args.readinessSummary.blockers,
+    ]))
+
+    return {
+      schemaVersion: 'portfolio.formal_trading_release_gate_audit.v1',
+      status: 'blocked',
+      formalTradingEligible: args.readinessSummary.formalTradingEligible,
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+      orderCreateAllowed: false,
+      canCreateOrder: false,
+      checks,
+      blockers,
+      warnings: [
+        'formal_review_ready_does_not_mean_formal_trading_unlocked',
+        'manual_plan_drafts_must_not_create_orders',
+      ],
+      notTradingAdvice: true,
+    }
+  }
+
   private insufficient(
     definition: PortfolioStrategyDefinition,
     blockedReasons: string[],
@@ -1029,6 +1635,7 @@ export class PortfolioBacktestEngine {
             grade: 'insufficient',
             sourceProvider: 'none',
             sourceType: 'historical_close',
+            asOfDate: null,
             freshnessStatus: 'unknown',
             coveragePercent: 0,
             blockingForFormalTrading: true,
@@ -1040,6 +1647,7 @@ export class PortfolioBacktestEngine {
             grade: 'insufficient',
             sourceProvider: 'none',
             sourceType: 'benchmark_curve',
+            asOfDate: null,
             freshnessStatus: 'unknown',
             coveragePercent: 0,
             blockingForFormalTrading: true,
@@ -1051,6 +1659,7 @@ export class PortfolioBacktestEngine {
             grade: 'insufficient',
             sourceProvider: 'none',
             sourceType: 'dividend_return',
+            asOfDate: null,
             freshnessStatus: 'unknown',
             coveragePercent: 0,
             blockingForFormalTrading: true,
@@ -1062,6 +1671,7 @@ export class PortfolioBacktestEngine {
             grade: 'insufficient',
             sourceProvider: 'none',
             sourceType: 'limit_up_down_and_suspension_state',
+            asOfDate: null,
             freshnessStatus: 'unknown',
             coveragePercent: 0,
             blockingForFormalTrading: true,

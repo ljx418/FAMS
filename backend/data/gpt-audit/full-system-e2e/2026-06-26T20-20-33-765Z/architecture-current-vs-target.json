@@ -1,0 +1,15 @@
+{
+  "target": [
+    "数据源与证据层：免费数据源/Tushare 升级源、行情、分红、行业龙头、交易约束、evidenceRefs。",
+    "策略与验证层：红利低波、组合回测、滚动策略、validation retest、failure taxonomy。",
+    "Operation 审计层：所有重任务落 Operation 与 artifact，支持任务中心追溯。",
+    "前端体验层：独立红利低波、组合回测、任务中心、持仓和告警路径。",
+    "交易 Gate：研究/观察/计划草案与正式交易动作隔离，AUTO_TRADE 禁止。"
+  ],
+  "current": [
+    "已实现红利低波独立菜单、候选池、筛选排序、买卖区间、滚动回测和人工草案 gate。",
+    "已实现组合策略多曲线回测、永久组合/全天候代理 ETF 路径、Operation artifact。",
+    "已实现生产/交易 gate 合同测试；正式自动交易仍未开放。",
+    "仍需持续审计正式 total-return benchmark、免费数据最新性与文档漂移。"
+  ]
+}

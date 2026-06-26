@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import {
   PORTFOLIO_BACKTEST_ALLOWED_ACTIONS,
   PORTFOLIO_BACKTEST_PROHIBITED_ACTIONS,
+  PortfolioManualSignoffRole,
 } from './portfolioBacktestTypes.js'
 
 export type PortfolioBacktestManualReviewDecision = 'approve_for_manual_review' | 'request_changes' | 'reject'
@@ -12,6 +13,7 @@ export interface PortfolioBacktestManualReview {
   schemaVersion: 'portfolio.backtest.manual_plan_review.v1'
   runId: string
   reviewerId: string
+  role: PortfolioManualSignoffRole
   reviewedAt: string
   decision: PortfolioBacktestManualReviewDecision
   notes: string
@@ -34,6 +36,11 @@ function backendRoot() {
 
 function safeRunId(runId: string) {
   return runId.replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 160)
+}
+
+function safeRole(role: string | undefined): PortfolioManualSignoffRole {
+  if (role === 'data' || role === 'model' || role === 'risk' || role === 'compliance' || role === 'final_release') return role
+  return 'final_release'
 }
 
 export class PortfolioBacktestReviewService {
@@ -76,6 +83,7 @@ export class PortfolioBacktestReviewService {
   async saveReview(args: {
     runId: string
     reviewerId: string
+    role?: PortfolioManualSignoffRole
     decision: PortfolioBacktestManualReviewDecision
     notes?: string
     blockedReasons?: string[]
@@ -86,6 +94,7 @@ export class PortfolioBacktestReviewService {
       schemaVersion: 'portfolio.backtest.manual_plan_review.v1',
       runId: args.runId,
       reviewerId: args.reviewerId,
+      role: safeRole(args.role),
       reviewedAt: new Date().toISOString(),
       decision: args.decision,
       notes: args.notes || '',

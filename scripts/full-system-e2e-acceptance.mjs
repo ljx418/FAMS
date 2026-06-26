@@ -457,6 +457,122 @@ async function runBrowserEvidence(apiResults) {
 
   const screenshots = []
   const consoleErrors = []
+
+  async function withPage(viewport, task) {
+    const browser = await chromium.launch({ headless: true })
+    const page = await browser.newPage({ viewport })
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text())
+    })
+    page.on('pageerror', (error) => consoleErrors.push(error.message))
+    try {
+      await task(page)
+    } finally {
+      await browser.close().catch(() => {})
+    }
+  }
+
+  async function captureFailure(title, error) {
+    screenshots.push({
+      title,
+      description: '自动化浏览器路径未完整走通。',
+      status: 'failed',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  try {
+    await withPage({ width: 1440, height: 1100 }, async (page) => {
+      await page.goto(`${frontendUrl}/dashboard`, { waitUntil: 'networkidle', timeout: 120000 })
+      await waitForBodyText(page, ['FAMS'])
+      screenshots.push(await screenshot(page, '01-dashboard.png', '总览与侧边栏', '证明左侧菜单和系统入口可见。', ['FAMS', '红利低波策略', '策略回测']))
+    })
+  } catch (error) {
+    await captureFailure('总览与侧边栏异常', error)
+  }
+
+  try {
+    await withPage({ width: 1440, height: 1100 }, async (page) => {
+      await page.goto(`${frontendUrl}/analysis?section=fivdr`, { waitUntil: 'networkidle', timeout: 120000 })
+      await waitForBodyText(page, ['分析建议', 'FIVD-R'], 120000)
+      screenshots.push(await screenshot(page, '02-analysis-fivd-r.png', 'FIVD-R 分析建议', '证明 FIVD-R 统一分析入口、研究/交易阻断语义可见。', ['FIVD-R', '交易', '建议']))
+    })
+  } catch (error) {
+    await captureFailure('FIVD-R 分析建议异常', error)
+  }
+
+  try {
+    await withPage({ width: 1440, height: 1100 }, async (page) => {
+      await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'networkidle', timeout: 120000 })
+      await waitForBodyText(page, ['红利低波策略', '不构成交易指令'])
+      screenshots.push(await screenshot(page, '03-dividend-low-vol-overview.png', '红利低波策略页', '独立菜单页、研究模式 banner、禁止交易动作。', ['红利低波策略', '不构成交易指令', 'AUTO_TRADE']))
+      await page.getByText('筛选与排序').scrollIntoViewIfNeeded().catch(() => {})
+      screenshots.push(await screenshot(page, '04-dividend-low-vol-filters.png', '红利低波筛选与指标', '候选池筛选、排序和指标说明区域。', ['筛选与排序', '排序指标', '综合分']))
+      await page.getByText('买入/卖出观察区间与滚动策略').scrollIntoViewIfNeeded().catch(() => {})
+      screenshots.push(await screenshot(page, '05-dividend-low-vol-zones.png', '红利低波买卖区间', '买入/卖出观察区间、滚动回测和区间免责声明。', ['买入/卖出观察区间', '正式 ADD', '正式 REDUCE']))
+      await page.getByText('人工交易计划草案 Gate').scrollIntoViewIfNeeded().catch(() => {})
+      screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '人工计划草案 readiness、Top3 草案和交易 gate。', ['人工交易计划草案 Gate', '正式买入/卖出']))
+    })
+  } catch (error) {
+    await captureFailure('红利低波主路径异常', error)
+  }
+
+  try {
+    await withPage({ width: 768, height: 1024 }, async (page) => {
+      await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'networkidle', timeout: 120000 })
+      await waitForBodyText(page, ['红利低波策略'], 120000)
+      screenshots.push(await screenshot(page, '07-tablet-dividend-low-vol.png', '平板端红利低波', '平板视口下验证红利低波页面可读性。', ['红利低波策略']))
+    })
+  } catch (error) {
+    await captureFailure('平板端红利低波异常', error)
+  }
+
+  try {
+    await withPage({ width: 1440, height: 1100 }, async (page) => {
+      await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'networkidle', timeout: 120000 })
+      await waitForBodyText(page, ['组合策略对比回测', '运行组合回测'])
+      screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行组合回测']))
+      await page.getByRole('button', { name: '运行组合回测' }).click()
+      await waitForBodyText(page, ['超额收益', 'Benchmark', '非交易建议'], 120000)
+      screenshots.push(await screenshot(page, '09-backtest-result.png', '组合回测结果', '组合净值曲线、收益指标、benchmark 和分红贡献。', ['Benchmark', '超额收益', '总收益']))
+      await page.setViewportSize({ width: 390, height: 844 })
+      screenshots.push(await screenshot(page, '10-mobile-backtest-result.png', '移动端组合回测', '移动视口下验证组合回测结果仍可访问和阅读。', ['策略回测']))
+    })
+  } catch (error) {
+    await captureFailure('组合回测路径异常', error)
+  }
+
+  try {
+    await withPage({ width: 1440, height: 1100 }, async (page) => {
+      const portfolioApi = apiResults.find((item) => item.name === '组合回测 API')
+      const firstArtifactRef = portfolioApi?.summary?.firstArtifactRef
+      const operationId = portfolioApi?.summary?.operationId
+      const operationsUrl = firstArtifactRef
+        ? `${frontendUrl}/operations?operationId=${encodeURIComponent(operationId || '')}&artifactRef=${encodeURIComponent(firstArtifactRef)}`
+        : `${frontendUrl}/operations${operationId ? `?operationId=${encodeURIComponent(operationId)}` : ''}`
+      await page.goto(operationsUrl, { waitUntil: 'networkidle', timeout: 120000 })
+      await waitForBodyText(page, ['任务中心'], 120000)
+      await page.waitForTimeout(2000)
+      screenshots.push(await screenshot(page, '11-operations-artifact.png', '任务中心产物', '任务中心 operation 与 artifact 可追溯。', ['任务中心', firstArtifactRef ? '任务产物' : '组合回测']))
+    })
+  } catch (error) {
+    await captureFailure('任务中心产物异常', error)
+  }
+
+  return {
+    status: consoleErrors.length === 0 ? assessOverall(screenshots) : 'failed',
+    screenshots,
+    consoleErrors: consoleErrors.slice(0, 20),
+  }
+}
+
+async function runBrowserEvidenceLegacy(apiResults) {
+  process.env.LD_LIBRARY_PATH = process.env.LD_LIBRARY_PATH
+    ? `${playwrightLibPath}:${process.env.LD_LIBRARY_PATH}`
+    : playwrightLibPath
+
+  const screenshots = []
+  const consoleErrors = []
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } })
   page.on('console', (message) => {
@@ -864,7 +980,7 @@ async function main() {
   await writeFile(path.join(reportDir, 'document-consistency-audit.json'), JSON.stringify(documentAudit, null, 2))
   await writeFile(path.join(reportDir, 'code-inspection-audit.json'), JSON.stringify(codeInspection, null, 2))
   await writeFile(path.join(reportDir, 'architecture-current-vs-target.json'), JSON.stringify(model.architecture, null, 2))
-  await writeFile(path.join(reportDir, 'acceptance-report.html'), renderReport(model))
+  await writeFile(path.join(reportDir, 'acceptance-report.html'), renderReport(model).replace(/[ \t]+$/gm, ''))
 
   console.log(JSON.stringify({
     ok: overallStatus === 'passed',

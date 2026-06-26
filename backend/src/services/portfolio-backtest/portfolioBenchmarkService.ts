@@ -25,7 +25,29 @@ function round(value: number, digits = 6) {
 }
 
 export class PortfolioBenchmarkService {
+  private benchmarkCache = new Map<string, Promise<PortfolioBenchmarkResult>>()
+
   async buildBenchmarks(benchmarkIds: string[], dates: string[], startDate: string, endDate: string): Promise<PortfolioBenchmarkResult> {
+    const cacheKey = [
+      benchmarkIds.slice().sort().join(','),
+      startDate,
+      endDate,
+      dates[0] || 'none',
+      dates.at(-1) || 'none',
+      dates.length,
+    ].join('|')
+    const cached = this.benchmarkCache.get(cacheKey)
+    if (cached) return cached
+    const pending = this.buildBenchmarksUncached(benchmarkIds, dates, startDate, endDate)
+    this.benchmarkCache.set(cacheKey, pending)
+    if (this.benchmarkCache.size > 100) {
+      const firstKey = this.benchmarkCache.keys().next().value
+      if (firstKey) this.benchmarkCache.delete(firstKey)
+    }
+    return pending
+  }
+
+  private async buildBenchmarksUncached(benchmarkIds: string[], dates: string[], startDate: string, endDate: string): Promise<PortfolioBenchmarkResult> {
     const seriesById: Record<string, BenchmarkSeries> = {}
     const statusById: Record<string, BenchmarkStatus> = {}
     const warnings: string[] = []

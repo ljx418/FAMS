@@ -143,3 +143,105 @@ manual draft is not order creation
 proxy benchmark is not formal total return
 insufficient must stay insufficient
 ```
+
+## 6. 2026-06-26 FTR-1 到 FTR-6 执行审计补充
+
+本轮按正式交易 release 前置计划继续执行。结论：
+
+```text
+executionStatus=passed_for_current_formal_review_stage
+fieldLevelDataGovernanceImproved=true
+portfolioBacktestFormalReviewReady=true
+longHorizonRealDataBacktestReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+orderCreateAllowed=false
+canCreateOrder=false
+releaseGateStatus=blocked
+```
+
+### 6.1 本轮实质改动
+
+- 补齐 `PortfolioDataGradeItem.asOfDate`。
+- `PortfolioBacktestEngine` 在策略级 `dataGradeAudit` 和 release 级 `dataGovernanceAudit` 中透传 `asOfDate`。
+- insufficient 分支也显式输出 `asOfDate=null`，避免把缺口伪装成有证据。
+- `verify-portfolio-backtest-formal-review-readiness.ts` 新增字段级数据治理断言，要求每个 release 字段具备 `sourceProvider / sourceEndpoint / asOfDate / fetchedAt / freshnessStatus / coveragePercent / evidenceRefs`。
+
+### 6.2 真实数据验收结果
+
+已执行并通过：
+
+```bash
+cd backend
+node node_modules/typescript/bin/tsc
+npm run test:portfolio-backtest-api-contract
+npm run test:portfolio-backtest-formal-review-readiness
+npm run test:portfolio-backtest-long-horizon
+npm run test:fivd-r-trade-gate-contract
+npm run test:production-readiness
+npm run test:trade-action-readiness
+npm run run:interactive-strategy-backtest-audit-package
+npm run test:portfolio-backtest-frontend-runtime
+
+cd frontend
+npm run build
+```
+
+最新长周期验收：
+
+```text
+1y coverage=96.43%, completedStrategyCount=7, comparableStrategyCount=7
+3y coverage=95.90%, completedStrategyCount=7, comparableStrategyCount=7
+5y coverage=95.71%, completedStrategyCount=7, comparableStrategyCount=7
+custom coverage=94.49%, completedStrategyCount=7, comparableStrategyCount=7
+```
+
+最新审计包：
+
+```text
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/15_release_data_governance_audit.json
+backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-12-17-124Z/03_frontend_runtime_and_operation_audit.json
+```
+
+`15_release_data_governance_audit.json` 已确认 `missingAsOfDate=[]`，样例字段包括：
+
+```text
+portfolio_backtest.price: asOfDate=2026-06-05, coverage=94.49, status=passed
+portfolio_backtest.benchmark: asOfDate=2026-06-05, coverage=100, status=passed
+portfolio_backtest.dividend: asOfDate=2026-06-05, coverage=100, status=passed
+portfolio_backtest.tradeability: asOfDate=2026-06-05, coverage=99.58, status=passed
+```
+
+### 6.3 PRD 规格检视
+
+本轮未改变产品边界。当前仍只能声明：
+
+```text
+researchReady=true
+portfolioBacktestFormalReviewReady=true
+manualTradePlanDraftReviewReady=true
+paperSandboxReviewReady=true
+longHorizonRealDataBacktestReady=true
+```
+
+当前仍不能声明：
+
+```text
+formalTradingUnlocked 不得为 true
+autoTradeUnlocked 不得为 true
+orderCreateAllowed 不得为 true
+canCreateOrder 不得为 true
+formal ADD / REDUCE released
+auto rebalance ready
+```
+
+### 6.4 剩余 release blocker
+
+- `DataGovernanceStatus` 已补齐字段级 `asOfDate`，但正式 provider 和 official_authorized cross-check 仍未完成，release gate 继续 blocked。
+- `BenchmarkQualificationStatus` 可支撑 formal review，但官方或可信 total-return benchmark 仍需最终复核。
+- `FormalValidationStatus` 仍为 warning，参数敏感性和分组稳定性仍不能声明 formal passed。
+- `ManualSignoffStatus=missing`，数据、模型、风控、合规、最终 release 签核未完成。
+- `production_order_adapter_not_enabled` 和 `auto_trade_policy_locked` 继续阻断正式下单和自动交易。
+
+审计意见：本轮可以收口为“正式交易 release 前置评审材料进一步完整”，不能收口为“正式交易 release 完成”。若下一轮要继续推进，优先级应为正式 provider/benchmark 凭证路线、formal validation 真重放、人工签核工作流，而不是继续扩展研究级页面功能。

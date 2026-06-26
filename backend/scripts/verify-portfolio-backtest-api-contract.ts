@@ -57,12 +57,78 @@ async function main() {
   assert.ok(result.formalTradingUnlockChecklist, 'result should include formal trading unlock checklist')
   assert.ok(result.runId, 'result should include auditable runId')
   assert.ok(result.readinessSummary, 'result should include unified readiness summary')
+  assert.ok(result.executionIsolationAudit, 'result should include execution isolation audit')
+  assert.ok(Array.isArray(result.paperOrderIntents), 'result should include paper order intents')
+  assert.ok(result.releaseGateAudit, 'result should include release gate audit')
+  assert.ok(result.dataGovernanceAudit, 'result should include release data governance audit')
+  assert.ok(result.benchmarkQualificationAudit, 'result should include benchmark qualification audit')
+  assert.ok(result.formalValidationAudit, 'result should include formal validation audit')
+  assert.ok(result.manualSignoffAudit, 'result should include manual signoff audit')
+  assert.ok(result.longHorizonDataCoverageAudit, 'result should include long horizon data coverage audit')
+  assert.ok(result.multiPeriodBacktestResult, 'result should include multi-period backtest result audit')
+  assert.ok(result.dividendTotalReturnAudit, 'result should include dividend total return audit')
   assert.equal(result.readinessSummary.researchReady, true)
   assert.equal(result.readinessSummary.formalTradingUnlocked, false)
   assert.equal(result.readinessSummary.autoTradeUnlocked, false)
   assert.equal(result.readinessSummary.formalReviewReady, result.formalReviewReadiness?.ready === true)
   assert.equal(result.formalTradingUnlockChecklist.formalTradingUnlocked, false)
   assert.equal(result.formalTradingUnlockChecklist.autoTradeUnlocked, false)
+  assert.equal(result.executionIsolationAudit.productionAdapterEnabled, false)
+  assert.equal(result.executionIsolationAudit.realPositionMutationAllowed, false)
+  assert.equal(result.executionIsolationAudit.orderCreateAllowed, false)
+  assert.equal(result.executionIsolationAudit.canCreateOrder, false)
+  assert.equal(result.executionIsolationAudit.formalTradingUnlocked, false)
+  assert.equal(result.executionIsolationAudit.autoTradeUnlocked, false)
+  assert.equal(result.releaseGateAudit.status, 'blocked')
+  assert.equal(result.releaseGateAudit.orderCreateAllowed, false)
+  assert.equal(result.releaseGateAudit.canCreateOrder, false)
+  assert.equal(result.releaseGateAudit.formalTradingUnlocked, false)
+  assert.equal(result.releaseGateAudit.autoTradeUnlocked, false)
+  assert.equal(result.dataGovernanceAudit.formalTradingEligible, false)
+  assert.equal(result.benchmarkQualificationAudit.canSupportFormalTrading, false)
+  assert.equal(result.formalValidationAudit.formalTradingEligible, false)
+  assert.equal(result.manualSignoffAudit.allRequiredSignedOff, false)
+  assert.equal(result.manualSignoffAudit.canCreateOrder, false)
+  assert.equal(
+    result.longHorizonDataCoverageAudit.longHorizonRealDataBacktestReady,
+    result.longHorizonDataCoverageAudit.blockers.length === 0,
+    'long-horizon readiness should reflect actual real-data blockers instead of being hard-coded blocked',
+  )
+  assert.equal(result.longHorizonDataCoverageAudit.notTradingAdvice, true)
+  assert.ok(result.longHorizonDataCoverageAudit.periods.some((period: any) => period.periodId === '1y'))
+  assert.ok(result.longHorizonDataCoverageAudit.periods.some((period: any) => period.periodId === '3y'))
+  assert.ok(result.longHorizonDataCoverageAudit.periods.some((period: any) => period.periodId === '5y'))
+  assert.ok(result.longHorizonDataCoverageAudit.periods.some((period: any) => period.periodId === 'custom'))
+  assert.equal(result.multiPeriodBacktestResult.notTradingAdvice, true)
+  assert.ok(result.multiPeriodBacktestResult.periods.length >= 4)
+  assert.ok(
+    !result.multiPeriodBacktestResult.blockers.includes('period_replay_not_materialized_in_current_request'),
+    'multi-period result must be produced by real period replay, not a placeholder blocker',
+  )
+  for (const period of result.multiPeriodBacktestResult.periods) {
+    assert.ok(period.requestedStartDate, `period ${period.periodId} should expose requestedStartDate`)
+    assert.ok(period.requestedEndDate, `period ${period.periodId} should expose requestedEndDate`)
+    assert.ok(typeof period.availableTradingDays === 'number', `period ${period.periodId} should expose availableTradingDays`)
+    assert.ok(typeof period.coveragePercent === 'number', `period ${period.periodId} should expose coveragePercent`)
+    assert.ok(Array.isArray(period.strategySummaries), `period ${period.periodId} should expose strategySummaries`)
+    assert.ok(period.strategySummaries.length === period.strategyCount, `period ${period.periodId} strategy summaries should match strategy count`)
+  }
+  assert.equal(result.dividendTotalReturnAudit.notTradingAdvice, true)
+  assert.ok(typeof result.dividendTotalReturnAudit.coveragePercent === 'number')
+  assert.ok(result.releaseGateAudit.checks.some((check: any) => check.id === 'field_level_data_governance'))
+  assert.ok(result.releaseGateAudit.checks.some((check: any) => check.id === 'long_horizon_real_data_backtest'))
+  assert.ok(result.releaseGateAudit.checks.some((check: any) => check.id === 'formal_validation'))
+  assert.ok(result.releaseGateAudit.checks.some((check: any) => check.id === 'manual_human_signoff'))
+  assert.ok(result.paperOrderIntents.length >= result.strategies.length)
+  for (const intent of result.paperOrderIntents) {
+    assert.equal(intent.schemaVersion, 'portfolio.paper_order_intent.v1')
+    assert.equal(intent.formalTargetWeightPercent, 0)
+    assert.equal(intent.canCreateOrder, false)
+    assert.equal(intent.orderCreateAllowed, false)
+    assert.equal(intent.formalTradingUnlocked, false)
+    assert.equal(intent.autoTradeUnlocked, false)
+    assert.equal(intent.notTradingAdvice, true)
+  }
   const localCompleted = result.strategies.filter((item: any) => item.definition?.strategyId?.startsWith('local_real_data_') && item.status === 'completed')
   assert.ok(localCompleted.length >= 3, 'expected at least three completed local real-data strategies')
   const localSample = result.strategies.find((item: any) => item.definition?.strategyId === 'local_real_data_sample_60_40')
@@ -130,7 +196,7 @@ async function main() {
   assert.ok(operationSubmission.operationId)
   assert.ok(operationSubmission.result?.readinessSummary, 'operation result should expose readiness summary')
   assert.ok(Array.isArray(operationSubmission.artifactRefs))
-  assert.ok(operationSubmission.artifactRefs.length >= 11)
+  assert.ok(operationSubmission.artifactRefs.length >= 13)
   assert.deepEqual(operationSubmission.prohibitedActions, ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'])
   const artifactRef = operationSubmission.artifactRefs.find((ref: string) => ref.includes('06_trade_gate_contract.json'))
   assert.ok(artifactRef, 'operation should expose trade gate artifact')
@@ -139,6 +205,12 @@ async function main() {
     '09_model_effectiveness_audit.json',
     '10_manual_plan_draft_audit.json',
     '11_formal_trading_unlock_checklist.json',
+    '12_execution_isolation_audit.json',
+    '13_formal_trading_release_gate_audit.json',
+    '14_release_data_governance_audit.json',
+    '15_benchmark_qualification_audit.json',
+    '16_formal_validation_audit.json',
+    '17_manual_signoff_audit.json',
   ]) {
     assert.ok(operationSubmission.artifactRefs.some((ref: string) => ref.includes(requiredArtifact)), `operation should expose ${requiredArtifact}`)
   }
@@ -167,6 +239,7 @@ async function main() {
     url: `/api/v1/portfolio-backtest/reviews/${encodeURIComponent(result.runId)}`,
     payload: {
       reviewerId: 'api_contract_reviewer',
+      role: 'final_release',
       decision: 'approve_for_manual_review',
       notes: 'contract test review record',
       blockedReasons: result.readinessSummary.blockers,
@@ -175,6 +248,7 @@ async function main() {
   assert.equal(saveReviewResponse.statusCode, 200)
   const savedReview = saveReviewResponse.json()
   assert.equal(savedReview.status, 'saved')
+  assert.equal(savedReview.review?.role, 'final_release')
   assert.equal(savedReview.formalTradingUnlocked, false)
   assert.equal(savedReview.autoTradeUnlocked, false)
   assert.equal(savedReview.canCreateOrder, false)

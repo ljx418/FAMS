@@ -9,12 +9,14 @@ export type PortfolioBacktestGradeMode = 'research' | 'formal_review'
 export type PortfolioBenchmarkStatus = 'formal_total_return' | 'free_source_total_return' | 'price_index' | 'research_proxy' | 'unavailable'
 export type PortfolioSourceDataGrade = 'official_authorized' | 'free_source_cross_checked' | 'price_index_only' | 'research_proxy' | 'insufficient'
 export type PortfolioModelEffectivenessStatus = 'passed' | 'warning' | 'insufficient' | 'failed'
+export type PortfolioManualSignoffRole = 'data' | 'model' | 'risk' | 'compliance' | 'final_release'
 
 export interface PortfolioDataGradeItem {
   scope: 'price' | 'benchmark' | 'dividend' | 'tradeability'
   grade: PortfolioSourceDataGrade
   sourceProvider: string
   sourceType: string
+  asOfDate: string | null
   freshnessStatus: 'fresh' | 'stale' | 'unknown'
   coveragePercent: number
   blockingForFormalTrading: boolean
@@ -115,6 +117,230 @@ export interface PortfolioBacktestReadinessSummary {
   statusMessage: string
   blockers: string[]
   warnings: string[]
+}
+
+export interface PortfolioPaperOrderIntent {
+  schemaVersion: 'portfolio.paper_order_intent.v1'
+  intentId: string
+  generatedAt: string
+  source: 'manual_plan_draft'
+  executionMode: 'paper' | 'sandbox'
+  strategyId: string
+  draftStatus: PortfolioManualPlanDraft['status']
+  currentWeightPercent: number | null
+  researchTargetWeightPercent: number | null
+  formalTargetWeightPercent: 0
+  notionalAmount: null
+  suggestedActionTypes: PortfolioBacktestAllowedAction[]
+  canCreateOrder: false
+  orderCreateAllowed: false
+  formalTradingUnlocked: false
+  autoTradeUnlocked: false
+  blockedReasons: string[]
+  evidenceRefs: string[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioExecutionIsolationAudit {
+  schemaVersion: 'portfolio.execution_isolation_audit.v1'
+  status: 'ready_for_paper_review' | 'blocked'
+  mode: 'paper_sandbox_only'
+  paperTradingReady: boolean
+  sandboxReady: boolean
+  productionAdapterEnabled: false
+  realPositionMutationAllowed: false
+  orderCreateAllowed: false
+  canCreateOrder: false
+  formalTradingUnlocked: false
+  autoTradeUnlocked: false
+  intents: PortfolioPaperOrderIntent[]
+  blockers: string[]
+  warnings: string[]
+  evidenceRefs: string[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioFormalTradingReleaseGateAudit {
+  schemaVersion: 'portfolio.formal_trading_release_gate_audit.v1'
+  status: 'blocked'
+  formalTradingEligible: boolean
+  formalTradingUnlocked: false
+  autoTradeUnlocked: false
+  orderCreateAllowed: false
+  canCreateOrder: false
+  checks: Array<{
+    id: string
+    status: 'passed' | 'blocked' | 'requires_review'
+    blocker?: string
+    evidenceRefs: string[]
+  }>
+  blockers: string[]
+  warnings: string[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioReleaseDataGovernanceAudit {
+  schemaVersion: 'portfolio.release_data_governance_audit.v1'
+  status: 'passed' | 'blocked'
+  formalTradingEligible: boolean
+  items: Array<{
+    fieldId: string
+    scope: PortfolioDataGradeItem['scope']
+    sourceProvider: string
+    sourceEndpoint: string
+    asOfDate: string | null
+    fetchedAt: string
+    freshnessStatus: PortfolioDataGradeItem['freshnessStatus']
+    coverageStatus: 'passed' | 'blocked'
+    coveragePercent: number
+    crossCheckStatus: 'official_authorized' | 'free_source_cross_checked' | 'single_source' | 'proxy_or_insufficient'
+    evidenceRefs: string[]
+    blockers: string[]
+    warnings: string[]
+  }>
+  blockers: string[]
+  warnings: string[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioBenchmarkQualificationAudit {
+  schemaVersion: 'portfolio.benchmark_qualification_audit.v1'
+  status: 'passed' | 'blocked'
+  benchmarkStatuses: Record<string, PortfolioBenchmarkStatus>
+  hasFormalTotalReturn: boolean
+  hasFreeSourceTotalReturn: boolean
+  canSupportFormalReview: boolean
+  canSupportFormalTrading: boolean
+  blockers: string[]
+  warnings: string[]
+  evidenceRefs: string[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioFormalValidationAudit {
+  schemaVersion: 'portfolio.formal_validation_audit.v1'
+  status: PortfolioModelEffectivenessStatus
+  formalTradingEligible: boolean
+  strategyCount: number
+  passedStrategies: number
+  warningStrategies: number
+  insufficientStrategies: number
+  failedStrategies: number
+  checks: Array<{
+    strategyId: string
+    status: PortfolioModelEffectivenessStatus
+    oosStatus: PortfolioModelEffectivenessStatus
+    walkForwardStatus: PortfolioModelEffectivenessStatus
+    parameterSensitivityStatus: PortfolioModelEffectivenessStatus
+    groupStabilityStatus: PortfolioModelEffectivenessStatus | 'not_applicable'
+    blockers: string[]
+    evidenceRefs: string[]
+  }>
+  blockers: string[]
+  warnings: string[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioManualSignoffAudit {
+  schemaVersion: 'portfolio.manual_signoff_audit.v1'
+  status: 'missing' | 'partial' | 'passed'
+  requiredRoles: PortfolioManualSignoffRole[]
+  records: Array<{
+    role: PortfolioManualSignoffRole
+    status: 'missing' | 'recorded'
+    reviewerId: string | null
+    reviewedAt: string | null
+    decision: string | null
+    notes: string | null
+    blockedReasons: string[]
+    evidenceRefs: string[]
+  }>
+  allRequiredSignedOff: boolean
+  formalTradingUnlocked: false
+  autoTradeUnlocked: false
+  canCreateOrder: false
+  blockers: string[]
+  warnings: string[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioLongHorizonDataCoverageAudit {
+  schemaVersion: 'portfolio.long_horizon_data_coverage_audit.v1'
+  status: 'passed' | 'blocked'
+  longHorizonRealDataBacktestReady: boolean
+  periods: Array<{
+    periodId: '1y' | '3y' | '5y' | 'custom'
+    label: string
+    requestedStartDate: string
+    requestedEndDate: string
+    requiredTradingDays: number
+    availableTradingDays: number
+    coveragePercent: number
+    comparableStrategyCount: number
+    blockedReasons: string[]
+    evidenceRefs: string[]
+  }>
+  blockers: string[]
+  warnings: string[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioMultiPeriodBacktestResult {
+  schemaVersion: 'portfolio.multi_period_backtest_result.v1'
+  status: 'passed' | 'blocked'
+  periods: Array<{
+    periodId: '1y' | '3y' | '5y' | 'custom'
+    label: string
+    requestedStartDate: string
+    requestedEndDate: string
+    requiredTradingDays: number
+    availableTradingDays: number
+    coveragePercent: number
+    strategyCount: number
+    completedStrategyCount: number
+    comparableStrategyCount: number
+    blockedReasons: string[]
+    strategySummaries: Array<{
+      strategyId: string
+      status: PortfolioBacktestStrategyResult['status']
+      totalReturnPercent: number | null
+      maxDrawdownPercent: number | null
+      benchmarkReturnPercent: number | null
+      excessReturnPercent: number | null
+      equityCurvePoints: number
+      firstCurveDate: string | null
+      lastCurveDate: string | null
+    }>
+  }>
+  blockers: string[]
+  warnings: string[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioDividendTotalReturnAudit {
+  schemaVersion: 'portfolio.dividend_total_return_audit.v1'
+  status: 'passed' | 'blocked'
+  mode: PortfolioDividendPolicy
+  strategyCount: number
+  coveredStrategyCount: number
+  coveragePercent: number
+  priceOnlyReturnAvailable: boolean
+  dividendContributionAvailable: boolean
+  capitalGainContributionAvailable: boolean
+  costDragAvailable: boolean
+  items: Array<{
+    strategyId: string
+    priceOnlyReturnPercent: number | null
+    dividendContributionPercent: number | null
+    capitalGainContributionPercent: number | null
+    costDragPercent: number | null
+    totalReturnMethod: 'price_plus_estimated_dividend' | 'price_only_no_audited_dividend_component' | 'price_only_or_insufficient'
+    evidenceRefs: string[]
+    warnings: string[]
+  }>
+  blockers: string[]
+  warnings: string[]
+  notTradingAdvice: true
 }
 
 export interface PortfolioBacktestFormalReviewReadiness {
@@ -306,6 +532,16 @@ export interface PortfolioBacktestResult {
   manualPlanDrafts?: PortfolioManualPlanDraft[]
   formalTradingUnlockChecklist?: PortfolioFormalTradingUnlockChecklist
   readinessSummary?: PortfolioBacktestReadinessSummary
+  paperOrderIntents?: PortfolioPaperOrderIntent[]
+  executionIsolationAudit?: PortfolioExecutionIsolationAudit
+  releaseGateAudit?: PortfolioFormalTradingReleaseGateAudit
+  dataGovernanceAudit?: PortfolioReleaseDataGovernanceAudit
+  benchmarkQualificationAudit?: PortfolioBenchmarkQualificationAudit
+  formalValidationAudit?: PortfolioFormalValidationAudit
+  manualSignoffAudit?: PortfolioManualSignoffAudit
+  longHorizonDataCoverageAudit?: PortfolioLongHorizonDataCoverageAudit
+  multiPeriodBacktestResult?: PortfolioMultiPeriodBacktestResult
+  dividendTotalReturnAudit?: PortfolioDividendTotalReturnAudit
 }
 
 export const PORTFOLIO_BACKTEST_ALLOWED_ACTIONS: PortfolioBacktestAllowedAction[] = [
