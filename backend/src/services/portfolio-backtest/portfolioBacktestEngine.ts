@@ -23,6 +23,7 @@ import {
   PortfolioBenchmarkQualificationAudit,
   PortfolioFormalValidationAudit,
   PortfolioManualSignoffAudit,
+  PortfolioProviderClass,
   PortfolioReleaseDataGovernanceAudit,
   PortfolioSourceDataGrade,
   PortfolioStrategyDefinition,
@@ -1121,6 +1122,7 @@ export class PortfolioBacktestEngine {
         fieldId: `portfolio_backtest.${item.scope}`,
         scope: item.scope,
         sourceProvider: item.sourceProvider,
+        providerClass: this.providerClass(item),
         sourceEndpoint: item.sourceType,
         asOfDate: item.asOfDate,
         fetchedAt: generatedAt,
@@ -1143,6 +1145,25 @@ export class PortfolioBacktestEngine {
       warnings: Array.from(new Set(items.flatMap((item) => item.warnings))),
       notTradingAdvice: true,
     }
+  }
+
+  private providerClass(item: PortfolioDataGradeItem): PortfolioProviderClass {
+    if (item.grade === 'official_authorized') return 'official_authorized'
+    if (item.grade === 'research_proxy') return 'research_proxy'
+    if (item.sourceProvider.includes('manual_seed')) return 'manual_seed'
+    if (item.sourceProvider.includes('market_bar_canonical')
+      || item.sourceProvider.includes('price_history')
+      || item.sourceProvider.includes('market_tradeability_daily')
+      || item.sourceProvider.includes('dividend_low_vol_daily')) {
+      return 'local_cache'
+    }
+    if (item.grade === 'free_source_cross_checked'
+      || item.sourceProvider.includes('free_source')
+      || item.sourceProvider.includes('baostock')
+      || item.sourceProvider.includes('eastmoney')) {
+      return 'free_source'
+    }
+    return 'unknown'
   }
 
   private buildBenchmarkQualificationAudit(

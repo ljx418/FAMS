@@ -934,8 +934,8 @@ const Backtest: React.FC = () => {
               <Tag color={portfolioBacktestResult.modelEffectiveness?.status === 'passed' ? '#34d399' : portfolioBacktestResult.modelEffectiveness?.status === 'failed' ? '#ef4444' : '#fbbf24'}>
                 模型有效性 {portfolioBacktestResult.modelEffectiveness?.status || 'unknown'}
               </Tag>
-              <Tag color={portfolioBacktestResult.formalTradingUnlockChecklist?.formalTradingUnlocked ? '#34d399' : '#ef4444'}>
-                正式交易 {portfolioBacktestResult.formalTradingUnlockChecklist?.formalTradingUnlocked ? '已解锁' : '未解锁'}
+              <Tag color="#ef4444">
+                正式交易未解锁
               </Tag>
               {portfolioBacktestResult.allowedActions?.map((action: string) => <Tag key={action} color="#38bdf8">{action}</Tag>)}
               {portfolioBacktestResult.prohibitedActions?.map((action: string) => <Tag key={action} color="#ef4444">禁止 {action}</Tag>)}
@@ -1132,9 +1132,15 @@ const Backtest: React.FC = () => {
                     </div>
                     <div className="space-y-1 text-gray-300">
                       {(portfolioBacktestResult.dataGovernanceAudit.items || []).slice(0, 4).map((item: any) => (
-                        <div key={item.fieldId} className="flex justify-between gap-2">
-                          <span>{item.scope}</span>
-                          <span>{item.crossCheckStatus} / {item.coveragePercent}%</span>
+                        <div key={item.fieldId} className="rounded border border-white/5 bg-white/[0.03] px-2 py-1">
+                          <div className="flex justify-between gap-2">
+                            <span>{item.scope}</span>
+                            <span>{item.providerClass || 'unknown'}</span>
+                          </div>
+                          <div className="mt-0.5 flex justify-between gap-2 text-xs text-gray-400">
+                            <span>{item.crossCheckStatus}</span>
+                            <span>{item.coveragePercent}%</span>
+                          </div>
                         </div>
                       ))}
                     </div>

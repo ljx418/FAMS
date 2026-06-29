@@ -8,6 +8,7 @@ export type PortfolioDividendPolicy = 'cash' | 'reinvest'
 export type PortfolioBacktestGradeMode = 'research' | 'formal_review'
 export type PortfolioBenchmarkStatus = 'formal_total_return' | 'free_source_total_return' | 'price_index' | 'research_proxy' | 'unavailable'
 export type PortfolioSourceDataGrade = 'official_authorized' | 'free_source_cross_checked' | 'price_index_only' | 'research_proxy' | 'insufficient'
+export type PortfolioProviderClass = 'official_authorized' | 'free_source' | 'local_cache' | 'research_proxy' | 'manual_seed' | 'unknown'
 export type PortfolioModelEffectivenessStatus = 'passed' | 'warning' | 'insufficient' | 'failed'
 export type PortfolioManualSignoffRole = 'data' | 'model' | 'risk' | 'compliance' | 'final_release'
 
@@ -187,6 +188,7 @@ export interface PortfolioReleaseDataGovernanceAudit {
     fieldId: string
     scope: PortfolioDataGradeItem['scope']
     sourceProvider: string
+    providerClass: PortfolioProviderClass
     sourceEndpoint: string
     asOfDate: string | null
     fetchedAt: string

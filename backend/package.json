@@ -74,6 +74,8 @@
     "run:dividend-low-vol-missing-data-backlog": "node node_modules/tsx/dist/cli.mjs scripts/run-dividend-low-vol-missing-data-backlog.ts",
     "run:full-system-e2e-acceptance": "node ../scripts/full-system-e2e-acceptance.mjs",
     "run:full-system-e2e-acceptance-report": "node ../scripts/full-system-e2e-acceptance.mjs",
+    "run:formal-trading-release-stage-entry-audit": "node node_modules/tsx/dist/cli.mjs scripts/generate-formal-trading-release-stage-entry-audit.ts",
+    "test:formal-trading-release-stage-entry-audit": "node node_modules/tsx/dist/cli.mjs scripts/generate-formal-trading-release-stage-entry-audit.ts",
     "run:market-tradeability-from-bars-warmup": "node node_modules/tsx/dist/cli.mjs scripts/run-market-tradeability-from-bars-warmup.ts",
     "run:portfolio-backtest-price-history-tradeability-warmup": "node node_modules/tsx/dist/cli.mjs scripts/run-portfolio-backtest-price-history-tradeability-warmup.ts",
     "test:strategy-tournament-backtest": "node node_modules/tsx/dist/cli.mjs scripts/verify-strategy-tournament-backtest.ts",

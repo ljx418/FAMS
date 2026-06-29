@@ -77,6 +77,10 @@ async function main() {
   assert.ok(result.dataGovernanceAudit.items?.length >= 4, 'release data governance audit should cover release fields')
   for (const item of result.dataGovernanceAudit.items) {
     assert.ok(item.sourceProvider, `data governance item ${item.fieldId} should expose sourceProvider`)
+    assert.ok(item.providerClass, `data governance item ${item.fieldId} should expose providerClass`)
+    if (item.providerClass === 'official_authorized') {
+      assert.equal(item.crossCheckStatus, 'official_authorized', `data governance item ${item.fieldId} must not claim official provider without official cross-check`)
+    }
     assert.ok(item.sourceEndpoint, `data governance item ${item.fieldId} should expose sourceEndpoint`)
     assert.ok(item.asOfDate, `data governance item ${item.fieldId} should expose asOfDate`)
     assert.ok(item.fetchedAt, `data governance item ${item.fieldId} should expose fetchedAt`)

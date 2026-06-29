@@ -93,22 +93,31 @@ async function runPragmaWithPrisma(client: PrismaClient, sql: string) {
 async function runSqlitePragma(client: PrismaClient, dbPath: string | null, sql: string) {
   if (!dbPath) return { status: 'not_applicable', rows: [] as Array<Record<string, unknown>> }
 
+  let cliError: string | undefined
   if (await hasCommand('sqlite3')) {
     const cli = await runPragmaWithCli(dbPath, sql)
     if (cli.status === 'completed' && pragmaRowsContainOk(cli.rows)) return cli
+    cliError = cli.error
   }
 
-  const nodeSqlite = await runPragmaWithNodeSqlite(dbPath, sql)
+  const prismaResult = await runPragmaWithPrisma(client, sql)
+  if (prismaResult.status === 'completed' && pragmaRowsContainOk(prismaResult.rows)) return prismaResult
+
+  const nodeSqlite = process.env.FAMS_ENABLE_NODE_SQLITE_HEALTH_FALLBACK === '1'
+    ? await runPragmaWithNodeSqlite(dbPath, sql)
+    : {
+      status: 'skipped',
+      method: 'node_sqlite',
+      error: 'node_sqlite_fallback_disabled_by_default',
+      rows: [] as Array<Record<string, unknown>>,
+    }
   if (nodeSqlite.status === 'completed' && pragmaRowsContainOk(nodeSqlite.rows)) return nodeSqlite
 
-  const prismaResult = await runPragmaWithPrisma(client, sql)
-  return prismaResult.status === 'completed' && pragmaRowsContainOk(prismaResult.rows)
-    ? prismaResult
-    : {
+  return {
       status: 'unavailable',
       method: 'all_fallbacks_failed',
-      reason: 'sqlite3_cli_node_sqlite_and_prisma_pragma_failed',
-      fallbackErrors: [nodeSqlite.error, prismaResult.error].filter(Boolean),
+      reason: 'sqlite3_cli_prisma_and_optional_node_sqlite_pragma_failed',
+      fallbackErrors: [cliError, prismaResult.error, nodeSqlite.error].filter(Boolean),
       rows: [] as Array<Record<string, unknown>>,
     }
 }
