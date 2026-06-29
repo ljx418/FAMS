@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -205,6 +205,61 @@ function assessOverall(sections) {
   return sections.reduce((worst, item) => (
     statusRank[item.status] > statusRank[worst] ? item.status : worst
   ), 'passed')
+}
+
+function git(args) {
+  const result = spawnSync('git', args, {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  return {
+    ok: result.status === 0,
+    stdout: stripAnsi(result.stdout || '').trim(),
+    stderr: stripAnsi(result.stderr || '').trim(),
+  }
+}
+
+function buildGitSnapshot() {
+  const head = git(['rev-parse', 'HEAD'])
+  const branch = git(['branch', '--show-current'])
+  const status = git(['status', '--short'])
+  const origin = git(['rev-parse', 'origin/main'])
+  const diffStat = git(['diff', '--stat'])
+  return {
+    branch: branch.stdout || 'unknown',
+    headCommit: head.stdout || 'unknown',
+    originMainCommit: origin.stdout || 'unknown',
+    headMatchesOriginMain: Boolean(head.stdout && origin.stdout && head.stdout === origin.stdout),
+    workingTreeClean: status.stdout.length === 0,
+    statusShort: status.stdout,
+    diffStat: diffStat.stdout,
+  }
+}
+
+function buildHumanAuditReadiness(model) {
+  const requiredEvidence = [
+    ['审计对象与版本', Boolean(model.git?.headCommit) && model.git?.workingTreeClean === true, 'Git commit / branch / origin/main 对齐状态，且工作树干净'],
+    ['原始 PRD 与架构文档', model.documentAudit?.status === 'passed', '文档一致性审计矩阵'],
+    ['代码实现映射', model.codeInspection?.status === 'passed', '代码检视矩阵中的页面、路由、服务入口'],
+    ['功能覆盖矩阵', model.prdCoverage?.status === 'passed', 'PRD 功能覆盖矩阵'],
+    ['自动化测试证据', model.testCoverage?.status === 'passed', '命令、耗时、stdout/stderr 摘要'],
+    ['真实 API 交叉验证', assessOverall(model.api || []) === 'passed', 'API 请求、HTTP 状态、响应摘要'],
+    ['可视化截图证据', model.browser?.status === 'passed' && (model.browser?.screenshots?.length || 0) >= 8, 'Headless 浏览器截图路径'],
+    ['交易边界', model.summary?.formalTradingUnlocked === 'false' && model.summary?.autoTradeUnlocked === 'false', '正式交易与自动交易锁定说明'],
+    ['限制与阻断项', Array.isArray(model.limitations) && model.limitations.length > 0, '限制章节和正式交易阻断章节'],
+  ].map(([label, passed, evidence]) => ({
+    label,
+    status: passed ? 'passed' : 'failed',
+    evidence,
+  }))
+  return {
+    status: assessOverall(requiredEvidence),
+    rows: requiredEvidence,
+    conclusion: assessOverall(requiredEvidence) === 'passed'
+      ? 'human_audit_ready_for_current_stage'
+      : 'needs_more_evidence_before_human_audit',
+  }
 }
 
 async function buildDocumentAudit() {
@@ -720,6 +775,22 @@ function renderReport(model) {
     </tr>
   `).join('\n')
 
+  const humanAuditRows = model.humanAuditReadiness.rows.map((item) => `
+    <tr>
+      <td>${escapeHtml(item.label)}</td>
+      <td>${renderStatus(item.status)}</td>
+      <td>${escapeHtml(item.evidence)}</td>
+    </tr>
+  `).join('\n')
+
+  const blockerRows = model.formalTradingBoundary.remainingBlockers.map((item) => `
+    <tr>
+      <td>${escapeHtml(item)}</td>
+      <td>${renderStatus('blocked')}</td>
+      <td>该项未闭环前不得声明正式交易释放。</td>
+    </tr>
+  `).join('\n')
+
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -759,14 +830,27 @@ function renderReport(model) {
   <section class="hero">
     <h1>FAMS 全系统端到端自动化验收报告</h1>
     <p>生成时间：${escapeHtml(model.generatedAt)}。本报告基于原始 PRD、目标架构文档、代码实现、自动化命令、API 交叉验证和无头浏览器截图生成。报告不构成投资建议，不将研究验证包装为正式交易验证。</p>
+    <p class="small">审计对象：分支 <code>${escapeHtml(model.git.branch)}</code>，提交 <code>${escapeHtml(model.git.headCommit)}</code>，origin/main <code>${escapeHtml(model.git.originMainCommit)}</code>，工作树干净：${escapeHtml(String(model.git.workingTreeClean))}。</p>
     <div class="grid">
       <div class="metric"><div class="label">总体结论</div><div class="value">${renderStatus(overall)}</div></div>
+      <div class="metric"><div class="label">人类审计完备性</div><div class="value">${renderStatus(model.humanAuditReadiness.status)}</div></div>
       <div class="metric"><div class="label">Research Ready</div><div class="value">${escapeHtml(model.summary.researchReady)}</div></div>
       <div class="metric"><div class="label">Manual Draft Ready</div><div class="value">${escapeHtml(model.summary.manualDraftReady)}</div></div>
       <div class="metric"><div class="label">Formal Trading</div><div class="value">${escapeHtml(model.summary.formalTradingUnlocked)}</div></div>
       <div class="metric"><div class="label">Auto Trade</div><div class="value">${escapeHtml(model.summary.autoTradeUnlocked)}</div></div>
     </div>
   </section>
+
+  <h2>人类审计完备性检查</h2>
+  <div class="card">
+    <p>本节用于判断报告本身是否足以支持人类复核本阶段自动化开发。只有下列证据齐全，才可把本报告视为“当前阶段可审计”；这不等于正式交易可用。</p>
+  </div>
+  <table><thead><tr><th>审计材料</th><th>状态</th><th>证据位置</th></tr></thead><tbody>${humanAuditRows}</tbody></table>
+
+  <h2>版本与工作树</h2>
+  <div class="card">
+    ${renderJson(model.git)}
+  </div>
 
   <h2>目标架构与当前实现</h2>
   <div class="card">
@@ -804,6 +888,12 @@ function renderReport(model) {
       ${model.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n')}
     </ul>
   </div>
+
+  <h2>正式交易仍然阻断</h2>
+  <div class="card">
+    <p>本阶段通过的是研究级回测、人工计划草案和审计追溯；下列阻断项闭环前，不得声明正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE。</p>
+  </div>
+  <table><thead><tr><th>阻断项</th><th>状态</th><th>说明</th></tr></thead><tbody>${blockerRows}</tbody></table>
 </main>
 </body>
 </html>`
@@ -972,7 +1062,21 @@ async function main() {
       '若组合回测文档仍保留旧的 ETF proxy 阻塞描述，而 API 已通过，将作为文档漂移处理。',
       '正式 total-return benchmark 与完整外部数据源仍需单独审计，不能因此报告直接解锁正式交易。',
     ],
+    git: buildGitSnapshot(),
+    formalTradingBoundary: {
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+      orderCreateAllowed: false,
+      remainingBlockers: [
+        '正式授权 total-return benchmark 未完成最终审计',
+        '完整外部数据源与字段级 freshness/cross-check 仍需持续复核',
+        '人工签核链路未完成 final release signoff',
+        '生产下单适配器未启用',
+        'AUTO_TRADE 按策略继续锁定',
+      ],
+    },
   }
+  model.humanAuditReadiness = buildHumanAuditReadiness(model)
 
   await writeFile(path.join(reportDir, 'summary.json'), JSON.stringify(model, null, 2))
   await writeFile(path.join(reportDir, 'prd-coverage-matrix.json'), JSON.stringify(prdCoverage, null, 2))
@@ -980,6 +1084,7 @@ async function main() {
   await writeFile(path.join(reportDir, 'document-consistency-audit.json'), JSON.stringify(documentAudit, null, 2))
   await writeFile(path.join(reportDir, 'code-inspection-audit.json'), JSON.stringify(codeInspection, null, 2))
   await writeFile(path.join(reportDir, 'architecture-current-vs-target.json'), JSON.stringify(model.architecture, null, 2))
+  await writeFile(path.join(reportDir, 'human-audit-readiness.json'), JSON.stringify(model.humanAuditReadiness, null, 2))
   await writeFile(path.join(reportDir, 'acceptance-report.html'), renderReport(model).replace(/[ \t]+$/gm, ''))
 
   console.log(JSON.stringify({
