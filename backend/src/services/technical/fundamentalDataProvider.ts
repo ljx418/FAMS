@@ -476,6 +476,7 @@ class FundamentalDataProvider {
   }
 
   private async writeQuoteListCache(snapshots: Map<string, EastmoneyQuoteListSnapshot>) {
+    if (/^(1|true|yes)$/i.test(process.env.FAMS_QUOTE_LIST_CACHE_READ_ONLY || '')) return
     const fetchedAt = new Date().toISOString()
     const items = Array.from(snapshots.values())
       .filter((item) => item.totalMarketCap !== undefined || item.floatMarketCap !== undefined || item.industryName)

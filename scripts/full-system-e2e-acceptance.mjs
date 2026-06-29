@@ -16,6 +16,11 @@ const backendUrl = process.env.FAMS_E2E_BACKEND_URL || 'http://127.0.0.1:4000'
 const frontendUrl = process.env.FAMS_E2E_FRONTEND_URL || 'http://127.0.0.1:3100'
 const playwrightLibPath = path.join(repoRoot, '.verification', 'playwright-libs', 'lib')
 const spawned = []
+const auditEnv = {
+  FAMS_FACTSET_SCHEDULER_ENABLED: '0',
+  FAMS_DIVIDEND_LOW_VOL_DAILY_SCHEDULER_ENABLED: '0',
+  FAMS_QUOTE_LIST_CACHE_READ_ONLY: '1',
+}
 
 const statusRank = { passed: 0, not_applicable: 1, blocked: 2, failed: 3 }
 
@@ -70,7 +75,7 @@ async function ensureServer(name, url, command, cwd, readyUrl = url) {
   } catch {
     const child = spawn(command[0], command.slice(1), {
       cwd,
-      env: { ...process.env, HOST: '127.0.0.1' },
+      env: { ...process.env, ...auditEnv, HOST: '127.0.0.1' },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     child.stdout.on('data', (chunk) => process.stdout.write(`[${name}] ${chunk}`))
@@ -93,7 +98,7 @@ async function ensureFrontendServer() {
   }
   const child = spawn('node', ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '3100', '--strictPort'], {
     cwd: frontendDir,
-    env: { ...process.env, HOST: '127.0.0.1' },
+    env: { ...process.env, ...auditEnv, HOST: '127.0.0.1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   child.stdout.on('data', (chunk) => process.stdout.write(`[frontend] ${chunk}`))
@@ -108,7 +113,7 @@ async function runCommand(name, command, cwd, timeoutMs = 240000) {
   return new Promise((resolve) => {
     const child = spawn(command[0], command.slice(1), {
       cwd,
-      env: { ...process.env, CI: 'true' },
+      env: { ...process.env, ...auditEnv, CI: 'true' },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let stdout = ''
