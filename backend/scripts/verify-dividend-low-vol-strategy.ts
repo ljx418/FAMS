@@ -71,6 +71,11 @@ async function main() {
   assert.ok(['low_zone_alert', 'build_position_plan', 'watch_candidate'].includes(lowZone.disposition), `unexpected low-zone disposition ${lowZone.disposition}`)
   assert.ok(lowZone.scores.evidenceAdjustedScore > 50, 'low-zone candidate should have usable research score')
   assert.ok(lowZone.evidenceRefs.length >= 4, 'low-zone candidate must expose evidence refs')
+  assert.ok(lowZone.dataTrust, 'low-zone candidate must expose data trust summary')
+  assert.ok(['B', 'C', 'D'].includes(lowZone.dataTrust.grade), 'free-source fixture should remain research-grade, not formal A')
+  assert.equal(lowZone.dataTrust.providerMode, 'free_source_research', 'fixture evidence should be marked as free-source research')
+  assert.equal(lowZone.calculationAudit.replayStatus, 'passed', 'complete low-zone fixture should be replayable')
+  assert.match(lowZone.calculationAudit.note, /not a proof of predictive validity/, 'calculation audit must not claim model validity')
   assertResearchOnly(lowZone, 'low-zone candidate')
 
   const trap = dividendLowVolStrategyService.buildFactSet({
@@ -114,6 +119,8 @@ async function main() {
   assert.ok(missing.blockedReasons.includes('dividend_history_insufficient'), 'missing dividend history must block')
   assert.ok(missing.dataGapSummary.length > 0, 'missing case must expose data gaps')
   assert.ok(missing.alerts.some((item) => item.type === 'DIVIDEND_DATA_GAP'), 'missing case must create data gap alert')
+  assert.ok(['D', 'INSUFFICIENT'].includes(missing.dataTrust.grade), 'missing facts must not receive high data trust')
+  assert.equal(missing.calculationAudit.replayStatus, 'insufficient', 'missing facts must not be calculation-replay passed')
   assertResearchOnly(missing, 'missing dividend data')
 
   const highZone = dividendLowVolStrategyService.buildFactSet({
@@ -150,6 +157,10 @@ async function main() {
   assert.deepEqual(pool.policy.prohibitedActions, ['ADD', 'REDUCE', 'AUTO_TRADE'])
   assert.equal(pool.total, 3)
   assert.ok(pool.candidates[0].scores.evidenceAdjustedScore >= pool.candidates[1].scores.evidenceAdjustedScore, 'pool should sort by evidence adjusted score')
+  assert.ok(pool.dataTrustSummary, 'candidate pool must expose data trust summary')
+  assert.ok(pool.calculationAuditSummary, 'candidate pool must expose calculation audit summary')
+  assert.equal(pool.dataTrustSummary.total, 3, 'data trust summary must cover every candidate')
+  assert.equal(pool.calculationAuditSummary.total, 3, 'calculation audit summary must cover every candidate')
 
   console.log(JSON.stringify({
     ok: true,
@@ -178,6 +189,8 @@ async function main() {
       symbol: item.identity.symbol,
       disposition: item.disposition,
       score: item.scores.evidenceAdjustedScore,
+      dataTrust: item.dataTrust.grade,
+      calculationReplay: item.calculationAudit.replayStatus,
     })),
   }, null, 2))
 }

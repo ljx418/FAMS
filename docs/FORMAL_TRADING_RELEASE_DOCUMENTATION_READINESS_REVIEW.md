@@ -33,10 +33,10 @@ orderCreateAllowed=false
 不能达成、也不得承诺：
 
 ```text
-formal ADD / REDUCE released
-ORDER_CREATE allowed
-AUTO_TRADE allowed
-auto rebalance ready
+不得出现正式 ADD / REDUCE 已发布
+不得出现 ORDER_CREATE 放行
+不得出现 AUTO_TRADE 放行
+不得出现自动再平衡 ready
 formalTradingUnlocked 不得为 true
 ```
 

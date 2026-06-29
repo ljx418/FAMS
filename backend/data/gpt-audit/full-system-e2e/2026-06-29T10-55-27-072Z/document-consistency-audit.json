@@ -1,0 +1,48 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "id": "prd_research_boundary",
+      "label": "PRD 明确研究/观察边界",
+      "status": "passed",
+      "evidence": "DIVIDEND_LOW_VOL_PRD.md"
+    },
+    {
+      "id": "prd_manual_draft_path",
+      "label": "PRD 覆盖人工交易计划草案路径",
+      "status": "passed",
+      "evidence": "DIVIDEND_LOW_VOL_PRD.md"
+    },
+    {
+      "id": "portfolio_backtest_goal",
+      "label": "组合回测文档覆盖多组合曲线目标",
+      "status": "passed",
+      "evidence": "PORTFOLIO_STRATEGY_BACKTEST_PLAN.md"
+    },
+    {
+      "id": "drawio_current_target",
+      "label": "Drawio 覆盖当前架构与目标架构差异",
+      "status": "passed",
+      "evidence": "target-architecture-gap.drawio"
+    },
+    {
+      "id": "doc_drift_proxy_etf",
+      "label": "组合回测文档仍可能保留 ETF proxy 阻塞旧描述",
+      "status": "passed",
+      "evidence": "PORTFOLIO_STRATEGY_BACKTEST_PLAN.md",
+      "note": "若自动化测试证明 permanent/all_weather 已完成，此项应作为文档漂移修复，而不是功能失败。"
+    },
+    {
+      "id": "architecture_trade_gate",
+      "label": "架构文档覆盖交易 gate 与审计边界",
+      "status": "passed",
+      "evidence": "TARGET_ARCHITECTURE_GAP.md / ARCHITECTURE_CURRENT_TARGET.md"
+    }
+  ],
+  "summary": {
+    "prdLength": 16081,
+    "backtestPlanLength": 25810,
+    "targetGapLength": 123218,
+    "drawioLength": 52541
+  }
+}

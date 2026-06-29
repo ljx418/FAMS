@@ -1,0 +1,50 @@
+{
+  "status": "passed",
+  "rows": [
+    {
+      "capability": "红利低波独立菜单和研究模式说明",
+      "status": "passed",
+      "evidence": "前端截图 /dividend-low-vol"
+    },
+    {
+      "capability": "候选池指标、筛选、排序和数据完整性展示",
+      "status": "passed",
+      "evidence": "截图 + /api/v1/strategy/dividend-low-vol/candidates"
+    },
+    {
+      "capability": "买入/卖出观察区间和滚动策略展示",
+      "status": "passed",
+      "evidence": "前端截图；若未先运行区间生成，报告为 blocked"
+    },
+    {
+      "capability": "人工计划草案与交易 gate",
+      "status": "passed",
+      "evidence": "前端截图 + test:trade-action-readiness"
+    },
+    {
+      "capability": "组合策略多曲线回测",
+      "status": "passed",
+      "evidence": "前端截图 + test:portfolio-backtest-api-contract"
+    },
+    {
+      "capability": "任务中心产物追溯",
+      "status": "passed",
+      "evidence": "前端截图 /operations"
+    },
+    {
+      "capability": "正式交易和自动交易禁止",
+      "status": "passed",
+      "evidence": "命令 + API prohibitedActions"
+    },
+    {
+      "capability": "FIVD-R 统一分析入口和交易阻断可见",
+      "status": "passed",
+      "evidence": "截图 /analysis?section=fivdr + test:fivd-r-core"
+    },
+    {
+      "capability": "跨设备基础可读性截图",
+      "status": "passed",
+      "evidence": "Playwright desktop/tablet/mobile screenshots"
+    }
+  ]
+}

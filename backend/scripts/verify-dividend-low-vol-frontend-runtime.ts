@@ -65,6 +65,14 @@ async function main() {
     pageCanDecideManualAcceptance: pageSource.includes('decideDividendLowVolManualAcceptance') && pageSource.includes('验收通过') && pageSource.includes('继续复核') && pageSource.includes('拒绝验收'),
     pageShowsValidationGapDiagnostics: pageSource.includes('getDividendLowVolValidationGapDiagnostics') && pageSource.includes('验证缺口') && pageSource.includes('验证缺口诊断'),
     pageShowsTradingZoneCard: pageSource.includes('买入/卖出观察区间与滚动策略') && pageSource.includes('tradingZoneRows') && pageSource.includes('tradingZoneColumns'),
+    pageShowsDecisionSummary: pageSource.includes('今日策略状态')
+      && pageSource.includes('候选池研究可用')
+      && pageSource.includes('全局底座')
+      && pageSource.includes('正式交易锁定'),
+    pageShowsDataTrust: pageSource.includes('dataTrust') && pageSource.includes('数据可信') && pageSource.includes('displayLabel'),
+    pageShowsCalculationReplay: pageSource.includes('calculationAudit') && pageSource.includes('复算') && pageSource.includes('formulaVersion'),
+    pageRenamesCompletenessToDisplayCompleteness: pageSource.includes('展示字段齐全') && !pageSource.includes('完整率 {formatScore(pool.metricCompletenessSummary.completenessPercent)}%'),
+    pageHidesDataReadinessDebugInCollapse: pageSource.includes('展开数据来源、provider 升级项与恢复命令') && pageSource.includes('data-readiness-detail'),
     pageLoadsTradingZonesFromPersistedPool: pageSource.includes('getDividendLowVolTradingZones') && pageSource.includes('persistedOnly: true'),
     pageRunsRollingBacktest: pageSource.includes('runDividendLowVolRollingBacktest') && pageSource.includes('滚动回测'),
     pageShowsV2ResearchCard: pageSource.includes('V2 研究验证诊断'),

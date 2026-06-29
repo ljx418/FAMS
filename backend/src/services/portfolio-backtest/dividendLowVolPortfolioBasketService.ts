@@ -35,6 +35,7 @@ export class DividendLowVolPortfolioBasketService {
   async build(request: PortfolioBacktestRequest): Promise<PortfolioStrategyDefinition> {
     const maxComponents = Math.max(1, Math.min(30, Number(process.env.FAMS_PORTFOLIO_DLV_BASKET_MAX_COMPONENTS || DEFAULT_MAX_COMPONENTS)))
     const minComponents = Math.max(1, Math.min(maxComponents, Number(process.env.FAMS_PORTFOLIO_DLV_BASKET_MIN_COMPONENTS || DEFAULT_MIN_COMPONENTS)))
+    const minPriceBars = Math.max(2, Math.min(1300, Number(process.env.FAMS_PORTFOLIO_DLV_BASKET_MIN_PRICE_BARS || 1000)))
     let snapshotUserId = request.userId
     let latest = await this.findLatestSnapshot(snapshotUserId)
     const blockedReasons: string[] = []
@@ -68,7 +69,7 @@ export class DividendLowVolPortfolioBasketService {
         { evidenceAdjustedScore: 'desc' },
         { symbol: 'asc' },
       ],
-      take: Math.max(maxComponents * 4, maxComponents),
+      take: Math.max(maxComponents * 50, maxComponents),
     })
 
     if (rows.length === 0) {
@@ -90,11 +91,11 @@ export class DividendLowVolPortfolioBasketService {
 
     const rowsWithPriceCoverage = []
     for (const row of eligibleRows) {
-      const coverage = await this.priceCoverage(row.symbol, request.startDate, request.endDate)
-      if (coverage.count >= 2) {
+      const coverage = await this.priceCoverage(row.symbol, request.startDate, request.endDate, minPriceBars)
+      if (coverage.count >= minPriceBars) {
         rowsWithPriceCoverage.push({ row, priceEvidenceRef: coverage.evidenceRef })
       } else {
-        warnings.push(`dividend_low_vol_component_price_history_missing:${row.symbol}`)
+        warnings.push(`dividend_low_vol_component_price_history_below_min:${row.symbol}:${coverage.count}/${minPriceBars}`)
       }
       if (rowsWithPriceCoverage.length >= maxComponents) break
     }
@@ -135,7 +136,7 @@ export class DividendLowVolPortfolioBasketService {
       candidateCount: rows.length,
       selectedCandidateCount: components.length,
       weightPolicy: 'equal_weight',
-      selectionRules: this.selectionRules(),
+      selectionRules: this.selectionRules(minPriceBars),
       evidenceRefs,
     })
   }
@@ -195,19 +196,20 @@ export class DividendLowVolPortfolioBasketService {
     }
   }
 
-  private selectionRules() {
+  private selectionRules(minPriceBars = 1000) {
     return [
       'source=DividendLowVolDaily latest persisted snapshot',
       'exclude disposition avoid/data_insufficient',
       'exclude dividend_trap_risk',
       'require evidenceRefs',
-      'require at least two real price bars in requested date range',
+      `require at least ${minPriceBars} real price bars for long-horizon replay readiness`,
       'weightPolicy=equal_weight',
       'research only; does not unlock ADD/REDUCE/ORDER_CREATE/AUTO_TRADE',
     ]
   }
 
-  private async priceCoverage(symbol: string, startDate: string, endDate: string) {
+  private async priceCoverage(symbol: string, startDate: string, endDate: string, minRequiredBars = 2) {
+    const requiresLongHorizonHistory = minRequiredBars > 260
     const asset = await prisma.asset.findFirst({
       where: { symbol },
       select: { id: true },
@@ -218,14 +220,23 @@ export class DividendLowVolPortfolioBasketService {
           assetId: asset.id,
           isValid: true,
           closePrice: { gt: 0 },
-          timestamp: {
-            gte: new Date(startDate),
-            lte: new Date(`${endDate}T23:59:59.999Z`),
-          },
+          ...(requiresLongHorizonHistory
+            ? {}
+            : {
+              timestamp: {
+                gte: new Date(startDate),
+                lte: new Date(`${endDate}T23:59:59.999Z`),
+              },
+            }),
         },
       })
-      if (count >= 2) {
-        return { count, evidenceRef: `price_history:${symbol}:${startDate}:${endDate}:count:${count}` }
+      if (count >= minRequiredBars) {
+        return {
+          count,
+          evidenceRef: requiresLongHorizonHistory
+            ? `price_history:${symbol}:all_history:min:${minRequiredBars}:count:${count}`
+            : `price_history:${symbol}:${startDate}:${endDate}:count:${count}`,
+        }
       }
     }
 
@@ -237,13 +248,22 @@ export class DividendLowVolPortfolioBasketService {
         adjustType: 'none',
         dataVersion: 'canonical.v1',
         closePrice: { gt: 0 },
-        tradeDate: {
-          gte: new Date(startDate),
-          lte: new Date(`${endDate}T23:59:59.999Z`),
-        },
+        ...(requiresLongHorizonHistory
+          ? {}
+          : {
+            tradeDate: {
+              gte: new Date(startDate),
+              lte: new Date(`${endDate}T23:59:59.999Z`),
+            },
+          }),
       },
     })
-    return { count, evidenceRef: `market_bar_canonical:${symbol}:${startDate}:${endDate}:count:${count}` }
+    return {
+      count,
+      evidenceRef: requiresLongHorizonHistory
+        ? `market_bar_canonical:${symbol}:all_history:min:${minRequiredBars}:count:${count}`
+        : `market_bar_canonical:${symbol}:${startDate}:${endDate}:count:${count}`,
+    }
   }
 }
 

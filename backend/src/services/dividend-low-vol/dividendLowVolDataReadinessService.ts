@@ -15,6 +15,12 @@ function isoDate(value: Date | null | undefined) {
   return value ? value.toISOString().slice(0, 10) : null
 }
 
+function daysSince(value: Date | null | undefined) {
+  if (!value) return null
+  const ms = Date.now() - value.getTime()
+  return Math.max(0, Math.floor(ms / 86_400_000))
+}
+
 async function readCanonicalSummary() {
   const info = await stat(canonicalPath).catch(() => null)
   const content = await readFile(canonicalPath, 'utf8').catch(() => null)
@@ -140,10 +146,40 @@ export class DividendLowVolDataReadinessService {
     const featureCoveragePercent = percent(featureSymbols, Math.max(canonical.itemCount, 1))
     const securityStatusCoveragePercent = percent(statusSymbols, Math.max(canonical.itemCount, 1))
     const tradeabilityCoveragePercent = percent(tradeabilitySymbols, Math.max(canonical.itemCount, 1))
+    const latestMarketBarAgeDays = daysSince(latestMarketBar?.tradeDate)
+    const latestFeatureAgeDays = daysSince(latestFeature?.tradeDate)
+    const lowCoverageBlockers = [
+      ...(scanCoveragePercent < 80 ? ['market_bar_full_universe_coverage_below_80_percent'] : []),
+      ...(featureCoveragePercent < 80 ? ['market_feature_full_universe_coverage_below_80_percent'] : []),
+      ...(securityStatusCoveragePercent < 80 ? ['security_status_coverage_below_80_percent'] : []),
+      ...(tradeabilityCoveragePercent < 80 ? ['tradeability_coverage_below_80_percent'] : []),
+      ...(latestMarketBarAgeDays === null || latestMarketBarAgeDays > 3 ? ['latest_market_bar_stale_or_unknown'] : []),
+      ...(latestFeatureAgeDays === null || latestFeatureAgeDays > 7 ? ['latest_market_feature_stale_or_unknown'] : []),
+    ]
     const researchScanReady = researchBlockers.length === 0
     const freeSourceValidationAllowed = researchScanReady
     const fullUniverseReady = researchScanReady
     const providerMode = providerUpgradeBlockers.length === 0 && researchScanReady ? 'formal_provider' : researchScanReady ? 'free_source_research' : 'blocked'
+    const dataTrustConfidence = Math.max(0, Math.min(100,
+      (Math.min(scanCoveragePercent, 100) * 0.25)
+      + (Math.min(featureCoveragePercent, 100) * 0.2)
+      + (Math.min(securityStatusCoveragePercent, 100) * 0.15)
+      + (Math.min(tradeabilityCoveragePercent, 100) * 0.15)
+      + (providerMode === 'formal_provider' ? 20 : providerMode === 'free_source_research' ? 8 : 0)
+      + (latestMarketBarAgeDays !== null && latestMarketBarAgeDays <= 1 ? 5 : 0)
+      - (providerUpgradeBlockers.length * 4)
+    ))
+    const dataTrustGrade = !researchScanReady
+      ? 'INSUFFICIENT'
+      : lowCoverageBlockers.length > 0
+        ? (dataTrustConfidence >= 45 ? 'D' : 'INSUFFICIENT')
+        : providerMode === 'formal_provider' && dataTrustConfidence >= 85
+          ? 'A'
+          : dataTrustConfidence >= 70
+            ? 'B'
+            : dataTrustConfidence >= 55
+              ? 'C'
+              : 'D'
     return {
       schemaVersion: 'dividend.low_vol.data_readiness_audit.v1',
       generatedAt: new Date().toISOString(),
@@ -152,6 +188,34 @@ export class DividendLowVolDataReadinessService {
       status: fullUniverseReady ? 'ready_free_source_validation' : researchScanReady ? 'ready_free_source_research' : 'blocked',
       providerMode,
       validationDataMode: freeSourceValidationAllowed ? 'free_source_validation' : 'blocked',
+      dataTrust: {
+        schemaVersion: 'dividend.low_vol.data_readiness_trust.v1',
+        grade: dataTrustGrade,
+        confidencePercent: Math.round(dataTrustConfidence * 100) / 100,
+        providerMode,
+        coverageStatus: lowCoverageBlockers.some((item) => item.includes('coverage')) ? 'low_coverage' : researchScanReady ? 'partial' : 'insufficient',
+        freshnessStatus: latestMarketBarAgeDays !== null && latestMarketBarAgeDays <= 1 && latestFeatureAgeDays !== null && latestFeatureAgeDays <= 7
+          ? 'fresh'
+          : latestMarketBarAgeDays !== null && latestMarketBarAgeDays <= 3
+            ? 'stale'
+            : 'expired',
+        crossCheckStatus: providerFieldsAvailable > 0 ? 'partial' : 'not_checked',
+        displayLabel: dataTrustGrade === 'A'
+          ? '正式源高可信'
+          : dataTrustGrade === 'B'
+            ? '研究级较可信'
+            : dataTrustGrade === 'C'
+              ? '研究级需复核'
+              : dataTrustGrade === 'D'
+                ? '低覆盖研究级'
+                : '证据不足',
+        blockers: [...researchBlockers, ...lowCoverageBlockers],
+        warnings: [
+          ...(providerMode === 'free_source_research' ? ['free_source_research_not_formal_provider'] : []),
+          ...providerUpgradeBlockers,
+        ],
+        note: 'This readiness trust grade prevents display completeness from being interpreted as data authenticity or model validation.',
+      },
       notTradingAdvice: true,
       allowedActions: ['RESEARCH', 'OBSERVE', 'ALERT', 'PLAN_DRAFT'],
       prohibitedActions: ['ADD', 'REDUCE', 'AUTO_TRADE'],
@@ -172,6 +236,8 @@ export class DividendLowVolDataReadinessService {
         marketFeatureRows: featureRows,
         marketFeatureSymbols: featureSymbols,
         latestFeatureDate: isoDate(latestFeature?.tradeDate),
+        latestMarketBarAgeDays,
+        latestFeatureAgeDays,
         scanCoveragePercent,
         featureCoveragePercent,
       },

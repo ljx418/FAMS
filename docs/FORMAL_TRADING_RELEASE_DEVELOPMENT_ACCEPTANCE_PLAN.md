@@ -1,6 +1,6 @@
 # FAMS 正式交易 Release 开发及验收计划
 
-更新时间：2026-06-26
+更新时间：2026-06-29
 
 ## 1. 阶段定位
 
@@ -17,6 +17,18 @@ autoTradeUnlocked=false
 canCreateOrder=false
 orderCreateAllowed=false
 ```
+
+2026-06-29 文档阶段实施状态：
+
+```text
+formalTradingReleasePlanningDocsReady=true
+targetArchitectureGapDrawioReady=true
+developmentAndAcceptancePlanReady=true
+milestoneExitCriteriaReady=true
+formalTradingReleaseReady=false
+```
+
+本轮只完成正式交易 release 的文档规格、目标架构表达、开发顺序和验收门槛收口。后续实现仍必须逐项关闭 FTR-1 到 FTR-6；文档通过不等于正式交易 release 通过。
 
 本阶段文档完成后的目标不是立即放行交易，而是让后续工程开发者可以按文档实现正式交易 release 的前置能力，并让人工审核者能清楚判断每个 gate 是否满足。
 
@@ -52,8 +64,8 @@ formalTradingUnlocked 不得为 true
 autoTradeUnlocked 不得为 true
 orderCreateAllowed 不得为 true
 canCreateOrder 不得为 true
-formal ADD / REDUCE released 不得出现
-auto rebalance ready 不得出现
+不得出现正式 ADD / REDUCE 已发布
+不得出现自动再平衡 ready
 ```
 
 ## 2. 目标体验
@@ -387,10 +399,22 @@ git diff --check -- docs
 通过标准：
 
 - Drawio 页数不超过 8 页。
+- Drawio 当前目标页数为 7 页，页面名称和 `docs/read-drawio-output.txt` 必须一致。
 - 所有关键能力绑定真实页面、API、服务、数据或审计 artifact。
 - 文档没有把 formal-review-ready、manual-draft-ready 或 tradeActionReadiness 写成正式交易放行。
 - Release 计划能指导后续开发，但明确当前仍未解锁正式交易。
 - 若 hard-fail 检查命中，必须逐条确认是否处于“禁止、阻断、非目标、不得声明”语境；任何正向放行语境都必须打回修订。
+
+2026-06-29 出门判断：
+
+```text
+documentationCanGuideFTR1ToFTR6=true
+documentationCanGuideUserAcceptance=true
+documentationCanGuideDrawioReview=true
+documentationCanUnlockFormalTrading=false
+```
+
+如果后续开发无法取得正式 provider、可信 total-return benchmark、formal validation passed 或人工签核，系统仍可保持 research/formal-review-ready，但 release gate 必须继续 blocked。
 
 ## 10. 审计入口
 

@@ -4,13 +4,13 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="01-2" value="FAMS 当前阶段目标体验：研究筛选、组合回测、人工计划草案、审计追溯&#xa;当前状态：formalTradingUnlocked=false / autoTradeUnlocked=false / orderCreateAllowed=false" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
+        <mxCell id="01-2" value="FAMS 当前阶段目标体验：文档已支撑自动化开发，数据可信可见、计算复算可查、组合回测可评审、交易动作仍锁定&#xa;当前状态：dataTrustGrade=INSUFFICIENT / calculationAudit=deterministic_replay_only / formalTradingUnlocked=false" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
           <mxGeometry x="40" y="30" width="1840" height="70" as="geometry" />
         </mxCell>
         <mxCell id="01-3" value="颜色说明&#xa;灰色=已实现基础&#xa;黄色=需修改/状态不达标&#xa;橘黄=需新增正式 release 能力&#xa;红色=交易硬边界&#xa;蓝色=用户路径&#xa;绿色=出门证据" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#ffffff;strokeColor=#999999;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="40" y="130" width="290" height="250" as="geometry" />
         </mxCell>
-        <mxCell id="01-4" value="路径 A：红利低波策略&#xa;页面：DividendLowVol.tsx&#xa;用户查看候选、Top3、买入观察区间、卖出观察区间、rolling 策略、数据来源和 priceAudit。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="01-4" value="路径 A：红利低波策略&#xa;页面：DividendLowVol.tsx&#xa;首屏先看 dataTrust、calculationAudit、交易锁定，再查看候选、Top3、买入/卖出观察区间和 priceAudit。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="380" y="130" width="430" height="170" as="geometry" />
         </mxCell>
         <mxCell id="01-5" value="路径 B：组合策略回测&#xa;页面：Backtest.tsx&#xa;用户选择红利低波篮子、当前持仓、永久组合、全天候组合或自定义组合，设置起止时间并查看收益曲线。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;" vertex="1" parent="1">
@@ -22,13 +22,13 @@
         <mxCell id="01-7" value="任务与审计追溯&#xa;页面：Operations.tsx&#xa;用户追踪 Operation、artifactRefs、acceptance-report.html、SUMMARY_FOR_GPT.md 和 release gate 产物。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="380" y="360" width="430" height="170" as="geometry" />
         </mxCell>
-        <mxCell id="01-8" value="用户可见结果&#xa;1. 可以研究和比较策略&#xa;2. 可以生成 PLAN_DRAFT / MANUAL_TRADE_DRAFT&#xa;3. 可以看到为什么仍不能正式交易&#xa;4. 可以复现输入、模型、回测和 gate 结论" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="01-8" value="用户可见结果&#xa;1. 可以研究和比较策略&#xa;2. 可以生成 PLAN_DRAFT / MANUAL_TRADE_DRAFT&#xa;3. 可以看到 dataTrust=INSUFFICIENT 的原因&#xa;4. 可以复现输入、公式、回测和 gate 结论" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="860" y="360" width="450" height="170" as="geometry" />
         </mxCell>
         <mxCell id="01-9" value="禁止动作硬边界&#xa;prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE&#xa;无下单按钮、无自动再平衡入口、无正式买入/卖出指令。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
           <mxGeometry x="1360" y="360" width="480" height="170" as="geometry" />
         </mxCell>
-        <mxCell id="01-10" value="出门体验验收&#xa;用户能完成：选择策略 -&gt; 设置参数 -&gt; 查看曲线/指标 -&gt; 查看数据等级/模型有效性 -&gt; 生成草案 -&gt; 查看 release blockers。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="01-10" value="出门体验验收&#xa;用户能完成：选择策略 -&gt; 查看数据可信/复算摘要 -&gt; 设置参数 -&gt; 查看曲线/指标 -&gt; 查看模型有效性 -&gt; 生成草案 -&gt; 查看 release blockers。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="380" y="610" width="1460" height="150" as="geometry" />
         </mxCell>
         <mxCell id="01-e11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="01-4" target="01-5">
@@ -57,7 +57,7 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="02-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" value="当前架构与目标架构差异：按真实实现实体展示演进路径与交易硬边界" vertex="1">
+        <mxCell id="02-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" value="当前架构与目标架构差异：真实实现实体、数据可信、计算复算、交易硬边界" vertex="1">
           <mxGeometry height="70" width="1840" x="40" y="30" as="geometry" />
         </mxCell>
         <mxCell id="02-legend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#ffffff;strokeColor=#999999;fontColor=#1f2937;" value="颜色：灰=已实现基础｜黄=需修改/补齐｜橘=目标新增｜红=禁止绕过｜绿=用户可见出门效果" vertex="1">
@@ -81,7 +81,7 @@
         <mxCell id="02-front-c" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" value="前端页面&#xa;DividendLowVol.tsx&#xa;Backtest.tsx&#xa;Operations.tsx&#xa;Analysis.tsx" vertex="1">
           <mxGeometry height="105" width="330" x="60" y="240" as="geometry" />
         </mxCell>
-        <mxCell id="02-front-m" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" value="前端展示补齐&#xa;1年/3年/5年/自定义区间&#xa;dataGrade / modelEffectiveness&#xa;manualPlanDraft / blockers&#xa;priceAudit freshness" vertex="1">
+        <mxCell id="02-front-m" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" value="前端展示补齐&#xa;首屏摘要：dataTrust / calculationAudit&#xa;1年/3年/5年/自定义区间&#xa;modelEffectiveness / blockers&#xa;priceAudit freshness" vertex="1">
           <mxGeometry height="105" width="330" x="455" y="240" as="geometry" />
         </mxCell>
         <mxCell id="02-front-t" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" value="长周期回测与正式评审摘要区&#xa;Backtest 多区间曲线&#xa;DividendLowVol provider/benchmark 状态&#xa;Operations audit package 入口" vertex="1">
@@ -90,7 +90,7 @@
         <mxCell id="02-front-b" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" value="无下单按钮&#xa;无自动再平衡入口&#xa;无正式买入/卖出文案" vertex="1">
           <mxGeometry height="105" width="330" x="1245" y="240" as="geometry" />
         </mxCell>
-        <mxCell id="02-front-o" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" value="用户看到候选、1/3/5年曲线、区间、数据等级、验证状态和阻断原因" vertex="1">
+        <mxCell id="02-front-o" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" value="用户看到候选、曲线、区间、数据可信、复算状态、验证状态和阻断原因" vertex="1">
           <mxGeometry height="105" width="220" x="1640" y="240" as="geometry" />
         </mxCell>
         <mxCell id="02-e-front-1" edge="1" parent="1" source="02-front-c" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="02-front-m" value="演进">
@@ -108,7 +108,7 @@
         <mxCell id="02-api-c" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" value="API 路由&#xa;strategy.ts&#xa;portfolioBacktest.ts&#xa;operation.ts&#xa;analysis/fivd-r routes" vertex="1">
           <mxGeometry height="105" width="330" x="60" y="355" as="geometry" />
         </mxCell>
-        <mxCell id="02-api-m" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" value="响应契约补齐&#xa;readinessSummary&#xa;releaseGateAudit&#xa;canCreateOrder=false" vertex="1">
+        <mxCell id="02-api-m" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" value="响应契约补齐&#xa;readinessSummary&#xa;dataTrust / calculationAudit&#xa;releaseGateAudit&#xa;canCreateOrder=false" vertex="1">
           <mxGeometry height="105" width="330" x="455" y="355" as="geometry" />
         </mxCell>
         <mxCell id="02-api-t" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" value="Release review API 契约&#xa;provider/benchmark/validation/signoff 状态聚合&#xa;artifactRefs 可追溯" vertex="1">
@@ -132,7 +132,7 @@
         <mxCell id="02-e-api-4" edge="1" parent="1" source="02-api-b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="02-api-o" value="展示">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="02-svc-c" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" value="服务模块&#xa;dividendLowVolStrategyService&#xa;dividendLowVolTradingZoneService&#xa;PortfolioBacktestEngine&#xa;portfolioBacktestReviewService" vertex="1">
+        <mxCell id="02-svc-c" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" value="服务模块&#xa;dividendLowVolDataReadinessService&#xa;dividendLowVolStrategyService&#xa;dividendLowVolTradingZoneService&#xa;PortfolioBacktestEngine&#xa;portfolioBacktestReviewService" vertex="1">
           <mxGeometry height="105" width="330" x="60" y="470" as="geometry" />
         </mxCell>
         <mxCell id="02-svc-m" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" value="服务输出补齐&#xa;dataGovernanceAudit&#xa;benchmarkQualificationAudit&#xa;formalValidationAudit&#xa;manualSignoffAudit" vertex="1">
@@ -162,7 +162,7 @@
         <mxCell id="02-data-c" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" value="数据与缓存&#xa;SQLite/Prisma&#xa;DividendLowVolDaily&#xa;market_bar_canonical&#xa;market_tradeability_daily&#xa;free-source benchmark" vertex="1">
           <mxGeometry height="105" width="330" x="60" y="585" as="geometry" />
         </mxCell>
-        <mxCell id="02-data-m" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" value="数据治理补齐&#xa;字段级 sourceProvider&#xa;asOfDate / fetchedAt&#xa;freshness / coverage&#xa;crossCheckStatus" vertex="1">
+        <mxCell id="02-data-m" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" value="数据治理补齐&#xa;字段级 sourceProvider&#xa;asOfDate / fetchedAt&#xa;freshness / coverage&#xa;crossCheckStatus&#xa;dataTrustGrade" vertex="1">
           <mxGeometry height="105" width="330" x="455" y="585" as="geometry" />
         </mxCell>
         <mxCell id="02-data-t" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" value="目标数据源&#xa;1年/3年/5年真实行情覆盖&#xa;official_authorized provider&#xa;official/可信 total-return benchmark&#xa;formal tradeability constraints" vertex="1">
@@ -171,7 +171,7 @@
         <mxCell id="02-data-b" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" value="free source 只能 research/fallback&#xa;proxy benchmark 不得当 formal benchmark" vertex="1">
           <mxGeometry height="105" width="330" x="1245" y="585" as="geometry" />
         </mxCell>
-        <mxCell id="02-data-o" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" value="用户看到数据来源、更新时间、覆盖率和缺口" vertex="1">
+        <mxCell id="02-data-o" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" value="用户看到数据来源、更新时间、覆盖率、可信等级和缺口" vertex="1">
           <mxGeometry height="105" width="220" x="1640" y="585" as="geometry" />
         </mxCell>
         <mxCell id="02-e-data-1" edge="1" parent="1" source="02-data-c" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="02-data-m" value="演进">
@@ -186,7 +186,7 @@
         <mxCell id="02-e-data-4" edge="1" parent="1" source="02-data-b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="02-data-o" value="展示">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="02-audit-c" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" value="审计产物&#xa;09 data grade&#xa;10 model effectiveness&#xa;11 manual plan draft&#xa;12 unlock blockers&#xa;acceptance-report.html" vertex="1">
+        <mxCell id="02-audit-c" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" value="审计产物&#xa;09 data grade / data trust&#xa;10 model effectiveness / calculation audit&#xa;11 manual plan draft&#xa;12 unlock blockers&#xa;acceptance-report.html" vertex="1">
           <mxGeometry height="105" width="330" x="60" y="700" as="geometry" />
         </mxCell>
         <mxCell id="02-audit-m" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=8;fontSize=11;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" value="审计口径统一&#xa;状态词典一致&#xa;blocked/warning/missing 不得升级 passed&#xa;SUMMARY_FOR_GPT 可独立复核" vertex="1">
@@ -219,30 +219,30 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="03 长周期组合回测目标架构" name="03 长周期组合回测目标架构">
+  <diagram id="03 数据可信与计算复算架构" name="03 数据可信与计算复算架构">
     <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="03-2" value="长周期组合回测目标架构：1年 / 3年 / 5年 / 自定义区间真实数据验证路径" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
+        <mxCell id="03-2" value="数据可信与计算复算架构：真实数据覆盖、字段证据、公式复算、交易锁定同步展示" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
           <mxGeometry x="40" y="30" width="1840" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="03-3" value="前端层&#xa;Backtest.tsx：1年/3年/5年/自定义区间切换、多策略曲线、指标、readiness&#xa;DividendLowVol.tsx：红利篮子入口与区间解释&#xa;Operations.tsx：长周期 artifact 追溯" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="03-3" value="前端层&#xa;DividendLowVol.tsx：首屏展示 dataTrust、calculationAudit、priceAudit、交易锁定&#xa;Backtest.tsx：多区间曲线旁展示数据可信和复算状态&#xa;Operations.tsx：审计 artifact 追溯" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="80" y="140" width="360" height="250" as="geometry" />
         </mxCell>
-        <mxCell id="03-4" value="API 层&#xa;/api/v1/portfolio-backtest/templates&#xa;/api/v1/portfolio-backtest/run&#xa;/api/v1/portfolio-backtest/reviews/:runId&#xa;/api/v1/operations/*&#xa;请求携带 startDate/endDate/benchmarkIds/gradeMode" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="03-4" value="API 层&#xa;/api/v1/strategy/dividend-low-vol/candidates&#xa;/api/v1/strategy/dividend-low-vol/data-readiness&#xa;/api/v1/portfolio-backtest/run&#xa;/api/v1/operations/*&#xa;响应携带 dataTrust / calculationAudit / releaseGateAudit" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="520" y="140" width="360" height="250" as="geometry" />
         </mxCell>
-        <mxCell id="03-5" value="服务层&#xa;PortfolioBacktestInputBuilder：构建红利篮子、当前持仓、永久、全天候、自定义组合&#xa;PortfolioBacktestEngine：1年/3年/5年/custom 已实际 replay&#xa;PortfolioBenchmarkService：benchmark 状态&#xa;LongHorizonPortfolioBacktestAcceptance：覆盖率验收" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="03-5" value="服务层&#xa;dividendLowVolDataReadinessService：coverage / freshness / providerMode / blockers&#xa;dividendLowVolStrategyService：候选分数、观察区间、calculationAudit&#xa;PortfolioBacktestEngine：多区间 replay 与指标&#xa;portfolioBacktestReviewService：草案复核与交易锁定" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="960" y="140" width="420" height="250" as="geometry" />
         </mxCell>
-        <mxCell id="03-6" value="数据与缓存层&#xa;market_bar_canonical：长周期收盘价&#xa;market_tradeability_daily：涨跌停/停牌约束&#xa;DividendLowVolDaily：红利篮子与分红收益估算&#xa;portfolio holdings snapshot：当前持仓&#xa;free-source / future official total-return benchmark" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="03-6" value="数据与缓存层&#xa;market_bar_canonical：行情覆盖与 latestTradeDate&#xa;market_feature_daily：MA/RSI/波动率等特征 freshness&#xa;market_tradeability_daily：涨跌停/停牌约束&#xa;DividendLowVolDaily：候选快照和分红估算&#xa;free-source / future official provider" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="1460" y="140" width="380" height="250" as="geometry" />
         </mxCell>
-        <mxCell id="03-7" value="审计与 Gate 层&#xa;long_horizon_data_coverage_audit.json&#xa;multi_period_backtest_result.json&#xa;09_data_grade_audit.json&#xa;10_model_effectiveness_audit.json&#xa;13_execution_isolation_audit.json&#xa;14_release_gate_audit.json&#xa;15_data_governance_audit.json&#xa;16_benchmark_qualification_audit.json&#xa;17_formal_validation_audit.json&#xa;18_manual_signoff_audit.json" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="03-7" value="审计与 Gate 层&#xa;data_readiness_audit.json&#xa;calculation_audit.json&#xa;long_horizon_data_coverage_audit.json&#xa;multi_period_backtest_result.json&#xa;09_data_grade_audit.json&#xa;10_model_effectiveness_audit.json&#xa;14_release_gate_audit.json&#xa;17_formal_validation_audit.json&#xa;18_manual_signoff_audit.json" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="520" y="480" width="860" height="320" as="geometry" />
         </mxCell>
-        <mxCell id="03-8" value="当前硬边界&#xa;multiPeriodReplayMaterialized=true&#xa;1年/3年/5年覆盖率=96.43%/95.90%/95.71%&#xa;longHorizonRealDataBacktestReady=true&#xa;formalTradingUnlocked=false / autoTradeUnlocked=false&#xa;canCreateOrder=false / orderCreateAllowed=false" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
+        <mxCell id="03-8" value="当前硬边界&#xa;dataTrustGrade=INSUFFICIENT 时只能研究观察&#xa;calculationAudit 只证明公式复算，不证明模型有效&#xa;multiPeriodReplayMaterialized=true 仍不等于交易 release&#xa;formalTradingUnlocked=false / autoTradeUnlocked=false&#xa;canCreateOrder=false / orderCreateAllowed=false" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
           <mxGeometry x="1460" y="480" width="380" height="220" as="geometry" />
         </mxCell>
         <mxCell id="03-e9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="03-3" target="03-4">
@@ -263,12 +263,12 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="04 数据治理与真实数据链路" name="04 数据治理与真实数据链路">
+  <diagram id="04 红利低波与长周期回测路径" name="04 红利低波与长周期回测路径">
     <mxGraphModel dx="1945" dy="991" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="04-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" value="数据治理与真实数据链路：行情、分红、交易约束、benchmark 都必须可追溯" vertex="1">
+        <mxCell id="04-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" value="红利低波与长周期回测路径：行情、分红、交易约束、benchmark 都必须可追溯" vertex="1">
           <mxGeometry height="70" width="1840" x="40" y="30" as="geometry" />
         </mxCell>
         <mxCell id="04-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" value="行情数据&#xa;market_bar_canonical&#xa;sourceProvider / tradeDate / fetchedAt&#xa;1年/3年/5年覆盖率&#xa;缺口保持 insufficient" vertex="1">
@@ -286,13 +286,13 @@
         <mxCell id="04-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" value="字段级治理输出&#xa;sourceProvider&#xa;sourceEndpoint&#xa;asOfDate / fetchedAt&#xa;freshnessStatus&#xa;coverageStatus&#xa;crossCheckStatus&#xa;evidenceRefs" vertex="1">
           <mxGeometry height="240" width="420" x="60" y="760" as="geometry" />
         </mxCell>
-        <mxCell id="04-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" value="用户可见数据等级&#xa;official_authorized&#xa;free_source_cross_checked&#xa;price_index_only&#xa;research_proxy&#xa;insufficient" vertex="1">
+        <mxCell id="04-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" value="用户可见状态&#xa;dataTrustGrade&#xa;calculationAuditStatus&#xa;official_authorized / free_source&#xa;research_proxy / insufficient&#xa;交易锁定原因" vertex="1">
           <mxGeometry height="240" width="390" x="560" y="760" as="geometry" />
         </mxCell>
         <mxCell id="04-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" value="审计产物&#xa;long_horizon_data_coverage_audit.json&#xa;09_data_grade_audit.json&#xa;15_data_governance_audit.json&#xa;16_benchmark_qualification_audit.json" vertex="1">
           <mxGeometry height="240" width="390" x="1030" y="760" as="geometry" />
         </mxCell>
-        <mxCell id="04-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" value="硬边界&#xa;免费源延迟不能包装成最新&#xa;proxy benchmark 不是 formal benchmark&#xa;字段 insufficient 不得升级 passed&#xa;缺口不得被短窗口替代。" vertex="1">
+        <mxCell id="04-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" value="硬边界&#xa;免费源延迟不能包装成最新&#xa;proxy benchmark 不是 formal benchmark&#xa;字段 insufficient 不得升级 passed&#xa;复算通过不得包装成模型有效&#xa;缺口不得被短窗口替代。" vertex="1">
           <mxGeometry height="240" width="340" x="1500" y="760" as="geometry" />
         </mxCell>
         <mxCell id="04-e11" edge="1" parent="1" source="04-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="04-4" value="">
@@ -359,7 +359,7 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="06-2" value="开发及验收计划：FTR-1 到 FTR-6，完成后用户能完成正式交易 release 前置评审路径" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
+        <mxCell id="06-2" value="开发及验收计划：FTR-1 到 FTR-6，文档已完成本阶段收口；后续实现后用户能完成正式交易 release 前置评审路径" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
           <mxGeometry x="40" y="30" width="1840" height="70" as="geometry" />
         </mxCell>
         <mxCell id="06-3" value="Done-D1 长周期真实数据覆盖&#xa;实现：1年/3年/5年/custom replay 已使用免费真实行情补齐核心样本&#xa;产物：19_long_horizon_data_coverage_audit.json / 20_multi_period_backtest_result.json&#xa;验收：1年/3年/5年覆盖率均 &gt;=80%，当前 96.43%/95.90%/95.71%&#xa;用户效果：可比较 7 个策略的长周期曲线与指标。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
@@ -380,7 +380,7 @@
         <mxCell id="06-8" value="FTR-5/FTR-6 执行隔离与 Release Gate&#xa;实现：paperOrderIntents、executionIsolationAudit、releaseGateAudit、SUMMARY_FOR_GPT 聚合&#xa;产物：13_execution_isolation_audit.json / 14_release_gate_audit.json&#xa;验收：productionAdapterEnabled=false 时不能下单；缺数据、benchmark、validation、签核任一项时 blocked&#xa;用户效果：看到正式交易 release 还差什么，且不会误触实盘订单。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
           <mxGeometry x="1300" y="430" width="560" height="230" as="geometry" />
         </mxCell>
-        <mxCell id="06-9" value="命令验收&#xa;node docs/read-drawio.mjs docs/target-architecture-gap.drawio&#xa;rg 状态词典与 hard boundary&#xa;git diff --check -- docs&#xa;后续代码阶段：test:portfolio-backtest-api-contract / test:portfolio-backtest-formal-review-readiness / frontend build / HTML 可视化验收" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#ffffff;strokeColor=#999999;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="06-9" value="命令验收&#xa;node docs/read-drawio.mjs docs/target-architecture-gap.drawio&#xa;drawioPageCount=7 且 &lt;=8&#xa;rg 状态词典与 hard boundary&#xa;git diff --check -- docs&#xa;后续代码阶段：test:portfolio-backtest-api-contract / test:portfolio-backtest-formal-review-readiness / frontend build / HTML 可视化验收" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#ffffff;strokeColor=#999999;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="60" y="730" width="1800" height="180" as="geometry" />
         </mxCell>
       </root>
@@ -418,7 +418,7 @@
         <mxCell id="07-10" value="当前可声明&#xa;researchReady=true&#xa;portfolioBacktestFormalReviewReady=true&#xa;manualTradePlanDraftReviewReady=true&#xa;paperSandboxReviewReady=true&#xa;longHorizonRealDataBacktestReady=true" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="1420" y="420" width="390" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="07-11" value="当前不能声明&#xa;formalTradingUnlocked 不得为 true&#xa;autoTradeUnlocked 不得为 true&#xa;orderCreateAllowed 不得为 true&#xa;canCreateOrder 不得为 true&#xa;formal ADD / REDUCE released 不得出现&#xa;auto rebalance ready 不得出现" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
+        <mxCell id="07-11" value="当前不能声明&#xa;formalTradingUnlocked 不得为 true&#xa;autoTradeUnlocked 不得为 true&#xa;orderCreateAllowed 不得为 true&#xa;canCreateOrder 不得为 true&#xa;不得出现正式 ADD / REDUCE 已发布&#xa;不得出现自动再平衡 ready" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
           <mxGeometry x="70" y="700" width="390" height="220" as="geometry" />
         </mxCell>
         <mxCell id="07-12" value="必须审计的文档路径&#xa;docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md&#xa;docs/FORMAL_TRADING_RELEASE_DOC_AUDIT.md&#xa;docs/TARGET_ARCHITECTURE_GAP.md&#xa;docs/ARCHITECTURE_CURRENT_TARGET.md&#xa;docs/DIVIDEND_LOW_VOL_PRD.md&#xa;docs/PORTFOLIO_STRATEGY_BACKTEST_PLAN.md&#xa;docs/target-architecture-gap.drawio&#xa;docs/read-drawio-output.txt&#xa;backend/data/gpt-audit/interactive-strategy-backtest/latest/SUMMARY_FOR_GPT.md" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=13;align=left;verticalAlign=top;fillColor=#ffffff;strokeColor=#999999;fontColor=#1f2937;" vertex="1" parent="1">

@@ -565,6 +565,28 @@ export interface DividendLowVolCandidatePool {
     topMissingMetrics: Array<{ metric: string; count: number }>
     note: string
   }
+  dataTrustSummary?: {
+    schemaVersion: string
+    total: number
+    averageConfidencePercent?: number
+    byGrade: Record<string, number>
+    highTrustCount: number
+    insufficientCount: number
+    topBlockers: Array<{ id: string; count: number }>
+    topWarnings: Array<{ id: string; count: number }>
+    note: string
+  }
+  calculationAuditSummary?: {
+    schemaVersion: string
+    total: number
+    byReplayStatus: Record<string, number>
+    replayPassedCount: number
+    replayInsufficientCount: number
+    replayFailedCount: number
+    topMissingInputFields: Array<{ field: string; count: number }>
+    formulaVersion: string
+    note: string
+  }
   rejectionSummary?: {
     rejectedCount: number
     dataIssueCount: number
@@ -687,6 +709,31 @@ export interface DividendLowVolCandidatePool {
       missingMetrics: string[]
       completeMetricCount: number
       totalMetricCount: number
+      note: string
+    }
+    dataTrust?: {
+      schemaVersion: string
+      grade: 'A' | 'B' | 'C' | 'D' | 'INSUFFICIENT'
+      confidencePercent: number
+      providerMode: 'formal_provider' | 'free_source_research' | 'mixed' | 'unknown'
+      coverageStatus: 'complete' | 'partial' | 'low_coverage' | 'insufficient'
+      freshnessStatus: 'fresh' | 'stale' | 'expired' | 'unknown'
+      crossCheckStatus: 'verified' | 'partial' | 'fallback' | 'not_checked'
+      displayLabel: string
+      blockers: string[]
+      warnings: string[]
+      lastVerifiedAt?: string
+      note: string
+    }
+    calculationAudit?: {
+      schemaVersion: string
+      formulaVersion: string
+      replayStatus: 'passed' | 'failed' | 'insufficient'
+      inputFieldCount: number
+      missingInputFields: string[]
+      formulaRefs: string[]
+      mismatchCount: number
+      generatedAt: string
       note: string
     }
     disposition: string
@@ -1430,6 +1477,19 @@ export interface DividendLowVolDataReadinessAudit {
   status: 'ready_full_universe' | 'ready_free_source_validation' | 'ready_free_source_research' | 'research_scan_partial' | 'blocked'
   providerMode?: 'formal_provider' | 'free_source_research' | 'blocked'
   validationDataMode?: 'free_source_validation' | 'blocked'
+  dataTrust?: {
+    schemaVersion: string
+    grade: 'A' | 'B' | 'C' | 'D' | 'INSUFFICIENT'
+    confidencePercent: number
+    providerMode: string
+    coverageStatus: string
+    freshnessStatus: string
+    crossCheckStatus: string
+    displayLabel: string
+    blockers: string[]
+    warnings: string[]
+    note: string
+  }
   allowedActions: string[]
   prohibitedActions: string[]
   canonicalQuoteList: {
@@ -1453,9 +1513,11 @@ export interface DividendLowVolDataReadinessAudit {
     marketBarRows: number
     marketBarSymbols: number
     latestMarketBarDate: string | null
+    latestMarketBarAgeDays?: number | null
     marketFeatureRows: number
     marketFeatureSymbols: number
     latestFeatureDate: string | null
+    latestFeatureAgeDays?: number | null
     scanCoveragePercent: number
     featureCoveragePercent: number
   }

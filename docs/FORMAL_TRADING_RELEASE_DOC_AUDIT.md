@@ -1,6 +1,6 @@
 # 正式交易 Release 文档审计
 
-更新时间：2026-06-26
+更新时间：2026-06-29
 
 ## 1. 审计结论
 
@@ -15,6 +15,20 @@ orderCreateAllowed = false
 ```
 
 本轮文档审计结论：当前文档已经可以支撑“正式交易 release 的后续开发规划和验收设计”，但不能声明系统已经进入正式交易 release。文档新增了 release 阶段的目标体验、目标架构、开发计划、里程碑、验收门槛和出门条件，同时保留当前交易锁定边界。
+
+2026-06-29 实施复核结论：已按当前阶段目标完成一轮文档收口。PRD、组合回测计划、目标架构、drawio 摘要、drawio 本体、read-drawio 输出和数据可信文档审计已同步到“formal-review-ready / release-blocked”口径。当前可以指导 FTR-1 到 FTR-6 的后续自动化开发，但仍不能声明正式交易 release。
+
+```text
+documentationStageImplemented=true
+drawioPageCount=7
+drawioPageLimit=8
+documentationSupportsFTR1ToFTR6=true
+formalTradingReleaseReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
 
 2026-06-25 追加审计结论：已按外部审计意见完成一轮文档核查和 drawio 重排。当前 `target-architecture-gap.drawio` 为 7 页，页数不超过 8 页；每页均使用中文，并以真实页面、API、服务、数据实体和审计产物为节点。图中以灰色、黄色、橘黄、红色区分已实现、需修改、需新增和硬边界，避免把 formal-review-ready 误写为 formal-trading-ready。
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "dividend.low_vol.public_fundamental_seed.v1",
-  "generatedAt": "2026-06-10T07:05:23.504Z",
+  "generatedAt": "2026-06-29T09:46:17.725Z",
   "description": "Public financial snapshot seed cache used only when live free-source fundamentals are incomplete. These rows are research evidence only and must not unlock formal provider verification or trading actions.",
   "items": {
     "300001": {

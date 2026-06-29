@@ -11,9 +11,19 @@ async function main() {
   assert.equal(audit.providerIngestion.tokenInAuditPackage, false)
   assert.equal(audit.gates.formalValidationPromotionAllowed, audit.gates.researchScanReady)
   assert.equal(audit.gates.freeSourceValidationAllowed, audit.gates.researchScanReady)
+  assert.equal(audit.dataTrust.schemaVersion, 'dividend.low_vol.data_readiness_trust.v1')
+  assert.ok(['A', 'B', 'C', 'D', 'INSUFFICIENT'].includes(audit.dataTrust.grade), 'data readiness must expose trust grade')
+  assert.ok(Number.isFinite(audit.dataTrust.confidencePercent), 'data readiness must expose confidence percent')
+  assert.match(audit.dataTrust.note, /prevents display completeness/, 'data trust note must prevent false authenticity claims')
   assert.ok(Array.isArray(audit.researchBlockers))
   assert.ok(Array.isArray(audit.formalBlockers))
   assert.ok(Array.isArray(audit.providerUpgradeBlockers))
+  if (audit.marketData.scanCoveragePercent < 80) {
+    assert.ok(audit.dataTrust.blockers.includes('market_bar_full_universe_coverage_below_80_percent'), 'low market bar coverage must lower trust')
+  }
+  if (audit.providerMode === 'free_source_research') {
+    assert.ok(audit.dataTrust.warnings.includes('free_source_research_not_formal_provider'), 'free source mode must be visible as research-only warning')
+  }
   if (!audit.gates.researchScanReady) {
     assert.ok(audit.researchBlockers.length > 0, 'blocked research readiness must explain research blockers')
     assert.equal(audit.gates.persistentFullAScanAllowed, false)
@@ -28,6 +38,7 @@ async function main() {
     ok: true,
     status: audit.status,
     providerMode: audit.providerMode,
+    dataTrust: audit.dataTrust,
     canonicalItems: audit.canonicalQuoteList.itemCount,
     marketBarSymbols: audit.marketData.marketBarSymbols,
     featureSymbols: audit.marketData.marketFeatureSymbols,

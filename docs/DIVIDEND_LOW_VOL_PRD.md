@@ -1,6 +1,6 @@
 # 红利低波行业龙头策略 PRD
 
-更新时间：2026-06-26
+更新时间：2026-06-29
 
 ## 1. 产品定位
 
@@ -14,6 +14,33 @@ manualTradeDraftReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
+
+2026-06-27 数据可信与计算复算阶段校准：
+
+```text
+dataTrustVisible=true
+calculationAuditVisible=true
+dataTrustGrade=INSUFFICIENT
+calculationAuditStatus=deterministic_replay_only
+freeSourceResearchMode=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+```
+
+解释：`dataTrustGrade=INSUFFICIENT` 表示当前免费源、覆盖率、新鲜度或交叉验证证据不足以支撑正式交易级结论；`calculationAuditStatus=deterministic_replay_only` 只证明同一输入下公式复算一致，不证明模型预测有效、策略长期稳定或可交易。页面、API、审计包和后续开发计划必须同时显示这两个状态，不能只展示候选和分数。
+
+2026-06-29 文档阶段收口：
+
+```text
+documentationStageImplemented=true
+drawioPageCount=7
+drawioPageLimit=8
+documentationSupportsAutomatedDevelopment=true
+documentationSupportsFormalTradingReleaseWithoutExternalEvidence=false
+```
+
+本轮仅更新文档、目标架构、里程碑、验收门槛和 drawio gap 图。它用于指导后续 FTR-1 到 FTR-6 自动化开发，不改变当前业务代码和交易锁定状态。任何后续实现都必须继续把红利低波结论定位为研究、观察、区间提醒和人工计划草案，直到正式 provider、可信 benchmark、formal validation 和人工签核全部通过。
 
 2026-06-24 交互式策略回测阶段同步：
 
@@ -109,6 +136,8 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 6. 如果价格过期、来源未知或价格与均线锚点明显错配，系统显示“需刷新后重算”，不展示有效观察区间。
 7. 用户可以生成人工计划草案、人工验收记录、观察池和 pretrade check，但系统仍保持 `formalTargetWeight=0`、`canCreateOrder=false`。
 8. 用户能从审计包和任务中心追溯每日扫描、候选结果、回测、validation、manual acceptance 和 trade gate。
+9. 用户能在首屏看到数据可信度、计算复算、覆盖率、新鲜度、正式交易锁定四个摘要；若数据可信度不足，页面必须解释“还能做研究观察，不能做正式交易判断”。
+10. 页面必须减少分数堆叠造成的阅读负担：默认展示“能不能研究、为什么入选、处于什么区间、哪里不可信、下一步做什么”，高级指标折叠到详情和审计区。
 
 非本阶段目标：
 
@@ -118,6 +147,8 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 4. 不把 proxy benchmark 说成 formal benchmark。
 5. 不把 seed fallback 说成 verified industry leader。
 6. 不用测试绕过 `validation_evidence`。
+7. 不把 `calculationAudit=passed` 解释为模型有效或交易有效。
+8. 不在 `dataTrustGrade=INSUFFICIENT` 时展示“可信交易建议”或“可建仓”文案。
 
 正式交易级前置阶段的非目标：
 
@@ -145,6 +176,14 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 进入红利低波策略 -> 查看数据状态 -> 筛选行业/分数 -> 查看候选详情 -> 加入观察或生成草案
 ```
 
+首屏判断标准：
+
+```text
+先看数据可信度和刷新状态；
+再看候选是否满足硬规则；
+最后看买入/卖出观察区间和人工草案。
+```
+
 ### 3.2 持仓用户
 
 目标：结合已有持仓判断是否需要观察低位、停止加仓、高位复核或风险退出。
@@ -164,6 +203,14 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 ```text
 打开任务中心/审计包 -> 查看 runtime/data/provider/priceAudit/validation/tradeGate -> 输出复核结论
 ```
+
+审计用户必须能判断：
+
+- 当前价格是否来自最新可用交易日。
+- 覆盖率、新鲜度、交叉验证是否足够。
+- 公式复算是否通过。
+- 模型有效性是否只是 research evidence。
+- 正式交易 gate 为什么仍 blocked。
 
 ## 4. 策略硬规则
 

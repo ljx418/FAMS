@@ -36,6 +36,23 @@ A focused target-and-gap diagram is stored at
   `formalValidationAudit=warning`, and
   `manualSignoffAudit=missing`.
 
+2026-06-29 documentation implementation status:
+
+- Documentation stage implemented:
+  `documentationStageImplemented=true`.
+- The active target architecture is represented by
+  `docs/target-architecture-gap.drawio`, which remains a 7-page diagram under
+  the 8-page limit.
+- The current stage can guide automated development for FTR-1 through FTR-6:
+  formal data governance, trusted total-return benchmark, formal validation,
+  manual signoff, execution isolation, and release gate audit.
+- The documentation can support formal-review-ready and user acceptance
+  planning. It cannot unlock formal trading without external evidence,
+  formal validation, and human signoff.
+- The current system remains locked:
+  `formalTradingUnlocked=false`, `autoTradeUnlocked=false`,
+  `canCreateOrder=false`, and `orderCreateAllowed=false`.
+
 ## Current Implementation
 
 ### Runtime Shape

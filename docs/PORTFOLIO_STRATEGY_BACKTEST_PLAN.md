@@ -1,6 +1,6 @@
 # 交互式策略回测与正式交易级前置 PRD / 开发与验收计划
 
-更新时间：2026-06-25
+更新时间：2026-06-29
 
 ## 1. 阶段目标
 
@@ -13,9 +13,36 @@ interactiveStrategyBacktestReady=true
 researchGradeStrategyComparisonReady=true
 manualTradeDraftReady=true
 portfolioBacktestFormalReviewReady=true
+dataTrustVisible=true
+calculationAuditVisible=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
+
+2026-06-27 数据可信与复算审计校准：
+
+```text
+dataTrustGrade=INSUFFICIENT
+calculationAuditStatus=deterministic_replay_only
+freeSourceResearchMode=true
+formalTradingEligible=false
+orderCreateAllowed=false
+canCreateOrder=false
+```
+
+组合回测页面可以用于研究比较和正式评审材料准备，但必须同时展示数据可信度、数据覆盖率、新鲜度、benchmark 资格、公式复算状态和 release blockers。`calculationAuditStatus=deterministic_replay_only` 只证明计算链路可复算，不证明策略真实有效；`dataTrustGrade=INSUFFICIENT` 时，回测曲线只能作为研究材料，不能升级为正式交易建议。
+
+2026-06-29 文档实施结论：
+
+```text
+documentationStageImplemented=true
+targetArchitectureGapDrawioReady=true
+developmentAcceptancePlanReady=true
+milestoneAndExitCriteriaReady=true
+formalTradingReleaseStillBlocked=true
+```
+
+本轮文档开发把当前目标固定为“交互式策略回测 + 数据可信可见 + 计算复算可查 + 正式交易 release 前置评审”。后续代码开发应按 FTR-1 到 FTR-6 顺序推进；若任何实现无法证明正式数据治理、可信 benchmark、formal validation 或人工签核，则必须继续展示 blocker，不得把曲线或草案升级为正式交易动作。
 
 2026-06-25 正式交易 release 文档校准：
 
@@ -57,6 +84,7 @@ manualSignoffAudit=missing
 5. 用户能打开每个策略的输入定义、行情覆盖、分红覆盖、benchmark 状态、交易约束和 evidenceRefs。
 6. 用户能基于红利低波或组合回测结果生成人工计划草案，但系统仍显示 `formalTargetWeight=0`、`canCreateOrder=false`。
 7. 所有页面和接口明确显示“研究回测，不构成交易指令”，并禁止正式 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
+8. 页面首屏用摘要卡解释“数据是否可信、计算是否可复算、benchmark 是否正式、正式交易为何仍锁定”，避免用户只看收益曲线做判断。
 
 2026-06-23 历史基线状态：
 
@@ -125,6 +153,13 @@ autoTradeUnlocked=false
 
 当前已把 formal-review-ready 能力扩展为“长时间段真实数据组合策略回测可验收”。用户能选择 1 年、3 年、5 年或自定义区间，比较红利低波篮子、当前持仓、永久组合、全天候组合和自定义组合的收益率曲线、回撤曲线、benchmark、分红贡献、成本拖累、数据等级、模型有效性和阻断原因。该能力不等于正式交易 release。
 
+当前数据可信度口径：
+
+- 免费源和本地缓存可以支撑 research/formal-review-ready。
+- 关键字段 coverage、freshness、crossCheckStatus 不足时，`dataTrustGrade` 必须保持 `INSUFFICIENT` 或降级状态。
+- 公式复算通过只证明同一输入、同一公式、同一版本下的确定性一致；不能证明未来收益、模型有效性或正式交易资格。
+- 前端必须在曲线旁展示数据缺口和模型有效性状态，不能只展示收益率排名。
+
 最新审计包：
 
 ```text
@@ -191,6 +226,7 @@ ADD / REDUCE / AUTO_TRADE / ORDER_CREATE
 7. 页面明确显示数据来源、新鲜度、缺失项和“研究回测，不构成交易指令”。
 8. 用户能保存或追溯回测 Operation artifact，包括输入参数、策略定义、曲线、指标、benchmark、缺口和交易 gate。
 9. 用户能从红利低波页面跳转到组合回测视角，比较红利低波篮子与永久组合、全天候、当前持仓和自定义组合；红利低波篮子已接入真实候选快照读取，当前 3 只真实入篮标的可返回 completed 曲线。若后续真实入篮数量低于最小 3 只或证据不足，必须回退为 insufficient，不得用样本组合替代。
+10. 用户可以一眼区分“收益表现”“数据可信”“计算复算”“正式交易锁定”四类信息；高级参数和审计明细可以折叠，但阻断原因不能隐藏。
 
 ## 3. 当前项目基线
 
@@ -230,6 +266,7 @@ ADD / REDUCE / AUTO_TRADE / ORDER_CREATE
 - 审计包需要集中输出 data grade、model effectiveness、manual plan draft 和 formal trading blockers。
 - 正式交易解锁清单只能定义和展示，不得自动释放 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
 - 正式交易 release 尚缺独立开发闭环：正式 provider、官方或可信 benchmark、formal validation passed、人工签核、paper/sandbox 隔离和订单 gate 审计。
+- 数据可信与计算准确性仍需从“可见”推进到“高可信”：全市场覆盖率、新鲜度、交叉验证、字段级 evidence、关键公式 golden sample 和前端可读性仍是下一轮开发重点。
 
 ## 4. 目标架构
 

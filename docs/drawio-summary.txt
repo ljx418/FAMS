@@ -1,10 +1,10 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-06-26
+更新时间：2026-06-29
 
-本 drawio 文件用于说明 FAMS 当前阶段的目标体验、当前架构与目标架构差异、具体技术实现路径、开发及验收计划、项目里程碑、验收门槛、出门条件和关键用户路径。页数固定为 7 页，不超过 8 页。图内不使用无法落地的泛化模块，每个关键节点都绑定到真实页面、API、服务、数据/缓存或审计 artifact。
+本 drawio 文件用于说明 FAMS 当前阶段的目标体验、当前架构与目标架构差异、数据可信与计算复算路径、具体技术实现路径、开发及验收计划、项目里程碑、验收门槛、出门条件和关键用户路径。页数固定为 7 页，不超过 8 页。图内不使用无法落地的泛化模块，每个关键节点都绑定到真实页面、API、服务、数据/缓存或审计 artifact。
 
-当前阶段仍是正式交易 release 前置评审，不是正式交易 release。图中可以表达 FTR-1 到 FTR-6 的后续开发路径，但不得改变当前交易锁定状态。
+当前阶段仍是正式交易 release 前置评审，不是正式交易 release。2026-06-29 图中继续保留“数据可信与计算复算”的硬边界：`dataTrustGrade=INSUFFICIENT` 时只能研究观察；`calculationAudit=deterministic_replay_only` 只证明公式复算一致，不证明模型有效或策略可交易。本轮文档实施保持 7 页结构，并将“当前架构与目标架构差异”固定为前端、API、服务、数据、审计/Gate 五层泳道。
 
 ## 颜色规则
 
@@ -19,8 +19,8 @@
 
 1. **目标体验与用户路径**：红利低波策略、组合策略回测、人工计划草案和任务审计四段路径，说明用户如何实际使用系统，以及哪些动作仍被禁止。
 2. **当前架构与目标架构差异**：使用 5 行 × 5 列泳道矩阵，按前端、API、服务、数据、审计/Gate 分层展示“当前实现 -> 需修改 -> 目标新增 -> 硬边界 -> 用户体验结果”的强关联路径。
-3. **长周期组合回测目标架构**：展示 `Backtest.tsx / portfolioBacktest.ts / PortfolioBacktestInputBuilder / PortfolioBacktestEngine / PortfolioBenchmarkService` 如何支持 1 年、3 年、5 年和自定义区间；当前 1 年/3 年/5 年 replay 已 materialized，覆盖率分别为 96.43% / 95.90% / 95.71%，可作为 formal-review-ready 基线。
-4. **数据治理与真实数据链路**：展示免费源/本地缓存、行情、分红、交易约束、benchmark、字段级 evidence 和阻断规则。
+3. **数据可信与计算复算架构**：展示 `DividendLowVol.tsx / data-readiness API / dividendLowVolDataReadinessService / dividendLowVolStrategyService / market_bar_canonical / market_feature_daily / calculation_audit.json` 如何共同解释数据可信和公式复算。
+4. **红利低波与长周期回测路径**：展示免费源/本地缓存、行情、分红、交易约束、benchmark、字段级 evidence 和阻断规则如何进入红利低波与组合回测。
 5. **模型验证与 Release Gate**：展示 OOS、walk-forward、参数敏感性、分组稳定性、人工签核和 release gate 的关系。
 6. **开发及验收计划**：把已完成的长周期 review-ready 基线和 FTR-1 到 FTR-6 映射到实现实体、用户效果、审计产物和验收命令。
 7. **里程碑与出门条件**：列出 M1 到 M7、当前可声明状态、当前不能声明状态、审计文档路径和外部审计重点。
@@ -59,6 +59,8 @@ paperSandboxReviewReady=true
 
 ```text
 longHorizonRealDataBacktestReady=true
+dataTrustGrade=INSUFFICIENT
+calculationAuditStatus=deterministic_replay_only
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 canCreateOrder=false
@@ -84,25 +86,25 @@ formalTradingUnlocked 不得为 true
 autoTradeUnlocked 不得为 true
 orderCreateAllowed 不得为 true
 canCreateOrder 不得为 true
-formal ADD / REDUCE released 不得出现
-auto rebalance ready 不得出现
+不得出现正式 ADD / REDUCE 已发布
+不得出现自动再平衡 ready
 ```
 
 ## 技术实现路径索引
 
 - 前端入口：`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`Analysis.tsx`
-- API 入口：`/api/v1/strategy/dividend-low-vol/*`、`/api/v1/portfolio-backtest/*`、`/api/v1/operations/*`、`/api/v1/analysis/fivd-r/*`
+- API 入口：`/api/v1/strategy/dividend-low-vol/*`、`/api/v1/strategy/dividend-low-vol/data-readiness`、`/api/v1/portfolio-backtest/*`、`/api/v1/operations/*`、`/api/v1/analysis/fivd-r/*`
 - 组合回测服务：`PortfolioBacktestInputBuilder`、`PortfolioBacktestEngine`、`PortfolioBenchmarkService`、`portfolioBacktestReviewService`
-- 红利低波服务：`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService`、`dividendLowVolBacktestService`、`dividendLowVolFivdRAdapter`
+- 红利低波服务：`dividendLowVolDataReadinessService`、`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService`、`dividendLowVolBacktestService`、`dividendLowVolFivdRAdapter`
 - 数据证据：`DividendLowVolDaily`、`market_bar_canonical`、`market_tradeability_daily`、portfolio holdings snapshot、free-source benchmark、future official benchmark、provider freshness metadata
-- 审计产物：`09_data_grade_audit.json`、`10_model_effectiveness_audit.json`、`11_manual_plan_draft_audit.json`、`12_formal_trading_unlock_blockers.json`、`13_execution_isolation_audit.json`、`14_release_gate_audit.json`、`15_data_governance_audit.json`、`16_benchmark_qualification_audit.json`、`17_formal_validation_audit.json`、`18_manual_signoff_audit.json`
+- 审计产物：`data_readiness_audit.json`、`calculation_audit.json`、`09_data_grade_audit.json`、`10_model_effectiveness_audit.json`、`11_manual_plan_draft_audit.json`、`12_formal_trading_unlock_blockers.json`、`13_execution_isolation_audit.json`、`14_release_gate_audit.json`、`15_data_governance_audit.json`、`16_benchmark_qualification_audit.json`、`17_formal_validation_audit.json`、`18_manual_signoff_audit.json`
 
 ## 每页验收重点
 
 - 第 1 页：用户能看懂从红利低波研究、组合回测、人工计划草案到任务审计的完整路径，并看到禁止动作。
 - 第 2 页：用户能按前端、API、服务、数据、审计/Gate 五层看清当前架构如何演进到目标架构，并看到每层对应的用户体验结果和禁止绕过点。
-- 第 3 页：开发者能从前端页面追踪到 API、服务、数据证据和 audit gate。
-- 第 4 页：开发者能看懂长周期真实数据如何进入行情、分红、交易约束和 benchmark 证据链。
+- 第 3 页：开发者能从前端页面追踪到 data-readiness API、复算审计、数据缓存、服务输出和 audit gate。
+- 第 4 页：开发者能看懂红利低波与长周期回测如何使用行情、分红、交易约束和 benchmark 证据链。
 - 第 5 页：审核者能看懂为什么当前 release gate 仍 blocked，以及模型验证哪些 gate 仍是 warning/insufficient。
 - 第 6 页：开发者能按 FTR-1 到 FTR-6 执行正式交易 release 前置开发和验收，并理解长周期真实数据回测已经是评审基线而非剩余主线。
 - 第 7 页：审核者能看懂里程碑、出门条件、不能声明的状态和待审计文档路径。
@@ -125,6 +127,9 @@ drawioPageLimit<=8
 containsConcreteImplementationEntities=true
 containsReleaseGateRoute=true
 containsTradeBoundary=true
+containsDataTrustAndCalculationAudit=true
+documentationStageImplemented=true
+formalTradingReleaseReady=false
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```

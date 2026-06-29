@@ -232,8 +232,8 @@ formalTradingUnlocked 不得为 true
 autoTradeUnlocked 不得为 true
 orderCreateAllowed 不得为 true
 canCreateOrder 不得为 true
-formal ADD / REDUCE released
-auto rebalance ready
+不得出现正式 ADD / REDUCE 已发布
+不得出现自动再平衡 ready
 ```
 
 ### 6.4 剩余 release blocker

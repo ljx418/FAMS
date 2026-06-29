@@ -111,6 +111,35 @@ export interface DividendLowVolScores {
   evidenceAdjustedScore: number
 }
 
+export type DividendLowVolDataTrustGrade = 'A' | 'B' | 'C' | 'D' | 'INSUFFICIENT'
+
+export interface DividendLowVolDataTrustSummary {
+  schemaVersion: 'dividend.low_vol.data_trust.v1'
+  grade: DividendLowVolDataTrustGrade
+  confidencePercent: number
+  providerMode: 'formal_provider' | 'free_source_research' | 'mixed' | 'unknown'
+  coverageStatus: 'complete' | 'partial' | 'low_coverage' | 'insufficient'
+  freshnessStatus: 'fresh' | 'stale' | 'expired' | 'unknown'
+  crossCheckStatus: 'verified' | 'partial' | 'fallback' | 'not_checked'
+  displayLabel: string
+  blockers: string[]
+  warnings: string[]
+  lastVerifiedAt?: string
+  note: string
+}
+
+export interface DividendLowVolCalculationAudit {
+  schemaVersion: 'dividend.low_vol.calculation_audit.v1'
+  formulaVersion: string
+  replayStatus: 'passed' | 'failed' | 'insufficient'
+  inputFieldCount: number
+  missingInputFields: string[]
+  formulaRefs: string[]
+  mismatchCount: number
+  generatedAt: string
+  note: string
+}
+
 export interface DividendLowVolDiscipline {
   allowedActions: Array<'RESEARCH' | 'OBSERVE' | 'ALERT' | 'PLAN_DRAFT'>
   prohibitedActions: Array<'ADD' | 'REDUCE' | 'AUTO_TRADE'>
@@ -374,6 +403,8 @@ export interface DividendLowVolFactSet {
     totalMetricCount: number
     note: string
   }
+  dataTrust: DividendLowVolDataTrustSummary
+  calculationAudit: DividendLowVolCalculationAudit
   candidateGrade?: 'A' | 'B' | 'WATCH' | 'EXCLUDED'
   disposition: DividendLowVolDisposition
   alerts: Array<{

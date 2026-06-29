@@ -119,6 +119,8 @@ export class DividendLowVolStrategyService {
       evidenceRefs,
     })
     const metricCompleteness = this.buildMetricCompleteness(input, metrics, scores)
+    const dataTrust = this.buildDataTrust(input, evidenceRefs, dataVerification, metricCompleteness, leaderEvidence, blockedReasons, scores)
+    const calculationAudit = this.buildCalculationAudit(metricCompleteness, scores)
 
     return {
       schemaVersion: this.schemaVersion,
@@ -201,6 +203,8 @@ export class DividendLowVolStrategyService {
       scores,
       dataVerification,
       metricCompleteness,
+      dataTrust,
+      calculationAudit,
       candidateGrade: this.candidateGrade(scores, blockedReasons),
       disposition,
       alerts,
@@ -219,6 +223,8 @@ export class DividendLowVolStrategyService {
     const rejectionSummary = this.buildRejectionSummary(candidates)
     const leaderAuditSummary = this.buildLeaderAuditSummary(candidates)
     const metricCompletenessSummary = this.buildMetricCompletenessSummary(candidates)
+    const dataTrustSummary = this.buildDataTrustPoolSummary(candidates)
+    const calculationAuditSummary = this.buildCalculationAuditPoolSummary(candidates)
     return {
       schemaVersion: 'dividend.low_vol.candidate_pool.v1',
       generatedAt: new Date().toISOString(),
@@ -230,6 +236,8 @@ export class DividendLowVolStrategyService {
       rejectionSummary,
       leaderAuditSummary,
       metricCompletenessSummary,
+      dataTrustSummary,
+      calculationAuditSummary,
       universeSummary: options.universeSummary,
       candidates,
       policy: {
@@ -360,6 +368,11 @@ export class DividendLowVolStrategyService {
         dataVerification: item.dataVerification || this.buildDataVerification(item.evidenceRefs || []),
         metricCompleteness: item.metricCompleteness || this.buildMetricCompletenessFromFactSet(item),
       }))
+      .map((item) => ({
+        ...item,
+        dataTrust: item.dataTrust || this.buildDataTrustFromFactSet(item),
+        calculationAudit: item.calculationAudit || this.buildCalculationAudit(item.metricCompleteness, item.scores),
+      }))
     return {
       schemaVersion: 'dividend.low_vol.candidate_pool.v1',
       generatedAt: new Date().toISOString(),
@@ -371,6 +384,8 @@ export class DividendLowVolStrategyService {
       rejectionSummary: this.buildRejectionSummary(candidates),
       leaderAuditSummary: this.buildLeaderAuditSummary(candidates),
       metricCompletenessSummary: this.buildMetricCompletenessSummary(candidates),
+      dataTrustSummary: this.buildDataTrustPoolSummary(candidates),
+      calculationAuditSummary: this.buildCalculationAuditPoolSummary(candidates),
       candidates,
       policy: {
         allowedActions: ['RESEARCH', 'OBSERVE', 'ALERT', 'PLAN_DRAFT'],
@@ -851,6 +866,222 @@ export class DividendLowVolStrategyService {
       note: displayReady
         ? 'All core metrics required by the Dividend Low Volatility page are present; hard-rule failures and risk flags remain visible through disposition, blockedReasons, and dataGapSummary.'
         : 'This row is excluded from the complete strategy table until missing core metrics are resolved.',
+    }
+  }
+
+  private buildDataTrust(
+    input: DividendLowVolInput,
+    evidenceRefs: string[],
+    dataVerification: DividendLowVolFactSet['dataVerification'],
+    metricCompleteness: DividendLowVolFactSet['metricCompleteness'],
+    leaderEvidence: DividendLowVolFactSet['leaderEvidence'],
+    blockedReasons: string[],
+    scores: ReturnType<typeof dividendLowVolScoringService.score>,
+  ): DividendLowVolFactSet['dataTrust'] {
+    const refs = evidenceRefs.join(' ').toLowerCase()
+    const hasFormalProvider = refs.includes('tushare') || refs.includes('formal_provider') || refs.includes('formal-provider')
+    const hasFreeSource = refs.includes('free') || refs.includes('eastmoney') || refs.includes('sohu') || refs.includes('public') || refs.includes('canonical') || refs.includes('market-history')
+    const hasFallback = refs.includes('fallback') || refs.includes('seed') || dataVerification.status === 'provider_fallback' || leaderEvidence.seedFallbackUsed
+    const providerMode: DividendLowVolFactSet['dataTrust']['providerMode'] = hasFormalProvider && hasFreeSource
+      ? 'mixed'
+      : hasFormalProvider
+        ? 'formal_provider'
+        : hasFreeSource
+          ? 'free_source_research'
+          : 'unknown'
+    const completenessPercent = metricCompleteness.totalMetricCount > 0
+      ? ((metricCompleteness.completeMetricCount / metricCompleteness.totalMetricCount) * 100)
+      : 0
+    const coverageStatus: DividendLowVolFactSet['dataTrust']['coverageStatus'] = metricCompleteness.displayReady
+      ? 'complete'
+      : completenessPercent >= 70
+        ? 'partial'
+        : completenessPercent > 0
+          ? 'low_coverage'
+          : 'insufficient'
+    const freshnessStatus = dataVerification.freshnessStatus || (input.history && input.history.length > 0 ? 'fresh' : 'unknown')
+    const crossCheckStatus: DividendLowVolFactSet['dataTrust']['crossCheckStatus'] = dataVerification.status === 'cross_checked'
+      ? 'verified'
+      : hasFallback
+        ? 'fallback'
+        : dataVerification.status === 'single_source'
+          ? 'partial'
+          : 'not_checked'
+    const blockers = unique([
+      ...(!metricCompleteness.displayReady ? metricCompleteness.missingMetrics.map((item) => `missing:${item}`) : []),
+      ...(blockedReasons.includes('dividend_low_vol_evidence_insufficient') ? ['strategy_evidence_insufficient'] : []),
+      ...(dataVerification.status === 'insufficient' ? ['source_evidence_insufficient'] : []),
+      ...(leaderEvidence.status === 'insufficient' ? ['leader_evidence_insufficient'] : []),
+    ])
+    const warnings = unique([
+      ...dataVerification.warnings,
+      ...(providerMode === 'free_source_research' ? ['free_source_research_not_formal_provider'] : []),
+      ...(hasFallback ? ['fallback_or_seed_evidence_used'] : []),
+      ...(leaderEvidence.status !== 'verified_industry_leader' ? [`leader_status:${leaderEvidence.status}`] : []),
+      ...(blockedReasons.filter((reason) => ['dividend_trap_risk', 'dps_consecutive_decline', 'dps_growth_negative', 'max_drawdown_250d_above_35'].includes(reason))),
+    ])
+    const crossCheckScore = crossCheckStatus === 'verified' ? 100 : crossCheckStatus === 'partial' ? 65 : crossCheckStatus === 'fallback' ? 35 : 15
+    const providerScore = providerMode === 'formal_provider' ? 100 : providerMode === 'mixed' ? 85 : providerMode === 'free_source_research' ? 55 : 20
+    const leaderScore = leaderEvidence.status === 'verified_industry_leader' ? 100 : leaderEvidence.status === 'leader_candidate' ? 65 : leaderEvidence.status === 'leader_partial' ? 45 : 20
+    const penalty = (hasFallback ? 15 : 0) + (blockers.length * 8) + (warnings.filter((item) => item.includes('trap') || item.includes('decline')).length * 5)
+    const confidencePercent = clamp(
+      (scores.evidenceQualityScore * 0.3)
+      + (completenessPercent * 0.25)
+      + (crossCheckScore * 0.2)
+      + (providerScore * 0.15)
+      + (leaderScore * 0.1)
+      - penalty,
+      0,
+      100,
+    )
+    const grade = !metricCompleteness.displayReady || blockers.length > 0
+      ? (confidencePercent >= 45 ? 'D' : 'INSUFFICIENT')
+      : hasFallback || providerMode === 'free_source_research'
+        ? confidencePercent >= 70 ? 'B' : confidencePercent >= 55 ? 'C' : 'D'
+        : confidencePercent >= 85 ? 'A' : confidencePercent >= 70 ? 'B' : confidencePercent >= 55 ? 'C' : 'D'
+    const displayLabel = grade === 'A'
+      ? '正式源高可信'
+      : grade === 'B'
+        ? '研究级较可信'
+        : grade === 'C'
+          ? '研究级需复核'
+          : grade === 'D'
+            ? '低可信需复核'
+            : '证据不足'
+    return {
+      schemaVersion: 'dividend.low_vol.data_trust.v1',
+      grade,
+      confidencePercent: round(confidencePercent) || 0,
+      providerMode,
+      coverageStatus,
+      freshnessStatus,
+      crossCheckStatus,
+      displayLabel,
+      blockers,
+      warnings,
+      lastVerifiedAt: new Date().toISOString(),
+      note: 'Data trust is a field/source confidence summary. It is not model validation and does not unlock formal ADD/REDUCE/AUTO_TRADE.',
+    }
+  }
+
+  private buildDataTrustFromFactSet(candidate: DividendLowVolFactSet): DividendLowVolFactSet['dataTrust'] {
+    const leaderEvidence = candidate.leaderEvidence || {
+      status: 'insufficient' as const,
+      marketCapRankVerified: false,
+      revenueRankVerified: false,
+      netProfitRankVerified: false,
+      roePercentileVerified: false,
+      providerCrossCheckedIndustryRank: false,
+      seedFallbackUsed: false,
+      evidenceRefs: [],
+      missingFields: ['leaderEvidence'],
+      note: 'Persisted factset is missing leader evidence details.',
+    }
+    return this.buildDataTrust(
+      {
+        symbol: candidate.identity.symbol,
+        name: candidate.identity.name,
+        industry: candidate.identity.industry,
+        assetType: candidate.identity.assetType,
+        history: candidate.timing.price !== undefined ? [{ date: candidate.generatedAt.slice(0, 10), open: candidate.timing.price, high: candidate.timing.price, low: candidate.timing.price, close: candidate.timing.price, volume: 0 }] : [],
+      },
+      candidate.evidenceRefs || [],
+      candidate.dataVerification || this.buildDataVerification(candidate.evidenceRefs || []),
+      candidate.metricCompleteness || this.buildMetricCompletenessFromFactSet(candidate),
+      leaderEvidence,
+      candidate.blockedReasons || [],
+      candidate.scores,
+    )
+  }
+
+  private buildCalculationAudit(
+    metricCompleteness: DividendLowVolFactSet['metricCompleteness'],
+    scores: DividendLowVolFactSet['scores'],
+  ): DividendLowVolFactSet['calculationAudit'] {
+    const scoreEntries: Array<[string, unknown]> = [
+      ['scores.dividendScore', scores.dividendScore],
+      ['scores.dividendQualityScore', scores.dividendQualityScore],
+      ['scores.lowVolScore', scores.lowVolScore],
+      ['scores.valuationScore', scores.valuationScore],
+      ['scores.evidenceQualityScore', scores.evidenceQualityScore],
+      ['scores.totalResearchScore', scores.totalResearchScore],
+      ['scores.evidenceAdjustedScore', scores.evidenceAdjustedScore],
+    ]
+    const mismatchCount = scoreEntries.filter(([, value]) => typeof value !== 'number' || !Number.isFinite(value)).length
+    const missingInputFields = unique(metricCompleteness.missingMetrics || [])
+    const replayStatus = missingInputFields.length > 0
+      ? 'insufficient'
+      : mismatchCount > 0
+        ? 'failed'
+        : 'passed'
+    return {
+      schemaVersion: 'dividend.low_vol.calculation_audit.v1',
+      formulaVersion: 'dividend_low_vol_leader_v1.scoring.2026-06',
+      replayStatus,
+      inputFieldCount: metricCompleteness.completeMetricCount,
+      missingInputFields,
+      formulaRefs: [
+        'DividendScore=yield/3y_yield/consecutive_years/dps_growth/stability',
+        'DividendQualityScore=payout/cashflow/earnings/debt/roe',
+        'LowVolScore=volatility/drawdown/beta/atr/liquidity',
+        'EvidenceAdjustedScore=TotalResearchScore*evidence/validation/tradeability constraints',
+      ],
+      mismatchCount,
+      generatedAt: new Date().toISOString(),
+      note: replayStatus === 'passed'
+        ? 'All displayed scoring fields are finite and the required formula inputs are present; this is a deterministic calculation check, not a proof of predictive validity.'
+        : 'The score cannot be fully replayed until missing inputs or non-finite score values are fixed.',
+    }
+  }
+
+  private buildDataTrustPoolSummary(candidates: DividendLowVolFactSet[]) {
+    const byGrade = candidates.reduce<Record<string, number>>((counts, candidate) => {
+      const grade = candidate.dataTrust?.grade || 'INSUFFICIENT'
+      counts[grade] = (counts[grade] || 0) + 1
+      return counts
+    }, {})
+    const averageConfidencePercent = candidates.length > 0
+      ? round(candidates.reduce((sum, candidate) => sum + (candidate.dataTrust?.confidencePercent || 0), 0) / candidates.length)
+      : 0
+    const blockers = new Map<string, number>()
+    const warnings = new Map<string, number>()
+    for (const candidate of candidates) {
+      for (const blocker of candidate.dataTrust?.blockers || []) blockers.set(blocker, (blockers.get(blocker) || 0) + 1)
+      for (const warning of candidate.dataTrust?.warnings || []) warnings.set(warning, (warnings.get(warning) || 0) + 1)
+    }
+    return {
+      schemaVersion: 'dividend.low_vol.data_trust_summary.v1',
+      total: candidates.length,
+      averageConfidencePercent,
+      byGrade,
+      highTrustCount: (byGrade.A || 0) + (byGrade.B || 0),
+      insufficientCount: byGrade.INSUFFICIENT || 0,
+      topBlockers: Array.from(blockers.entries()).map(([id, count]) => ({ id, count })).sort((left, right) => right.count - left.count).slice(0, 8),
+      topWarnings: Array.from(warnings.entries()).map(([id, count]) => ({ id, count })).sort((left, right) => right.count - left.count).slice(0, 8),
+      note: 'This summary separates display completeness from data authenticity/confidence. Free-source or fallback evidence remains research-grade only.',
+    }
+  }
+
+  private buildCalculationAuditPoolSummary(candidates: DividendLowVolFactSet[]) {
+    const byReplayStatus = candidates.reduce<Record<string, number>>((counts, candidate) => {
+      const status = candidate.calculationAudit?.replayStatus || 'insufficient'
+      counts[status] = (counts[status] || 0) + 1
+      return counts
+    }, {})
+    const missing = new Map<string, number>()
+    for (const candidate of candidates) {
+      for (const field of candidate.calculationAudit?.missingInputFields || []) missing.set(field, (missing.get(field) || 0) + 1)
+    }
+    return {
+      schemaVersion: 'dividend.low_vol.calculation_audit_summary.v1',
+      total: candidates.length,
+      byReplayStatus,
+      replayPassedCount: byReplayStatus.passed || 0,
+      replayInsufficientCount: byReplayStatus.insufficient || 0,
+      replayFailedCount: byReplayStatus.failed || 0,
+      topMissingInputFields: Array.from(missing.entries()).map(([field, count]) => ({ field, count })).sort((left, right) => right.count - left.count).slice(0, 8),
+      formulaVersion: 'dividend_low_vol_leader_v1.scoring.2026-06',
+      note: 'Calculation audit confirms deterministic scoring inputs and finite outputs. It does not prove model effectiveness or trading readiness.',
     }
   }
 

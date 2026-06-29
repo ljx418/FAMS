@@ -1,6 +1,6 @@
 {
   "schemaVersion": "dividend.low_vol.public_dividend_seed.v1",
-  "generatedAt": "2026-06-10T07:05:23.504Z",
+  "generatedAt": "2026-06-29T09:46:17.725Z",
   "description": "Public dividend seed cache used only when live dividend providers are unavailable. Values are cash dividend per share in CNY, aggregated by fiscal year when multiple distributions exist.",
   "items": {
     "300001": {

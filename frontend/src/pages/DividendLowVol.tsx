@@ -94,6 +94,28 @@ const gradeColor: Record<string, string> = {
   EXCLUDED: '#94a3b8',
 }
 
+const dataTrustColor: Record<string, string> = {
+  A: '#34d399',
+  B: '#38bdf8',
+  C: '#fbbf24',
+  D: '#f97316',
+  INSUFFICIENT: '#ef4444',
+}
+
+const replayStatusColor: Record<string, string> = {
+  passed: '#34d399',
+  insufficient: '#fbbf24',
+  failed: '#ef4444',
+}
+
+const dataTrustLabel: Record<string, string> = {
+  A: '高可信',
+  B: '研究级较可信',
+  C: '研究级需复核',
+  D: '低可信',
+  INSUFFICIENT: '证据不足',
+}
+
 const dispositionLabel: Record<string, string> = {
   watch_candidate: '观察候选',
   low_zone_alert: '低位提醒',
@@ -181,6 +203,7 @@ const metricExplanations = [
 ]
 
 const formatScore = (value?: number) => Number.isFinite(value) ? Number(value).toFixed(1) : '--'
+const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)))
 const priceAuditColor = (status?: string) => {
   if (status === 'aligned') return '#34d399'
   if (status === 'price_zone_mismatch') return '#ef4444'
@@ -280,6 +303,12 @@ const isCompleteDisplayCandidate = (candidate: Candidate) => {
 
 const metricBadge = (metric: string) => metricLabel[metric] || metric
 const reasonBadge = (reason: string) => blockedReasonLabel[reason] || reason
+
+const shortIssueLabel = (issue: string) => (
+  metricLabel[issue.replace(/^missing:/, '')]
+  || blockedReasonLabel[issue]
+  || issue.replace(/^missing:/, '')
+)
 
 const DividendLowVol: React.FC = () => {
   const [pool, setPool] = useState<DividendLowVolCandidatePool | null>(null)
@@ -687,6 +716,38 @@ const DividendLowVol: React.FC = () => {
         return sortDirection === 'asc' ? diff : -diff
       })
   }, [alertFilter, completeDisplayCandidates, dispositionFilter, gradeFilter, industryFilter, minCompositeScore, minDividendScore, minLeaderScore, minLowVolScore, minQualityScore, sortDirection, sortKey])
+  const topVisibleCandidates = filteredCandidates.slice(0, 3)
+  const readinessTrust = dataReadiness?.dataTrust
+  const poolDataTrustSummary = pool?.dataTrustSummary
+  const poolCalculationSummary = pool?.calculationAuditSummary
+  const poolDisplayCoveragePercent = pool && pool.total > 0
+    ? (completeDisplayCandidates.length / pool.total) * 100
+    : 0
+  const poolReplayCoveragePercent = poolCalculationSummary && poolCalculationSummary.total > 0
+    ? (poolCalculationSummary.replayPassedCount / poolCalculationSummary.total) * 100
+    : 0
+  const poolResearchReady = Boolean(
+    pool
+    && completeDisplayCandidates.length > 0
+    && poolDisplayCoveragePercent >= 95
+    && poolReplayCoveragePercent >= 95,
+  )
+  const poolPrimaryTrustGrade = poolDataTrustSummary
+    ? Object.entries(poolDataTrustSummary.byGrade)
+      .sort((left, right) => right[1] - left[1])[0]?.[0]
+    : undefined
+  const trustWarnings = [
+    ...(readinessTrust?.blockers || []),
+    ...(readinessTrust?.warnings || []),
+    ...(poolDataTrustSummary?.topBlockers || []).map((item) => `${shortIssueLabel(item.id)} ${item.count}`),
+    ...(poolDataTrustSummary?.topWarnings || []).map((item) => `${shortIssueLabel(item.id)} ${item.count}`),
+  ].slice(0, 6)
+  const calculationReplayPassed = poolCalculationSummary
+    ? poolCalculationSummary.replayPassedCount === poolCalculationSummary.total && poolCalculationSummary.total > 0
+    : false
+  const globalDataFoundationReady = readinessTrust ? readinessTrust.grade !== 'INSUFFICIENT' : false
+  const researchUsable = poolResearchReady
+  const draftReviewReady = manualDraftReadiness?.readyForManualTradeDraft === true
   const draftTopCandidates = filteredCandidates.slice(0, 3)
   const getFilterSnapshot = (): ActiveTop3Selection['filterSnapshot'] => ({
     industryFilter,
@@ -877,7 +938,7 @@ const DividendLowVol: React.FC = () => {
     {
       title: '状态',
       key: 'status',
-      width: 150,
+      width: 140,
       render: (_, candidate) => (
         <div className="flex flex-col gap-1">
           <Tag color={gradeColor[candidate.candidateGrade || 'EXCLUDED']}>{candidate.candidateGrade || 'EXCLUDED'}</Tag>
@@ -887,6 +948,33 @@ const DividendLowVol: React.FC = () => {
           {candidate.positionContext?.isHolding && <Tag color="#a78bfa">已持仓 {formatScore(candidate.positionContext.portfolioWeightPercent)}%</Tag>}
         </div>
       ),
+    },
+    {
+      title: '数据可信',
+      key: 'dataTrust',
+      width: 170,
+      render: (_, candidate) => {
+        const trust = candidate.dataTrust
+        const audit = candidate.calculationAudit
+        return (
+          <div className="space-y-1 text-xs text-gray-300">
+            <div className="flex flex-wrap gap-1">
+              <Tag color={dataTrustColor[trust?.grade || 'INSUFFICIENT']}>
+                {trust ? `${trust.grade} ${trust.confidencePercent}%` : '证据不足'}
+              </Tag>
+              <Tag color={replayStatusColor[audit?.replayStatus || 'insufficient']}>
+                复算 {audit?.replayStatus || 'insufficient'}
+              </Tag>
+            </div>
+            <div className="text-gray-500">{trust?.displayLabel || '缺少可信度审计'}</div>
+            {(trust?.warnings || []).length > 0 && (
+              <Tooltip title={trust?.warnings.join('；')}>
+                <div className="truncate text-amber-200">{shortIssueLabel(trust?.warnings[0] || '')}</div>
+              </Tooltip>
+            )}
+          </div>
+        )
+      },
     },
     {
       title: '红利',
@@ -903,15 +991,13 @@ const DividendLowVol: React.FC = () => {
     {
       title: '核心分数',
       key: 'scores',
-      width: 300,
+      width: 240,
       render: (_, candidate) => (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {scoreCell('综合', candidate.scores.evidenceAdjustedScore)}
-          {scoreCell('龙头', candidate.scores.leaderScore)}
           {scoreCell('红利', candidate.scores.dividendScore)}
           {scoreCell('质量', candidate.scores.dividendQualityScore)}
           {scoreCell('低波', candidate.scores.lowVolScore)}
-          {scoreCell('估值', candidate.scores.valuationScore)}
         </div>
       ),
     },
@@ -973,6 +1059,66 @@ const DividendLowVol: React.FC = () => {
         message="当前为研究/观察提醒，不构成交易指令"
         description="正式 ADD / REDUCE 仍受 validation_evidence gate 限制，AUTO_TRADE 始终禁止。页面内的买入/卖出区间只用于观察和人工计划草案。"
       />
+
+      <Card title="今日策略状态" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
+        <div className="grid gap-3 xl:grid-cols-[1.1fr_1fr_1.2fr]">
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Tag color={researchUsable ? '#38bdf8' : '#ef4444'}>{researchUsable ? '候选池研究可用' : '候选池研究受限'}</Tag>
+              <Tag color={draftReviewReady ? '#34d399' : '#fbbf24'}>草案复核 {draftReviewReady ? 'READY' : '未就绪'}</Tag>
+              <Tag color="#ef4444">正式交易锁定</Tag>
+            </div>
+            <div className="mt-3 text-sm text-slate-200">
+              当前页面只支持候选筛选、买卖观察区间和人工计划草案；不会生成正式买入、卖出或自动交易动作。
+            </div>
+            <div className="mt-2 text-xs text-gray-500">
+              样本 {candidates.length} · 展示字段齐全 {completeDisplayCandidates.length}（{formatScore(poolDisplayCoveragePercent)}%）· 研究候选 {eligible.length}
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Tag color={dataTrustColor[poolPrimaryTrustGrade || 'INSUFFICIENT']}>
+                候选池可信 {poolPrimaryTrustGrade || 'NA'}
+              </Tag>
+              <Tag color={poolCalculationSummary ? (calculationReplayPassed ? '#34d399' : '#fbbf24') : '#64748b'}>
+                复算通过 {poolCalculationSummary?.replayPassedCount ?? 0}/{poolCalculationSummary?.total ?? 0}
+              </Tag>
+              <Tag color={globalDataFoundationReady ? '#34d399' : '#f97316'}>
+                全局底座 {readinessTrust?.grade || 'unknown'}
+              </Tag>
+            </div>
+            <div className="mt-3 text-sm text-slate-200">
+              候选池展示与复算可用于研究比较；全局行情/特征底座仍单独控制正式验证。
+            </div>
+            <div className="mt-2 text-xs text-gray-500">
+              候选池平均可信 {formatScore(poolDataTrustSummary?.averageConfidencePercent)}% · 行情覆盖 {formatScore(dataReadiness?.marketData.scanCoveragePercent)}% · provider {dataReadiness?.providerIngestion.status || 'unknown'}
+            </div>
+            {trustWarnings.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {trustWarnings.slice(0, 4).map((item) => <Tag key={item} color="#f97316">{shortIssueLabel(item)}</Tag>)}
+              </div>
+            )}
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="mb-2 text-sm font-medium text-white">当前筛选前三只</div>
+            {topVisibleCandidates.length > 0 ? (
+              <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-1">
+                {topVisibleCandidates.map((candidate, index) => (
+                  <div key={candidate.identity.symbol} className="rounded border border-white/10 bg-[#0f172a] p-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-white">{index + 1}. {candidate.identity.symbol} {candidate.identity.name}</span>
+                      <Tag color={dataTrustColor[candidate.dataTrust?.grade || 'INSUFFICIENT']}>{candidate.dataTrust?.grade || 'NA'}</Tag>
+                    </div>
+                    <div className="mt-1 text-gray-500">{candidate.identity.industry || '行业待确认'} · 综合 {formatScore(candidate.scores.evidenceAdjustedScore)} · 股息 {formatScore(candidate.dividend.ttmDividendYield)}%</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500">暂无满足当前筛选条件的完整指标候选。</div>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {Object.keys(loadIssues).length > 0 && (
         <Alert
@@ -1392,45 +1538,69 @@ const DividendLowVol: React.FC = () => {
 
       {dataReadiness && (
         <div className="rounded-lg border border-white/10 bg-[#111827] p-3 text-xs text-gray-300">
-          <div className="flex flex-wrap items-center gap-2">
-            <Tag color={dataReadiness.status === 'ready_full_universe' || dataReadiness.status === 'ready_free_source_validation' || dataReadiness.status === 'ready_free_source_research' ? '#34d399' : dataReadiness.status === 'research_scan_partial' ? '#fbbf24' : '#ef4444'}>
-              数据就绪：{dataReadiness.status}
-            </Tag>
-            <Tag color={dataReadiness.providerMode === 'free_source_research' ? '#38bdf8' : dataReadiness.providerMode === 'formal_provider' ? '#34d399' : '#ef4444'}>
-              数据模式 {dataReadiness.providerMode || 'unknown'}
-            </Tag>
-            <Tag color={dataReadiness.gates.persistentFullAScanAllowed ? '#34d399' : '#ef4444'}>
-              免费源研究扫描 {dataReadiness.gates.persistentFullAScanAllowed ? '允许' : '阻断'}
-            </Tag>
-            <Tag color={(dataReadiness.gates.freeSourceValidationAllowed ?? dataReadiness.gates.formalValidationPromotionAllowed) ? '#34d399' : '#ef4444'}>
-              免费源验证 {(dataReadiness.gates.freeSourceValidationAllowed ?? dataReadiness.gates.formalValidationPromotionAllowed) ? '允许' : '阻断'}
-            </Tag>
-            <Tag color="#64748b">canonical {dataReadiness.canonicalQuoteList.itemCount}</Tag>
-            <Tag color="#64748b">行情 {dataReadiness.marketData.marketBarSymbols} / {formatScore(dataReadiness.marketData.scanCoveragePercent)}%</Tag>
-            <Tag color="#64748b">特征 {dataReadiness.marketData.marketFeatureSymbols} / {formatScore(dataReadiness.marketData.featureCoveragePercent)}%</Tag>
-            <Tag color="#64748b">状态 {dataReadiness.securityAndTradeability.securityStatusSymbols} / {formatScore(dataReadiness.securityAndTradeability.securityStatusCoveragePercent)}%</Tag>
-            <Tag color="#64748b">交易约束 {dataReadiness.securityAndTradeability.tradeabilitySymbols} / {formatScore(dataReadiness.securityAndTradeability.tradeabilityCoveragePercent)}%</Tag>
-            <Tag color={dataReadiness.providerIngestion.status.includes('blocked') ? '#ef4444' : '#fbbf24'}>provider {dataReadiness.providerIngestion.status}</Tag>
+          <div className="grid gap-3 md:grid-cols-4">
+            <div>
+              <div className="text-gray-500">数据可信</div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                <Tag color={dataTrustColor[dataReadiness.dataTrust?.grade || 'INSUFFICIENT']}>{dataReadiness.dataTrust?.grade || 'INSUFFICIENT'}</Tag>
+                <Tag color="#64748b">{dataReadiness.dataTrust?.displayLabel || dataReadiness.status}</Tag>
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-500">覆盖率</div>
+              <div className="mt-1 text-slate-200">行情 {formatScore(dataReadiness.marketData.scanCoveragePercent)}% · 特征 {formatScore(dataReadiness.marketData.featureCoveragePercent)}%</div>
+            </div>
+            <div>
+              <div className="text-gray-500">新鲜度</div>
+              <div className="mt-1 text-slate-200">行情 {dataReadiness.marketData.latestMarketBarDate || '--'} · 特征 {dataReadiness.marketData.latestFeatureDate || '--'}</div>
+            </div>
+            <div>
+              <div className="text-gray-500">来源模式</div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                <Tag color={dataReadiness.providerMode === 'formal_provider' ? '#34d399' : dataReadiness.providerMode === 'free_source_research' ? '#38bdf8' : '#ef4444'}>{dataReadiness.providerMode || 'unknown'}</Tag>
+                <Tag color={dataReadiness.providerIngestion.status.includes('blocked') ? '#ef4444' : '#fbbf24'}>{dataReadiness.providerIngestion.status}</Tag>
+              </div>
+            </div>
           </div>
-          {(dataReadiness.researchBlockers || dataReadiness.blockers).length > 0 && (
+          {((dataReadiness.dataTrust?.blockers || []).length > 0 || (dataReadiness.researchBlockers || dataReadiness.blockers).length > 0) && (
             <div className="mt-2 flex flex-wrap gap-1">
-              <span className="mr-1 text-gray-500">研究阻断</span>
-              {(dataReadiness.researchBlockers || dataReadiness.blockers).map((blocker) => (
-                <Tag key={blocker} color="#ef4444">{blocker}</Tag>
+              <span className="mr-1 text-gray-500">可信阻断</span>
+              {unique([...(dataReadiness.dataTrust?.blockers || []), ...(dataReadiness.researchBlockers || dataReadiness.blockers)]).slice(0, 8).map((blocker) => (
+                <Tag key={blocker} color="#ef4444">{shortIssueLabel(blocker)}</Tag>
               ))}
             </div>
           )}
-          {(dataReadiness.providerUpgradeBlockers || dataReadiness.formalBlockers || []).length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              <span className="mr-1 text-gray-500">Provider 升级项</span>
-              {(dataReadiness.providerUpgradeBlockers || dataReadiness.formalBlockers || []).map((blocker) => (
-                <Tag key={blocker} color="#f97316">{blocker}</Tag>
-              ))}
-            </div>
-          )}
-          <div className="mt-2 text-gray-500">
-            恢复顺序：{dataReadiness.recoveryCommands.slice(0, 3).join('  →  ')}
-          </div>
+          <Collapse
+            className="mt-3"
+            size="small"
+            ghost
+            items={[{
+              key: 'data-readiness-detail',
+              label: <span className="text-xs text-slate-300">展开数据来源、provider 升级项与恢复命令</span>,
+              children: (
+                <div className="space-y-2 text-xs text-gray-400">
+                  <div className="flex flex-wrap gap-1">
+                    <Tag color="#64748b">canonical {dataReadiness.canonicalQuoteList.itemCount}</Tag>
+                    <Tag color="#64748b">状态覆盖 {formatScore(dataReadiness.securityAndTradeability.securityStatusCoveragePercent)}%</Tag>
+                    <Tag color="#64748b">交易约束 {formatScore(dataReadiness.securityAndTradeability.tradeabilityCoveragePercent)}%</Tag>
+                    <Tag color={(dataReadiness.gates.freeSourceValidationAllowed ?? dataReadiness.gates.formalValidationPromotionAllowed) ? '#38bdf8' : '#ef4444'}>
+                      免费源验证 {(dataReadiness.gates.freeSourceValidationAllowed ?? dataReadiness.gates.formalValidationPromotionAllowed) ? '允许' : '阻断'}
+                    </Tag>
+                  </div>
+                  {(dataReadiness.providerUpgradeBlockers || dataReadiness.formalBlockers || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      <span className="mr-1 text-gray-500">Provider 升级项</span>
+                      {(dataReadiness.providerUpgradeBlockers || dataReadiness.formalBlockers || []).map((blocker) => (
+                        <Tag key={blocker} color="#f97316">{shortIssueLabel(blocker)}</Tag>
+                      ))}
+                    </div>
+                  )}
+                  <div>恢复顺序：{dataReadiness.recoveryCommands.slice(0, 3).join('  →  ')}</div>
+                  <div>{dataReadiness.dataTrust?.note}</div>
+                </div>
+              ),
+            }]}
+          />
         </div>
       )}
 
@@ -1596,7 +1766,7 @@ const DividendLowVol: React.FC = () => {
           <div className="mt-1 text-2xl font-semibold text-white">{candidates.length}</div>
         </Card>
         <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
-          <div className="text-xs text-gray-400">完整指标</div>
+          <div className="text-xs text-gray-400">展示字段齐全</div>
           <div className="mt-1 text-2xl font-semibold text-emerald-300">{completeDisplayCandidates.length}</div>
         </Card>
         <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
@@ -1619,11 +1789,20 @@ const DividendLowVol: React.FC = () => {
             <Tag color="#34d399">完整指标 {completeDisplayCandidates.length}</Tag>
             <Tag color="#fbbf24">未纳入 {incompleteDisplayCandidates.length}</Tag>
             <Tag color="#64748b">剔除/回避 {excluded.length}</Tag>
-            {pool?.metricCompletenessSummary && <Tag color="#38bdf8">完整率 {formatScore(pool.metricCompletenessSummary.completenessPercent)}%</Tag>}
+            {pool?.metricCompletenessSummary && <Tag color="#38bdf8">展示字段齐全率 {formatScore(pool.metricCompletenessSummary.completenessPercent)}%</Tag>}
+            {poolDataTrustSummary && <Tag color="#fbbf24">平均可信 {formatScore(poolDataTrustSummary.averageConfidencePercent)}%</Tag>}
+            {poolCalculationSummary && <Tag color="#a78bfa">复算通过 {poolCalculationSummary.replayPassedCount}/{poolCalculationSummary.total}</Tag>}
           </div>
           <div className="text-gray-500">
-            主候选表只展示核心策略指标完整、无 data gap、无事实不足提醒的标的；未纳入标的保留在审计摘要中，不用空值或占位符伪造成可比较指标。
+            “展示字段齐全”只代表页面有足够字段可展示，不代表数据真实或模型有效；真实性看数据可信等级，计算准确性看复算状态。
           </div>
+          {poolDataTrustSummary && (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(poolDataTrustSummary.byGrade).map(([grade, count]) => (
+                <Tag key={grade} color={dataTrustColor[grade] || '#64748b'}>{dataTrustLabel[grade] || grade} {count}</Tag>
+              ))}
+            </div>
+          )}
           {(pool?.metricCompletenessSummary?.topMissingMetrics.length || missingMetricSummary.length) > 0 && (
             <div className="flex flex-wrap gap-2">
               {(pool?.metricCompletenessSummary?.topMissingMetrics || missingMetricSummary).map((item) => (
@@ -1960,6 +2139,33 @@ const DividendLowVol: React.FC = () => {
                       <Tag color="#64748b">providers {candidate.dataVerification.providerCount}</Tag>
                       {candidate.dataVerification.crossCheckedFields.length > 0 && <Tag color="#64748b">fields {candidate.dataVerification.crossCheckedFields.join(' / ')}</Tag>}
                       <Tag color={candidate.dataVerification.warningCount ? '#f59e0b' : '#64748b'}>warnings {candidate.dataVerification.warningCount}</Tag>
+                    </div>
+                  )}
+                  {candidate.dataTrust && (
+                    <div className="rounded border border-white/10 bg-black/10 p-2">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-white">数据可信与计算复算</span>
+                        <Tag color={dataTrustColor[candidate.dataTrust.grade]}>{candidate.dataTrust.grade} · {formatScore(candidate.dataTrust.confidencePercent)}%</Tag>
+                        <Tag color="#64748b">{candidate.dataTrust.providerMode}</Tag>
+                        <Tag color="#64748b">{candidate.dataTrust.coverageStatus}</Tag>
+                        <Tag color={freshnessColor(candidate.dataTrust.freshnessStatus)}>{candidate.dataTrust.freshnessStatus}</Tag>
+                        <Tag color={replayStatusColor[candidate.calculationAudit?.replayStatus || 'insufficient']}>
+                          复算 {candidate.calculationAudit?.replayStatus || 'insufficient'}
+                        </Tag>
+                      </div>
+                      <div className="text-gray-400">{candidate.dataTrust.note}</div>
+                      {(candidate.dataTrust.blockers.length > 0 || candidate.dataTrust.warnings.length > 0 || (candidate.calculationAudit?.missingInputFields.length || 0) > 0) && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {candidate.dataTrust.blockers.slice(0, 6).map((item) => <Tag key={`blocker-${item}`} color="#ef4444">{shortIssueLabel(item)}</Tag>)}
+                          {candidate.dataTrust.warnings.slice(0, 6).map((item) => <Tag key={`warning-${item}`} color="#f97316">{shortIssueLabel(item)}</Tag>)}
+                          {(candidate.calculationAudit?.missingInputFields || []).slice(0, 6).map((item) => <Tag key={`missing-${item}`} color="#fbbf24">缺 {metricBadge(item)}</Tag>)}
+                        </div>
+                      )}
+                      {candidate.calculationAudit && (
+                        <div className="mt-2 text-gray-500">
+                          公式版本：{candidate.calculationAudit.formulaVersion} · 输入字段 {candidate.calculationAudit.inputFieldCount} · mismatch {candidate.calculationAudit.mismatchCount}
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="rounded border border-white/10 bg-black/10 p-2">
