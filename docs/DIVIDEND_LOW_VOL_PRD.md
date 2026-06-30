@@ -15,6 +15,19 @@ formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
+2026-06-30 用户体验优化阶段校准：
+
+```text
+ordinaryUserExperienceReady=false
+expertModeAvailable=true
+plainLanguageDecisionPathRequired=true
+frontendComplexityReduced=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+解释：当前网页基础功能已通过人工验收，但页面复杂度仍高，普通用户或无财经背景用户难以快速理解候选、区间、回测和审计状态。下一阶段新增 UX 优化目标：默认界面必须优先回答“当前结论是什么、为什么、可信吗、下一步做什么”，高级分数、字段级证据、validation matrix 和审计 artifact 默认折叠到专业模式。该目标只优化理解路径，不改变交易 gate。
+
 2026-06-27 数据可信与计算复算阶段校准：
 
 ```text
@@ -34,13 +47,27 @@ canCreateOrder=false
 
 ```text
 documentationStageImplemented=true
-drawioPageCount=7
+drawioPageCount=8
 drawioPageLimit=8
 documentationSupportsAutomatedDevelopment=true
 documentationSupportsFormalTradingReleaseWithoutExternalEvidence=false
 ```
 
 本轮仅更新文档、目标架构、里程碑、验收门槛和 drawio gap 图。它用于指导后续 FTR-1 到 FTR-6 自动化开发，不改变当前业务代码和交易锁定状态。任何后续实现都必须继续把红利低波结论定位为研究、观察、区间提醒和人工计划草案，直到正式 provider、可信 benchmark、formal validation 和人工签核全部通过。
+
+2026-06-30 ChatBox / AgentCore 阶段同步：
+
+```text
+chatBoxV1Integrated=true
+piAgentCoreRuntimeIntegrated=true
+chatBoxDividendLowVolEntryReady=partial
+piLlmAgentLoopEnabled=false
+chatSessionPersistenceReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+ChatBox 可以作为红利低波的自然语言入口，帮助用户查询 Top 候选、解释为什么不能交易、跳转到红利低波页面、发起需确认的扫描和人工计划草案。当前 ChatBox v1 已接入 PI AgentCore 受控 runtime 和 FAMS 工具白名单，但仍使用 deterministic planner fallback；完整多轮 Agent、会话持久化和流式事件属于后续 `docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md` 阶段。ChatBox 不得把红利低波观察区间或草案升级为正式交易指令。
 
 2026-06-24 交互式策略回测阶段同步：
 
@@ -138,6 +165,9 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 8. 用户能从审计包和任务中心追溯每日扫描、候选结果、回测、validation、manual acceptance 和 trade gate。
 9. 用户能在首屏看到数据可信度、计算复算、覆盖率、新鲜度、正式交易锁定四个摘要；若数据可信度不足，页面必须解释“还能做研究观察，不能做正式交易判断”。
 10. 页面必须减少分数堆叠造成的阅读负担：默认展示“能不能研究、为什么入选、处于什么区间、哪里不可信、下一步做什么”，高级指标折叠到详情和审计区。
+11. 页面必须支持普通模式和专业模式：普通模式面向非财经用户，优先展示普通话结论、关键风险和下一步；专业模式面向审计用户，展示完整指标、证据、模型验证和审计包。
+12. 用户无需理解 `evidenceAdjustedScore / validation matrix / benchmark proxy / priceAudit` 等内部术语，也能判断“这只股票是否值得继续观察、为什么不能正式交易、需要补什么证据”。
+13. 用户可以通过 ChatBox 输入“帮我看红利低波前三只候选”“刷新红利低波扫描”“生成红利低波人工计划草案”“为什么不能下单”，系统必须返回候选摘要、确认卡或交易阻断解释，并提供跳转到红利低波页面或任务中心的行动卡。
 
 非本阶段目标：
 
@@ -149,6 +179,7 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 6. 不用测试绕过 `validation_evidence`。
 7. 不把 `calculationAudit=passed` 解释为模型有效或交易有效。
 8. 不在 `dataTrustGrade=INSUFFICIENT` 时展示“可信交易建议”或“可建仓”文案。
+9. 不允许 ChatBox 绕过红利低波页面、Operation、audit artifact 或 trade gate 创建任何正式交易动作。
 
 正式交易级前置阶段的非目标：
 
@@ -156,6 +187,7 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 2. 不把免费源或 research proxy benchmark 解释为官方授权 benchmark。
 3. 不把 formal-review-ready 解释为 formal-trading-ready。
 4. 不在人工复核、正式 provider、官方 benchmark 和模型有效性验证完成前释放正式交易动作。
+5. 不为了降低界面复杂度而隐藏 `dataTrustGrade=INSUFFICIENT`、`calculationAuditStatus=deterministic_replay_only`、validation blocker 或正式交易锁定。
 
 正式交易 release 阶段的非目标：
 
@@ -211,6 +243,26 @@ FAMS 当前不能创建订单，不能绕过人工复核，不能把研究提醒
 - 公式复算是否通过。
 - 模型有效性是否只是 research evidence。
 - 正式交易 gate 为什么仍 blocked。
+
+### 3.4 普通用户
+
+目标：不具备完整财经背景，也能用系统完成研究观察路径，但不会误解为交易建议。
+
+关键路径：
+
+```text
+进入红利低波策略 -> 阅读首屏状态摘要 -> 查看 Top 候选结论卡 -> 查看普通话原因 -> 查看观察区间 -> 决定是否加入观察或生成草案
+```
+
+首屏判断标准：
+
+```text
+先看“当前能做什么/不能做什么”；
+再看“系统为什么把这些标的列出来”；
+最后按“查看详情/查看区间/刷新数据/查看阻断”继续。
+```
+
+普通用户界面不得要求用户先理解完整指标表、模型验证矩阵或审计 artifact 才能完成基本判断。
 
 ## 4. 策略硬规则
 

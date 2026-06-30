@@ -5,6 +5,10 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
+import { ExperienceModeToggle, type ExperienceMode } from '../components/common/ExperienceModeToggle'
+import { PlainLanguageHelp } from '../components/common/PlainLanguageHelp'
+import { PortfolioBacktestSummaryCard } from '../components/backtest/PortfolioBacktestSummaryCard'
+import { StrategyComparisonExplainer } from '../components/backtest/StrategyComparisonExplainer'
 
 const { RangePicker } = DatePicker
 
@@ -270,6 +274,14 @@ const Backtest: React.FC = () => {
     endDate: DEFAULT_PORTFOLIO_BACKTEST_END_DATE,
     initialCapital: 100000,
   })
+  const [experienceMode, setExperienceMode] = useState<ExperienceMode>(() => (
+    window.localStorage.getItem('fams.experienceMode') === 'expert' ? 'expert' : 'plain'
+  ))
+
+  const handleExperienceModeChange = (mode: ExperienceMode) => {
+    setExperienceMode(mode)
+    window.localStorage.setItem('fams.experienceMode', mode)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -726,6 +738,20 @@ const Backtest: React.FC = () => {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white mb-6">策略回测</h1>
+      <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-4xl">
+            <div className="text-base font-semibold text-white">本页能做什么</div>
+            <div className="mt-2 text-sm leading-6 text-gray-300">
+              用真实样本和免费数据源比较多个组合策略，先看
+              {' '}<PlainLanguageHelp term="收益曲线" explanation="把不同策略在同一时间段内的累计收益放在一张图上，便于看谁表现更稳定。" />、
+              {' '}<PlainLanguageHelp term="最大回撤" explanation="策略期间从高点跌到低点的最大幅度，用来衡量最难受的亏损阶段。" />、
+              {' '}<PlainLanguageHelp term="正式交易 gate" explanation="即使回测表现好，未通过数据、模型、人工签核和执行治理前，也不能生成正式交易动作。" />。
+            </div>
+          </div>
+          <ExperienceModeToggle value={experienceMode} onChange={handleExperienceModeChange} />
+        </div>
+      </Card>
       <Card title={<span className="text-primary">组合策略对比回测</span>} className="bg-[#1a1a2e] border-surface-border">
         <Alert
           className="mb-4"
@@ -895,6 +921,13 @@ const Backtest: React.FC = () => {
             {portfolioTemplates.map((template) => <Tag key={template.strategyId} color="#64748b">{template.displayName}</Tag>)}
           </div>
         )}
+        <PortfolioBacktestSummaryCard
+          result={portfolioBacktestResult}
+          selectedStrategyCount={selectedPortfolioStrategyIds.length}
+          selectedStrategyNames={selectedTemplates.map((template: any) => template.displayName || template.strategyId)}
+          gateStatus={portfolioGateSummary.status}
+          gateDescription={portfolioGateSummary.description}
+        />
         {portfolioBacktestResult && (
           <div id="portfolio-backtest-result" className="mt-5 space-y-4">
             <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-4">
@@ -943,7 +976,7 @@ const Backtest: React.FC = () => {
                 {portfolioBacktestResult.notTradingAdvice ? '非交易建议' : '风险：交易建议标记异常'}
               </Tag>
             </div>
-            {portfolioBacktestResult.formalReviewReadiness && (
+            {experienceMode === 'expert' && portfolioBacktestResult.formalReviewReadiness && (
               <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
                 <div className="mb-2 flex flex-wrap gap-2">
                   <Tag color={portfolioBacktestResult.formalReviewReadiness.status === 'passed' ? '#34d399' : '#ef4444'}>
@@ -988,7 +1021,7 @@ const Backtest: React.FC = () => {
                 </div>
               </div>
             )}
-            {(portfolioBacktestResult.executionIsolationAudit || portfolioBacktestResult.releaseGateAudit) && (
+            {experienceMode === 'expert' && (portfolioBacktestResult.executionIsolationAudit || portfolioBacktestResult.releaseGateAudit) && (
               <div className="grid gap-3 lg:grid-cols-2">
                 {portfolioBacktestResult.executionIsolationAudit && (
                   <div className="rounded-lg border border-sky-400/20 bg-sky-500/10 p-3 text-sm">
@@ -1033,7 +1066,7 @@ const Backtest: React.FC = () => {
                 )}
               </div>
             )}
-            {(portfolioBacktestResult.longHorizonDataCoverageAudit
+            {experienceMode === 'expert' && (portfolioBacktestResult.longHorizonDataCoverageAudit
               || portfolioBacktestResult.multiPeriodBacktestResult
               || portfolioBacktestResult.dividendTotalReturnAudit) && (
               <div className="grid gap-3 xl:grid-cols-3">
@@ -1117,7 +1150,7 @@ const Backtest: React.FC = () => {
                 )}
               </div>
             )}
-            {(portfolioBacktestResult.dataGovernanceAudit
+            {experienceMode === 'expert' && (portfolioBacktestResult.dataGovernanceAudit
               || portfolioBacktestResult.benchmarkQualificationAudit
               || portfolioBacktestResult.formalValidationAudit
               || portfolioBacktestResult.manualSignoffAudit) && (
@@ -1224,6 +1257,7 @@ const Backtest: React.FC = () => {
                     <div className="font-semibold text-white">{strategy.definition?.displayName || strategy.definition?.strategyId}</div>
                     <Tag color={strategy.status === 'completed' ? '#34d399' : strategy.status === 'partial' ? '#fbbf24' : '#ef4444'}>{strategy.status}</Tag>
                   </div>
+                  <StrategyComparisonExplainer strategy={strategy} />
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="text-gray-400">总收益</div>
                     <div className="text-right text-white">{formatPercent(strategy.metrics?.totalReturnPercent)}</div>

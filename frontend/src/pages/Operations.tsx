@@ -2914,6 +2914,37 @@ const Operations: React.FC = () => {
         </Space>
       </div>
 
+      <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
+        <div className="grid gap-3 xl:grid-cols-4">
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-sm font-medium text-white">这里能做什么</div>
+            <div className="mt-2 text-xs leading-5 text-gray-400">
+              查看扫描、刷新、回测、建议生成等任务是否完成，以及失败后该重试还是先修数据。
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-sm font-medium text-white">先看哪个状态</div>
+            <div className="mt-2 flex flex-wrap gap-1">
+              <Tag color="#818cf8">执行中 {stats.running}</Tag>
+              <Tag color="#f87171">失败 {stats.failed}</Tag>
+              <Tag color="#34d399">完成 {stats.completed}</Tag>
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-sm font-medium text-white">产物怎么用</div>
+            <div className="mt-2 text-xs leading-5 text-gray-400">
+              点开任务详情可以看审计包、截图、回测结果和下一步入口；产物是复核证据，不是交易指令。
+            </div>
+          </div>
+          <div className="rounded-lg border border-red-400/20 bg-red-500/10 p-3">
+            <div className="text-sm font-medium text-red-100">交易边界</div>
+            <div className="mt-2 text-xs leading-5 text-red-100">
+              任务中心不会创建订单；ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 仍受交易 gate 阻断。
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <div
         className="rounded-lg border px-4 py-3 text-sm flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
         style={{

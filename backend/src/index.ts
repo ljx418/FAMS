@@ -22,6 +22,7 @@ import { mcpRouter } from './mcp/index.js'
 import { agentRouter } from './agents/router.js'
 import { workflowRouter } from './workflow/router.js'
 import { llmRoutes } from './routes/llm.js'
+import { chatRoutes } from './routes/chat.js'
 import { templateRoutes } from './routes/template.js'
 import { operationRoutes } from './routes/operation.js'
 import { strategyRoutes } from './routes/strategy.js'
@@ -141,6 +142,7 @@ async function registerRoutes() {
 
   // LLM 路由
   await app.register(llmRoutes, { prefix: '/api/v1/llm' })
+  await app.register(chatRoutes, { prefix: '/api/v1/chat' })
 }
 
 // 错误处理

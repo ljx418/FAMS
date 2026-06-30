@@ -15,6 +15,20 @@ formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
+2026-06-30 ChatBox / AgentCore 同步：
+
+```text
+chatBoxV1Integrated=true
+piAgentCoreRuntimeIntegrated=true
+chatBoxPortfolioBacktestEntryReady=partial
+piLlmAgentLoopEnabled=false
+chatSessionPersistenceReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+ChatBox 可以引导用户进入策略回测、解释可用模板、读取任务状态、解释为什么回测结果只能进入人工草案复核。当前 ChatBox v1 不直接运行完整组合回测引擎，而是通过行动卡引导用户到 `/backtest` 或通过需确认工具启动受控 Operation。ChatBox 不得创建订单，不得输出正式 `ADD / REDUCE / ORDER_CREATE`。
+
 本文件定义的是正式交易前置阶段。正式交易 release 的下一阶段开发及验收计划维护在：
 
 ```text
@@ -37,6 +51,7 @@ docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md
 2. 用户选择红利低波、永久组合、全天候、当前持仓或自定义组合后，能查看收益曲线、回撤曲线、关键指标和阻断原因。
 3. 用户能从回测结果生成人工计划草案，但页面明确显示草案待人工复核，不构成交易指令。
 4. 审计用户能通过一个审计包判断：数据是否可信、模型是否有效、草案是否合规、正式交易为什么仍未解锁。
+5. 普通用户能在策略回测结果页直接看到“哪个收益更高、哪个回撤更低、哪个数据更可信、哪些仍被阻断”，不需要先理解 Sharpe、Calmar、OOS、walk-forward 等专业指标。
 
 ## 2. 非目标
 
@@ -62,6 +77,8 @@ AUTO_TRADE
 | 目标架构 | 充分 | drawio 第 2、3、5、6 页说明当前架构、目标能力、开发计划和出门条件。 |
 | 交易边界 | 充分 | 文档明确 `formalTradingUnlocked=false`、`autoTradeUnlocked=false`。 |
 | 后续正式交易前置 | 需要本文件补齐 | 原文档说明了风险，但缺少可直接执行的阶段化验收清单。本文件补齐。 |
+| 普通用户体验 | 需要新增专项 | 当前功能路径已通过，但界面复杂度仍高，需要普通模式、专业模式、结论卡和普通话解释。 |
+| ChatBox 业务入口 | 需要纳入文档 | v1 已接入 PI AgentCore runtime 和白名单工具，但尚未完成多轮 LLM agent loop、会话持久化和流式事件。 |
 
 结论：
 
@@ -110,6 +127,7 @@ tradeActionReadiness passed 只能解释为 gate contract passed 或 ready_for_m
 | 组合回测核心 | `PortfolioBacktestInputBuilder / PortfolioBacktestEngine` | 构建组合输入并输出曲线、指标、数据等级、模型有效性和 readiness。 |
 | 人工复核审计 | `portfolioBacktestReviewService` | 保存复核记录，返回 `canCreateOrder=false`、`formalTradingUnlocked=false`。 |
 | 审计包 | `run:interactive-strategy-backtest-audit-package` | 生成 `SUMMARY_FOR_GPT.md` 与 09-12 JSON，解释为什么仍未解锁正式交易。 |
+| ChatBox 入口 | `FamsChatBox.tsx / chat.ts / famsChatService / piAgentCoreAdapter` | 查询模板、解释回测边界、跳转回测页面、展示二次确认和交易阻断；不得创建订单。 |
 
 ## 4. 开发计划
 
@@ -327,6 +345,43 @@ npm run test:production-readiness
 npm run test:trade-action-readiness
 ```
 
+### FT-7 用户体验降复杂度
+
+目标：
+
+把当前“功能完整但复杂”的界面优化为普通用户可理解的任务工作台，同时保留专业审计能力。
+
+开发内容：
+
+- 新增普通模式 / 专业模式。
+- 红利低波页面默认展示结论卡、Top 候选、观察区间、数据可信度和下一步按钮。
+- 回测页面默认展示策略对比摘要、关键结论和 blocker，不要求用户先读完整指标表。
+- 任务中心和审计报告增加普通用户摘要。
+- 所有财经术语提供一句话解释，完整指标折叠到专业模式。
+
+验收标准：
+
+- 用户能在 30 秒内回答：当前结论是什么、为什么、可信吗、下一步做什么。
+- 普通模式不得隐藏交易锁定、数据不足和模型验证不足。
+- 专业模式仍能查看完整审计字段和 artifact。
+- 桌面、平板、移动端截图证明首屏可读、按钮明确、无明显文字溢出。
+
+用户可见效果：
+
+- 普通用户先看到“系统怎么看、我能做什么”，再选择是否展开专业细节。
+- 审计用户仍能一键展开完整证据链。
+
+验收命令：
+
+```bash
+cd frontend
+npm run build
+
+cd ../backend
+npm run test:frontend-ux-consistency
+npm run run:full-system-e2e-acceptance-report
+```
+
 ## 5. 端到端验收矩阵
 
 | 用户场景 | 通过标准 | 证据 |
@@ -336,6 +391,8 @@ npm run test:trade-action-readiness
 | 模型有效性检查 | OOS、walk-forward、敏感性、分组稳定性有结果或 blocker | `10_model_effectiveness_audit.json` |
 | 人工草案 | 能生成草案或明确 blocked reason，不创建订单 | `11_manual_plan_draft_audit.json` |
 | 交易 gate | 正式动作和自动交易仍被禁止 | `06_trade_gate_contract.json` |
+| 普通用户理解 | 30 秒内能看懂当前结论、可信度、下一步和禁止动作 | UX 截图 + `frontend_ux_consistency_audit.json` |
+| ChatBox 引导回测 | 用户能通过自然语言进入策略回测、查看任务状态和交易阻断解释 | `chatbox_agentcore_audit.json` + ChatBox E2E 截图 |
 
 ## 5.1 用户体验验收门槛
 
@@ -346,6 +403,8 @@ npm run test:trade-action-readiness
 | 人工草案 | 用户能看到当前权重、目标研究权重、失效条件和复核 checklist | 生成订单或自动再平衡 |
 | 审计追溯 | 用户能从任务中心或审计包追溯输入、曲线、指标、blockedReasons | 用 summary 代替证据文件 |
 | 正式交易边界 | 用户能看到为什么尚未解锁正式交易 | 显示与当前锁定状态相反的误导文案 |
+| 普通模式 | 默认展示结论卡、普通话解释和下一步按钮 | 默认首屏直接展示完整审计表格和内部枚举 |
+| 专业模式 | 可展开完整指标、validation 和 artifact | 体验优化后找不到审计证据 |
 
 ## 6. 本阶段完成后可声明
 
@@ -379,6 +438,7 @@ docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md
 docs/PORTFOLIO_STRATEGY_BACKTEST_FORMAL_TRADING_STAGE_PLAN.md
 docs/PORTFOLIO_STRATEGY_BACKTEST_PLAN.md
 docs/TARGET_ARCHITECTURE_GAP.md
+docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md
 docs/target-architecture-gap.drawio
 docs/drawio-summary.txt
 docs/INTERACTIVE_STRATEGY_BACKTEST_STAGE_AUDIT.md
@@ -405,7 +465,7 @@ node docs/read-drawio.mjs docs/target-architecture-gap.drawio > docs/read-drawio
 
 通过标准：
 
-- drawio 页数不超过 8 页，当前固定为 7 页。
+- drawio 页数不超过 8 页，当前固定为 8 页。
 - PRD、目标架构、阶段计划和 drawio 摘要使用相同阶段状态字段。
 - 每个关键能力都能定位到前端页面、后端 API、服务或审计产物。
 - 文档中没有任何把人工计划草案、formal review ready 或 tradeActionReadiness 解释为正式交易放行的表述。

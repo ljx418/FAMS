@@ -30,6 +30,24 @@ formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
+2026-06-30 用户体验优化目标补充：
+
+```text
+ordinaryUserExperienceReady=false
+expertModeAvailable=true
+plainLanguageDecisionPathRequired=true
+frontendComplexityReduced=false
+chatBoxV1Integrated=true
+piAgentCoreRuntimeIntegrated=true
+chatBoxBusinessEntryReady=false
+piLlmAgentLoopEnabled=false
+chatSessionPersistenceReady=false
+```
+
+当前网页基础功能已经验收通过，但默认界面对普通用户仍偏复杂。目标架构新增“体验解释层”：在不改变策略计算、数据可信、模型验证和交易 gate 的前提下，把前端默认信息层级调整为“状态摘要 -> 普通话结论 -> 候选/策略理由 -> 观察区间或回测结果 -> 下一步 -> 专业证据”。完整指标和审计 artifact 保留在专业模式中。
+
+ChatBox 已作为体验解释层的全局入口接入 v1：`FamsChatBox.tsx`、`chat.ts`、`famsChatService`、`piAgentCoreAdapter` 形成受控业务编排路径。当前只允许白名单工具、二次确认和交易阻断；PI AgentCore 已作为 runtime/tool manifest 适配层接入，但真实 LLM agent loop、会话持久化和流式事件仍是后续目标。
+
 目标架构中的应用层、策略验证层、前端和审计包必须统一使用：
 
 ```text
@@ -52,12 +70,15 @@ prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
 10_model_effectiveness_audit.json
 11_manual_plan_draft_audit.json
 12_formal_trading_unlock_blockers.json
+frontend_ux_consistency_audit.json
+chatbox_agentcore_audit.json
 acceptance-report.html
 SUMMARY_FOR_GPT.md
 docs/read-drawio-output.txt
 docs/STAGE_DATA_TRUST_BACKTEST_DOC_AUDIT.md
 docs/FORMAL_TRADING_PREREQUISITE_DOC_AUDIT.md
 docs/FORMAL_TRADING_RELEASE_DOC_AUDIT.md
+docs/USER_EXPERIENCE_OPTIMIZATION_DOC_AUDIT.md
 doc_acceptance_audit.json
 ```
 
@@ -77,10 +98,12 @@ doc_acceptance_audit.json
 当前架构与目标架构关系：
 
 - 灰色已实现：`DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx`、`strategy.ts / portfolioBacktest.ts / operation.ts`、`dividendLowVolStrategyService / dividendLowVolTradingZoneService / dividendLowVolDataReadinessService / PortfolioBacktestEngine / portfolioBacktestReviewService`、`SQLite/Prisma / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / free-source benchmark`、`09-12` 审计产物和 `acceptance-report.html`。
-- 黄色需修改：前端展示需要持续统一 `dataGrade / dataTrustGrade / calculationAuditStatus / modelEffectiveness / manualPlanDraft / blockers / priceAudit freshness`；API 响应需要统一 `readinessSummary / dataTrust / calculationAudit / releaseGateAudit / canCreateOrder=false`；服务输出需要稳定生成 `dataGovernanceAudit / benchmarkQualificationAudit / formalValidationAudit / manualSignoffAudit`；数据层需要字段级 `sourceProvider / asOfDate / fetchedAt / freshness / coverage / crossCheckStatus`；审计口径需要保证 blocked/warning/missing 不被升级 passed。
-- 橘黄需新增：`LongHorizonPortfolioBacktestAcceptance`、`FormalDataProviderService / BenchmarkQualificationService / FormalValidationService / ManualSignoffService`、`official_authorized provider`、官方或可信 total-return benchmark、formal tradeability constraints、release review API 契约、`13_execution_isolation_audit.json` 到 `18_manual_signoff_audit.json`。
+- 灰色已实现：`FamsChatBox.tsx / chat.ts / famsChatService / piAgentCoreAdapter` 的 v1 受控集成，已能查询核心业务、显示行动卡、要求确认并阻断交易动作。
+- 黄色需修改：前端展示需要持续统一 `dataGrade / dataTrustGrade / calculationAuditStatus / modelEffectiveness / manualPlanDraft / blockers / priceAudit freshness`；API 响应需要统一 `readinessSummary / dataTrust / calculationAudit / releaseGateAudit / canCreateOrder=false`；服务输出需要稳定生成 `dataGovernanceAudit / benchmarkQualificationAudit / formalValidationAudit / manualSignoffAudit`；数据层需要字段级 `sourceProvider / asOfDate / fetchedAt / freshness / coverage / crossCheckStatus`；审计口径需要保证 blocked/warning/missing 不被升级 passed；ChatBox 需补会话持久化、流式事件、真实 PI LLM agent loop 和全业务工具覆盖。
+- 橘黄需新增：`LongHorizonPortfolioBacktestAcceptance`、`FormalDataProviderService / BenchmarkQualificationService / FormalValidationService / ManualSignoffService`、`official_authorized provider`、官方或可信 total-return benchmark、formal tradeability constraints、release review API 契约、`13_execution_isolation_audit.json` 到 `18_manual_signoff_audit.json`、`ChatSession / ChatMessage` 审计存储和 `chatbox_agentcore_audit.json`。
 - 红色硬边界：正式 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` 继续禁止；`/reviews` 只保存审计，不创建订单；free source 只能 research/fallback；proxy benchmark 不得当 formal benchmark；release gate blocked 时必须保持 `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`。
 - 绿色用户出门体验：用户能看到候选、曲线、区间、数据等级、数据可信度、复算状态、验证状态、阻断原因、数据来源、更新时间、覆盖率、缺口和可复核审计报告；用户不会看到下单按钮、自动再平衡入口或正式买卖文案。
+- 蓝色体验解释层：`AppLayout.tsx / Dashboard.tsx / DividendLowVol.tsx / Backtest.tsx / Operations.tsx` 需要提供普通模式、专业模式、结论卡、术语解释、下一步按钮和可读审计摘要；复杂分数表默认折叠，但 blocker 和交易锁定不能隐藏。
 
 数据可信与计算复算架构要求：
 
@@ -97,6 +120,8 @@ doc_acceptance_audit.json
 - 服务模块：`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService`、`dividendLowVolBacktestService`、`PortfolioBacktestInputBuilder`、`PortfolioBacktestEngine`、`portfolioBacktestReviewService`、`operationService`。
 - 数据与证据：`DividendLowVolDaily`、`market_bar_canonical`、`market_tradeability_daily`、free-source benchmark、Operation artifact。
 - 审计产物：`SUMMARY_FOR_GPT.md`、`09_data_grade_audit.json`、`10_model_effectiveness_audit.json`、`11_manual_plan_draft_audit.json`、`12_formal_trading_unlock_blockers.json`、`acceptance-report.html`。
+- 体验组件：`ExperienceModeToggle.tsx`、`PlainLanguageHelp.tsx`、`DividendLowVolDecisionCard.tsx`、`PortfolioBacktestSummaryCard.tsx`、`StrategyComparisonExplainer.tsx`。
+- ChatBox 编排：`FamsChatBox.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`piAgentCoreAdapter`、`verify-chat-agent-core.ts`。
 
 如果后续文档只写“数据层、策略层、验证层、审计层”但没有绑定以上实体，应视为架构描述不合格。
 
@@ -108,15 +133,16 @@ doc_acceptance_audit.json
 - 红色硬边界：在 release gate 和人工签核全部通过前，`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`。
 - 实现约束：release 不能新增绕过 `portfolioBacktestReviewService`、Operation artifact、trade gate contract 的下单路径。
 
-`docs/target-architecture-gap.drawio` 已重排为 7 页实现地图，用于指导后续开发和验收。图中使用灰色表示已实现基础，黄色表示需修改或状态不达标，橘黄表示需新增的正式 release 能力，红色表示交易硬边界。所有关键节点均绑定真实页面、API、服务、数据实体或审计产物：
+`docs/target-architecture-gap.drawio` 已重排为 8 页实现地图，用于指导后续 UX 优化、ChatBox/AgentCore 完整集成开发和验收。图中使用灰色表示已实现基础，黄色表示需修改或状态不达标，橘黄表示需新增能力，红色表示交易硬边界，蓝色表示用户路径，紫色表示体验解释层。所有关键节点均绑定真实页面、API、服务、数据实体、体验组件或审计产物：
 
-1. **目标体验与用户路径**：红利低波、组合回测、人工计划草案和任务审计四段路径，明确每一步用户可见结果和禁止动作。
-2. **当前架构与目标架构差异**：使用 5 行 × 5 列泳道矩阵，按前端、API、服务、数据、审计/Gate 分层展示“当前实现 -> 需修改/补齐 -> 目标新增能力 -> 不可绕过边界 -> 用户出门体验”的强关联路径。
-3. **数据可信与计算复算架构**：展示 `DividendLowVol.tsx / data-readiness API / dividendLowVolDataReadinessService / dividendLowVolStrategyService / market_bar_canonical / market_feature_daily / calculation_audit.json` 如何共同解释数据可信和公式复算。
-4. **红利低波与长周期回测路径**：说明免费源/本地缓存、行情、分红、交易约束、benchmark、字段级 evidence、`dataTrustGrade` 和 `calculationAuditStatus` 如何进入红利低波与组合回测。
-5. **模型验证与 Release Gate**：展示 OOS、walk-forward、参数敏感性、分组稳定性、人工签核和 release gate 的关系。
-6. **开发及验收计划**：已完成的长周期 review-ready 基线和 FTR-1 到 FTR-6 的实现实体、用户效果、审计产物和命令验收。
-7. **里程碑与出门条件**：M1 到 M7、当前可声明、当前不能声明、审计路径和 ChatGPT 外部审计建议。
+1. **目标体验与用户路径**：把普通用户和专业用户分成两条路径，说明红利低波、组合回测、人工计划草案和任务审计如何从“看不懂指标”变成“先看结论、再看证据”。
+2. **当前架构与目标架构差异**：使用前端、API、服务、数据、审计/Gate 五层矩阵，展示“当前基础 -> 需修改 -> 需新增 -> 硬边界 -> 用户体验结果”的强关联路径。
+3. **体验解释层架构**：展示 `ExperienceModeToggle.tsx / PlainLanguageHelp.tsx / DividendLowVolDecisionCard.tsx / PortfolioBacktestSummaryCard.tsx / StrategyComparisonExplainer.tsx` 如何在不改变计算和交易 gate 的前提下重组页面信息层级。
+4. **红利低波用户路径**：说明用户如何从状态摘要、Top 候选卡、观察区间、数据可信、风险提示和人工计划草案完成红利低波研究。
+5. **组合回测用户路径**：说明用户如何选择组合与策略、查看不同时间段收益曲线、理解数据等级和模型有效性、生成 review-ready 人工草案。
+6. **开发及验收计划**：把 UX-1 到 UX-6 映射到实现实体、用户效果、审计产物和命令验收。
+7. **里程碑与出门条件**：M1 到 M4、当前可声明、当前不能声明、审计路径、截图验收和交易硬边界。
+8. **ChatBox 与 AgentCore 业务入口**：说明 ChatBox 如何通过 `FamsChatBox.tsx / chat.ts / famsChatService / piAgentCoreAdapter` 串起业务查询、确认动作、Operation 和交易阻断。
 
 该图现在不仅说明“目标是什么”，也说明“从哪些页面、接口、服务、数据表和审计产物完成目标”。
 
@@ -124,20 +150,23 @@ doc_acceptance_audit.json
 
 | 页码 | 必须回答的问题 | 不合格表现 |
 | --- | --- | --- |
-| 1 目标体验与用户路径 | 用户如何完成研究筛选、组合回测、人工计划草案和审计追溯。 | 只画功能列表，不说明用户路径和禁止动作。 |
+| 1 目标体验与用户路径 | 普通用户如何在 30 秒内理解“结论、可信度、下一步、禁止动作”，专业用户如何进入证据详情。 | 只堆指标，不说明普通模式、专业模式和禁止动作。 |
 | 2 当前架构与目标架构差异 | 用户能按前端、API、服务、数据、审计/Gate 五层看清当前架构如何演进到目标架构，并看到每层对应的用户体验结果和禁止绕过点。 | 只按颜色堆列表，缺少分层结构、实体绑定、当前到目标的演进关系或用户体验结果。 |
-| 3 数据可信与计算复算架构 | 数据可信、字段证据、公式复算和交易锁定如何从前端进入 API、服务、数据和审计。 | 把 `calculationAuditStatus` 误写成模型有效或交易有效。 |
-| 4 红利低波与长周期回测路径 | 行情、分红、交易约束、benchmark、字段级 evidence、`dataTrustGrade` 和 `calculationAuditStatus` 如何进入红利低波与组合回测。 | proxy 或免费源被写成正式 provider；复算通过被写成模型有效。 |
-| 5 模型验证与 Release Gate | OOS、walk-forward、参数敏感性、分组稳定性、人工签核如何共同决定 release blocked。 | 把 blocked/warning/missing 当作 passed。 |
-| 6 开发及验收计划 | FTR-1 到 FTR-6 的实现实体、输出字段、审计产物、用户效果和验收命令。 | 开发项没有可执行验收标准。 |
-| 7 里程碑与出门条件 | 本阶段可声明、不能声明、下一阶段 blocker、审计入口和外部审计重点。 | 把 formal-review-ready 写成 formal-trading-ready。 |
+| 3 体验解释层架构 | 普通模式、专业模式、术语解释、结论卡、摘要卡和策略解释组件如何接入现有页面、API 和审计，不改变计算逻辑。 | UX 组件没有绑定真实页面或隐藏 blocker、dataTrustGrade、calculationAuditStatus。 |
+| 4 红利低波用户路径 | 用户如何完成筛选、理解 Top 候选、查看买卖观察区间、识别风险、生成人工计划草案。 | 只展示分数表，不解释候选理由、区间含义、数据可信和不能交易的原因。 |
+| 5 组合回测用户路径 | 用户如何完成策略选择、多时间段回测、曲线解读、数据等级查看和人工计划草案。 | 只有图表，没有说明收益来源、benchmark 资格、模型有效性和交易阻断。 |
+| 6 开发及验收计划 | UX-1 到 UX-6 的实现实体、输出字段、审计产物、用户效果和验收命令。 | 开发项没有可执行验收标准，或无法证明普通用户可理解。 |
+| 7 里程碑与出门条件 | 本阶段可声明、不能声明、下一阶段 blocker、截图证据、审计入口和外部审计重点。 | 把 formal-review-ready 写成 formal-trading-ready，或把 UX 简化写成隐藏风险。 |
+| 8 ChatBox 与 AgentCore 业务入口 | ChatBox 当前 v1、目标完整集成、工具权限分层、确认动作、交易阻断和审计证据。 | 把 ChatBox 写成可下单智能体，或没有绑定 `famsChatService / piAgentCoreAdapter`。 |
 
 本阶段出门条件：
 
 - 用户能完成“选择策略 -> 设置区间 -> 查看曲线和指标 -> 查看数据等级和模型有效性 -> 生成人工计划草案 -> 查看正式交易阻断原因”。
+- 普通用户能在 30 秒内理解红利低波或组合回测页面的当前结论、可信度、下一步和禁止动作；专业用户仍能展开完整证据链。
 - 用户能在红利低波和组合回测首屏看到“数据可信、计算复算、benchmark 资格、交易锁定”四个摘要，并理解为什么当前仍只能研究观察。
 - 文档能解释当前 1 年、3 年、5 年和自定义区间真实数据组合回测已经达到 formal-review-ready，以及下一阶段如何继续关闭正式数据治理、可信 benchmark、formal validation 和人工签核。
 - 文档和 drawio 能独立说明目标体验、当前/目标架构差异、开发计划、里程碑、验收门槛、出门条件和关键用户路径。
+- 文档和 drawio 能说明 ChatBox 当前只是 v1 受控集成，后续仍需完成 PI LLM agent loop、会话持久化、流式事件和全业务工具覆盖。
 - 审计包能解释为什么当前是 formal-review-ready，而不是 formal-trading-ready。
 - `formalTradingUnlocked=false` 和 `autoTradeUnlocked=false` 在所有主文档中保持一致。
 - `docs/read-drawio-output.txt` 能证明 drawio 原始 XML 本体可读，且页数不超过 8 页。
@@ -161,25 +190,36 @@ documentationSupportsFormalTradingReleaseWithoutExternalEvidence=false
 fatalSpecificationGap=none_found
 majorOverPromiseRisk=controlled_by_release_gate
 documentationStageImplemented=true
-drawioPageCount=7
+drawioPageCount=8
 drawioPageLimit=8
 ```
 
+UX 专项文档支撑度：
+
+```text
+userExperienceOptimizationPlanReady=true
+ordinaryUserExperienceTargetDocumented=true
+expertModeTargetDocumented=true
+plainLanguageDecisionPathDocumented=true
+```
+
+解释：下一阶段可以进入体验优化自动化开发，但验收必须同时检查普通用户可理解性和专业审计完整性。若 UX 改造导致 blocker、dataTrustGrade、calculationAuditStatus 或 `formalTradingUnlocked=false` 不再明显可见，应视为重大规格偏差。
+
 解释：
 
-- 当前文档足以指导后续自动化开发 FTR-1 到 FTR-6 的前置能力、审计产物、前端展示和出门验收。
-- 当前文档已把长周期真实数据回测校准为 formal-review-ready 基线；后续自动化开发应转向 FTR-1 到 FTR-6，剩余风险集中在正式数据治理、官方或可信 benchmark、formal validation、人工签核和 release gate，而不是文档规格缺失。
+- 当前文档足以指导后续自动化开发 UX-1 到 UX-6 的体验降复杂度能力、审计产物、前端展示和出门验收。
+- 当前文档已把长周期真实数据回测校准为 formal-review-ready 基线；后续自动化开发应转向体验解释层和普通用户路径优化，剩余正式交易风险继续集中在正式数据治理、官方或可信 benchmark、formal validation、人工签核和 release gate，而不是文档规格缺失。
 - 本阶段开发完成后，可以达成“正式交易 release 前置材料完整、可进入人工评审”的预设目标。
 - 当前文档不能也不应承诺“正式交易 release 已完成”。正式 provider、官方或可信 benchmark、formal validation passed、人工签核 passed 仍是真实 release 的外部或人工 gate。
 - 若后续无法取得正式数据源、官方 benchmark 或人工签核，本项目仍可达到 research/formal-review-ready，但 release gate 必须继续 blocked。
 - 若后续确认免费源无法满足关键字段 freshness、coverage 或 cross-check，本阶段开发应切换为 provider 升级路线；在切换前不得把缺失字段、proxy benchmark 或短窗口验证写成已完成的正式交易级证据。
 
-2026-06-29 文档实施验收结论：
+2026-06-29 文档实施验收结论，已被 2026-06-30 UX 阶段文档修订覆盖：
 
-- PRD、目标架构、release 开发计划、drawio 摘要和文档审计已统一本阶段目标：formal-review-ready，而不是 formal-trading-ready。
-- Drawio 继续保持 7 页，覆盖目标体验、当前/目标架构差异、数据可信、红利低波与长周期回测、模型验证、开发验收计划、里程碑与出门条件。
-- 第 2 页继续采用前端、API、服务、数据、审计/Gate 五层泳道，避免抽象架构图无法指导开发。
-- 后续自动化开发可以直接从 FTR-1 正式数据治理开始；若进入实际代码阶段，必须先复核 `formalTradingUnlocked=false / autoTradeUnlocked=false / canCreateOrder=false / orderCreateAllowed=false` 的 hard boundary。
+- 2026-06-29 结论仍作为正式交易前置评审背景有效：formal-review-ready 不等于 formal-trading-ready。
+- 2026-06-30 起，当前自动化开发入口改为 UX-1 到 UX-6，而不是 FTR-1 正式数据治理。
+- Drawio 继续保持不超过 8 页；当前为 8 页，页面主题已更新为：目标体验与用户路径、当前/目标架构差异、体验解释层架构、红利低波用户路径、组合回测用户路径、开发及验收计划、里程碑与出门条件、ChatBox 与 AgentCore 业务入口。
+- 若进入实际代码阶段，必须先复核 `formalTradingUnlocked=false / autoTradeUnlocked=false / canCreateOrder=false / orderCreateAllowed=false` 的 hard boundary。
 
 ## 当前执行约束
 

@@ -15,6 +15,7 @@ import {
   MenuOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { FamsChatBox } from '../chat/FamsChatBox'
 
 const { Sider, Content } = AntLayout
 
@@ -122,6 +123,7 @@ export function Layout() {
         <Content className="min-w-0 overflow-x-hidden p-4 md:p-6">
           <Outlet />
         </Content>
+        <FamsChatBox />
       </AntLayout>
     </AntLayout>
   )
