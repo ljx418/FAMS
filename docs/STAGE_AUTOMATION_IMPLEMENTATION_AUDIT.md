@@ -9,12 +9,13 @@ implementationStatus=passed
 ordinaryUserExperienceReady=true
 chatSessionAuditReady=true
 chatOperationLinkageReady=true
+chatLlmIntentRouterReady=true
 fullSystemE2EAcceptance=passed
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
-本轮已完成文档完整支撑范围内的自动化开发项：UX 出门证据闭环、ChatBox 会话审计与任务联动、全系统 E2E 验收报告生成。
+本轮已完成文档完整支撑范围内的自动化开发项：UX 出门证据闭环、ChatBox 会话审计与任务联动、dotenv LLM 配置、受控 LLM intent router、全系统 E2E 验收报告生成。
 
 该结论不表示正式交易 release ready，也不表示可自动交易。
 
@@ -25,6 +26,8 @@ autoTradeUnlocked=false
 | ChatBox 会话审计 | passed | Chat session JSON audit，可通过 `/api/v1/chat/sessions/:id` 恢复 |
 | ChatBox 工具确认审计 | passed | 确认卡记录 pending/confirmed/missing/blocked |
 | ChatBox 任务联动 | passed | 确认红利低波扫描后返回 operationId 和任务中心行动卡 |
+| ChatBox LLM intent router | passed | 使用 dotenv 中 DeepSeek key 进行真实最小调用，只做 intent 分类，不执行工具 |
+| LLM 密钥脱敏 | passed | `/api/v1/llm/status`、`/api/v1/chat/capabilities` 和审计 JSON 不输出真实 key |
 | ChatBox 交易阻断 | passed | 下单/买入/卖出/自动交易请求返回 blocked response |
 | UX 出门证据 | passed | 红利低波、组合回测、任务中心、截图和 HTML 报告均通过 |
 | PRD/E2E 报告 | passed | 全系统 E2E 报告包含 PRD 覆盖、代码检查、截图和剩余 blocker |
@@ -33,6 +36,10 @@ autoTradeUnlocked=false
 
 ```text
 backend/data/gpt-audit/chatbox-agentcore/2026-06-30T14-29-44-943Z/chatbox_agentcore_audit.json
+backend/data/gpt-audit/chatbox-agentcore/2026-06-30T15-09-21-181Z/chat_llm_planner_audit.json
+backend/data/gpt-audit/chatbox-agentcore/2026-06-30T15-07-36-873Z/chatbox_agentcore_audit.json
+backend/data/gpt-audit/full-system-e2e/2026-06-30T15-10-23-801Z/acceptance-report.html
+backend/data/gpt-audit/full-system-e2e/2026-06-30T15-10-23-801Z/summary.json
 backend/data/gpt-audit/full-system-e2e/2026-06-30T14-31-19-297Z/acceptance-report.html
 backend/data/gpt-audit/full-system-e2e/2026-06-30T14-31-19-297Z/summary.json
 backend/data/gpt-audit/full-system-e2e/2026-06-30T14-31-19-297Z/prd-coverage-matrix.json
@@ -53,6 +60,8 @@ backend/data/gpt-audit/full-system-e2e/2026-06-30T14-31-19-297Z/screenshots/11-o
 | 命令 | 结果 |
 | --- | --- |
 | `cd backend && node node_modules/typescript/bin/tsc` | passed |
+| `cd backend && npm run test:llm-dotenv-config` | passed |
+| `cd backend && npm run test:chat-llm-planner` | passed，真实 DeepSeek planner 调用通过 |
 | `cd backend && npm run test:chat-agent-core` | passed |
 | `cd backend && npm run test:frontend-ux-consistency` | passed |
 | `cd backend && npm run test:dividend-low-vol-frontend-runtime` | passed |
@@ -80,7 +89,7 @@ backend/data/gpt-audit/full-system-e2e/2026-06-30T14-31-19-297Z/screenshots/11-o
 1. 正式 provider 授权数据未接入为正式交易 release gate。
 2. 官方 total-return benchmark 授权仍未完成。
 3. 真实人工签核仍需人类完成。
-4. PI LLM agent loop 和 SSE/WebSocket 流式事件仍是后续增强；当前已完成 deterministic planner + PI controlled runtime + 会话审计。
+4. 完整 PI LLM tool-calling agent loop 和 SSE/WebSocket 流式事件仍是后续增强；当前已完成 deterministic fallback + PI controlled runtime + dotenv LLM intent router + 会话审计。
 
 ## 禁止误读
 

@@ -13,8 +13,8 @@ chatBoxV1Integrated=true
 piAgentCoreRuntimeIntegrated=true
 agentToolWhitelistEnabled=true
 deterministicPlannerFallback=true
-piLlmAgentLoopEnabled=false
-chatSessionPersistenceReady=false
+piLlmAgentLoopEnabled=partial_controlled_intent_router
+chatSessionPersistenceReady=true
 chatStreamingReady=false
 formalTradingUnlocked=false
 autoTradeUnlocked=false
@@ -23,8 +23,10 @@ autoTradeUnlocked=false
 解释：
 
 - 已接入 `@earendil-works/pi-agent-core` / `@earendil-works/pi-ai`，并通过 `piAgentCoreAdapter` 暴露受控 runtime 状态和 PI-compatible 工具 manifest。
-- 当前 ChatBox v1 使用 deterministic planner，能稳定识别核心意图并调用 FAMS 白名单工具。
-- 还没有启用 PI 的真实 LLM agent loop、多轮会话持久化或 SSE/WebSocket 流式事件。
+- 当前 ChatBox v1 默认使用 deterministic planner，能稳定识别核心意图并调用 FAMS 白名单工具。
+- 已补充 dotenv 驱动的受控 LLM planner：配置 `FAMS_CHAT_LLM_ENABLED=1` 且存在 LLM key 时，LLM 只负责把自然语言映射到 FAMS 已允许 intent；实际工具执行仍走白名单、二次确认和交易 gate。
+- 已完成本地 JSON 会话审计存储，可恢复最近会话、工具确认和阻断原因。
+- 还没有启用任意工具的开放式 LLM agent loop，也没有完成 SSE/WebSocket 流式事件。
 - ChatBox 不暴露 shell、文件系统或任意网络工具；所有能力必须经过 FAMS 工具白名单、二次确认和交易 gate。
 
 ## 2. 目标体验
@@ -62,8 +64,9 @@ autoTradeUnlocked=false
 | 前端挂载 | `AppLayout.tsx` | 在所有页面提供 ChatBox。 |
 | API 路由 | `backend/src/routes/chat.ts` | 提供 capabilities、messages、sessions、tool-confirmations。 |
 | 编排服务 | `famsChatService` | 意图识别、工具选择、确认流、交易阻断。 |
+| 受控 LLM planner | `chatLlmPlannerService` | 使用 dotenv LLM key 做 intent router；不直接执行工具。 |
 | AgentCore 适配 | `piAgentCoreAdapter` | PI runtime 检测、PI-compatible tool manifest、before/after tool gate。 |
-| 验收脚本 | `verify-chat-agent-core.ts` | 验证 PI import、工具 manifest、确认 gate、交易阻断。 |
+| 验收脚本 | `verify-chat-agent-core.ts` / `verify-chat-llm-planner.ts` | 验证 PI import、工具 manifest、确认 gate、交易阻断和 LLM planner。 |
 
 ## 4. 后续开发计划
 
@@ -99,16 +102,18 @@ autoTradeUnlocked=false
 
 开发方向：
 
-- 用 PI `Agent` 管理上下文、工具调用和事件。
+- 当前已完成第一步：用 PI AI `complete` 实现受控 LLM intent router；LLM 只能选择 FAMS 已允许 intent，不能直接调用任意工具。
+- 后续再升级：用 PI `Agent` 管理上下文、工具调用和事件。
 - `beforeToolCall` 继续执行 FAMS 工具白名单、二次确认和交易 gate。
 - `afterToolCall` 写入审计字段。
 - 缺少 LLM key 时继续 fallback deterministic planner。
 
 验收标准：
 
-- 有 LLM key 时可多轮理解用户上下文。
+- 有 LLM key 且 `FAMS_CHAT_LLM_ENABLED=1` 时，可把更自然的用户表达映射到组合、红利低波、任务、回测和阻断 intent。
 - 无 LLM key 时 ChatBox 仍可执行核心 deterministic intents。
 - 无论 LLM 如何输出，正式交易动作都被阻断。
+- `npm run test:chat-llm-planner` 生成 `chat_llm_planner_audit.json`，且不泄露 API key。
 
 ### CA-4 流式事件与任务联动
 
@@ -172,6 +177,7 @@ ChatBox 输出等同正式投资建议
 cd backend
 node node_modules/typescript/bin/tsc
 npm run test:chat-agent-core
+npm run test:chat-llm-planner
 npm run test:fivd-r-trade-gate-contract
 npm run test:trade-action-readiness
 

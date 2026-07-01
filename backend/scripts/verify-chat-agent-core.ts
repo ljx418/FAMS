@@ -69,6 +69,8 @@ async function main() {
     readiness: {
       chatBoxV1Integrated: true,
       piAgentCoreRuntimeIntegrated: capabilities.agentCore.runtimeAvailable,
+      chatLlmIntentRouterReady: Boolean((capabilities as any).llm?.plannerAvailable),
+      chatLlmPlannerMode: (capabilities as any).llm?.plannerMode || 'deterministic_planner_fallback',
       chatSessionAuditReady: restoredSession.status === 'audited',
       chatOperationLinkageReady: Boolean(confirmedScan.operationId),
       piLlmAgentLoopEnabled: false,

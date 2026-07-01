@@ -9,6 +9,7 @@
 
 import { stockAnalysisService } from '../technical/stockAnalysisService.js'
 import { postJson } from '../../utils/httpJson.js'
+import { getFamsLlmConfig } from '../../config/llmConfig.js'
 
 // LLM 请求接口
 export interface LLMStockAnalysisRequest {
@@ -50,7 +51,7 @@ export interface LLMReasoningPoint {
 export interface LLMStockAdvice {
   symbol: string
   name: string
-  provider: 'minimax' | 'deepseek' | 'fallback'
+  provider: 'openai' | 'openai_compatible' | 'minimax' | 'deepseek' | 'fallback'
   isAiGenerated: boolean
   status: 'available' | 'insufficient_data'
   observation: string
@@ -179,37 +180,93 @@ function parseResponse(text: string): Partial<LLMStockAdvice> {
   }
 }
 
-// 调用 LLM（优先 MiniMax，失败后降级到 DeepSeek）
-async function callLLM(prompt: string): Promise<{ provider: 'minimax' | 'deepseek'; text: string }> {
-  // 优先使用 MiniMax
+async function callOpenAiCompatibleLLM(
+  provider: 'openai' | 'openai_compatible' | 'deepseek',
+  prompt: string,
+  input: { apiKey: string; baseUrl: string; model: string; timeoutMs: number },
+): Promise<{ provider: 'openai' | 'openai_compatible' | 'deepseek'; text: string }> {
+  const baseUrl = input.baseUrl.replace(/\/$/, '')
+  const response = await postJson<any>(
+    `${baseUrl}/chat/completions`,
+    {
+      model: input.model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${input.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: input.timeoutMs,
+    },
+  )
+
+  const choices = response?.choices
+  if (choices && choices.length > 0) {
+    return { provider, text: choices[0].message?.content || '' }
+  }
+  throw new Error('LLM 响应格式错误')
+}
+
+async function callMinimaxLLM(prompt: string, input: { apiKey: string; model: string; timeoutMs: number }) {
+  const response = await postJson<any>(
+    'https://api.minimax.chat/v1/text/chatcompletion_pro',
+    {
+      model: input.model,
+      messages: [{ role: 'user', content: prompt, sender_name: 'user', sender_type: 'USER' }],
+      bot_setting: [{ bot_name: 'assistant', content: '你是一位证券数据分析助手，只解释事实和证据，不给出交易决策。' }],
+      reply_constraints: { role: 'assistant', content_type: 'text', sender_type: 'BOT', sender_name: 'assistant' }
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${input.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: input.timeoutMs
+    }
+  )
+
+  const reply = response?.reply
+  if (reply) return { provider: 'minimax' as const, text: reply }
+
+  const baseResp = response?.base_resp
+  if (baseResp?.status_code === 1008 || baseResp?.status_msg?.includes('balance')) {
+    throw new Error('MiniMax 余额不足')
+  }
+  throw new Error('LLM 响应格式错误')
+}
+
+// 调用 LLM。优先使用 FAMS_LLM_* 统一配置；未配置时兼容旧的 MiniMax -> DeepSeek 顺序。
+async function callLLM(prompt: string): Promise<{ provider: 'openai' | 'openai_compatible' | 'minimax' | 'deepseek'; text: string }> {
+  const config = getFamsLlmConfig()
+  if (config.configured && config.apiKey) {
+    if (config.provider === 'minimax') {
+      return callMinimaxLLM(prompt, {
+        apiKey: config.apiKey,
+        model: config.model,
+        timeoutMs: config.timeoutMs,
+      })
+    }
+    if (config.provider === 'openai' || config.provider === 'openai_compatible' || config.provider === 'deepseek') {
+      return callOpenAiCompatibleLLM(config.provider, prompt, {
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl || (config.provider === 'deepseek' ? 'https://api.deepseek.com' : 'https://api.openai.com/v1'),
+        model: config.model,
+        timeoutMs: config.timeoutMs,
+      })
+    }
+  }
+
+  // 兼容旧配置：优先使用 MiniMax
   const minimaxKey = process.env.MINIMAX_API_KEY
   if (minimaxKey) {
     try {
-      const response = await postJson<any>(
-        'https://api.minimax.chat/v1/text/chatcompletion_pro',
-        {
-          model: 'abab6.5s-chat',
-          messages: [{ role: 'user', content: prompt, sender_name: 'user', sender_type: 'USER' }],
-          bot_setting: [{ bot_name: 'assistant', content: '你是一位证券数据分析助手，只解释事实和证据，不给出交易决策。' }],
-          reply_constraints: { role: 'assistant', content_type: 'text', sender_type: 'BOT', sender_name: 'assistant' }
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${minimaxKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 30000
-        }
-      )
-
-      const reply = response?.reply
-      if (reply) return { provider: 'minimax', text: reply }
-
-      // 检查余额不足
-      const baseResp = response?.base_resp
-      if (baseResp?.status_code === 1008 || baseResp?.status_msg?.includes('balance')) {
-        throw new Error('MiniMax 余额不足')
-      }
+      return await callMinimaxLLM(prompt, {
+        apiKey: minimaxKey,
+        model: 'abab6.5s-chat',
+        timeoutMs: 30_000,
+      })
     } catch (error: any) {
       const isBalanceIssue = error.message?.includes('余额不足') ||
         error.response?.data?.base_resp?.status_code === 1008
@@ -224,27 +281,12 @@ async function callLLM(prompt: string): Promise<{ provider: 'minimax' | 'deepsee
     throw new Error('DEEPSEEK_API_KEY 环境变量未设置')
   }
 
-  const response = await postJson<any>(
-    'https://api.deepseek.com/chat/completions',
-    {
-      model: 'deepseek-chat',
-      messages: [{ role: 'user', content: prompt }]
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${deepseekKey}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 30000
-    }
-  )
-
-  const choices = response?.choices
-  if (choices && choices.length > 0) {
-    return { provider: 'deepseek', text: choices[0].message?.content || '' }
-  }
-
-  throw new Error('LLM 响应格式错误')
+  return callOpenAiCompatibleLLM('deepseek', prompt, {
+    apiKey: deepseekKey,
+    baseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-chat',
+    timeoutMs: 30_000,
+  })
 }
 
 class LLMService {

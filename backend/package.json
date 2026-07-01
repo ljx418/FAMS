@@ -108,6 +108,8 @@
     "test:fivd-r-gold-tips-inflation-proxy-factset": "node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-gold-tips-inflation-proxy-factset.ts",
     "test:gpt-optimization-plan": "node node_modules/tsx/dist/cli.mjs scripts/verify-gpt-optimization-plan.ts",
     "test:chat-agent-core": "node node_modules/tsx/dist/cli.mjs scripts/verify-chat-agent-core.ts",
+    "test:chat-llm-planner": "node node_modules/tsx/dist/cli.mjs scripts/verify-chat-llm-planner.ts",
+    "test:llm-dotenv-config": "node node_modules/tsx/dist/cli.mjs scripts/verify-llm-dotenv-config.ts",
     "run:market-bar-cache-preheat": "node node_modules/tsx/dist/cli.mjs scripts/run-market-bar-cache-preheat.ts",
     "run:market-bar-cache-preheat-pressure": "node node_modules/tsx/dist/cli.mjs scripts/run-market-bar-cache-preheat-pressure.ts",
     "run:market-feature-daily-compute": "node node_modules/tsx/dist/cli.mjs scripts/run-market-feature-daily-compute.ts",

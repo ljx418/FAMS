@@ -40,6 +40,15 @@ type ChatResponse = {
     mode: string
     runtimeAvailable: boolean
     nodeVersion: string
+    llm?: {
+      provider?: string
+      configured?: boolean
+      keySource?: string | null
+      model?: string
+      plannerAvailable?: boolean
+      plannerMode?: string
+      secretsRedacted?: boolean
+    }
     note: string
   }
   notTradingAdvice: true
@@ -346,6 +355,14 @@ export function FamsChatBox() {
             AgentCore：{latestAgentCore?.provider || 'pi-agent-core'}｜
             模式：{latestAgentCore?.mode || 'deterministic_planner'}｜
             Runtime：{latestAgentCore?.runtimeAvailable === false ? '未确认' : '可用'}
+            {latestAgentCore?.llm ? (
+              <>
+                <br />
+                LLM：{latestAgentCore.llm.configured ? `${latestAgentCore.llm.provider || '-'} / ${latestAgentCore.llm.model || '-'}` : '未配置'}｜
+                Planner：{latestAgentCore.llm.plannerAvailable ? latestAgentCore.llm.plannerMode || '可用' : 'deterministic fallback'}｜
+                Key：{latestAgentCore.llm.keySource || '无'}（已脱敏）
+              </>
+            ) : null}
           </div>
         </div>
       </Drawer>

@@ -41,9 +41,10 @@ export interface FamsChatResponse {
   prohibitedActions: string[]
   agentCore: {
     provider: 'pi-agent-core'
-    mode: 'deterministic_planner' | 'pi_agent_loop'
+    mode: 'deterministic_planner' | 'llm_assisted_planner_pending' | 'pi_agent_loop'
     runtimeAvailable: boolean
     nodeVersion: string
+    llm?: Record<string, unknown>
     note: string
   }
   notTradingAdvice: true

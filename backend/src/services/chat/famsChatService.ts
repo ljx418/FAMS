@@ -6,6 +6,8 @@ import { operationService } from '../operation/operationService.js'
 import { positionService } from '../position/positionService.js'
 import { portfolioStrategyRegistry } from '../portfolio-backtest/portfolioStrategyRegistry.js'
 import { piAgentCoreAdapter } from './piAgentCoreAdapter.js'
+import { getFamsLlmPublicStatus } from '../../config/llmConfig.js'
+import { chatLlmPlannerService } from './chatLlmPlannerService.js'
 import type {
   FamsChatActionCard,
   FamsChatConfirmationInput,
@@ -272,11 +274,13 @@ class FamsChatService {
 
   async capabilities() {
     const runtime = await piAgentCoreAdapter.getRuntimeStatus()
+    const llm = chatLlmPlannerService.publicStatus()
     const piToolManifest = piAgentCoreAdapter.buildToolManifest(this.tools)
     return {
       schemaVersion: 'fams.chat.capabilities.v1',
       generatedAt: new Date().toISOString(),
       agentCore: runtime,
+      llm,
       piToolManifest: {
         toolCount: piToolManifest.length,
         executionModes: piToolManifest.map((tool) => ({
@@ -346,7 +350,12 @@ class FamsChatService {
     const conversationId = input.conversationId || `chat-${randomUUID()}`
     await this.appendChatMessage(conversationId, userId, 'user', input.message || '')
     const message = normalizeMessage(input.message || '')
-    const intent = this.detectIntent(message)
+    const llmPlan = await this.planIntent(input.message || '', {
+      ...(input.context || {}),
+      userId,
+      conversationId,
+    })
+    const intent = llmPlan?.intent || this.detectIntent(message)
     const runtime = await piAgentCoreAdapter.getRuntimeStatus()
     const tool = this.selectTool(intent)
 
@@ -354,26 +363,31 @@ class FamsChatService {
       return this.auditedResponse(userId, {
         conversationId,
         intent: 'capability_help',
-        confidence: 0.55,
+        confidence: llmPlan?.confidence || 0.55,
         reply: '我可以帮你查看组合、筛选红利低波候选、解释交易 gate、启动需要确认的扫描任务，并引导你到策略回测页面。',
         actionCards: this.defaultActionCards(),
         requiresConfirmation: false,
         runtimeAvailable: runtime.runtimeAvailable,
+        metadata: llmPlan ? { planner: llmPlan } : undefined,
       })
     }
 
-    const args = this.buildToolArgs(intent, userId, input.context || {})
+    const args = this.buildToolArgs(intent, userId, {
+      ...(input.context || {}),
+      ...(llmPlan?.context || {}),
+    })
     if (tool.risk === 'blocked') {
       const blocked = await tool.execute(args)
       return this.auditedResponse(userId, {
         conversationId,
         intent,
-        confidence: 0.92,
+        confidence: llmPlan?.confidence || 0.92,
         reply: blocked.reply,
         actionCards: blocked.actionCards || [],
         blockedReasons: blocked.blockedReasons || ['blocked_by_trade_gate'],
         requiresConfirmation: false,
         runtimeAvailable: runtime.runtimeAvailable,
+        metadata: llmPlan ? { planner: llmPlan } : undefined,
       })
     }
 
@@ -396,7 +410,7 @@ class FamsChatService {
       return this.auditedResponse(userId, {
         conversationId,
         intent,
-        confidence: 0.86,
+        confidence: llmPlan?.confidence || 0.86,
         reply: `该操作会启动任务或生成审计草案，需要你确认后执行：${tool.label}。`,
         actionCards: [
           makeCard({
@@ -410,6 +424,7 @@ class FamsChatService {
         ],
         requiresConfirmation: true,
         runtimeAvailable: runtime.runtimeAvailable,
+        metadata: llmPlan ? { planner: llmPlan } : undefined,
       })
     }
 
@@ -417,7 +432,7 @@ class FamsChatService {
     return this.auditedResponse(userId, {
       conversationId,
       intent,
-      confidence: 0.9,
+      confidence: llmPlan?.confidence || 0.9,
       reply: result.reply,
       actionCards: result.actionCards || [],
       operationId: result.operationId,
@@ -425,7 +440,22 @@ class FamsChatService {
       blockedReasons: result.blockedReasons || [],
       requiresConfirmation: false,
       runtimeAvailable: runtime.runtimeAvailable,
+      metadata: llmPlan ? { planner: llmPlan } : undefined,
     })
+  }
+
+  private async planIntent(message: string, context: Record<string, unknown>) {
+    if (!chatLlmPlannerService.isAvailable()) return null
+    try {
+      return await chatLlmPlannerService.plan(message, context)
+    } catch (error: any) {
+      return {
+        intent: this.detectIntent(normalizeMessage(message)),
+        confidence: 0.6,
+        context: {},
+        reason: `llm_planner_failed_fallback:${String(error?.message || error).slice(0, 120)}`,
+      }
+    }
   }
 
   async confirmTool(input: FamsChatConfirmationInput): Promise<FamsChatResponse> {
@@ -642,10 +672,13 @@ class FamsChatService {
       prohibitedActions: PROHIBITED_ACTIONS,
       agentCore: {
         provider: 'pi-agent-core',
-        mode: 'deterministic_planner',
+        mode: getFamsLlmPublicStatus().chatAgentEnabled ? 'llm_assisted_planner_pending' : 'deterministic_planner',
         runtimeAvailable: input.runtimeAvailable,
         nodeVersion: process.version,
-        note: 'PI AgentCore is integrated as the controlled tool/runtime adapter. Deterministic planner is used until a generic chat LLM is configured.',
+        llm: chatLlmPlannerService.publicStatus(),
+        note: getFamsLlmPublicStatus().chatAgentEnabled
+          ? 'LLM key is configured for explanation/planning readiness, but FAMS still routes all executable actions through allowlisted tools and confirmations.'
+          : 'PI AgentCore is integrated as the controlled tool/runtime adapter. Deterministic planner is used until FAMS_CHAT_LLM_ENABLED=1 is configured.',
       },
       notTradingAdvice: true,
     }

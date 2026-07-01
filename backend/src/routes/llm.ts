@@ -8,8 +8,13 @@
 import { FastifyInstance } from 'fastify'
 import { llmService } from '../services/llm/llmService.js'
 import { assetIdentityResolver } from '../services/asset/assetIdentityResolver.js'
+import { getFamsLlmPublicStatus } from '../config/llmConfig.js'
 
 export async function llmRoutes(app: FastifyInstance) {
+  app.get('/status', async () => {
+    return getFamsLlmPublicStatus()
+  })
+
   // 获取股票 AI 事实观察
   app.post<{
     Body: { symbol: string; market?: string }
