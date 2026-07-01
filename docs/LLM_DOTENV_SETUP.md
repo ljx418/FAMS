@@ -2,6 +2,12 @@
 
 本项目使用后端 `dotenv` 管理 LLM 密钥。真实密钥只允许放在 `backend/.env`，不得写入前端、代码、审计包或 Git。
 
+明确要求：
+
+- 不要提交 `backend/.env`、真实 Key、cookie、token 或任何 provider 凭证。
+- ChatBox LLM 只做意图识别和业务路由，不会自动下单，不会绕过 FAMS 交易 gate。
+- 审计报告只能展示 `provider`、`model`、`keySource` 和 `secretsRedacted=true`，不能展示真实密钥。
+
 ## 推荐配置
 
 复制示例文件：

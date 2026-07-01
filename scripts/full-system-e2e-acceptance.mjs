@@ -336,12 +336,20 @@ async function buildCodeInspectionAudit() {
     backtestPage: 'frontend/src/pages/Backtest.tsx',
     operationsPage: 'frontend/src/pages/Operations.tsx',
     analysisPage: 'frontend/src/pages/Analysis.tsx',
+    chatBox: 'frontend/src/components/chat/FamsChatBox.tsx',
     analysisService: 'frontend/src/services/analysisService.ts',
     backendIndex: 'backend/src/index.ts',
     strategyRoutes: 'backend/src/routes/strategy.ts',
     analysisRoutes: 'backend/src/routes/analysis.ts',
     portfolioBacktestRoutes: 'backend/src/routes/portfolioBacktest.ts',
     operationRoutes: 'backend/src/routes/operation.ts',
+    llmRoutes: 'backend/src/routes/llm.ts',
+    famsChatService: 'backend/src/services/chat/famsChatService.ts',
+    chatLlmPlannerService: 'backend/src/services/chat/chatLlmPlannerService.ts',
+    llmConfig: 'backend/src/config/llmConfig.ts',
+    llmService: 'backend/src/services/llm/llmService.ts',
+    chatPlanDoc: 'docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md',
+    llmDotenvDoc: 'docs/LLM_DOTENV_SETUP.md',
   }
   const source = Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([key, relativePath]) => [
     key,
@@ -414,6 +422,41 @@ async function buildCodeInspectionAudit() {
       status: source.analysisService.includes('/api/v1/analysis/fivd-r') && source.analysisService.includes('/api/v1/strategy/dividend-low-vol') ? 'passed' : 'failed',
       evidence: paths.analysisService,
     },
+    {
+      id: 'frontend_chatbox_research_gate',
+      label: 'ChatBox 前端入口明确研究模式和订单阻断',
+      status: source.chatBox.includes('FAMS 业务助手') && source.chatBox.includes('ChatBox 不创建订单') && source.chatBox.includes('ORDER_CREATE') ? 'passed' : 'failed',
+      evidence: paths.chatBox,
+    },
+    {
+      id: 'frontend_chatbox_llm_status',
+      label: 'ChatBox 前端展示 LLM planner 状态且密钥脱敏',
+      status: source.chatBox.includes('latestAgentCore.llm') && source.chatBox.includes('Planner') && source.chatBox.includes('已脱敏') ? 'passed' : 'failed',
+      evidence: paths.chatBox,
+    },
+    {
+      id: 'backend_llm_public_status',
+      label: '后端提供 LLM 公共状态接口且不暴露密钥',
+      status: source.llmRoutes.includes('/status') && source.llmRoutes.includes('getFamsLlmPublicStatus') && source.llmConfig.includes('secretsRedacted: true') ? 'passed' : 'failed',
+      evidence: `${paths.llmRoutes} / ${paths.llmConfig}`,
+    },
+    {
+      id: 'backend_chat_llm_planner_controlled',
+      label: 'ChatBox LLM 只做意图路由，不直接执行交易或工具',
+      status: source.chatLlmPlannerService.includes('受控意图路由器')
+        && source.chatLlmPlannerService.includes('trade_action_blocked')
+        && source.chatLlmPlannerService.includes('toolExecutionBoundary')
+        && source.chatLlmPlannerService.includes('formalTradingUnlocked: false')
+        && source.chatLlmPlannerService.includes('autoTradeUnlocked: false')
+        && source.famsChatService.includes('planIntent') ? 'passed' : 'failed',
+      evidence: `${paths.chatLlmPlannerService} / ${paths.famsChatService}`,
+    },
+    {
+      id: 'llm_dotenv_documented',
+      label: 'LLM dotenv 配置文档说明兼容 Key、脱敏和交易边界',
+      status: source.llmDotenvDoc.includes('DEEPSEEK_API_KEY') && source.llmDotenvDoc.includes('不提交') && source.llmDotenvDoc.includes('不会自动下单') ? 'passed' : 'failed',
+      evidence: paths.llmDotenvDoc,
+    },
   ]
   return {
     status: assessOverall(checks),
@@ -477,6 +520,11 @@ function buildPrdCoverage(commandResults, apiResults, screenshots) {
       status: screenshots.some((item) => item.title === '移动端组合回测') && screenshots.some((item) => item.title === '平板端红利低波') ? 'passed' : 'failed',
       evidence: 'Playwright desktop/tablet/mobile screenshots',
     },
+    {
+      capability: 'ChatBox 业务助手与受控 LLM planner',
+      status: hasPassedShot('ChatBox 业务助手') && hasPassedCommand('chat agent core') && hasPassedCommand('chat llm planner') && hasPassedApi('LLM 公共状态') ? 'passed' : 'failed',
+      evidence: '截图 + test:chat-agent-core + test:chat-llm-planner + /api/v1/llm/status',
+    },
   ]
   return { status: assessOverall(rows), rows }
 }
@@ -496,6 +544,9 @@ function testCoverage(commandResults) {
     ['portfolio backtest API contract', '组合回测 API 与 artifact 合同'],
     ['production readiness', '生产就绪 gate'],
     ['trade action readiness', '交易动作 gate'],
+    ['llm dotenv config', 'LLM dotenv 配置与密钥脱敏'],
+    ['chat llm planner', 'ChatBox LLM 意图路由'],
+    ['chat agent core', 'ChatBox AgentCore 合同'],
     ['frontend build', '前端构建'],
   ]
   const rows = required.map(([name, label]) => {
@@ -546,6 +597,11 @@ async function runBrowserEvidence(apiResults) {
       await page.goto(`${frontendUrl}/dashboard`, { waitUntil: 'networkidle', timeout: 120000 })
       await waitForBodyText(page, ['FAMS'])
       screenshots.push(await screenshot(page, '01-dashboard.png', '总览与侧边栏', '证明左侧菜单和系统入口可见。', ['FAMS', '红利低波策略', '策略回测']))
+      await page.locator('.ant-float-btn').first().click({ timeout: 30000 })
+      await waitForBodyText(page, ['FAMS 业务助手', 'ChatBox 不创建订单'], 30000)
+      await page.getByText('为什么不能下单').click({ timeout: 30000 })
+      await waitForBodyText(page, ['ORDER_CREATE', 'AUTO_TRADE'], 60000)
+      screenshots.push(await screenshot(page, '01b-chatbox-agentcore.png', 'ChatBox 业务助手', '证明 ChatBox 可打开、可发起业务问题、显示订单阻断和 LLM/AgentCore 状态。', ['FAMS 业务助手', 'ChatBox 不创建订单', 'ORDER_CREATE', 'AUTO_TRADE']))
     })
   } catch (error) {
     await captureFailure('总览与侧边栏异常', error)
@@ -923,6 +979,9 @@ async function main() {
     ['portfolio backtest API contract', ['npm', 'run', 'test:portfolio-backtest-api-contract'], backendDir, 240000],
     ['production readiness', ['npm', 'run', 'test:production-readiness'], backendDir, 240000],
     ['trade action readiness', ['npm', 'run', 'test:trade-action-readiness'], backendDir, 240000],
+    ['llm dotenv config', ['npm', 'run', 'test:llm-dotenv-config'], backendDir, 180000],
+    ['chat llm planner', ['npm', 'run', 'test:chat-llm-planner'], backendDir, 240000],
+    ['chat agent core', ['npm', 'run', 'test:chat-agent-core'], backendDir, 180000],
     ['frontend build', ['npm', 'run', 'build'], frontendDir, 240000],
   ]
 
@@ -955,6 +1014,29 @@ async function main() {
     status: body?.status,
     database: body?.database,
     operations: body?.operations,
+  })))
+  apiResults.push(await apiCheck('LLM 公共状态', `${backendUrl}/api/v1/llm/status`, {}, (body) => body?.secretsRedacted === true && !body?.apiKey, (body) => ({
+    provider: body?.provider,
+    configured: body?.configured,
+    keySource: body?.keySource,
+    model: body?.model,
+    chatAgentEnabled: body?.chatAgentEnabled,
+    secretsRedacted: body?.secretsRedacted,
+  })))
+  apiResults.push(await apiCheck('ChatBox 消息意图路由', `${backendUrl}/api/v1/chat/messages`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      userId: 'default',
+      message: '为什么不能下单',
+    }),
+  }, (body) => body?.notTradingAdvice === true && Array.isArray(body?.prohibitedActions) && body.prohibitedActions.includes('AUTO_TRADE'), (body) => ({
+    intent: body?.intent,
+    confidence: body?.confidence,
+    prohibitedActions: body?.prohibitedActions,
+    blockedReasons: body?.blockedReasons,
+    llm: body?.agentCore?.llm,
+    notTradingAdvice: body?.notTradingAdvice,
   })))
   apiResults.push(await apiCheck('红利低波候选池', `${backendUrl}/api/v1/strategy/dividend-low-vol/candidates?limit=50&scope=all&persistedOnly=true`, {}, (body) => Array.isArray(body?.candidates), (body) => ({
     schemaVersion: body?.schemaVersion,
