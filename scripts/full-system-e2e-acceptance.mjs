@@ -245,6 +245,7 @@ function buildGitSnapshot() {
 function buildHumanAuditReadiness(model) {
   const requiredEvidence = [
     ['审计对象与版本', Boolean(model.git?.headCommit) && model.git?.workingTreeClean === true, 'Git commit / branch / origin/main 对齐状态，且工作树干净'],
+    ['审计导航与证据地图', model.humanReviewGuide?.status === 'passed', '报告首页“先读这里”和“证据地图”'],
     ['原始 PRD 与架构文档', model.documentAudit?.status === 'passed', '文档一致性审计矩阵'],
     ['代码实现映射', model.codeInspection?.status === 'passed', '代码检视矩阵中的页面、路由、服务入口'],
     ['功能覆盖矩阵', model.prdCoverage?.status === 'passed', 'PRD 功能覆盖矩阵'],
@@ -264,6 +265,79 @@ function buildHumanAuditReadiness(model) {
     conclusion: assessOverall(requiredEvidence) === 'passed'
       ? 'human_audit_ready_for_current_stage'
       : 'needs_more_evidence_before_human_audit',
+  }
+}
+
+function buildHumanReviewGuide(model) {
+  const evidenceMap = [
+    {
+      claim: '本阶段前端核心路径可被用户访问',
+      howToVerify: '查看截图 01-11；重点看侧边栏、红利低波、组合回测、任务中心。',
+      evidence: 'screenshots/*.png + 用户场景截图证据章节',
+      status: model.browser?.status,
+    },
+    {
+      claim: 'ChatBox 已接入受控 LLM planner，但不创建订单',
+      howToVerify: '查看 ChatBox 截图、LLM 公共状态 API、ChatBox 消息意图路由 API 和 chat-agent-core 测试。',
+      evidence: '01b-chatbox-agentcore.png + /api/v1/llm/status + /api/v1/chat/messages + test:chat-agent-core',
+      status: model.prdCoverage?.rows?.find((item) => item.capability.includes('ChatBox'))?.status || 'failed',
+    },
+    {
+      claim: '红利低波研究页覆盖候选、筛选、买卖区间和人工计划 gate',
+      howToVerify: '查看红利低波截图 03-07、红利低波 API、红利低波 validation retest 和 frontend runtime 测试。',
+      evidence: '03-07 screenshots + /api/v1/strategy/dividend-low-vol/* + dividend-low-vol tests',
+      status: model.prdCoverage?.rows?.find((item) => item.capability.includes('红利低波独立菜单'))?.status || 'failed',
+    },
+    {
+      claim: '组合策略回测可以生成曲线、指标和 Operation artifact',
+      howToVerify: '查看组合回测截图 08-10、组合回测 API 响应和任务中心 artifact 截图。',
+      evidence: '08-11 screenshots + /api/v1/portfolio-backtest/run + Operations artifact',
+      status: model.prdCoverage?.rows?.find((item) => item.capability.includes('组合策略多曲线'))?.status || 'failed',
+    },
+    {
+      claim: '正式交易与自动交易仍被阻断',
+      howToVerify: '查看正式交易阻断章节、trade-action-readiness 输出、ChatBox 被阻断 API 摘要。',
+      evidence: 'formalTradingBoundary + test:trade-action-readiness + ChatBox trade_action_blocked',
+      status: model.formalTradingBoundary?.formalTradingUnlocked === false
+        && model.formalTradingBoundary?.autoTradeUnlocked === false
+        && model.formalTradingBoundary?.orderCreateAllowed === false ? 'passed' : 'failed',
+    },
+    {
+      claim: '报告不是正式交易 release 证明',
+      howToVerify: '查看限制与不通过项；确认 total-return benchmark、数据 freshness、人工签核、生产下单适配器仍列为 blocker。',
+      evidence: '限制与不通过项 + 正式交易仍然阻断',
+      status: Array.isArray(model.formalTradingBoundary?.remainingBlockers) && model.formalTradingBoundary.remainingBlockers.length > 0 ? 'passed' : 'failed',
+    },
+  ]
+
+  const auditSteps = [
+    '先读顶部结论：确认总体结论、人类审计完备性、Git commit 与 origin/main 一致。',
+    '读“本阶段能声明 / 不能声明”：确认没有把研究级验收误写成正式交易放行。',
+    '按“证据地图”逐条抽查 claim、截图、API、测试命令和代码映射是否一致。',
+    '打开截图 01b 检查 ChatBox：它应显示研究模式、订单阻断和 LLM/AgentCore 状态。',
+    '打开截图 03-07 检查红利低波：候选池、筛选、买卖观察区间、人工计划 gate 应可见。',
+    '打开截图 08-11 检查组合回测和任务中心：回测结果和 artifact 追溯应可见。',
+    '读 API 交叉验证：确认 LLM 状态脱敏、ChatBox 返回 trade_action_blocked、组合回测有 artifact。',
+    '读限制与阻断项：确认正式交易、自动交易、生产下单仍未释放。',
+  ]
+
+  return {
+    status: assessOverall(evidenceMap),
+    audience: '产品负责人、外部审计者、开发负责人、非本轮开发人员',
+    stageScope: '本报告审计的是本阶段自动化开发：红利低波研究体验、组合策略回测、ChatBox 受控 LLM planner、Operation 审计追溯和交易 gate。它不是正式交易 release 审计。',
+    canClaim: [
+      '可以声明本阶段核心研究路径、人工计划草案路径、组合回测路径和 ChatBox 受控业务助手路径完成自动化验收。',
+      '可以声明报告具备截图、API、命令、代码映射、PRD 覆盖、Git 版本和限制项证据。',
+      '可以声明 LLM 密钥状态只展示 keySource，真实密钥未进入报告。',
+    ],
+    cannotClaim: [
+      '不能声明正式 ADD / REDUCE 已释放。',
+      '不能声明 ORDER_CREATE 或 AUTO_TRADE 可用。',
+      '不能声明免费数据源等同于正式授权 total-return benchmark。',
+      '不能声明每日实时数据最新性已经被本报告完全证明。',
+    ],
+    auditSteps,
+    evidenceMap,
   }
 }
 
@@ -776,6 +850,22 @@ function renderJson(value) {
 
 function renderReport(model) {
   const overall = model.overallStatus
+  const reviewClaimRows = model.humanReviewGuide.evidenceMap.map((item) => `
+    <tr>
+      <td>${escapeHtml(item.claim)}</td>
+      <td>${renderStatus(item.status)}</td>
+      <td>${escapeHtml(item.howToVerify)}</td>
+      <td>${escapeHtml(item.evidence)}</td>
+    </tr>
+  `).join('\n')
+  const auditStepRows = model.humanReviewGuide.auditSteps.map((item, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      <td>${escapeHtml(item)}</td>
+    </tr>
+  `).join('\n')
+  const canClaimList = model.humanReviewGuide.canClaim.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n')
+  const cannotClaimList = model.humanReviewGuide.cannotClaim.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n')
   const screenshotHtml = model.browser.screenshots.map((shot) => `
     <section class="shot">
       <div class="shot-head"><h3>${escapeHtml(shot.title)}</h3>${renderStatus(shot.status)}</div>
@@ -903,6 +993,32 @@ function renderReport(model) {
       <div class="metric"><div class="label">Auto Trade</div><div class="value">${escapeHtml(model.summary.autoTradeUnlocked)}</div></div>
     </div>
   </section>
+
+  <h2>先读这里：审计者导航</h2>
+  <div class="card">
+    <p><strong>审计范围：</strong>${escapeHtml(model.humanReviewGuide.stageScope)}</p>
+    <p><strong>目标读者：</strong>${escapeHtml(model.humanReviewGuide.audience)}</p>
+    <p>如果你只有 10 分钟，请先按下表顺序复核。每一步都能在本报告中找到截图、API、命令或代码映射证据。</p>
+  </div>
+  <table><thead><tr><th>顺序</th><th>怎么审</th></tr></thead><tbody>${auditStepRows}</tbody></table>
+
+  <h2>本阶段能声明 / 不能声明</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>可以声明</h3>
+      <ul>${canClaimList}</ul>
+    </div>
+    <div class="card">
+      <h3>不能声明</h3>
+      <ul>${cannotClaimList}</ul>
+    </div>
+  </div>
+
+  <h2>证据地图</h2>
+  <div class="card">
+    <p>证据地图把“报告结论”映射到“人类应查看的证据”。任何一行失败，都应打回重新取证或修复实现。</p>
+  </div>
+  <table><thead><tr><th>结论</th><th>状态</th><th>复核方式</th><th>证据位置</th></tr></thead><tbody>${reviewClaimRows}</tbody></table>
 
   <h2>人类审计完备性检查</h2>
   <div class="card">
@@ -1165,6 +1281,7 @@ async function main() {
       ],
     },
   }
+  model.humanReviewGuide = buildHumanReviewGuide(model)
   model.humanAuditReadiness = buildHumanAuditReadiness(model)
 
   await writeFile(path.join(reportDir, 'summary.json'), JSON.stringify(model, null, 2))
@@ -1173,6 +1290,7 @@ async function main() {
   await writeFile(path.join(reportDir, 'document-consistency-audit.json'), JSON.stringify(documentAudit, null, 2))
   await writeFile(path.join(reportDir, 'code-inspection-audit.json'), JSON.stringify(codeInspection, null, 2))
   await writeFile(path.join(reportDir, 'architecture-current-vs-target.json'), JSON.stringify(model.architecture, null, 2))
+  await writeFile(path.join(reportDir, 'human-review-guide.json'), JSON.stringify(model.humanReviewGuide, null, 2))
   await writeFile(path.join(reportDir, 'human-audit-readiness.json'), JSON.stringify(model.humanAuditReadiness, null, 2))
   await writeFile(path.join(reportDir, 'acceptance-report.html'), renderReport(model).replace(/[ \t]+$/gm, ''))
 
