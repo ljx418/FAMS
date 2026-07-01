@@ -454,7 +454,9 @@ async function buildCodeInspectionAudit() {
     {
       id: 'llm_dotenv_documented',
       label: 'LLM dotenv 配置文档说明兼容 Key、脱敏和交易边界',
-      status: source.llmDotenvDoc.includes('DEEPSEEK_API_KEY') && source.llmDotenvDoc.includes('不提交') && source.llmDotenvDoc.includes('不会自动下单') ? 'passed' : 'failed',
+      status: source.llmDotenvDoc.includes('DEEPSEEK_API_KEY')
+        && (source.llmDotenvDoc.includes('不要提交') || source.llmDotenvDoc.includes('不得提交') || source.llmDotenvDoc.includes('不提交'))
+        && source.llmDotenvDoc.includes('不会自动下单') ? 'passed' : 'failed',
       evidence: paths.llmDotenvDoc,
     },
   ]
