@@ -87,16 +87,16 @@
         <mxCell id="02-r0c0" value="已开发基础：前端页面&#xa;Dashboard.tsx / AppLayout.tsx / DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx / FamsChatBox.tsx&#xa;原左侧菜单和多 Tab 专家页保留。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="60" y="250" width="320" height="115" as="geometry" />
         </mxCell>
-        <mxCell id="02-r0c1" value="开发中/需修改：首屏从指标堆叠改为状态摘要、结论卡、下一步；ChatBox 结果跳转工作台，不删除专家页。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="02-r0c1" value="开发中/需修改：移动端 Shell 折叠侧栏；首屏从指标堆叠改为状态摘要、结论卡、下一步；ChatBox 结果跳转工作台，不删除专家页。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="430" y="250" width="320" height="115" as="geometry" />
         </mxCell>
-        <mxCell id="02-r0c2" value="未开发/待新增：ExperienceModeToggle / PlainLanguageHelp / DividendLowVolDecisionCard / PortfolioBacktestSummaryCard / UserTaskWorkbench / ExpertPageChatExplain。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="02-r0c2" value="未开发/待新增：ExperienceModeToggle / PlainLanguageHelp / DividendLowVolDecisionCard / PortfolioBacktestSummaryCard / UserTaskWorkbench / ExpertPageChatExplain / design token registry。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="800" y="250" width="320" height="115" as="geometry" />
         </mxCell>
         <mxCell id="02-r0c3" value="普通模式不得隐藏 blocker、dataTrust、交易锁定。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
           <mxGeometry x="1170" y="250" width="320" height="115" as="geometry" />
         </mxCell>
-        <mxCell id="02-r0c4" value="用户 30 秒内知道看哪里和下一步。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="02-r0c4" value="用户 30 秒内知道看哪里和下一步；移动端主内容不被侧栏挤压。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="1540" y="250" width="320" height="115" as="geometry" />
         </mxCell>
         <mxCell id="02-r1c0" value="已开发基础：API 路由&#xa;strategy.ts / portfolioBacktest.ts / operation.ts / backend/src/routes/chat.ts / FIVD-R analysis routes" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" vertex="1" parent="1">
@@ -150,7 +150,7 @@
         <mxCell id="02-r4c1" value="审计报告增加普通用户摘要。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="430" y="830" width="320" height="115" as="geometry" />
         </mxCell>
-        <mxCell id="02-r4c2" value="未开发/待新增：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / UX 截图证据。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="02-r4c2" value="未开发/待新增：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="800" y="830" width="320" height="115" as="geometry" />
         </mxCell>
         <mxCell id="02-r4c3" value="formalTradingUnlocked=false 仍必须显眼。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
@@ -335,56 +335,56 @@
     </mxGraphModel>
   </diagram>
   <diagram id="05 组合回测用户路径" name="05 组合回测用户路径">
-    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+    <mxGraphModel dx="1945" dy="991" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="05-title" value="组合回测用户路径：从曲线指标优先改为“策略对比摘要 + 数据缺口 + 阻断原因”" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="40" y="30" width="1840" height="70" as="geometry" />
+        <mxCell id="05-title" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" value="组合回测用户路径：从曲线指标优先改为“策略对比摘要 + 数据缺口 + 阻断原因”" vertex="1">
+          <mxGeometry height="70" width="1840" x="40" y="30" as="geometry" />
         </mxCell>
-        <mxCell id="05-start" value="选择策略和时间&#xa;Backtest.tsx&#xa;推荐组合、红利低波篮子、当前持仓、自定义权重；支持 1年/3年/5年/自定义区间。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;" vertex="1" parent="1">
-          <mxGeometry x="70" y="150" width="420" height="170" as="geometry" />
+        <mxCell id="05-start" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;" value="选择策略和时间&#xa;Backtest.tsx&#xa;推荐组合、红利低波篮子、当前持仓、自定义权重；支持 1年/3年/5年/自定义区间。" vertex="1">
+          <mxGeometry height="170" width="420" x="70" y="150" as="geometry" />
         </mxCell>
-        <mxCell id="05-run" value="运行回测&#xa;PortfolioBacktestEngine&#xa;输出收益曲线、回撤、benchmark、dividendContribution、dataGrade。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" vertex="1" parent="1">
-          <mxGeometry x="540" y="150" width="420" height="170" as="geometry" />
+        <mxCell id="05-run" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" value="运行回测&#xa;PortfolioBacktestEngine&#xa;输出收益曲线、回撤、benchmark、dividendContribution、dataGrade。" vertex="1">
+          <mxGeometry height="170" width="420" x="540" y="150" as="geometry" />
         </mxCell>
-        <mxCell id="05-summary" value="结果摘要卡&#xa;PortfolioBacktestSummaryCard.tsx&#xa;哪个收益最高、回撤最低、数据最可信、哪些仍被阻断。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" vertex="1" parent="1">
-          <mxGeometry x="1010" y="150" width="420" height="170" as="geometry" />
+        <mxCell id="05-summary" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" value="结果摘要卡&#xa;PortfolioBacktestSummaryCard.tsx&#xa;哪个收益最高、回撤最低、数据最可信、哪些仍被阻断。" vertex="1">
+          <mxGeometry height="170" width="420" x="1010" y="150" as="geometry" />
         </mxCell>
-        <mxCell id="05-explain" value="策略解释器&#xa;StrategyComparisonExplainer.tsx&#xa;把 Sharpe、Calmar、最大回撤、超额收益转成普通话解释。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" vertex="1" parent="1">
-          <mxGeometry x="1480" y="150" width="360" height="170" as="geometry" />
+        <mxCell id="05-explain" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" value="策略解释器&#xa;StrategyComparisonExplainer.tsx&#xa;把 Sharpe、Calmar、最大回撤、超额收益转成普通话解释。" vertex="1">
+          <mxGeometry height="170" width="360" x="1480" y="150" as="geometry" />
         </mxCell>
-        <mxCell id="05-prof" value="专业视图&#xa;曲线、指标表、benchmark 资格、OOS、walk-forward、参数敏感性、分组稳定性。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#1f2937;" vertex="1" parent="1">
-          <mxGeometry x="250" y="430" width="440" height="180" as="geometry" />
+        <mxCell id="05-prof" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#1f2937;" value="专业视图&#xa;曲线、指标表、benchmark 资格、OOS、walk-forward、参数敏感性、分组稳定性。" vertex="1">
+          <mxGeometry height="180" width="440" x="1000" y="350" as="geometry" />
         </mxCell>
-        <mxCell id="05-blocker" value="阻断原因&#xa;research_proxy / insufficient / validation warning / manual signoff missing / releaseGate blocked。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
-          <mxGeometry x="760" y="430" width="440" height="180" as="geometry" />
+        <mxCell id="05-blocker" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" value="阻断原因&#xa;research_proxy / insufficient / validation warning / manual signoff missing / releaseGate blocked。" vertex="1">
+          <mxGeometry height="180" width="440" x="300" y="550" as="geometry" />
         </mxCell>
-        <mxCell id="05-draft" value="草案与审计&#xa;生成 manualPlanDraft 或查看 blockedReasons；Operations 追踪 artifactRefs。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;" vertex="1" parent="1">
-          <mxGeometry x="1270" y="430" width="440" height="180" as="geometry" />
+        <mxCell id="05-draft" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;" value="草案与审计&#xa;生成 manualPlanDraft 或查看 blockedReasons；Operations 追踪 artifactRefs。" vertex="1">
+          <mxGeometry height="180" width="440" x="1260" y="550" as="geometry" />
         </mxCell>
-        <mxCell id="05-outcome" value="出门验收&#xa;用户 10 秒内知道：哪条策略更稳、哪条收益高、哪条数据不足，以及为什么仍不能交易。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
-          <mxGeometry x="250" y="705" width="1460" height="130" as="geometry" />
+        <mxCell id="05-outcome" parent="1" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" value="出门验收&#xa;用户 10 秒内知道：哪条策略更稳、哪条收益高、哪条数据不足，以及为什么仍不能交易。" vertex="1">
+          <mxGeometry height="130" width="1460" x="250" y="820" as="geometry" />
         </mxCell>
-        <mxCell id="05-e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="05-start" target="05-run">
+        <mxCell id="05-e1" edge="1" parent="1" source="05-start" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="05-run" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="05-e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="05-run" target="05-summary">
+        <mxCell id="05-e2" edge="1" parent="1" source="05-run" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="05-summary" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="05-e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="05-summary" target="05-explain">
+        <mxCell id="05-e3" edge="1" parent="1" source="05-summary" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="05-explain" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="05-e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="05-summary" target="05-prof">
+        <mxCell id="05-e4" edge="1" parent="1" source="05-summary" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="05-prof" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="05-e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="05-prof" target="05-blocker">
+        <mxCell id="05-e5" edge="1" parent="1" source="05-prof" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="05-blocker" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="05-e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="05-blocker" target="05-draft">
+        <mxCell id="05-e6" edge="1" parent="1" source="05-blocker" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="05-draft" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="05-e7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="05-draft" target="05-outcome">
+        <mxCell id="05-e7" edge="1" parent="1" source="05-draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" target="05-outcome" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
@@ -395,7 +395,7 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="06-title" value="开发及验收计划：每项绑定实体状态；先修复 ChatBox，再建设双轨工作台和视觉系统" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
+        <mxCell id="06-title" value="开发及验收计划：先固定 UX 基线，再修复 ChatBox、移动端 Shell 和双轨工作台" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#1f2937;fontColor=#ffffff;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;" vertex="1" parent="1">
           <mxGeometry x="40" y="30" width="1840" height="70" as="geometry" />
         </mxCell>
         <mxCell id="06-ux1" value="UX-1 全局信息架构｜开发中/需修改&#xa;已开发基础：AppLayout.tsx / Dashboard.tsx / 左侧菜单。&#xa;需修改：每页说明本页能做什么、适合谁、下一步。&#xa;验收：首屏不是复杂表格；原专家 Tab 不删除。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
@@ -413,10 +413,10 @@
         <mxCell id="06-ux5" value="UX-5 审计人类可读｜开发中/需修改&#xa;已开发基础：Operations.tsx / acceptance-report.html。&#xa;需修改：任务做了什么、产物在哪里、能否用于交易。&#xa;验收：报告不只服务开发者。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="680" y="390" width="560" height="190" as="geometry" />
         </mxCell>
-        <mxCell id="06-ux6" value="UX-6 视觉降噪与可访问性｜开发中/需修改&#xa;已开发基础：index.css / 页面公共卡片标签表格。&#xa;需修改：统一状态色、隐藏低频列、无文字溢出。&#xa;验收：桌面/平板/移动截图通过。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="06-ux6" value="UX-F0 / UX-6 视觉降噪与可访问性｜开发中/需修改&#xa;已开发基础：index.css / 页面公共卡片标签表格。&#xa;需修改：移动端折叠侧栏、统一 token、状态色降噪、硬编码深色收敛、无文字溢出。&#xa;验收：frontend_ux_consistency_audit.json + 1440px/768px/390px 截图通过。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="1300" y="390" width="560" height="190" as="geometry" />
         </mxCell>
-        <mxCell id="06-test" value="UX-7 / CB-F ChatBox 深度优化｜开发中+待新增&#xa;已开发基础：FamsChatBox.tsx / famsChatService / famsChatTypes.ts。&#xa;待新增：WelcomeTaskBoard / AssistantMessage / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails。&#xa;验收：chatbox_ux_optimization_audit.json + 桌面/移动截图；不得扩大工具权限或交易能力。&#xa;&#xa;UX-8 双轨工作台与视觉系统｜未开发/待新增&#xa;待新增：UserTaskWorkbench / JourneyStepper / ExpertPageChatExplain / design tokens / dual_track_ux_audit.json。&#xa;效果：普通用户走 ChatBox + 工作台，资深用户保留多模块深度入口。&#xa;验收：ChatBox-&gt;工作台、工作台-&gt;专家页、专家页-&gt;ChatBox 解释截图；交易锁定仍显眼。&#xa;&#xa;文档阶段验收：node docs/read-drawio.mjs docs/target-architecture-gap.drawio &gt; docs/read-drawio-output.txt；rg 状态、实体、交易边界。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffffff;strokeColor=#999999;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="06-test" value="UX-F1 到 UX-F3 / CB-F ChatBox 深度优化｜开发中+待新增&#xa;已开发基础：FamsChatBox.tsx / famsChatService / famsChatTypes.ts。&#xa;待新增：WelcomeTaskBoard / AssistantMessage / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails。&#xa;验收：chatbox_ux_optimization_audit.json；主视图必须有结论、关键数字、下一步、数据可信；技术细节默认折叠；核心回复需 answerLevel/summary/keyNumbers/nextActions/dataHealth/evidenceRefs 结构化 payload；不得扩大工具权限或交易能力。&#xa;&#xa;UX-F4 到 UX-F6 / UX-8 双轨工作台与视觉系统｜未开发/待新增&#xa;待新增：UserTaskWorkbench / JourneyStepper / ExpertPageChatExplain / design tokens / dual_track_ux_audit.json。&#xa;效果：普通用户走 ChatBox + 工作台，资深用户保留多模块深度入口。&#xa;验收：ChatBox-&gt;工作台、工作台-&gt;专家页、专家页-&gt;ChatBox 解释截图；DividendLowVol / Backtest / Operations / Analysis 专家页仍可访问；交易锁定仍显眼。&#xa;&#xa;文档阶段验收：node docs/read-drawio.mjs docs/target-architecture-gap.drawio &gt; docs/read-drawio-output.txt；rg 状态、实体、交易边界。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffffff;strokeColor=#999999;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="60" y="680" width="1800" height="170" as="geometry" />
         </mxCell>
       </root>
@@ -486,19 +486,19 @@
         <mxCell id="08-outcome" value="目标体验输出&#xa;普通用户：结论 / 关键数字 / 下一步 / 数据可信 / 图表 / 工作台承接。&#xa;资深用户：继续使用多模块专家页、完整指标、筛选、参数和 artifactRefs。&#xa;两条路径共享同一审计和交易 Gate。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="1530" y="220" width="330" height="170" as="geometry" />
         </mxCell>
-        <mxCell id="08-gap1" value="开发中/需修改：Chat UX 展示层&#xa;chatBoxExperienceOptimized=false&#xa;plainLanguageChatResultReady=false&#xa;dataHealthExplanationReady=false&#xa;技术细节未统一折叠&#xa;移动端需复核&#xa;不能只显示 raw blockedReasons/evidenceRefs" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="08-gap1" value="开发中/需修改：Chat UX 展示层&#xa;chatBoxExperienceOptimized=false&#xa;plainLanguageChatResultReady=false&#xa;dataHealthExplanationReady=false&#xa;技术细节未统一折叠&#xa;移动端 Shell 与对话面板需复核&#xa;不能只显示 raw blockedReasons/evidenceRefs / provider / artifactRefs" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="400" y="470" width="300" height="160" as="geometry" />
         </mxCell>
         <mxCell id="08-gap2" value="开发中/需修改：AgentCore 集成深度&#xa;piAgentCoreRuntimeIntegrated=true&#xa;piLlmAgentLoopEnabled=partial_controlled_intent_router&#xa;deterministic fallback 保留&#xa;fullBusinessToolCoverageReady=false&#xa;chatStreamingReady=false" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="760" y="470" width="320" height="160" as="geometry" />
         </mxCell>
-        <mxCell id="08-target1" value="未开发/待新增：CB-F / UX-7 + UX-8&#xa;WelcomeTaskBoard / AssistantMessage / StructuredResultRenderer&#xa;ActionCardList / DataHealthNotice / AgentStatusDetails&#xa;UserTaskWorkbench / JourneyStepper / ExpertPageChatExplain&#xa;chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json&#xa;后续再做 SSE / WebSocket 流式事件" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="08-target1" value="未开发/待新增：CB-F / UX-7 + UX-8&#xa;WelcomeTaskBoard / AssistantMessage / StructuredResultRenderer&#xa;ActionCardList / DataHealthNotice / AgentStatusDetails&#xa;UserTaskWorkbench / JourneyStepper / ExpertPageChatExplain&#xa;design token registry / responsive shell audit&#xa;chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json&#xa;后续再做 SSE / WebSocket 流式事件" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="1140" y="470" width="330" height="160" as="geometry" />
         </mxCell>
         <mxCell id="08-boundary" value="硬边界&#xa;不得调用非白名单工具&#xa;不得直接访问 shell / 文件系统 / 不受控网络&#xa;不得创建订单&#xa;不得输出正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE&#xa;任何副作用动作必须二次确认并落审计" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#f4cccc;strokeColor=#cc0000;fontColor=#990000;" vertex="1" parent="1">
           <mxGeometry x="1530" y="470" width="330" height="160" as="geometry" />
         </mxCell>
-        <mxCell id="08-accept" value="开发及验收计划&#xa;CB-1 到 CB-5：功能链路、工具权限、结构化结果、Operation 确认、交易边界。&#xa;CB-F / UX-7：欢迎任务卡、普通话结果层级、数据健康提示、技术细节折叠、消息级操作、移动端可读性。&#xa;UX-8：ChatBox-&gt;工作台、工作台-&gt;专家页、专家页-&gt;ChatBox 解释；保留多模块专家入口。&#xa;验收：chatbox_ux_optimization_audit.json；双轨路径截图；formalTradingUnlocked=false、autoTradeUnlocked=false、canCreateOrder=false。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffffff;strokeColor=#999999;fontColor=#1f2937;" vertex="1" parent="1">
+        <mxCell id="08-accept" value="开发及验收计划&#xa;CB-1 到 CB-5：功能链路、工具权限、结构化结果、Operation 确认、交易边界。&#xa;UX-F0：固定 1440px/768px/390px 截图和可访问性基线。&#xa;CB-F / UX-7：欢迎任务卡、普通话结果层级、数据健康提示、技术细节折叠、消息级操作、移动端可读性。&#xa;UX-8：ChatBox-&gt;工作台、工作台-&gt;专家页、专家页-&gt;ChatBox 解释；保留多模块专家入口。&#xa;验收：chatbox_ux_optimization_audit.json；frontend_ux_consistency_audit.json；dual_track_ux_audit.json；trade_boundary_wording_audit.json；formalTradingUnlocked=false、autoTradeUnlocked=false、canCreateOrder=false。" style="rounded=1;whiteSpace=wrap;html=1;spacing=10;fontSize=12;align=left;verticalAlign=top;fillColor=#ffffff;strokeColor=#999999;fontColor=#1f2937;" vertex="1" parent="1">
           <mxGeometry x="60" y="700" width="1800" height="170" as="geometry" />
         </mxCell>
         <mxCell id="08-e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6b7280;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="08-user" target="08-ui">

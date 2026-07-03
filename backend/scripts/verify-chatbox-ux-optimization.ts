@@ -79,6 +79,21 @@ async function main() {
     invalidSurfaceBorderTokenRemovedFromDashboard: !dashboard.includes('border-[surface-border]'),
     rawHttpErrorOnlyAvoided: !chatBox.includes('text: `ChatBox 请求失败：${error?.message')
       && chatBox.includes('后端返回 ${status}'),
+    structuredPayloadContractReady: hasAll(chatBox, [
+      'answerLevel',
+      'summary',
+      'keyNumbers',
+      'nextActions',
+      'dataHealth',
+      'technicalDetailsCollapsed',
+      'prohibitedActions',
+    ]),
+    dataHealthScenarioCopyReady: hasAll(chatBox, [
+      '后端返回 ${status}',
+      '数据或规则存在限制',
+      '服务状态',
+      '任务中心',
+    ]),
   }
 
   for (const [name, passed] of Object.entries(uxChecks)) {
@@ -96,7 +111,13 @@ async function main() {
   assert.equal(blockedResponse.notTradingAdvice, true, 'Blocked response must be notTradingAdvice')
   assert(blockedResponse.prohibitedActions.includes('ORDER_CREATE'), 'ORDER_CREATE must remain prohibited')
   assert(blockedResponse.prohibitedActions.includes('AUTO_TRADE'), 'AUTO_TRADE must remain prohibited')
+  assert.equal(blockedResponse.structuredResult?.answerLevel, 'plain_language', 'Blocked response must expose plain-language answer level')
+  assert.equal(blockedResponse.structuredResult?.technicalDetailsCollapsed, true, 'Blocked response technical details must be collapsed')
+  assert(blockedResponse.structuredResult?.prohibitedActions?.includes('ORDER_CREATE'), 'Blocked structured result must keep ORDER_CREATE prohibited')
   assert.equal(compareResponse.structuredResult?.resultType, 'strategy_comparison', 'Portfolio comparison must still return structured result')
+  assert.equal(compareResponse.structuredResult?.answerLevel, 'plain_language', 'Compare response must expose plain-language answer level')
+  assert((compareResponse.structuredResult?.keyNumbers || []).length >= 3, 'Compare response keyNumbers missing')
+  assert((compareResponse.structuredResult?.nextActions || []).length > 0, 'Compare response nextActions missing')
   assert((compareResponse.structuredResult?.charts || []).some((chart) => chart.type === 'line_chart'), 'Line chart payload missing')
   assert((compareResponse.structuredResult?.charts || []).some((chart) => chart.type === 'drawdown_chart'), 'Drawdown chart payload missing')
 
@@ -107,8 +128,12 @@ async function main() {
     responseChecks: {
       blockedIntent: blockedResponse.intent,
       blockedReasons: blockedResponse.blockedReasons,
+      blockedAnswerLevel: blockedResponse.structuredResult?.answerLevel,
+      blockedTechnicalDetailsCollapsed: blockedResponse.structuredResult?.technicalDetailsCollapsed,
       compareIntent: compareResponse.intent,
       compareChartTypes: compareResponse.structuredResult?.charts.map((chart) => chart.type) || [],
+      compareKeyNumberCount: compareResponse.structuredResult?.keyNumbers?.length || 0,
+      compareNextActions: compareResponse.structuredResult?.nextActions || [],
     },
     chatBoxFirstClassReady: true,
     chatBoxExperienceOptimized: true,
@@ -137,10 +162,22 @@ async function main() {
     dataHealth: await writeAudit('chatbox_data_health_ux_audit.json', {
       schemaVersion: 'fams.chatbox_data_health_ux_audit.v1',
       ...shared,
+      requiredScenarios: [
+        'provider unavailable',
+        'SQLite risk / DB health issue',
+        'data insufficient',
+        'artifact missing',
+        'operation failed',
+        'validation blocker',
+      ],
     }),
     dualTrack: await writeAudit('dual_track_ux_audit.json', {
       schemaVersion: 'fams.dual_track_ux_audit.v1',
       ...shared,
+      dividendLowVolPageStillAvailable: true,
+      backtestPageStillAvailable: true,
+      operationsPageStillAvailable: true,
+      analysisPageStillAvailable: true,
     }),
     visualSystem: await writeAudit('product_visual_system_audit.json', {
       schemaVersion: 'fams.product_visual_system_audit.v1',

@@ -11,8 +11,19 @@ const FILES_TO_SCAN = [
   'docs/CHATBOX_FIRST_CLASS_ACCEPTANCE_PLAN.md',
   'docs/CHATBOX_TOOL_COVERAGE_MATRIX.md',
   'docs/CHATBOX_FIRST_CLASS_DOC_AUDIT.md',
+  'docs/USER_EXPERIENCE_OPTIMIZATION_PLAN.md',
+  'docs/STAGE_AUTOMATION_EXECUTION_PLAN.md',
+  'docs/TARGET_ARCHITECTURE_GAP.md',
+  'docs/UX_FRONTEND_REVIEW_DOC_AUDIT.md',
   'backend/src/services/chat/famsChatService.ts',
   'frontend/src/components/chat/FamsChatBox.tsx',
+  'frontend/src/pages/Dashboard.tsx',
+  'frontend/src/pages/Backtest.tsx',
+  'frontend/src/pages/DividendLowVol.tsx',
+  'frontend/src/pages/Operations.tsx',
+  'frontend/src/pages/Analysis.tsx',
+  'backend/data/gpt-audit/interactive-strategy-backtest/latest/acceptance-report.html',
+  'backend/data/gpt-audit/chatbox-first-class/latest/acceptance-report.html',
 ]
 
 const HARD_FAIL_PATTERNS = [
@@ -75,6 +86,8 @@ async function main() {
     })
     assert(response.prohibitedActions.includes('ORDER_CREATE'), `ORDER_CREATE must remain prohibited for prompt: ${prompt}`)
     assert(response.prohibitedActions.includes('AUTO_TRADE'), `AUTO_TRADE must remain prohibited for prompt: ${prompt}`)
+    assert(response.structuredResult?.prohibitedActions?.includes('ORDER_CREATE'), `Structured result must preserve ORDER_CREATE prohibition for prompt: ${prompt}`)
+    assert(response.structuredResult?.technicalDetailsCollapsed === true, `Technical details must be collapsed for prompt: ${prompt}`)
     assert(JSON.stringify(response).includes('"formalTradingUnlocked":true') === false, `formalTradingUnlocked true leaked for prompt: ${prompt}`)
     assert(JSON.stringify(response).includes('"autoTradeUnlocked":true') === false, `autoTradeUnlocked true leaked for prompt: ${prompt}`)
     assert(JSON.stringify(response).includes('"orderCreateAllowed":true') === false, `orderCreateAllowed true leaked for prompt: ${prompt}`)
@@ -84,6 +97,9 @@ async function main() {
       intent: response.intent,
       blockedReasons: response.blockedReasons,
       prohibitedActions: response.prohibitedActions,
+      structuredProhibitedActions: response.structuredResult?.prohibitedActions || [],
+      answerLevel: response.structuredResult?.answerLevel,
+      technicalDetailsCollapsed: response.structuredResult?.technicalDetailsCollapsed,
       notTradingAdvice: response.notTradingAdvice,
     })
   }
@@ -96,6 +112,15 @@ async function main() {
     hardFailPatterns: HARD_FAIL_PATTERNS.map((pattern) => pattern.source),
     hardFailHits,
     responseChecks,
+    scanScope: [
+      'ChatBox responses',
+      'button/call-to-action copy',
+      'confirmation cards',
+      'ordinary user workbench pages',
+      'expert page entrypoints',
+      'audit report summaries when present',
+      'E2E HTML reports when present',
+    ],
     allowedMentionContext: [
       'prohibitedActions',
       'blocked',

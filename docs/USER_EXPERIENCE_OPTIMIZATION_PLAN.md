@@ -134,6 +134,38 @@ ChatBox / 工作台展示层
 
 不允许把 ChatBox 目标画成替代原多 Tab 专家系统；也不允许把专家页画成被删除、弱化或隐藏的旧入口。
 
+## 2.3 2026-07-03 UX 基线检视结论
+
+本轮只读检视使用桌面和移动端页面截图、样式检索和可访问性抽样完成。结论是：当前功能链路存在，但普通用户体验仍不达标，下一阶段必须先修复体验基线，再继续扩大功能。
+
+关键问题：
+
+1. **移动端外壳失衡**：移动端左侧导航仍常驻，占用过多横向空间，导致 Dashboard、红利低波、策略回测和任务中心主内容被挤成窄列。
+2. **视觉系统过重**：页面被深蓝、深紫、深灰卡片主导，存在工程监控台观感，缺少 light-first、通透、低噪音的财富管理工作台气质。
+3. **硬编码样式扩散**：`#0f172a`、`#111827`、`border-white/10`、深色半透明卡片等样式分散在页面中，未完全收敛到设计 token。
+4. **普通模式仍技术化**：普通用户仍会看到 `validation_evidence`、`free_source_total_return`、`sqlite_lightweight_health_gate`、provider、raw blocker、artifactRefs 等内部术语。
+5. **按钮和标签密度过高**：红利低波、回测和任务中心存在小按钮、状态标签、警示卡片堆叠，主结论、下一步和证据详情的层级不够清晰。
+6. **ChatBox 第一入口不够强**：ChatBox 已经接入，但仍像解释浮层和快捷问题集合，尚未成为“普通用户默认从这里完成任务”的主路径。
+
+这些问题不改变当前交易边界，但会阻止以下状态被声明为 true：
+
+```text
+ordinaryUserExperienceReady=false
+frontendComplexityReduced=false
+chatBoxExperienceOptimized=false
+productVisualRefreshReady=false
+ordinaryUserWorkbenchReady=false
+```
+
+下一阶段验收必须把这些问题转成可检查证据：
+
+- 桌面 1440px、平板 768px、移动端 390px 截图必须证明主路径可读。
+- 移动端主内容不得被常驻侧栏挤压。
+- 页面不得继续被深紫/深蓝高饱和色主导。
+- 普通模式主视图不得只展示内部枚举、provider、raw blocker 或 artifactRefs。
+- ChatBox 主视图必须展示任务入口、结论、关键数字、下一步、数据可信和证据详情。
+- 专家页必须保留，但默认路径必须优先 ChatBox + 工作台。
+
 ## 3. 设计原则
 
 | 原则 | 说明 | 不允许出现 |
@@ -293,6 +325,9 @@ ChatBox / 工作台展示层
 
 开发内容：
 
+- 修复响应式外壳：移动端侧栏必须折叠为菜单或轻量入口，主内容获得完整宽度；桌面端保持左侧专家导航。
+- 建立设计 token：背景、表面、边框、文字、状态色、间距、圆角和阴影统一定义；页面不得继续散落硬编码深色卡片。
+- 视觉方向改为 light-first、低噪音、通透、专业财富管理工作台；深色模式后续可作为主题，而不是默认唯一风格。
 - 减少一屏内彩色标签数量，建立统一状态色：
   - 绿色：可研究/已通过
   - 黄色：需复核/警告
@@ -305,6 +340,8 @@ ChatBox / 工作台展示层
 
 验收标准：
 
+- 移动端截图中，左侧导航不得常驻挤压主内容；Dashboard、红利低波、回测和任务中心的主标题、主要按钮和首屏卡片必须完整可读。
+- `frontend_ux_consistency_audit.json` 必须记录硬编码深色样式数量、低对比度抽样、小按钮抽样、文字溢出和移动端主内容宽度。
 - 红利低波和回测页面截图中不得出现明显文字溢出或标签堆叠不可读。
 - 关键操作按钮名称必须是动词短语，例如“查看区间”“运行回测”“查看阻断”。
 - 自动化截图覆盖桌面、平板和移动端。
@@ -383,6 +420,90 @@ ChatBox / 工作台展示层
 - 视觉验收必须证明页面不再被深紫/深蓝高饱和色主导，状态色数量受控，文字不溢出，卡片不嵌套卡片。
 - 交易边界保持显眼：`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`。
 
+### UX-F0 到 UX-F6 下一阶段执行顺序
+
+为避免“只换颜色但认知负担不变”，下一阶段实际开发必须按以下顺序推进：
+
+| 子阶段 | 目标 | 主要实体 | 出门验收 |
+| --- | --- | --- | --- |
+| UX-F0 基线证据 | 固化当前问题和截图证据 | `frontend_ux_consistency_audit.json`、E2E 截图脚本 | 记录移动端侧栏、硬编码深色、小按钮、低对比度和文字溢出基线；必须包含 1440px、768px、390px 截图 |
+| UX-F1 ChatBox 任务入口 | 让普通用户打开系统就知道先做什么 | `FamsChatBox.tsx`、`WelcomeTaskBoard`、`ActionCardList` | 至少 3 个任务卡；主视图明确研究模式和不能下单 |
+| UX-F2 普通话结果层级 | 把技术输出变成结论、数字、下一步、可信度、证据 | `AssistantMessage`、`StructuredResultRenderer`、`PlainLanguageHelp` | 每条核心回复都有一句话结论和下一步，技术详情默认折叠 |
+| UX-F3 数据健康和交易边界 | 让错误和阻断可理解 | `DataHealthNotice`、`RiskBoundaryBanner`、trade gate 文案审计 | 不直接暴露 raw HTTP/SQLite/provider 错误；禁止动作始终清楚 |
+| UX-F4 响应式外壳 | 修复移动端主内容被侧栏挤压 | `AppLayout.tsx`、全局导航、页面容器 | 390px 移动截图主内容完整，按钮不挤压，图表不裁切 |
+| UX-F5 双轨工作台 | 普通用户走 ChatBox + 工作台，资深用户走专家页 | `Dashboard.tsx`、`UserTaskWorkbench`、`ExpertPageChatExplain` | ChatBox->工作台、工作台->专家页、专家页->ChatBox 三条路径通过 |
+| UX-F6 视觉系统收口 | 建立产品级统一视觉 | `index.css`、公共卡片/按钮/标签/表格组件 | 浅色优先、状态色受控、无卡片嵌套卡片、无明显溢出 |
+
+UX-F0 到 UX-F6 完成并通过截图验收前，不得声明：
+
+```text
+ordinaryUserExperienceReady=true
+frontendComplexityReduced=true
+chatBoxExperienceOptimized=true
+productVisualRefreshReady=true
+```
+
+### UX-F 硬验收补充
+
+ChatBox 的体验优化不得停留在“把自然语言写得更友好”。核心业务回复必须有结构化 payload，供对话框、工作台、审计报告和 E2E 测试共同复核。最低结构：
+
+```json
+{
+  "answerLevel": "plain_language",
+  "summary": "一句话结论",
+  "keyNumbers": [],
+  "nextActions": [],
+  "dataHealth": {},
+  "evidenceRefs": [],
+  "technicalDetailsCollapsed": true,
+  "prohibitedActions": ["ADD", "REDUCE", "ORDER_CREATE", "AUTO_TRADE"]
+}
+```
+
+适用范围：
+
+- 红利低波前三候选。
+- 单票买卖观察区间解释。
+- 永久组合与全天候组合 quick-run 对比。
+- 任务 / Operation 状态解释。
+- 人工计划草案确认卡。
+- 正式交易阻断解释。
+
+`DataHealthNotice` 必须覆盖：
+
+```text
+provider unavailable
+SQLite risk / DB health issue
+data insufficient
+artifact missing
+operation failed
+validation blocker
+```
+
+普通模式不得只展示 `HTTP 400`、`HTTP 500`、`Unknown error`、raw provider 异常或 raw SQLite 异常。专业模式可以展开原始错误，但必须先给普通话解释和恢复路径。
+
+双轨工作台必须用截图和审计 JSON 证明三条路径都成立：
+
+```text
+ChatBox -> 工作台
+工作台 -> 专家页
+专家页 -> ChatBox 解释
+```
+
+`dual_track_ux_audit.json` 至少包含：
+
+```json
+{
+  "expertModuleTabsPreserved": true,
+  "dividendLowVolPageStillAvailable": true,
+  "backtestPageStillAvailable": true,
+  "operationsPageStillAvailable": true,
+  "analysisPageStillAvailable": true
+}
+```
+
+`trade_boundary_wording_audit.json` 必须扫描 ChatBox 回复、按钮文案、确认卡、工作台卡片、专家页入口、审计报告 SUMMARY 和 E2E HTML 报告。任何把人工计划草案、quick-run、formal-review-ready 或 tradeActionReadiness passed 解释为可下单、正式交易可用或自动交易可用的文案，都属于重大规格偏差。
+
 ## 5. 端到端验收
 
 | 用户场景 | 普通用户通过标准 | 专业用户通过标准 |
@@ -413,7 +534,7 @@ npm run run:full-system-e2e-acceptance-report
 
 ```text
 acceptance-report.html
-桌面/平板/移动端截图
+1440px/768px/390px 截图
 frontend_ux_consistency_audit.json
 prd_spec_review.json
 trade_gate_contract.json

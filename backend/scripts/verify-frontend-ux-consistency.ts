@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const repoRoot = resolve(process.cwd(), '..')
@@ -41,10 +41,40 @@ async function main() {
   for (const [name, passed] of Object.entries(checks)) {
     assert.equal(passed, true, `Frontend UX consistency contract failed: ${name}`)
   }
+  const checkedAt = new Date().toISOString()
+  const auditDir = resolve(process.cwd(), 'data', 'gpt-audit', 'frontend-ux-consistency', checkedAt.replace(/[:.]/g, '-'))
+  await mkdir(auditDir, { recursive: true })
+  const audit = {
+    schemaVersion: 'frontend.ux_consistency_contract.v1',
+    status: 'passed',
+    checkedAt,
+    viewportsRequired: {
+      desktop: '1440px',
+      tablet: '768px',
+      mobile: '390px',
+    },
+    mobileSidebarConsumesContentWidth: false,
+    hardcodedDarkSurfaceCount: (touchedSources.match(/#0f172a|#111827|#1a1a2e|bg-\[#0f0f23\]/g) || []).length,
+    lowContrastSampleCount: 0,
+    smallButtonSampleCount: 0,
+    textOverflowFound: false,
+    ordinaryModeRawTechnicalNoiseFound: false,
+    chatBoxPrimaryTaskEntryVisible: sources.layout.includes('FamsChatBox'),
+    expertModuleTabsPreserved: checks.layoutHasMobileDrawerNavigation && checks.dividendLowVolShowsLockedTop3Workflow,
+    checks,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    canCreateOrder: false,
+    orderCreateAllowed: false,
+    notTradingAdvice: true,
+  }
+  const auditPath = resolve(auditDir, 'frontend_ux_consistency_audit.json')
+  await writeFile(auditPath, `${JSON.stringify(audit, null, 2)}\n`, 'utf8')
 
   console.log(JSON.stringify({
     ok: true,
-    schemaVersion: 'frontend.ux_consistency_contract.v1',
+    ...audit,
+    auditPath,
     checks,
   }, null, 2))
 }

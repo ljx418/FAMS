@@ -14,6 +14,10 @@
 
 2026-07-03 实体状态补充：本 drawio 必须让人直接看出哪些实体已开发、哪些开发中需修改、哪些未开发待新增、哪些属于交易硬边界。ChatBox 是第一业务入口，不替代原多 Tab 专家系统；原专家模块继续作为资深用户深度入口，必须在图中与 ChatBox、工作台、API、服务、审计和 Gate 保持强关联。
 
+2026-07-03 UX 基线检视补充：当前页面基础功能存在，但移动端侧栏挤压主内容、深蓝/深紫视觉过重、硬编码深色样式扩散、普通模式技术噪音过多、ChatBox 主任务入口不够强。drawio 第 2、6、8 页已补充移动端 Shell、design token、ChatBox 任务入口、普通话结构化回复、数据健康提示、截图审计和交易边界文案审计。该补充不改变业务代码，也不释放交易能力。
+
+2026-07-03 ChatGPT 复核建议闭环：当前文档可以进入下一阶段实现，但不等于 ChatBox 体验已完成，也不等于正式交易可用。代码阶段必须按 UX-F0 到 UX-F6 顺序执行；UX-F0 必须先生成 1440px、768px、390px 基线截图；ChatBox 核心业务回复必须有 `answerLevel / summary / keyNumbers / nextActions / dataHealth / evidenceRefs / technicalDetailsCollapsed / prohibitedActions` 结构化协议；`DataHealthNotice` 必须覆盖 provider unavailable、SQLite risk、data insufficient、artifact missing、operation failed、validation blocker；`dual_track_ux_audit.json` 必须证明专家页仍可访问；`trade_boundary_wording_audit.json` 必须扫描 ChatBox 回复、按钮、确认卡、工作台、专家页、SUMMARY 和 E2E HTML 报告。
+
 ## 颜色规则
 
 - 灰色：已经实现或本阶段已有基础能力。
@@ -27,8 +31,8 @@
 ## 实体状态索引
 
 - 已开发基础：`FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html`。
-- 开发中 / 需修改：ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、红利低波结论卡、组合回测摘要、任务中心普通用户摘要、统一状态词、视觉降噪、移动端可读性。
-- 未开发 / 待新增：`WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、`JourneyStepper`、`ExpertPageChatExplain`、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`。
+- 开发中 / 需修改：ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、红利低波结论卡、组合回测摘要、任务中心普通用户摘要、统一状态词、视觉降噪、移动端 Shell、硬编码深色收敛、按钮/标签密度控制。
+- 未开发 / 待新增：`WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、`JourneyStepper`、`ExpertPageChatExplain`、design token registry、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json`。
 - 硬边界：`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
 
 ## 分层关系要求
@@ -51,7 +55,7 @@
 3. **体验解释层架构**：展示 `ExperienceModeToggle.tsx`、`PlainLanguageHelp.tsx`、`DividendLowVolDecisionCard.tsx`、`PortfolioBacktestSummaryCard.tsx`、`StrategyComparisonExplainer.tsx`、普通用户工作台和 Chat UX Presentation Layer 如何接入现有页面、API 和审计。
 4. **红利低波用户路径**：展示状态摘要、Top 候选卡、买卖观察区间、数据可信、风险提示、人工计划草案和专业证据展开路径。
 5. **组合回测用户路径**：展示策略选择、多时间段收益曲线、收益来源解释、数据等级、模型有效性、交易阻断和人工计划草案。
-6. **开发及验收计划**：把 UX-1 到 UX-8 映射到实现实体、用户效果、审计产物和验收命令，其中 UX-8 必须晚于 UX-7 / CB-F。
+6. **开发及验收计划**：把 UX-1 到 UX-8 和 UX-F0 到 UX-F6 映射到实现实体、用户效果、审计产物和验收命令，其中必须先固定 UX 基线，再修复 ChatBox、移动端 Shell 和双轨工作台。
 7. **里程碑与出门条件**：列出 M1 到 M4、当前可声明状态、当前不能声明状态、审计文档路径、截图验收和外部审计重点。
 8. **ChatBox 与 AgentCore 业务入口**：说明 ChatBox 如何作为第一业务入口，通过 `FamsChatBox.tsx / chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter` 串起业务查询、quick-run 回测、对话内图表、二次确认、Operation、页面跳转和交易阻断。
 
@@ -120,7 +124,7 @@ formalTradingUnlocked 不得为 true
 autoTradeUnlocked 不得为 true
 orderCreateAllowed 不得为 true
 canCreateOrder 不得为 true
-不得出现正式 ADD / REDUCE 已发布
+不得出现正式买入/卖出动作已发布
 不得出现自动再平衡 ready
 ```
 
@@ -197,8 +201,24 @@ tradeBoundaryWordingContract=passed
 chatBoxUxOptimizationContract=passed
 plainLanguageResultContract=passed
 dataHealthUxContract=passed
+mobileShellAuditContract=passed
+visualTokenRefreshContract=passed
+frontendUxConsistencyAuditContract=passed
 external_review_required_before_each_stage_exit=true
 blockingChatGptDocAuditRequired=false
+```
+
+UX-F 子阶段退出验收必须额外证明：
+
+```text
+uxBaselineScreenshots=1440px/768px/390px
+chatBoxStructuredPayloadContract=passed
+dataHealthNoticeScenarioCoverage=provider_unavailable/sqlite_risk/data_insufficient/artifact_missing/operation_failed/validation_blocker
+dualTrackExpertPagesStillAvailable=true
+tradeBoundaryWordingAuditScope=chatbox/buttons/confirm_cards/workbench/expert_pages/summary/e2e_html
+humanPlanDraftNotMisreadAsOrder=true
+quickRunNotMisreadAsFormalValidation=true
+formalReviewReadyNotMisreadAsFormalTradingReady=true
 ```
 
 ## 风险与备选路线

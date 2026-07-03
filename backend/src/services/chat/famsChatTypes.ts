@@ -61,6 +61,13 @@ export interface FamsChatChartPayload {
 }
 
 export interface FamsChatStructuredResult {
+  answerLevel?: 'plain_language'
+  summary?: string
+  keyNumbers?: FamsChatMetricCard[]
+  nextActions?: string[]
+  dataHealth?: Record<string, unknown>
+  technicalDetailsCollapsed?: true
+  prohibitedActions?: string[]
   resultType:
     | 'strategy_comparison'
     | 'candidate_ranking'

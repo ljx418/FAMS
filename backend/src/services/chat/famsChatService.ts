@@ -1519,6 +1519,13 @@ class FamsChatService {
     dataQualitySummary?: Record<string, unknown>
     toolAudit?: Record<string, unknown>
   }): FamsChatResponse {
+    const structuredResult = this.enrichStructuredResult({
+      structuredResult: input.structuredResult,
+      reply: input.reply,
+      actionCards: input.actionCards,
+      blockedReasons: input.blockedReasons || [],
+      dataQualitySummary: input.dataQualitySummary,
+    })
     return {
       schemaVersion: 'fams.chat.response.v1',
       generatedAt: new Date().toISOString(),
@@ -1532,8 +1539,8 @@ class FamsChatService {
       operationId: input.operationId,
       artifactRefs: input.artifactRefs || [],
       blockedReasons: input.blockedReasons || [],
-      structuredResult: input.structuredResult,
-      dataQualitySummary: input.dataQualitySummary,
+      structuredResult,
+      dataQualitySummary: input.dataQualitySummary || structuredResult?.dataQualitySummary,
       toolAudit: input.toolAudit,
       allowedActions: ALLOWED_ACTIONS,
       prohibitedActions: PROHIBITED_ACTIONS,
@@ -1547,6 +1554,54 @@ class FamsChatService {
           ? 'LLM key is configured for explanation/planning readiness, but FAMS still routes all executable actions through allowlisted tools and confirmations.'
           : 'PI AgentCore is integrated as the controlled tool/runtime adapter. Deterministic planner is used until FAMS_CHAT_LLM_ENABLED=1 is configured.',
       },
+      notTradingAdvice: true,
+    }
+  }
+
+  private enrichStructuredResult(input: {
+    structuredResult?: FamsChatStructuredResult
+    reply: string
+    actionCards: FamsChatActionCard[]
+    blockedReasons: string[]
+    dataQualitySummary?: Record<string, unknown>
+  }): FamsChatStructuredResult | undefined {
+    if (!input.structuredResult) return undefined
+    const lines = input.reply.split(/\n+/).map((line) => line.trim()).filter(Boolean)
+    const blockedReasons = Array.from(new Set([
+      ...(input.structuredResult.blockedReasons || []),
+      ...input.blockedReasons,
+    ]))
+    const dataQualitySummary = input.structuredResult.dataQualitySummary || input.dataQualitySummary || {}
+    const dataHealthStatus = blockedReasons.length > 0
+      || /insufficient|missing|failed|critical|blocked|unavailable/i.test(JSON.stringify(dataQualitySummary))
+      ? 'warning'
+      : 'ok'
+    const nextActions = input.structuredResult.nextActions?.length
+      ? input.structuredResult.nextActions
+      : input.actionCards.length
+        ? input.actionCards.map((card) => card.title).slice(0, 5)
+        : blockedReasons.length
+          ? ['查看证据详情', '打开专家页复核', '不要作为正式交易指令']
+          : ['查看关键数字', '打开对应工作台', '按需展开证据详情']
+
+    return {
+      ...input.structuredResult,
+      answerLevel: input.structuredResult.answerLevel || 'plain_language',
+      summary: input.structuredResult.summary || lines[0] || '已生成研究结果。',
+      keyNumbers: input.structuredResult.keyNumbers?.length
+        ? input.structuredResult.keyNumbers
+        : input.structuredResult.metricCards,
+      nextActions,
+      dataHealth: input.structuredResult.dataHealth || {
+        status: dataHealthStatus,
+        blockedReasons,
+        dataQualitySummary,
+        notTradingAdvice: true,
+      },
+      dataQualitySummary,
+      technicalDetailsCollapsed: true,
+      prohibitedActions: PROHIBITED_ACTIONS,
+      blockedReasons,
       notTradingAdvice: true,
     }
   }

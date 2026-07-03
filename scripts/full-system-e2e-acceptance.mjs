@@ -633,6 +633,23 @@ function buildPrdCoverage(commandResults, apiResults, screenshots) {
   const hasPassedCommand = (name) => commandResults.some((item) => item.name === name && item.status === 'passed')
   const hasPassedApi = (name) => apiResults.some((item) => item.name === name && item.status === 'passed')
   const hasPassedShot = (title) => screenshots.some((item) => item.title === title && item.status === 'passed')
+  const hasPassedUxMatrix = () => {
+    const requiredTitles = [
+      'UX-F0 桌面 1440px Dashboard 总览',
+      'UX-F0 桌面 1440px 红利低波策略',
+      'UX-F0 桌面 1440px 策略回测',
+      'UX-F0 桌面 1440px 任务中心',
+      'UX-F0 平板 768px Dashboard 总览',
+      'UX-F0 平板 768px 红利低波策略',
+      'UX-F0 平板 768px 策略回测',
+      'UX-F0 平板 768px 任务中心',
+      'UX-F0 移动端 390px Dashboard 总览',
+      'UX-F0 移动端 390px 红利低波策略',
+      'UX-F0 移动端 390px 策略回测',
+      'UX-F0 移动端 390px 任务中心',
+    ]
+    return requiredTitles.every((title) => hasPassedShot(title))
+  }
   const rows = [
     {
       capability: '红利低波独立菜单和研究模式说明',
@@ -676,8 +693,8 @@ function buildPrdCoverage(commandResults, apiResults, screenshots) {
     },
     {
       capability: '跨设备基础可读性截图',
-      status: screenshots.some((item) => item.title === '移动端组合回测') && screenshots.some((item) => item.title === '平板端红利低波') ? 'passed' : 'failed',
-      evidence: 'Playwright desktop/tablet/mobile screenshots',
+      status: hasPassedUxMatrix() ? 'passed' : 'failed',
+      evidence: 'Playwright UX-F0 1440px/768px/390px screenshots for Dashboard/DividendLowVol/Backtest/Operations',
     },
     {
       capability: 'ChatBox 业务助手与受控 LLM planner',
@@ -749,6 +766,40 @@ async function runBrowserEvidence(apiResults) {
       status: 'failed',
       error: error instanceof Error ? error.message : String(error),
     })
+  }
+
+  const uxBaselineViewports = [
+    { name: 'desktop-1440', width: 1440, height: 1100, label: '桌面 1440px' },
+    { name: 'tablet-768', width: 768, height: 1024, label: '平板 768px' },
+    { name: 'mobile-390', width: 390, height: 844, label: '移动端 390px' },
+  ]
+  const uxBaselineTargets = [
+    { key: 'dashboard', path: '/dashboard', title: 'Dashboard 总览', requiredTexts: ['FAMS'] },
+    { key: 'dividend-low-vol', path: '/dividend-low-vol', title: '红利低波策略', requiredTexts: ['红利低波策略'] },
+    { key: 'backtest', path: '/backtest', title: '策略回测', requiredTexts: ['策略回测'] },
+    { key: 'operations', path: '/operations', title: '任务中心', requiredTexts: ['任务中心'] },
+  ]
+
+  async function captureUxBaselineMatrix() {
+    for (const viewport of uxBaselineViewports) {
+      // eslint-disable-next-line no-await-in-loop
+      await withPage({ width: viewport.width, height: viewport.height }, async (page) => {
+        for (const target of uxBaselineTargets) {
+          // eslint-disable-next-line no-await-in-loop
+          await page.goto(`${frontendUrl}${target.path}`, { waitUntil: 'domcontentloaded', timeout: 120000 })
+          // eslint-disable-next-line no-await-in-loop
+          await waitForBodyText(page, target.requiredTexts, 120000)
+          // eslint-disable-next-line no-await-in-loop
+          screenshots.push(await screenshot(
+            page,
+            `uxf0-${viewport.name}-${target.key}.png`,
+            `UX-F0 ${viewport.label} ${target.title}`,
+            `${viewport.label} 视口下验证 ${target.title} 主路径可读、主内容不被侧栏挤压。`,
+            target.requiredTexts,
+          ))
+        }
+      })
+    }
   }
 
   try {
@@ -839,6 +890,12 @@ async function runBrowserEvidence(apiResults) {
     })
   } catch (error) {
     await captureFailure('任务中心产物异常', error)
+  }
+
+  try {
+    await captureUxBaselineMatrix()
+  } catch (error) {
+    await captureFailure('UX-F0 响应式基线矩阵异常', error)
   }
 
   return {

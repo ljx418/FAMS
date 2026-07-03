@@ -125,6 +125,27 @@ businessCodeChangeAllowed=false
 
 ChatBox 是第一业务入口和解释层，不是替代原专家系统的单页产品。`DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx` 等多模块专家页必须继续作为资深用户路径存在，并在目标架构中与 ChatBox、工作台、API、服务、审计和 Gate 保持强关联。
 
+2026-07-03 UX 基线检视补充：
+
+```text
+mobileShellBaselineProblemFound=true
+darkPaletteOverdominanceFound=true
+hardcodedDarkSurfaceRiskFound=true
+ordinaryModeTechnicalNoiseFound=true
+chatBoxPrimaryTaskEntryStillWeak=true
+expertModuleTabsMustRemain=true
+documentationOnlyStage=true
+businessCodeChangeAllowed=false
+```
+
+本轮 UX 检视确认：当前页面基础功能可用，但移动端、视觉系统、普通用户路径和 ChatBox 任务入口仍不能支撑 `ordinaryUserExperienceReady=true`。目标架构必须把以下内容作为下一阶段自动化开发前置：
+
+- **移动端 Shell**：`AppLayout.tsx` 在窄屏下必须折叠左侧专家导航，主内容不得被常驻侧栏挤压。
+- **视觉 token**：`index.css` 和公共组件应收敛背景、表面、边框、文字、状态色、间距、圆角和阴影；深蓝/深紫高饱和风格不得继续主导普通用户默认路径。
+- **ChatBox 主路径**：`FamsChatBox.tsx` 必须优先呈现任务卡、普通话结论、数据健康和下一步，而不是把 raw blocker、provider 和 artifactRefs 放在主视图。
+- **双轨关系**：`Dashboard.tsx / UserTaskWorkbench` 承接普通用户路径，`DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx` 继续作为专家深度路径。
+- **验收证据**：后续代码阶段必须生成 `frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`，并提供 1440px、768px、390px 截图。
+
 2026-07-01 ChatBox 文档审计收口：
 
 ```text
@@ -238,8 +259,8 @@ doc_acceptance_audit.json
 | 状态 | 代码/产物实体 | 说明 |
 | --- | --- | --- |
 | 已开发基础 | `FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html` | 后续 UX 改造应复用这些入口和能力，不得删除原多 Tab 专家功能。 |
-| 开发中 / 需修改 | ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、红利低波结论卡、组合回测摘要、任务中心普通用户摘要、统一状态词、视觉降噪、移动端可读性 | 已有基础但不满足普通用户理解、产品级视觉和端到端验收要求。 |
-| 未开发 / 待新增 | `WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、`JourneyStepper`、`ExpertPageChatExplain`、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json` | 下一阶段实现目标，必须在代码阶段产生对应组件或等价可审计实现。 |
+| 开发中 / 需修改 | ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、红利低波结论卡、组合回测摘要、任务中心普通用户摘要、统一状态词、视觉降噪、移动端可读性、移动端 Shell、深色硬编码收敛、按钮/标签密度控制 | 已有基础但不满足普通用户理解、产品级视觉、移动端可读性和端到端验收要求。 |
+| 未开发 / 待新增 | `WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、`JourneyStepper`、`ExpertPageChatExplain`、design token registry、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json` | 下一阶段实现目标，必须在代码阶段产生对应组件或等价可审计实现。 |
 | 硬边界 | `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` | 任何 UX、ChatBox、AgentCore 或工作台改造都不得改变。 |
 
 目标架构分层关系必须按以下链路表达：
@@ -336,12 +357,26 @@ plainLanguageDecisionPathDocumented=true
 chatBoxFirstClassTargetDocumented=true
 chatBoxToolCoverageMatrixDocumented=true
 chatBoxUxOptimizationDocumented=true
+uxBaselineFindingsDocumented=true
+mobileShellFixRequired=true
+visualTokenRefreshRequired=true
+chatBoxTaskEntryRequired=true
+expertTabsPreservedRequired=true
 chatBoxExperienceOptimized=false
 plainLanguageChatResultReady=false
 dataHealthExplanationReady=false
 ```
 
 解释：下一阶段可以进入体验优化自动化开发，但验收必须同时检查普通用户可理解性和专业审计完整性。若 UX 改造导致 blocker、dataTrustGrade、calculationAuditStatus 或 `formalTradingUnlocked=false` 不再明显可见，应视为重大规格偏差。
+
+2026-07-03 ChatGPT 复核建议已纳入目标架构硬验收。下一阶段实现不能只按“视觉优化”理解，必须同时满足：
+
+- UX-F0 先生成 1440px、768px、390px 基线截图和 `frontend_ux_consistency_audit.json`。
+- ChatBox 核心业务回复必须包含 `answerLevel / summary / keyNumbers / nextActions / dataHealth / evidenceRefs / technicalDetailsCollapsed / prohibitedActions` 结构化协议。
+- `DataHealthNotice` 覆盖 provider unavailable、SQLite risk / DB health issue、data insufficient、artifact missing、operation failed、validation blocker。
+- `dual_track_ux_audit.json` 必须证明 `DividendLowVol / Backtest / Operations / Analysis` 专家页仍可访问。
+- `trade_boundary_wording_audit.json` 必须扫描 ChatBox 回复、按钮文案、确认卡、普通用户工作台卡片、专家页入口、审计报告 SUMMARY 和 E2E HTML 报告。
+- 人工计划草案、quick-run、formal-review-ready、tradeActionReadiness passed 不得被解释为可下单、正式交易可用或自动交易可用。
 
 解释：
 

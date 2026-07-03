@@ -38,6 +38,13 @@ type ChatMetricCard = {
 }
 
 type ChatStructuredResult = {
+  answerLevel?: 'plain_language'
+  summary?: string
+  keyNumbers?: ChatMetricCard[]
+  nextActions?: string[]
+  dataHealth?: Record<string, unknown>
+  technicalDetailsCollapsed?: true
+  prohibitedActions?: string[]
   resultType: string
   metricCards: ChatMetricCard[]
   comparisonTable: {
@@ -347,17 +354,31 @@ function DataHealthNotice({ health }: { health: DataHealthState }) {
 
 function StructuredResultRenderer({ result }: { result: ChatStructuredResult }) {
   const table = result.comparisonTable
+  const metrics = result.keyNumbers?.length ? result.keyNumbers : result.metricCards
   return (
     <div className="mt-3 space-y-3">
-      {result.metricCards.length ? (
+      {result.summary ? (
+        <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-950">
+          {result.summary}
+        </div>
+      ) : null}
+      {metrics.length ? (
         <div className="grid grid-cols-2 gap-2">
-          {result.metricCards.map((metric) => (
+          {metrics.map((metric) => (
             <div key={`${metric.label}-${metric.value}`} className={`rounded-lg border px-3 py-2 ${metricColor(metric.status)}`}>
               <div className="text-[11px] text-slate-500">{metric.label}</div>
               <div className="mt-1 break-words text-sm font-semibold">{metric.value ?? 'n/a'}{metric.unit || ''}</div>
               {metric.description ? <div className="mt-1 text-[11px] leading-4 text-slate-500">{metric.description}</div> : null}
             </div>
           ))}
+        </div>
+      ) : null}
+      {result.nextActions?.length ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="text-xs font-medium text-slate-500">建议下一步</div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {result.nextActions.slice(0, 5).map((action) => <Tag key={action} color="blue">{action}</Tag>)}
+          </div>
         </div>
       ) : null}
 

@@ -16,6 +16,13 @@ async function main() {
   assert(response.intent === 'portfolio_backtest_compare', `Expected portfolio_backtest_compare, got ${response.intent}`)
   assert(response.requiresConfirmation === false, 'Quick-run compare should not require confirmation')
   assert(response.structuredResult?.resultType === 'strategy_comparison', 'Structured result should be strategy_comparison')
+  assert(response.structuredResult?.answerLevel === 'plain_language', 'Structured result must expose plain-language answerLevel')
+  assert(typeof response.structuredResult?.summary === 'string' && response.structuredResult.summary.length > 0, 'Structured result summary missing')
+  assert((response.structuredResult?.keyNumbers || []).length >= 3, 'Structured result keyNumbers should be present')
+  assert((response.structuredResult?.nextActions || []).length > 0, 'Structured result nextActions should be present')
+  assert(response.structuredResult?.technicalDetailsCollapsed === true, 'Structured result must default technical details collapsed')
+  assert(response.structuredResult?.prohibitedActions?.includes('ORDER_CREATE'), 'Structured result must carry prohibitedActions')
+  assert(response.structuredResult?.dataHealth && typeof response.structuredResult.dataHealth === 'object', 'Structured result dataHealth missing')
   assert((response.structuredResult?.metricCards || []).length >= 3, 'Metric cards should be present')
   assert((response.structuredResult?.comparisonTable.rows || []).length >= 2, 'Comparison table should include at least two strategies')
   assert((response.structuredResult?.charts || []).some((chart) => chart.type === 'line_chart'), 'Line chart payload missing')
@@ -33,6 +40,13 @@ async function main() {
     conversationId: response.conversationId,
     intent: response.intent,
     resultType: response.structuredResult?.resultType,
+    answerLevel: response.structuredResult?.answerLevel,
+    summary: response.structuredResult?.summary,
+    keyNumberCount: response.structuredResult?.keyNumbers?.length || 0,
+    nextActions: response.structuredResult?.nextActions || [],
+    technicalDetailsCollapsed: response.structuredResult?.technicalDetailsCollapsed,
+    structuredProhibitedActions: response.structuredResult?.prohibitedActions || [],
+    dataHealth: response.structuredResult?.dataHealth,
     metricCardCount: response.structuredResult?.metricCards.length || 0,
     comparisonRows: response.structuredResult?.comparisonTable.rows.length || 0,
     chartTypes: response.structuredResult?.charts.map((chart) => chart.type) || [],
