@@ -18,6 +18,72 @@ async function main() {
   requireDevDbMutationAcknowledgement('verify-operation-recovery')
   const userId = 'default'
   await ensureUser(prisma, userId)
+  const verificationSymbol = 'VERIFYOP001'
+  const verificationOpenKey = `${userId}:verify-operation-recovery`
+
+  await prisma.operation.updateMany({
+    where: {
+      userId,
+      type: 'batch_factset_refresh',
+      status: { in: ['queued', 'running'] },
+      OR: [
+        { progressMessage: { contains: '模拟仍有有效租约的事实集刷新任务' } },
+        { progressMessage: { contains: '模拟服务中断前的事实集刷新任务' } },
+      ],
+    },
+    data: {
+      status: 'cancelled',
+      completedAt: new Date(),
+      cancelRequested: true,
+      leaseOwner: null,
+      leaseToken: null,
+      leaseExpiresAt: null,
+      heartbeatAt: new Date(),
+      errorSummary: 'Verification setup cleanup',
+      errorJson: JSON.stringify({ message: 'Verification setup cleanup' }),
+    },
+  })
+  await prisma.position.deleteMany({
+    where: {
+      userId,
+      openKey: verificationOpenKey,
+    },
+  })
+  const verificationAsset = await prisma.asset.upsert({
+    where: { symbol: verificationSymbol },
+    update: {
+      name: 'Operation Recovery Verification Asset',
+      type: 'stock',
+      currency: 'CNY',
+      exchange: 'SZ',
+      lastPrice: 10,
+      lastUpdated: new Date(),
+    },
+    create: {
+      symbol: verificationSymbol,
+      name: 'Operation Recovery Verification Asset',
+      type: 'stock',
+      currency: 'CNY',
+      exchange: 'SZ',
+      lastPrice: 10,
+      lastUpdated: new Date(),
+    },
+  })
+  const verificationPosition = await prisma.position.create({
+    data: {
+      userId,
+      assetId: verificationAsset.id,
+      quantity: 100,
+      avgCost: 10,
+      currentPrice: 10,
+      marketValue: 1000,
+      costBasis: 1000,
+      unrealizedPnl: 0,
+      status: 'open',
+      source: 'verification',
+      openKey: verificationOpenKey,
+    },
+  })
 
   const protectedOperation = await prisma.operation.create({
     data: {
@@ -45,6 +111,7 @@ async function main() {
       userId,
       type: 'batch_factset_refresh',
       status: 'running',
+      requestedAt: new Date(0),
       startedAt: new Date(Date.now() - 60_000),
       progressPct: 40,
       progressCurrent: 0,
@@ -160,6 +227,10 @@ async function main() {
       errorSummary: 'Verification cleanup',
       errorJson: JSON.stringify({ message: 'Verification cleanup' }),
     },
+  })
+
+  await prisma.position.deleteMany({
+    where: { id: verificationPosition.id },
   })
 }
 

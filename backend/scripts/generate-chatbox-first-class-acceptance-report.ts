@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { famsChatService } from '../src/services/chat/famsChatService.js'
+import { seedPortfolioBacktestAuditHoldings } from './seed-portfolio-backtest-audit-holdings.js'
 
 function escapeHtml(value: unknown) {
   return String(value ?? '')
@@ -71,6 +72,7 @@ function hasDataHealthBlocker(response: Awaited<ReturnType<typeof famsChatServic
 
 async function main() {
   const generatedAt = new Date().toISOString()
+  await seedPortfolioBacktestAuditHoldings()
   const outDir = resolve(process.cwd(), 'data', 'gpt-audit', 'chatbox-agentcore', generatedAt.replace(/[:.]/g, '-'))
   await mkdir(outDir, { recursive: true })
 

@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { fileURLToPath } from 'node:url'
 import { prisma } from '../src/db/prisma.js'
 
 const AUDIT_USER_ID = process.env.FAMS_PORTFOLIO_BACKTEST_AUDIT_USER_ID || 'audit_portfolio_backtest_user'
@@ -16,7 +17,7 @@ function round(value: number, digits = 4) {
   return Math.round(value * factor) / factor
 }
 
-async function main() {
+export async function seedPortfolioBacktestAuditHoldings() {
   await prisma.user.upsert({
     where: { id: AUDIT_USER_ID },
     create: {
@@ -148,7 +149,7 @@ async function main() {
     where: { userId: AUDIT_USER_ID, status: 'open' },
   })
 
-  console.log(JSON.stringify({
+  return {
     ok: true,
     schemaVersion: 'portfolio.backtest.audit_holdings_seed.v1',
     userId: AUDIT_USER_ID,
@@ -157,14 +158,23 @@ async function main() {
     seeded,
     notTradingAdvice: true,
     prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
-  }, null, 2))
+  }
 }
 
-main()
-  .catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-  })
-  .finally(async () => {
-    await prisma.$disconnect().catch(() => undefined)
-  })
+async function main() {
+  const result = await seedPortfolioBacktestAuditHoldings()
+  console.log(JSON.stringify(result, null, 2))
+}
+
+const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]
+
+if (isDirectRun) {
+  main()
+    .catch((error) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(async () => {
+      await prisma.$disconnect().catch(() => undefined)
+    })
+}

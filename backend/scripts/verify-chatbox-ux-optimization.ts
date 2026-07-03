@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { famsChatService } from '../src/services/chat/famsChatService.js'
+import { seedPortfolioBacktestAuditHoldings } from './seed-portfolio-backtest-audit-holdings.js'
 
 const repoRoot = resolve(process.cwd(), '..')
 
@@ -24,6 +25,7 @@ function hasAll(source: string, tokens: string[]) {
 
 async function main() {
   const checkedAt = new Date().toISOString()
+  await seedPortfolioBacktestAuditHoldings()
   const [chatBox, dashboard, backtest, dividendLowVol, operations, layout] = await Promise.all([
     readRepoFile('frontend/src/components/chat/FamsChatBox.tsx'),
     readRepoFile('frontend/src/pages/Dashboard.tsx'),

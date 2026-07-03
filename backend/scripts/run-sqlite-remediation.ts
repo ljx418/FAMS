@@ -331,6 +331,7 @@ async function main() {
   const now = timestamp()
   const promote = process.argv.includes('--promote')
   const allowQuarantine = process.argv.includes('--allow-quarantine')
+  const forceQuarantine = process.argv.includes('--force-quarantine')
   const backupDir = resolve(backendRoot(), 'prisma/backups')
   const auditDir = resolve(backendRoot(), 'data/gpt-audit/sqlite-remediation', now)
   await mkdir(backupDir, { recursive: true })
@@ -404,13 +405,35 @@ async function main() {
       const candidate = quarantineCandidates.find((item) => item.table === row.table)
       return candidate?.status === 'completed' && candidate.ids.length === Math.max(0, sourceCount - recoveredCount)
     })
+  const quarantineSummary = reconciliation
+    .filter((row) => row.status === 'mismatch')
+    .map((row) => {
+      const sourceCount = typeof row.sourceCount === 'number' ? row.sourceCount : 0
+      const recoveredCount = typeof row.recoveredCount === 'number' ? row.recoveredCount : 0
+      const missingCount = Math.max(0, sourceCount - recoveredCount)
+      const candidate = quarantineCandidates.find((item) => item.table === row.table)
+      const enumeratedMissingCount = candidate?.ids.length || 0
+      return {
+        table: row.table,
+        missingCount,
+        enumeratedMissingCount,
+        unexplainedMissingCount: Math.max(0, missingCount - enumeratedMissingCount),
+        status: missingCount === enumeratedMissingCount ? 'fully_enumerated_quarantine' : 'partially_enumerated_quarantine',
+      }
+    })
   const safeForManualPromotion = recover.status === 'completed' && integrityHealthy && criticalTablesRecovered && criticalTablesMatched
   const safeForQuarantinePromotion = recover.status === 'completed'
     && integrityHealthy
     && criticalTablesRecovered
     && mismatchesAccountedFor
     && reconciliation.every((row) => row.status !== 'unresolved_or_quarantined')
-  const promotionAllowed = safeForManualPromotion || (allowQuarantine && safeForQuarantinePromotion)
+  const safeForForceQuarantinePromotion = recover.status === 'completed'
+    && integrityHealthy
+    && criticalTablesRecovered
+    && reconciliation.every((row) => row.status !== 'unresolved_or_quarantined')
+  const promotionAllowed = safeForManualPromotion
+    || (allowQuarantine && safeForQuarantinePromotion)
+    || (forceQuarantine && safeForForceQuarantinePromotion)
   const promoted = promote && promotionAllowed
   let promotedBackupPath: string | null = null
   let promotionError: string | null = null
@@ -469,12 +492,16 @@ async function main() {
       criticalTablesRecovered,
       criticalTablesMatched,
       mismatchesAccountedFor,
+      safeForForceQuarantinePromotion,
+      quarantineSummary,
       quarantineCandidates,
     },
     decision: {
       safeForManualPromotion,
       allowQuarantine,
+      forceQuarantine,
       safeForQuarantinePromotion,
+      safeForForceQuarantinePromotion,
       promoted,
       promotionError,
       largePersistentTasksAllowedAfterPromotion: promoted && !promotionError,
@@ -483,9 +510,10 @@ async function main() {
           'Run npm run check:sqlite-health against promoted DB.',
           'Run full-system E2E and confirm Operations no longer report database disk image is malformed.',
           ...(allowQuarantine && !safeForManualPromotion ? ['Review quarantined row IDs before relying on historical Operation/DividendLowVolDaily completeness.'] : []),
+          ...(forceQuarantine && !safeForManualPromotion ? ['Force quarantine accepted: review quarantineSummary and regenerate derived DividendLowVolDaily snapshots before relying on historical completeness.'] : []),
         ]
         : [
-          'Do not replace dev.db automatically unless --promote is used and safeForManualPromotion=true, or --allow-quarantine is explicitly used with safeForQuarantinePromotion=true.',
+          'Do not replace dev.db automatically unless --promote is used and safeForManualPromotion=true, --allow-quarantine is used with safeForQuarantinePromotion=true, or --force-quarantine is explicitly used with safeForForceQuarantinePromotion=true.',
           'If recover candidate is not safe, keep using fixture/dry-run paths and move persistence to PostgreSQL staging.',
           'Review unresolved_or_quarantined tables before any data promotion.',
         ],
@@ -508,7 +536,9 @@ async function main() {
     integrityHealthy,
     safeForManualPromotion,
     safeForQuarantinePromotion,
+    safeForForceQuarantinePromotion,
     allowQuarantine,
+    forceQuarantine,
     promoted: audit.decision.promoted,
     promotionError,
   }, null, 2))

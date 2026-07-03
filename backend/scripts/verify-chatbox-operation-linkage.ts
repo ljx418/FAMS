@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { prisma } from '../src/db/prisma.js'
 import { famsChatService } from '../src/services/chat/famsChatService.js'
+import { seedPortfolioBacktestAuditHoldings } from './seed-portfolio-backtest-audit-holdings.js'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -9,6 +10,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 async function main() {
   const checkedAt = new Date().toISOString()
+  await seedPortfolioBacktestAuditHoldings()
   const pending = await famsChatService.sendMessage({
     userId: 'audit_portfolio_backtest_user',
     message: '创建一个永久组合对比全天候组合最近三年的持久化回测任务',
