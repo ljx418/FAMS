@@ -55,6 +55,7 @@
     "test:dividend-low-vol-input-builder-tradeability": "node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-input-builder-tradeability.ts",
     "test:dividend-low-vol-frontend-runtime": "node node_modules/tsx/dist/cli.mjs scripts/verify-dividend-low-vol-frontend-runtime.ts",
     "check:sqlite-health": "node node_modules/tsx/dist/cli.mjs scripts/check-sqlite-health.ts",
+    "run:sqlite-remediation": "node node_modules/tsx/dist/cli.mjs scripts/run-sqlite-remediation.ts",
     "run:dividend-low-vol-sqlite-health": "node node_modules/tsx/dist/cli.mjs scripts/check-sqlite-health.ts",
     "run:dividend-low-vol-audit-package": "node node_modules/tsx/dist/cli.mjs scripts/generate-dividend-low-vol-audit-package.ts",
     "run:dividend-low-vol-provider-ingestion": "node node_modules/tsx/dist/cli.mjs scripts/run-dividend-low-vol-provider-ingestion.ts",
