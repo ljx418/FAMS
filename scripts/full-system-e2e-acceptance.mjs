@@ -259,6 +259,63 @@ function buildGitSnapshot() {
   }
 }
 
+function parseJsonFromOutput(output) {
+  const text = stripAnsi(output || '')
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  try {
+    return JSON.parse(text.slice(start, end + 1))
+  } catch {
+    return null
+  }
+}
+
+function buildRuntimeDisclosure(commandResults, apiResults) {
+  const sqliteCommand = commandResults.find((item) => item.name === 'sqlite health')
+  const sqlitePayload = parseJsonFromOutput(sqliteCommand?.stdout)
+  const dividendAuditCommand = commandResults.find((item) => item.name === 'dividend low vol audit package')
+  const dividendAuditPayload = parseJsonFromOutput(dividendAuditCommand?.stdout)
+  const dividendApi = apiResults.find((item) => item.name === '红利低波候选池')
+  const topMissingFields = dividendApi?.summary?.completeness?.topMissingFields || []
+  const persistedCandidateCount = Number(dividendApi?.summary?.candidates || 0)
+  const sqliteCritical = sqlitePayload?.status === 'critical' || sqlitePayload?.sqliteHealthy === false
+  const fixtureFallback = dividendAuditPayload?.package?.candidateSource === 'fixture_fallback_due_to_database_unavailable'
+  const persistedDividendDataBlocked = sqliteCritical || fixtureFallback || topMissingFields.some((item) => item.field === 'runtime.sqliteHealth')
+
+  return {
+    status: persistedDividendDataBlocked ? 'disclosed_runtime_data_risk' : 'ok',
+    humanConclusion: persistedDividendDataBlocked
+      ? '本阶段功能链路和降级路径可审计；但红利低波持久化候选池受运行时健康影响，不能声明真实持久化候选池完整可用。'
+      : '运行时健康未发现阻断本阶段审计的持久化数据风险。',
+    sqliteHealthCommand: {
+      commandStatus: sqliteCommand?.status || 'not_run',
+      healthStatus: sqlitePayload?.status || 'unknown',
+      sqliteHealthy: sqlitePayload?.sqliteHealthy,
+      strict: sqlitePayload?.strict,
+      auditPath: sqlitePayload?.path,
+    },
+    dividendLowVolPersistedCandidates: {
+      apiStatus: dividendApi?.status || 'not_run',
+      persistedCandidateCount,
+      topMissingFields,
+    },
+    dividendLowVolAuditPackage: {
+      commandStatus: dividendAuditCommand?.status || 'not_run',
+      healthStatus: dividendAuditPayload?.health?.status || 'unknown',
+      candidateSource: dividendAuditPayload?.package?.candidateSource || 'unknown',
+      packagePath: dividendAuditPayload?.package?.path,
+      fileCount: dividendAuditPayload?.package?.fileCount,
+    },
+    requiredHumanChecks: [
+      '确认 SQLite health command 可以执行，但输出 healthStatus=critical 时不能把持久化候选池当成完整真实数据证明。',
+      '确认红利低波候选池 API 若返回 candidates=0 且缺 runtime.sqliteHealth，报告不能声明“当前真实候选池已完整生成”。',
+      '确认 fixture_fallback_due_to_database_unavailable 只证明降级审计包可生成，不证明正式持久化 scan/backtest 健康。',
+      '确认正式交易仍需 total-return benchmark、字段级 freshness/cross-check、人工签核和生产下单适配器闭环。',
+    ],
+  }
+}
+
 function buildHumanAuditReadiness(model) {
   const requiredEvidence = [
     ['审计对象与版本', Boolean(model.git?.headCommit) && model.git?.workingTreeClean === true, 'Git commit / branch / origin/main 对齐状态，且工作树干净'],
@@ -269,6 +326,7 @@ function buildHumanAuditReadiness(model) {
     ['自动化测试证据', model.testCoverage?.status === 'passed', '命令、耗时、stdout/stderr 摘要'],
     ['真实 API 交叉验证', assessOverall(model.api || []) === 'passed', 'API 请求、HTTP 状态、响应摘要'],
     ['可视化截图证据', model.browser?.status === 'passed' && (model.browser?.screenshots?.length || 0) >= 8, 'Headless 浏览器截图路径'],
+    ['运行时/真实数据降级披露', Boolean(model.runtimeDisclosure?.status), '运行时与真实数据降级披露章节；SQLite critical 和 fixture fallback 不得隐藏在 stdout 中'],
     ['交易边界', model.summary?.formalTradingUnlocked === 'false' && model.summary?.autoTradeUnlocked === 'false', '正式交易与自动交易锁定说明'],
     ['限制与阻断项', Array.isArray(model.limitations) && model.limitations.length > 0, '限制章节和正式交易阻断章节'],
   ].map(([label, passed, evidence]) => ({
@@ -312,6 +370,12 @@ function buildHumanReviewGuide(model) {
       status: model.prdCoverage?.rows?.find((item) => item.capability.includes('组合策略多曲线'))?.status || 'failed',
     },
     {
+      claim: '运行时与真实数据降级状态已显式披露',
+      howToVerify: '查看“运行时与真实数据降级披露”：SQLite critical、持久化候选池为 0、fixture fallback 若存在必须直接展示。',
+      evidence: 'runtime-disclosure.json + 自动化命令证据 + 红利低波候选池 API',
+      status: model.runtimeDisclosure?.status ? 'passed' : 'failed',
+    },
+    {
       claim: '正式交易与自动交易仍被阻断',
       howToVerify: '查看正式交易阻断章节、trade-action-readiness 输出、ChatBox 被阻断 API 摘要。',
       evidence: 'formalTradingBoundary + test:trade-action-readiness + ChatBox trade_action_blocked',
@@ -335,6 +399,7 @@ function buildHumanReviewGuide(model) {
     '打开截图 03-07 检查红利低波：候选池、筛选、买卖观察区间、人工计划 gate 应可见。',
     '打开截图 08-11 检查组合回测和任务中心：回测结果和 artifact 追溯应可见。',
     '读 API 交叉验证：确认 LLM 状态脱敏、ChatBox 返回 trade_action_blocked、组合回测有 artifact。',
+    '读“运行时与真实数据降级披露”：确认 SQLite critical、候选池为空或 fixture fallback 没有被包装成完整真实数据通过。',
     '读限制与阻断项：确认正式交易、自动交易、生产下单仍未释放。',
   ]
 
@@ -352,6 +417,7 @@ function buildHumanReviewGuide(model) {
       '不能声明 ORDER_CREATE 或 AUTO_TRADE 可用。',
       '不能声明免费数据源等同于正式授权 total-return benchmark。',
       '不能声明每日实时数据最新性已经被本报告完全证明。',
+      '若 runtime disclosure 显示 SQLite critical、持久化候选池为空或 fixture fallback，不能声明红利低波真实持久化候选池完整可用。',
     ],
     auditSteps,
     evidenceMap,
@@ -961,6 +1027,24 @@ function renderReport(model) {
     </tr>
   `).join('\n')
 
+  const runtimeDisclosureRows = [
+    ['披露结论', model.runtimeDisclosure.humanConclusion],
+    ['SQLite health status', model.runtimeDisclosure.sqliteHealthCommand.healthStatus],
+    ['sqliteHealthy', String(model.runtimeDisclosure.sqliteHealthCommand.sqliteHealthy)],
+    ['SQLite 审计文件', model.runtimeDisclosure.sqliteHealthCommand.auditPath || '--'],
+    ['红利低波 persisted candidates', String(model.runtimeDisclosure.dividendLowVolPersistedCandidates.persistedCandidateCount)],
+    ['候选池 topMissingFields', JSON.stringify(model.runtimeDisclosure.dividendLowVolPersistedCandidates.topMissingFields || [])],
+    ['红利低波审计包 health', model.runtimeDisclosure.dividendLowVolAuditPackage.healthStatus],
+    ['红利低波候选来源', model.runtimeDisclosure.dividendLowVolAuditPackage.candidateSource],
+    ['红利低波审计包路径', model.runtimeDisclosure.dividendLowVolAuditPackage.packagePath || '--'],
+  ].map(([label, value]) => `
+    <tr>
+      <td>${escapeHtml(label)}</td>
+      <td>${escapeHtml(value)}</td>
+    </tr>
+  `).join('\n')
+  const runtimeHumanChecks = model.runtimeDisclosure.requiredHumanChecks.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n')
+
   const blockerRows = model.formalTradingBoundary.remainingBlockers.map((item) => `
     <tr>
       <td>${escapeHtml(item)}</td>
@@ -1016,6 +1100,7 @@ function renderReport(model) {
       <div class="metric"><div class="label">Manual Draft Ready</div><div class="value">${escapeHtml(model.summary.manualDraftReady)}</div></div>
       <div class="metric"><div class="label">Formal Trading</div><div class="value">${escapeHtml(model.summary.formalTradingUnlocked)}</div></div>
       <div class="metric"><div class="label">Auto Trade</div><div class="value">${escapeHtml(model.summary.autoTradeUnlocked)}</div></div>
+      <div class="metric"><div class="label">Runtime/Data Disclosure</div><div class="value">${escapeHtml(model.runtimeDisclosure.status)}</div></div>
     </div>
   </section>
 
@@ -1050,6 +1135,13 @@ function renderReport(model) {
     <p>本节用于判断报告本身是否足以支持人类复核本阶段自动化开发。只有下列证据齐全，才可把本报告视为“当前阶段可审计”；这不等于正式交易可用。</p>
   </div>
   <table><thead><tr><th>审计材料</th><th>状态</th><th>证据位置</th></tr></thead><tbody>${humanAuditRows}</tbody></table>
+
+  <h2>运行时与真实数据降级披露</h2>
+  <div class="card">
+    <p>本节专门防止“命令执行通过”被误读为“运行时健康和真实持久化数据完整通过”。如果这里出现 <code>critical</code>、<code>sqliteHealthy=false</code>、<code>fixture_fallback_due_to_database_unavailable</code> 或持久化候选为 0，人类审计者必须把它视为当前阶段限制，而不是正式数据闭环证明。</p>
+    <ul>${runtimeHumanChecks}</ul>
+  </div>
+  <table><thead><tr><th>项目</th><th>证据值</th></tr></thead><tbody>${runtimeDisclosureRows}</tbody></table>
 
   <h2>版本与工作树</h2>
   <div class="card">
@@ -1251,6 +1343,17 @@ async function main() {
     formalTradingUnlocked: 'false',
     autoTradeUnlocked: 'false',
   }
+  const runtimeDisclosure = buildRuntimeDisclosure(commandResults, apiResults)
+  const limitations = [
+    '报告仅使用无头浏览器截图，不抢占桌面焦点。',
+    '若免费数据源或本地缓存不是最新交易日，报告会保留数据新鲜度风险，不会声明每日实时保证。',
+    'tradeActionReadiness 通过只代表 gate 行为正确，不代表策略可以自动交易。',
+    '若组合回测文档仍保留旧的 ETF proxy 阻塞描述，而 API 已通过，将作为文档漂移处理。',
+    '正式 total-return benchmark 与完整外部数据源仍需单独审计，不能因此报告直接解锁正式交易。',
+  ]
+  if (runtimeDisclosure.status !== 'ok') {
+    limitations.push(runtimeDisclosure.humanConclusion)
+  }
 
   const model = {
     schemaVersion: 'fams.full_system_e2e_acceptance.v1',
@@ -1281,13 +1384,8 @@ async function main() {
     servers: serverResults,
     api: apiResults,
     browser,
-    limitations: [
-      '报告仅使用无头浏览器截图，不抢占桌面焦点。',
-      '若免费数据源或本地缓存不是最新交易日，报告会保留数据新鲜度风险，不会声明每日实时保证。',
-      'tradeActionReadiness 通过只代表 gate 行为正确，不代表策略可以自动交易。',
-      '若组合回测文档仍保留旧的 ETF proxy 阻塞描述，而 API 已通过，将作为文档漂移处理。',
-      '正式 total-return benchmark 与完整外部数据源仍需单独审计，不能因此报告直接解锁正式交易。',
-    ],
+    runtimeDisclosure,
+    limitations,
     git: buildGitSnapshot(),
     formalTradingBoundary: {
       formalTradingUnlocked: false,
@@ -1311,6 +1409,7 @@ async function main() {
   await writeFile(path.join(reportDir, 'document-consistency-audit.json'), JSON.stringify(documentAudit, null, 2))
   await writeFile(path.join(reportDir, 'code-inspection-audit.json'), JSON.stringify(codeInspection, null, 2))
   await writeFile(path.join(reportDir, 'architecture-current-vs-target.json'), JSON.stringify(model.architecture, null, 2))
+  await writeFile(path.join(reportDir, 'runtime-disclosure.json'), JSON.stringify(model.runtimeDisclosure, null, 2))
   await writeFile(path.join(reportDir, 'human-review-guide.json'), JSON.stringify(model.humanReviewGuide, null, 2))
   await writeFile(path.join(reportDir, 'human-audit-readiness.json'), JSON.stringify(model.humanAuditReadiness, null, 2))
   await writeFile(path.join(reportDir, 'acceptance-report.html'), renderReport(model).replace(/[ \t]+$/gm, ''))
