@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
+import { RobotOutlined } from '@ant-design/icons'
 import { ExperienceModeToggle, type ExperienceMode } from '../components/common/ExperienceModeToggle'
 import { PlainLanguageHelp } from '../components/common/PlainLanguageHelp'
 import { PortfolioBacktestSummaryCard } from '../components/backtest/PortfolioBacktestSummaryCard'
@@ -26,6 +27,12 @@ const RECOMMENDED_PORTFOLIO_STRATEGY_IDS = [
   'current_holdings_buy_and_hold',
   'local_real_data_sample_60_40',
 ]
+
+const askChatBox = (messageText: string) => {
+  window.dispatchEvent(new CustomEvent('fams-chat:ask', {
+    detail: { message: messageText },
+  }))
+}
 
 const PortfolioCurveChart: React.FC<{ strategies: any[] }> = ({ strategies }) => {
   const completed = strategies.filter((strategy) => Array.isArray(strategy.equityCurve) && strategy.equityCurve.length > 1)
@@ -749,7 +756,15 @@ const Backtest: React.FC = () => {
               {' '}<PlainLanguageHelp term="正式交易 gate" explanation="即使回测表现好，未通过数据、模型、人工签核和执行治理前，也不能生成正式交易动作。" />。
             </div>
           </div>
-          <ExperienceModeToggle value={experienceMode} onChange={handleExperienceModeChange} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              icon={<RobotOutlined />}
+              onClick={() => askChatBox('请用普通话解释当前策略回测页面应该怎么看，以及为什么它不是正式交易建议')}
+            >
+              用 ChatBox 解释本页
+            </Button>
+            <ExperienceModeToggle value={experienceMode} onChange={handleExperienceModeChange} />
+          </div>
         </div>
       </Card>
       <Card title={<span className="text-primary">组合策略对比回测</span>} className="bg-[#1a1a2e] border-surface-border">

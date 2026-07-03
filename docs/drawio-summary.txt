@@ -1,31 +1,59 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-06-30
+更新时间：2026-07-03
 
-本 drawio 文件用于说明 FAMS 当前阶段的用户体验优化目标、当前架构与目标架构差异、体验解释层技术路径、红利低波用户路径、组合回测用户路径、ChatBox/PI AgentCore 业务入口、开发及验收计划、项目里程碑、验收门槛和出门条件。页数固定为 8 页，不超过 8 页。图内不使用无法落地的泛化模块，每个关键节点都绑定到真实页面、API、服务、数据/缓存、体验组件、AgentCore 适配器或审计 artifact。
+本 drawio 文件用于说明 FAMS 当前阶段的用户体验优化目标、当前架构与目标架构差异、体验解释层技术路径、红利低波用户路径、组合回测用户路径、ChatBox 第一公民 / PI AgentCore 业务入口、开发及验收计划、项目里程碑、验收门槛和出门条件。页数固定为 8 页，不超过 8 页。图内不使用无法落地的泛化模块，每个关键节点都绑定到真实页面、API、服务、数据/缓存、体验组件、AgentCore 适配器或审计 artifact。
 
 当前阶段仍是正式交易 release 前置评审，不是正式交易 release。体验优化只能降低理解成本，不能隐藏数据缺口、模型不足和交易锁定。`dataTrustGrade=INSUFFICIENT` 时只能研究观察；`calculationAuditStatus=deterministic_replay_only` 只证明同一输入下公式复算一致，不证明模型有效或策略可交易。
+
+2026-07-01 ChatBox 文档审计结论：当前 drawio 与配套文档可以支撑 ChatBox 第一业务入口 / PI AgentCore 集成进入代码实现阶段，但不能声明 ChatBox 第一公民完整能力已经完成。每个 CB 子阶段退出前仍必须生成审计包、执行 E2E、复核 PRD 规格和交易边界。
+
+2026-07-02 ChatBox UX 主线补充：当前 ChatBox 功能链路已有基础，但体验仍偏技术化。下一阶段优先执行 CB-F / UX-7：任务式入口、普通话结果层级、数据健康提示、技术细节折叠、消息级操作和移动端可读性。该补充不扩大工具权限，不释放正式交易。
+
+2026-07-02 双轨 UX 主线补充：下一阶段不是删除现有多 Tab / 多模块系统，而是建立“普通用户默认 ChatBox + 工作台、资深用户保留专家模块页”的双轨体验。普通用户通过 ChatBox 发起任务、在工作台看摘要、图表、数据可信和下一步；资深用户继续直接进入 DividendLowVol / Backtest / Operations / Audit 等页面使用筛选、排序、参数和完整证据。ChatBox、工作台和专家页必须共享同一 API、服务、审计包和交易 gate。
+
+2026-07-03 实体状态补充：本 drawio 必须让人直接看出哪些实体已开发、哪些开发中需修改、哪些未开发待新增、哪些属于交易硬边界。ChatBox 是第一业务入口，不替代原多 Tab 专家系统；原专家模块继续作为资深用户深度入口，必须在图中与 ChatBox、工作台、API、服务、审计和 Gate 保持强关联。
 
 ## 颜色规则
 
 - 灰色：已经实现或本阶段已有基础能力。
-- 黄色：需要修改、补齐或状态不达标的能力。
-- 橘黄：需要新增的体验解释、正式评审或 release 前置能力。
+- 黄色：开发中 / 需修改 / 体验或状态不达标的能力。
+- 橘黄：未开发 / 待新增的体验解释、正式评审或 release 前置能力。
 - 红色：交易硬边界或禁止事项。
 - 蓝色：用户路径。
 - 绿色：阶段输出、验收结果或允许出门状态。
 - 紫色/蓝紫色：体验解释层，包括普通模式、专业模式、结论卡、术语解释和下一步操作。
 
+## 实体状态索引
+
+- 已开发基础：`FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html`。
+- 开发中 / 需修改：ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、红利低波结论卡、组合回测摘要、任务中心普通用户摘要、统一状态词、视觉降噪、移动端可读性。
+- 未开发 / 待新增：`WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、`JourneyStepper`、`ExpertPageChatExplain`、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`。
+- 硬边界：`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
+
+## 分层关系要求
+
+图内目标架构必须表达以下强关联，不允许只写抽象模块：
+
+```text
+用户自然语言 / 工作台动作
+-> ChatBox UX 展示层与普通用户工作台
+-> 原专家页面和现有 API
+-> 策略服务、数据证据和 Operation
+-> 审计产物与 Trade Gate
+-> 普通用户可理解结果 + 专业用户可复核证据
+```
+
 ## 页面结构
 
-1. **目标体验与用户路径**：普通用户默认看状态摘要、普通话结论、下一步和禁止动作；专业用户可进入完整指标、validation 和审计 artifact。
+1. **目标体验与用户路径**：普通用户默认走 ChatBox + 工作台，看状态摘要、普通话结论、下一步和禁止动作；专业用户保留多模块专家页，可进入完整指标、validation 和审计 artifact。
 2. **当前架构与目标架构差异**：按前端、API、服务、数据、审计/Gate 五层展示“当前基础 -> 需修改 -> 需新增 -> 硬边界 -> 用户体验结果”的强关联路径。
-3. **体验解释层架构**：展示 `ExperienceModeToggle.tsx`、`PlainLanguageHelp.tsx`、`DividendLowVolDecisionCard.tsx`、`PortfolioBacktestSummaryCard.tsx`、`StrategyComparisonExplainer.tsx` 如何接入现有页面、API 和审计。
+3. **体验解释层架构**：展示 `ExperienceModeToggle.tsx`、`PlainLanguageHelp.tsx`、`DividendLowVolDecisionCard.tsx`、`PortfolioBacktestSummaryCard.tsx`、`StrategyComparisonExplainer.tsx`、普通用户工作台和 Chat UX Presentation Layer 如何接入现有页面、API 和审计。
 4. **红利低波用户路径**：展示状态摘要、Top 候选卡、买卖观察区间、数据可信、风险提示、人工计划草案和专业证据展开路径。
 5. **组合回测用户路径**：展示策略选择、多时间段收益曲线、收益来源解释、数据等级、模型有效性、交易阻断和人工计划草案。
-6. **开发及验收计划**：把 UX-1 到 UX-6 映射到实现实体、用户效果、审计产物和验收命令。
+6. **开发及验收计划**：把 UX-1 到 UX-8 映射到实现实体、用户效果、审计产物和验收命令，其中 UX-8 必须晚于 UX-7 / CB-F。
 7. **里程碑与出门条件**：列出 M1 到 M4、当前可声明状态、当前不能声明状态、审计文档路径、截图验收和外部审计重点。
-8. **ChatBox 与 AgentCore 业务入口**：说明 ChatBox 如何通过 `FamsChatBox.tsx / chat.ts / famsChatService / piAgentCoreAdapter` 串起业务查询、二次确认、Operation、页面跳转和交易阻断。
+8. **ChatBox 与 AgentCore 业务入口**：说明 ChatBox 如何作为第一业务入口，通过 `FamsChatBox.tsx / chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter` 串起业务查询、quick-run 回测、对话内图表、二次确认、Operation、页面跳转和交易阻断。
 
 ## 阶段结论
 
@@ -41,7 +69,14 @@ expertModeAvailable=true
 plainLanguageDecisionPathRequired=true
 chatBoxV1Integrated=true
 piAgentCoreRuntimeIntegrated=true
+chatBoxFirstClassTargetDocumented=true
+pass_current_stage_doc_audit=true
+proceed_to_code_implementation=true
+external_review_required_before_each_stage_exit=true
+blockingChatGptDocAuditRequired=false
 ```
+
+说明：`blockingChatGptDocAuditRequired=false` 表示当前文档阶段不再因为等待外部 / ChatGPT 审计而阻断后续实现；`external_review_required_before_each_stage_exit=true` 仍表示每个子阶段退出前必须生成审计包、执行 E2E、复核 PRD 规格和交易边界，必要时可提交外部 / ChatGPT 复核。
 
 当前必须保持：
 
@@ -49,9 +84,20 @@ piAgentCoreRuntimeIntegrated=true
 ordinaryUserExperienceReady=false
 frontendComplexityReduced=false
 chatBoxBusinessEntryReady=false
-piLlmAgentLoopEnabled=false
-chatSessionPersistenceReady=false
+chatBoxFirstClassFunctionalReady=true
+chatBoxExperienceOptimized=false
+chatBoxPlainLanguageReady=false
+chatBoxDataHealthUxReady=false
+piLlmAgentLoopEnabled=partial_controlled_intent_router
+chatSessionPersistenceReady=true
 chatStreamingReady=false
+fullBusinessToolCoverageReady=false
+inlineChartResultReady=false
+chatBoxFirstClassReady=false
+dualTrackExperienceDocumented=true
+ordinaryUserWorkbenchReady=false
+expertModuleTabsPreserved=true
+productVisualRefreshReady=false
 longHorizonRealDataBacktestReady=true
 dataTrustGrade=INSUFFICIENT
 calculationAuditStatus=deterministic_replay_only
@@ -67,7 +113,9 @@ formalTargetWeightPercent=0
 ```text
 ordinaryUserExperienceReady 不得为 true，直到 UX-1 到 UX-6 完成并通过截图验收
 frontendComplexityReduced 不得为 true，直到普通用户路径可读性验收通过
-chatBoxBusinessEntryReady 不得为 true，直到会话持久化、流式事件、PI LLM agent loop 和全业务工具验收通过
+chatBoxExperienceOptimized 不得为 true，直到 CB-F / UX-7 的欢迎任务卡、普通话结果层级、数据健康提示和移动端截图验收通过
+chatBoxBusinessEntryReady 不得为 true，直到全业务工具覆盖、对话内结构化图表、流式事件和完整 PI Agent loop 验收通过
+chatBoxFirstClassReady 不得为 true，直到 CB-1 到 CB-5 实现并通过审计包、E2E 和交易边界验收
 formalTradingUnlocked 不得为 true
 autoTradeUnlocked 不得为 true
 orderCreateAllowed 不得为 true
@@ -81,7 +129,8 @@ canCreateOrder 不得为 true
 - 前端入口：`Dashboard.tsx`、`AppLayout.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`Analysis.tsx`、`FamsChatBox.tsx`
 - 体验组件：`ExperienceModeToggle.tsx`、`PlainLanguageHelp.tsx`、`DividendLowVolDecisionCard.tsx`、`PortfolioBacktestSummaryCard.tsx`、`StrategyComparisonExplainer.tsx`
 - API 入口：`/api/v1/strategy/dividend-low-vol/*`、`/api/v1/strategy/dividend-low-vol/data-readiness`、`/api/v1/portfolio-backtest/*`、`/api/v1/operations/*`、`/api/v1/analysis/fivd-r/*`、`/api/v1/chat/*`
-- ChatBox/AgentCore：`FamsChatBox.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`piAgentCoreAdapter`、`verify-chat-agent-core.ts`、后续 `ChatSession / ChatMessage / chatbox_agentcore_audit.json`
+- ChatBox/AgentCore：`FamsChatBox.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`famsChatTypes.ts`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`verify-chat-agent-core.ts`、`verify-chat-llm-planner.ts`、`CHATBOX_TOOL_COVERAGE_MATRIX.md`、后续 inline chart renderer / `chatbox_first_class_audit.json`
+- ChatBox UX：`WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`chatbox_ux_optimization_audit.json`
 - 组合回测服务：`PortfolioBacktestInputBuilder`、`PortfolioBacktestEngine`、`PortfolioBenchmarkService`、`portfolioBacktestReviewService`
 - 红利低波服务：`dividendLowVolDataReadinessService`、`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService`、`dividendLowVolBacktestService`、`dividendLowVolFivdRAdapter`
 - 数据证据：`DividendLowVolDaily`、`market_bar_canonical`、`market_tradeability_daily`、portfolio holdings snapshot、free-source benchmark、future official benchmark、provider freshness metadata
@@ -90,14 +139,23 @@ canCreateOrder 不得为 true
 
 ## 每页验收重点
 
-- 第 1 页：普通用户能看懂系统当前能做什么、不能做什么、下一步做什么；专业用户能进入证据详情。
+- 第 1 页：普通用户能通过 ChatBox + 工作台看懂系统当前能做什么、不能做什么、下一步做什么；专业用户能继续进入多模块专家页和证据详情。
 - 第 2 页：审核者能按前端、API、服务、数据、审计/Gate 五层看清当前架构如何演进到目标架构。
-- 第 3 页：开发者能明确体验解释层只重组信息层级，不改变策略计算、数据可信判断和交易 gate。
+- 第 3 页：开发者能明确体验解释层和 Chat UX 展示层只重组信息层级，不改变策略计算、数据可信判断和交易 gate。
 - 第 4 页：用户能通过红利低波页面理解 Top 候选、买卖观察区间、风险提示、数据可信和人工计划草案边界。
 - 第 5 页：用户能通过组合回测页面理解不同起止时间段收益曲线、收益来源、benchmark 资格、模型有效性和交易阻断。
-- 第 6 页：开发者能按 UX-1 到 UX-6 执行体验降复杂度开发，并用桌面、平板、移动端截图和审计 JSON 证明普通用户可理解。
+- 第 6 页：开发者能按 UX-1 到 UX-8 执行体验降复杂度开发；先完成 ChatBox UX，再完成双轨工作台和视觉系统，并用桌面、平板、移动端截图和审计 JSON 证明普通用户可理解。
 - 第 7 页：审核者能看懂里程碑、出门条件、不能声明的状态、待审计文档路径和高风险阻断。
-- 第 8 页：审核者能看懂 ChatBox 当前 v1、PI AgentCore 后续目标、工具权限分层、二次确认、Operation 联动、交易阻断和审计产物。
+- 第 8 页：审核者能看懂 ChatBox 第一入口目标、当前 v1 能力、CB-F UX 优化、PI AgentCore 后续目标、全业务工具权限分层、对话内图表、二次确认、Operation 联动、交易阻断和审计产物。
+
+双轨 UX 额外验收：
+
+```text
+chatBoxToWorkbenchPathDocumented=true
+workbenchToExpertPagePathDocumented=true
+expertPageToChatExplainPathDocumented=true
+expertModuleTabsPreserved=true
+```
 
 ## 本体读取验收
 
@@ -117,12 +175,30 @@ drawioPageLimit<=8
 containsConcreteImplementationEntities=true
 containsExperienceLayer=true
 containsChatBoxAgentCore=true
+containsChatBoxFirstClassTarget=true
 containsTradeBoundary=true
 containsDataTrustAndCalculationAudit=true
 documentationStageImplemented=true
 formalTradingReleaseReady=false
 formalTradingUnlocked=false
 autoTradeUnlocked=false
+```
+
+ChatBox 子阶段退出验收必须额外证明：
+
+```text
+toolManifestCoveragePercent=100
+unsafeTools=[]
+extraToolsNotInMatrix=[]
+portfolioBacktestCompareStructuredResultContract=passed
+sideEffectConfirmationContract=passed
+llmPlannerPermissionDriftContract=passed
+tradeBoundaryWordingContract=passed
+chatBoxUxOptimizationContract=passed
+plainLanguageResultContract=passed
+dataHealthUxContract=passed
+external_review_required_before_each_stage_exit=true
+blockingChatGptDocAuditRequired=false
 ```
 
 ## 风险与备选路线
@@ -152,6 +228,9 @@ autoTradeUnlocked=false
 ```text
 docs/USER_EXPERIENCE_OPTIMIZATION_PLAN.md
 docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md
+docs/CHATBOX_TOOL_COVERAGE_MATRIX.md
+docs/CHATBOX_FIRST_CLASS_ACCEPTANCE_PLAN.md
+docs/CHATBOX_FIRST_CLASS_DOC_AUDIT.md
 docs/TARGET_ARCHITECTURE_GAP.md
 docs/read-drawio-output.txt
 backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md

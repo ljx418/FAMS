@@ -22,7 +22,7 @@ import {
 } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { BellOutlined, DatabaseOutlined, HistoryOutlined, MoreOutlined, ReloadOutlined, SearchOutlined, SyncOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { BellOutlined, DatabaseOutlined, HistoryOutlined, MoreOutlined, ReloadOutlined, RobotOutlined, SearchOutlined, SyncOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import axios from 'axios'
 import { useLocation, useNavigate } from 'react-router-dom'
 import ProviderHealthSummary, { type ProviderHealthItem, ProviderHealthTags } from '../components/common/ProviderHealthSummary'
@@ -31,6 +31,12 @@ import ReliabilityWarnings from '../components/common/ReliabilityWarnings'
 import OperationTimeline from '../components/common/OperationTimeline'
 
 const USER_ID = 'default'
+
+const askChatBox = (messageText: string) => {
+  window.dispatchEvent(new CustomEvent('fams-chat:ask', {
+    detail: { message: messageText },
+  }))
+}
 
 type OperationStatus = 'queued' | 'running' | 'completed' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'partial'
 type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'portfolio_backtest_run'
@@ -2896,6 +2902,9 @@ const Operations: React.FC = () => {
           <p className="text-gray-300 mb-0">统一查看价格刷新、每日建议等异步任务状态、失败原因和数据源健康度。</p>
         </div>
         <Space wrap className="operations-action-bar max-w-full">
+          <Button icon={<RobotOutlined />} onClick={() => askChatBox('请用普通话解释任务中心当前应该先看哪些任务、失败原因和审计证据')}>
+            用 ChatBox 解释
+          </Button>
           <Button icon={<ReloadOutlined />} onClick={fetchOperations} loading={loading}>
             刷新列表
           </Button>

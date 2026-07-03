@@ -1,6 +1,6 @@
 # FAMS 用户体验优化开发与验收计划
 
-更新时间：2026-06-30
+更新时间：2026-07-03
 
 ## 1. 阶段定位
 
@@ -13,6 +13,12 @@ plainLanguageDecisionPathRequired=true
 frontendComplexityReduced=false
 formalTradingUnlocked=false
 autoTradeUnlocked=false
+dualTrackExperienceDocumented=true
+chatBoxWorkbenchPrimaryPathDocumented=true
+expertModuleTabsPreserved=true
+productVisualRefreshReady=false
+implementationEntityStatusIndexed=true
+drawioEntityStatusExplicit=true
 ```
 
 本计划不改变交易边界。红利低波、组合回测、人工计划草案仍只能用于研究、观察、比较和人工复核；不得因为界面简化而隐藏数据不足、模型验证不足或正式交易阻断。
@@ -20,15 +26,24 @@ autoTradeUnlocked=false
 2026-06-30 ChatBox / AgentCore 补充定位：
 
 ```text
+chatBoxFirstClassTargetDocumented=true
 chatBoxV1Integrated=true
 piAgentCoreRuntimeIntegrated=true
 chatBoxBusinessEntryReady=false
-piLlmAgentLoopEnabled=false
-chatSessionPersistenceReady=false
+chatBoxUxOptimized=false
+plainLanguageChatResultReady=false
+guidedTaskEntryReady=false
+dataHealthExplanationReady=false
+piLlmAgentLoopEnabled=partial_controlled_intent_router
+chatSessionPersistenceReady=true
 chatStreamingReady=false
+fullBusinessToolCoverageReady=false
+inlineChartResultReady=false
+ordinaryUserWorkbenchReady=false
+expertModuleDeepUseReady=true
 ```
 
-ChatBox 是全局业务入口和体验解释层的一部分，用于帮助用户查询候选、组合、任务、回测入口和阻断原因。它可以发起需要二次确认的扫描、刷新和人工计划草案，但不能创建订单、不能输出正式 ADD / REDUCE，也不能绕过 validation、audit 或 trade gate。ChatBox 后续完整集成计划维护在 `docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md`。
+ChatBox 是第一业务入口和体验解释层的一部分，用于帮助用户查询候选、组合、任务、回测入口和阻断原因。它可以发起需要二次确认的扫描、刷新和人工计划草案，但不能创建订单、不能输出正式 ADD / REDUCE，也不能绕过 validation、audit 或 trade gate。ChatBox 后续完整集成计划维护在 `docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md`，全业务覆盖范围维护在 `docs/CHATBOX_TOOL_COVERAGE_MATRIX.md`。
 
 ## 2. 目标体验
 
@@ -50,6 +65,74 @@ ChatBox 是全局业务入口和体验解释层的一部分，用于帮助用户
 
 - 可展开查看完整候选表、分数明细、字段级 evidence、API artifact、模型验证和审计包路径。
 - 专业模式不得替代默认模式，不能要求普通用户先理解审计术语才能完成基本任务。
+
+## 2.1 双轨体验架构
+
+本阶段 UX 目标不是废弃现有多 Tab / 多模块系统，而是把入口分层：
+
+```text
+普通用户默认路径：
+ChatBox -> 任务工作台 -> 结果摘要 -> 数据可信/交易阻断 -> 必要时跳转详情
+
+资深用户深度路径：
+左侧菜单 / 多 Tab 模块 -> 红利低波、组合回测、任务、审计、持仓等页面直接操作
+```
+
+产品体验定义：
+
+- ChatBox 是普通用户默认入口，负责自然语言理解、任务推荐、结果摘要、图表展示、下一步行动和阻断解释。
+- 任务工作台承接 ChatBox 的结果，把“候选、组合回测、任务状态、人工计划草案、审计链接”整理成低认知负担的操作路径。
+- 现有专家模块页保留，作为资深用户和审计用户的深度工作台；不得因为 ChatBox 优化而删除专业表格、筛选、排序、证据、artifact 和 validation 入口。
+- ChatBox 与专家模块页必须共享同一套 API、服务、审计产物和交易 gate；ChatBox 只是入口和解释层，不是绕过系统的独立智能体。
+
+典型普通用户路径：
+
+```text
+打开系统 -> 看到 ChatBox 和“今天先做什么”任务工作台
+-> 输入“对比永久组合和全天候组合最近三年收益和最大回撤”
+-> ChatBox 返回摘要、指标卡、收益曲线、回撤曲线、数据可信和非交易提示
+-> 用户点击“查看完整工作台”
+-> 工作台展示回测详情、证据、数据缺口和审计链接
+-> 需要深入时跳转 Backtest 专家页面
+```
+
+典型资深用户路径：
+
+```text
+打开系统 -> 直接进入左侧菜单中的 DividendLowVol / Backtest / Operations / Audit
+-> 使用筛选、排序、参数配置、完整指标、字段级 evidence 和 artifactRefs
+-> 必要时调用 ChatBox 解释当前页面结果或继续追问
+```
+
+视觉体验目标：
+
+- 默认视觉方向为“light-first、通透、低噪音、专业财富管理工作台”，避免当前深紫/深蓝高饱和监控台观感继续扩散。
+- 专家模块可以保留更高信息密度，但必须遵守统一设计 token、状态色、排版层级和可访问性标准。
+- 普通用户工作台优先使用结论卡、任务卡、摘要图表和折叠证据；专家细节默认不占据首屏。
+
+## 2.2 实体状态矩阵
+
+本阶段文档和 drawio 必须直接标注每类代码实体的状态，不能只用“数据层 / 策略层 / 展示层”等抽象词。状态定义如下：
+
+| 状态 | 图中颜色 | 代表含义 | 当前实体 |
+| --- | --- | --- | --- |
+| 已开发基础 | 灰色 | 现有代码路径已经存在，可作为后续 UX 改造依赖 | `FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html` |
+| 开发中 / 需修改 | 黄色 | 已有入口或能力，但体验、状态词、结构化结果、数据健康或视觉层级不达标 | ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、红利低波结论卡、组合回测摘要、任务中心普通用户摘要、视觉降噪和可访问性 |
+| 未开发 / 待新增 | 橘黄 | 目标体验需要新增的前端组件、审计产物或图表承接能力 | `WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、`JourneyStepper`、`ExpertPageChatExplain`、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json` |
+| 硬边界 | 红色 | 不因 UX 优化改变，任何入口都不能绕过 | `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` |
+
+实体关联关系必须在 drawio 中体现为：
+
+```text
+ChatBox / 工作台展示层
+-> 现有页面与 API
+-> 现有策略服务和数据证据
+-> Operation 与审计产物
+-> Trade Gate 硬边界
+-> 用户可理解结果
+```
+
+不允许把 ChatBox 目标画成替代原多 Tab 专家系统；也不允许把专家页画成被删除、弱化或隐藏的旧入口。
 
 ## 3. 设计原则
 
@@ -83,6 +166,7 @@ ChatBox 是全局业务入口和体验解释层的一部分，用于帮助用户
 - 红利低波页面默认显示 5 步工作台：看状态、筛候选、看区间、跑回测、生成草案。
 - 回测页面默认显示 3 步路径：选策略、选时间、看曲线与阻断。
 - ChatBox 默认提供“红利低波前三候选 / 当前组合情况 / 最近任务状态 / 为什么不能下单”四类快捷问题，并用行动卡跳转到对应页面。
+- ChatBox 后续第一公民目标必须支持“永久投资组合 vs 全天候投资组合最近三年收益和最大回撤”的对话内 quick-run 比较，并返回收益曲线、回撤曲线、指标卡、数据缺口和非交易建议提示。
 
 验收标准：
 
@@ -90,6 +174,7 @@ ChatBox 是全局业务入口和体验解释层的一部分，用于帮助用户
 - 首屏不能只展示复杂表格。
 - 移动端和桌面端均可看到页面目的和下一步按钮。
 - ChatBox 首屏必须显示“研究模式 / 不创建订单 / 正式交易仍锁定”的边界说明。
+- ChatBox 的结构化结果不得只返回自然语言；组合比较类结果必须能落到图表 payload 或明确说明当前缺口。
 
 ### UX-2 普通模式 / 专业模式
 
@@ -224,6 +309,80 @@ ChatBox 是全局业务入口和体验解释层的一部分，用于帮助用户
 - 关键操作按钮名称必须是动词短语，例如“查看区间”“运行回测”“查看阻断”。
 - 自动化截图覆盖桌面、平板和移动端。
 
+### UX-7 / CB-F ChatBox 对话体验深度优化
+
+目标：把当前偏技术调试面板的 ChatBox 改造成普通用户能理解、能继续操作、能看清边界的第一业务入口。该阶段承接 `CHATBOX_FIRST_CLASS_ACCEPTANCE_PLAN.md` 的功能链路，不扩大工具权限，不改变交易 gate。
+
+实现实体：
+
+- `frontend/src/components/chat/FamsChatBox.tsx`
+- 后续拆分组件：`ChatLauncher`、`ChatPanel`、`WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`
+- `backend/src/services/chat/famsChatService.ts`
+- `backend/src/services/chat/famsChatTypes.ts`
+- `backend/src/routes/chat.ts`
+
+开发内容：
+
+- ChatBox 首屏从长文本快捷问题改为任务卡，按“今天先看什么 / 对比组合策略 / 分析红利低波 / 解释不能交易 / 查看任务审计”组织。
+- 助手回复统一为“结论 / 关键数字 / 下一步 / 数据可信 / 证据详情”。证据、provider、mode、内部状态码默认折叠。
+- 数据异常、SQLite 损坏、provider 不可用、数据不足时，显示普通话数据健康提示和安全下一步，不直接暴露 `HTTP 400/500` 或原始异常。
+- 组合策略对比、红利低波候选、单票观察区间、任务状态和交易阻断都必须返回用户可读摘要。
+- 需要副作用的扫描、刷新、持久化回测、人工计划草案继续使用确认卡；确认卡必须说明“会创建什么、不会创建订单、在哪里查看结果”。
+- 消息级操作支持“重试 / 复制 / 打开相关页面 / 查看证据 / 继续追问”。
+- 技术状态，例如 LLM provider、key 状态、planner mode、AgentCore runtime，移入“技术状态”折叠区。
+
+验收标准：
+
+- 普通用户打开 ChatBox 后，不输入也能看到 3 个以上清晰任务入口。
+- 每条助手回复主视图必须包含一句话结论和下一步动作。
+- 主视图不得只展示 raw `blockedReasons`、`evidenceRefs`、provider、mode 或内部枚举。
+- 数据异常必须展示 `DataHealthNotice` 风格的用户可读解释和恢复路径。
+- “为什么不能下单”必须明确 `canCreateOrder=false`、`orderCreateAllowed=false`、`formalTradingUnlocked=false`、`autoTradeUnlocked=false`。
+- 组合策略对比结果必须在对话框内显示指标卡、收益曲线、回撤曲线、数据可信度和非交易建议提示。
+- 移动端和桌面端截图不得出现文字溢出、图表遮挡或按钮挤压。
+- 不得出现“可交易、可下单、正式买入、正式卖出、自动交易、自动再平衡已启用”等误导文案。
+
+### UX-8 产品级双轨体验与视觉系统重构
+
+目标：在 UX-7 / CB-F ChatBox 体验优化之后，把全站从“模块堆叠的工程后台”升级为“ChatBox + 工作台优先、专家模块保留”的双轨体验。
+
+执行顺序：
+
+```text
+先完成 UX-7 / CB-F：
+任务式 ChatBox、普通话结果、数据健康提示、技术细节折叠、移动端可读。
+
+再进入 UX-8：
+产品级用户旅程、工作台承接页、统一视觉系统、专家模块视觉降噪。
+```
+
+实现实体：
+
+- `frontend/src/components/layout/AppLayout.tsx`
+- `frontend/src/pages/Dashboard.tsx`
+- `frontend/src/components/chat/FamsChatBox.tsx`
+- `frontend/src/pages/DividendLowVol.tsx`
+- `frontend/src/pages/Backtest.tsx`
+- `frontend/src/pages/Operations.tsx`
+- 后续新增普通用户工作台组件：`UserTaskWorkbench`、`JourneyStepper`、`DecisionSummaryCard`、`EvidenceDrawer`、`DataTrustPill`、`RiskBoundaryBanner`
+
+开发内容：
+
+- 首页和 ChatBox 共同形成普通用户主路径：今日状态、推荐任务、最近结果、继续追问、查看完整工作台。
+- 专家模块页继续存在，但在导航和页面标题中明确标记为“深度工作台 / 专业模式”。
+- ChatBox 结果必须能跳转到对应工作台状态，而不是只跳到原始复杂表格。
+- 每个专家页面提供“用 ChatBox 解释当前结果”的反向入口。
+- 建立统一视觉 token：浅色优先、低饱和中性色、少量语义状态色、柔和边框、稳定间距、可访问对比度。
+- 禁止只通过换色解决 UX 问题；必须同时完成信息架构、层级、工作台和专家路径分离。
+
+验收标准：
+
+- 普通用户不进入专家页面，也能通过 ChatBox + 工作台完成：候选查询、组合对比、观察区间解释、任务状态和交易阻断理解。
+- 资深用户仍能通过左侧菜单直接进入各模块完成筛选、排序、参数配置、完整指标查看和审计追踪。
+- ChatBox 到工作台、工作台到专家页、专家页回到 ChatBox 的三类跳转均可被 E2E 截图证明。
+- 视觉验收必须证明页面不再被深紫/深蓝高饱和色主导，状态色数量受控，文字不溢出，卡片不嵌套卡片。
+- 交易边界保持显眼：`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`。
+
 ## 5. 端到端验收
 
 | 用户场景 | 普通用户通过标准 | 专业用户通过标准 |
@@ -233,7 +392,9 @@ ChatBox 是全局业务入口和体验解释层的一部分，用于帮助用户
 | 组合回测 | 能看懂哪条策略收益高、回撤低、数据不足 | 能查看曲线、指标、benchmark、validation 和 artifact |
 | 人工计划草案 | 能看懂草案待复核、不构成交易指令 | 能查看 checklist、blockedReasons 和 gate contract |
 | 任务审计 | 能看懂任务是否成功和产物用途 | 能定位审计包和 JSON artifact |
-| ChatBox 业务入口 | 能用自然语言找到候选、组合、任务和阻断原因 | 能确认工具、operationId、artifactRefs 和交易 gate |
+| ChatBox 业务入口 | 能用自然语言找到候选、组合、任务和阻断原因；能看懂结论、下一步和数据健康状态 | 能确认工具、operationId、artifactRefs、技术状态和交易 gate |
+| 双轨体验 | 能通过 ChatBox + 工作台完成主流程，不必进入复杂模块 | 能继续使用多 Tab / 多模块页面做深度操作 |
+| 视觉系统 | 能快速扫描结论、风险和下一步，界面低噪音且有通透感 | 能在高密度页面中保持可读、可筛选、可审计 |
 
 验收命令：
 
@@ -257,6 +418,7 @@ frontend_ux_consistency_audit.json
 prd_spec_review.json
 trade_gate_contract.json
 chatbox_agentcore_audit.json
+chatbox_ux_optimization_audit.json
 ```
 
 ## 6. 出门条件
@@ -268,6 +430,14 @@ ordinaryUserExperienceReady=true
 expertModeAvailable=true
 plainLanguageDecisionPathReady=true
 frontendComplexityReduced=true
+chatBoxUxOptimized=true
+plainLanguageChatResultReady=true
+guidedTaskEntryReady=true
+dataHealthExplanationReady=true
+dualTrackExperienceReady=true
+ordinaryUserWorkbenchReady=true
+expertModuleTabsPreserved=true
+productVisualRefreshReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```

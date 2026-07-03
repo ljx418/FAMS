@@ -12,12 +12,21 @@ type PlannerDecision = {
 }
 
 const VALID_INTENTS: FamsChatIntent[] = [
-  'dividend_low_vol_candidates',
+  'dividend_low_vol_top_candidates',
+  'dividend_low_vol_trading_zone',
   'dividend_low_vol_scan',
+  'dividend_low_vol_plan_draft',
+  'refresh_data',
   'portfolio_summary',
-  'portfolio_backtest',
+  'portfolio_risk_explain',
+  'portfolio_backtest_compare',
+  'portfolio_backtest_operation',
+  'portfolio_backtest_explain',
   'manual_trade_draft',
   'operation_status',
+  'audit_report_explain',
+  'data_trust_explain',
+  'navigate_to_page',
   'trade_action_blocked',
   'capability_help',
 ]
@@ -54,6 +63,9 @@ function sanitizeDecision(parsed: Record<string, unknown>): PlannerDecision | nu
   if (rawContext.topN != null) context.topN = Math.max(1, Math.min(10, Number(rawContext.topN) || 3))
   if (rawContext.limit != null) context.limit = Math.max(10, Math.min(6000, Number(rawContext.limit) || 120))
   if (rawContext.universe === 'all_a' || rawContext.universe === 'provided_symbols') context.universe = rawContext.universe
+  if (typeof rawContext.symbol === 'string') context.symbol = rawContext.symbol.slice(0, 16)
+  if (Array.isArray(rawContext.strategies)) context.portfolioStrategyIds = rawContext.strategies.filter((item) => typeof item === 'string').slice(0, 6)
+  if (Array.isArray(rawContext.portfolioStrategyIds)) context.portfolioStrategyIds = rawContext.portfolioStrategyIds.filter((item) => typeof item === 'string').slice(0, 6)
   return {
     intent,
     confidence,
@@ -98,7 +110,7 @@ class ChatLlmPlannerService {
         '只输出 JSON，不要 Markdown。',
         'JSON 字段：intent, confidence, context, reason。',
         `可选 intent：${VALID_INTENTS.join(', ')}`,
-        'context 只允许 topN、limit、universe。不要返回其他字段。',
+        'context 只允许 topN、limit、universe、symbol、portfolioStrategyIds。不要返回其他字段。',
       ].join('\n'),
       messages: [
         {

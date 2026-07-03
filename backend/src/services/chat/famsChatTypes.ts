@@ -1,12 +1,22 @@
-export type FamsChatToolRisk = 'read' | 'confirm_required' | 'blocked'
+export type FamsChatToolRisk = 'read' | 'compute' | 'confirm_required' | 'blocked'
+export type FamsChatPermissionType = 'read_only_direct' | 'compute_quick_run' | 'confirm_before_operation' | 'permanently_blocked'
 
 export type FamsChatIntent =
-  | 'dividend_low_vol_candidates'
+  | 'dividend_low_vol_top_candidates'
+  | 'dividend_low_vol_trading_zone'
   | 'dividend_low_vol_scan'
+  | 'dividend_low_vol_plan_draft'
+  | 'refresh_data'
   | 'portfolio_summary'
-  | 'portfolio_backtest'
+  | 'portfolio_risk_explain'
+  | 'portfolio_backtest_compare'
+  | 'portfolio_backtest_operation'
+  | 'portfolio_backtest_explain'
   | 'manual_trade_draft'
   | 'operation_status'
+  | 'audit_report_explain'
+  | 'data_trust_explain'
+  | 'navigate_to_page'
   | 'trade_action_blocked'
   | 'capability_help'
 
@@ -24,6 +34,54 @@ export interface FamsChatActionCard {
   status?: 'ready' | 'requires_confirmation' | 'blocked' | 'completed'
 }
 
+export interface FamsChatMetricCard {
+  label: string
+  value: string | number | null
+  unit?: string
+  status?: 'good' | 'warning' | 'blocked' | 'neutral'
+  description?: string
+}
+
+export interface FamsChatComparisonColumn {
+  key: string
+  label: string
+}
+
+export interface FamsChatChartSeries {
+  name: string
+  data: Array<[string, number | null]>
+}
+
+export interface FamsChatChartPayload {
+  type: 'line_chart' | 'drawdown_chart'
+  title: string
+  xAxisType: 'time' | 'category'
+  yAxisLabel: string
+  series: FamsChatChartSeries[]
+}
+
+export interface FamsChatStructuredResult {
+  resultType:
+    | 'strategy_comparison'
+    | 'candidate_ranking'
+    | 'trading_zone'
+    | 'portfolio_summary'
+    | 'operation_status'
+    | 'blocked_action'
+    | 'plain_text'
+  metricCards: FamsChatMetricCard[]
+  comparisonTable: {
+    columns: FamsChatComparisonColumn[]
+    rows: Array<Record<string, string | number | null>>
+    insufficientReason?: string
+  }
+  charts: FamsChatChartPayload[]
+  dataQualitySummary?: Record<string, unknown>
+  evidenceRefs: string[]
+  blockedReasons: string[]
+  notTradingAdvice: true
+}
+
 export interface FamsChatResponse {
   schemaVersion: 'fams.chat.response.v1'
   generatedAt: string
@@ -37,6 +95,9 @@ export interface FamsChatResponse {
   operationId?: string
   artifactRefs: string[]
   blockedReasons: string[]
+  structuredResult?: FamsChatStructuredResult
+  dataQualitySummary?: Record<string, unknown>
+  toolAudit?: Record<string, unknown>
   allowedActions: string[]
   prohibitedActions: string[]
   agentCore: {
@@ -65,14 +126,21 @@ export interface FamsChatConfirmationInput {
 
 export interface FamsChatTool {
   name: string
+  intent: FamsChatIntent
   label: string
   description: string
   risk: FamsChatToolRisk
+  permissionType: FamsChatPermissionType
+  confirmationPolicy: 'none' | 'required' | 'blocked'
+  auditFields: string[]
   execute: (args: Record<string, unknown>) => Promise<{
     reply: string
     actionCards?: FamsChatActionCard[]
     operationId?: string
     artifactRefs?: string[]
     blockedReasons?: string[]
+    structuredResult?: FamsChatStructuredResult
+    dataQualitySummary?: Record<string, unknown>
+    toolAudit?: Record<string, unknown>
   }>
 }

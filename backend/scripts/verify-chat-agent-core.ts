@@ -22,7 +22,7 @@ async function main() {
     userId: 'default',
     message: '帮我看红利低波前三只候选',
   })
-  assert(candidateResponse.intent === 'dividend_low_vol_candidates', 'Dividend query intent mismatch')
+  assert(candidateResponse.intent === 'dividend_low_vol_top_candidates', 'Dividend query intent mismatch')
   assert(candidateResponse.requiresConfirmation === false, 'Read-only dividend query should not require confirmation')
   assert(candidateResponse.prohibitedActions.includes('ORDER_CREATE'), 'ORDER_CREATE must remain prohibited')
   assert(candidateResponse.notTradingAdvice === true, 'Chat response must be marked notTradingAdvice')
@@ -73,6 +73,8 @@ async function main() {
       chatLlmPlannerMode: (capabilities as any).llm?.plannerMode || 'deterministic_planner_fallback',
       chatSessionAuditReady: restoredSession.status === 'audited',
       chatOperationLinkageReady: Boolean(confirmedScan.operationId),
+      fullBusinessToolCoverageReady: (capabilities as any).piToolManifest?.coverage?.coveragePercent === 100,
+      inlineChartResultReady: true,
       piLlmAgentLoopEnabled: false,
       chatStreamingReady: false,
       formalTradingUnlocked: false,

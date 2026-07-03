@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Card, Collapse, Empty, InputNumber, Select, Slider, Spin, Table, Tag, Tooltip, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { FilterOutlined, ReloadOutlined } from '@ant-design/icons'
+import { FilterOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons'
 import { ExperienceModeToggle, type ExperienceMode } from '../components/common/ExperienceModeToggle'
 import { PlainLanguageHelp } from '../components/common/PlainLanguageHelp'
 import { DividendLowVolDecisionCard } from '../components/dividend-low-vol/DividendLowVolDecisionCard'
@@ -55,6 +55,12 @@ import {
 
 const SYMBOLS = ['600000', '000001', '601398', '600519']
 const DEFAULT_ALL_A_LIMIT = 6000
+
+const askChatBox = (messageText: string) => {
+  window.dispatchEvent(new CustomEvent('fams-chat:ask', {
+    detail: { message: messageText },
+  }))
+}
 
 type Candidate = DividendLowVolCandidatePool['candidates'][number]
 type ActiveTop3Selection = {
@@ -300,7 +306,7 @@ const isCompleteDisplayCandidate = (candidate: Candidate) => {
   ]
   return Boolean(candidate.identity.symbol && candidate.identity.name && candidate.identity.industry)
     && requiredNumbers.every(hasNumber)
-    && candidate.dataGapSummary.length === 0
+    && (candidate.dataGapSummary || []).length === 0
     && !candidate.alerts.some((alert) => alert.type === 'DIVIDEND_DATA_GAP')
 }
 
@@ -479,7 +485,7 @@ const DividendLowVol: React.FC = () => {
     try {
       const result = await getDividendLowVolTradingZones(selectedSymbols, { limit: selectedSymbols.length, persistedOnly: true })
       setTradingZones(result)
-      message.success(`买卖区间已生成：${result.zones.length} 个标的，输入 ${selectedSymbols.join(' / ')}`)
+      message.success(`买卖区间已生成：${(result.zones || []).length} 个标的，输入 ${selectedSymbols.join(' / ')}`)
     } catch (error) {
       console.error(error)
       message.error('买卖区间生成失败')
@@ -591,7 +597,7 @@ const DividendLowVol: React.FC = () => {
         draftId: manualTradeDraft.draftId,
         decision,
         reason: reasonByDecision[decision],
-        selectedSymbols: manualTradeDraft.actions.map((action) => action.symbol),
+        selectedSymbols: (manualTradeDraft.actions || []).map((action) => action.symbol),
       })
       setManualDraftReview(result)
       if (result.watchlistArtifactRef || decision === 'approve_for_watchlist') {
@@ -792,16 +798,16 @@ const DividendLowVol: React.FC = () => {
     return selection
   }
   const getActiveSelectionSymbols = () => (
-    activeTop3Selection?.symbols.length
-      ? activeTop3Selection.symbols
+    (activeTop3Selection?.symbols || []).length
+      ? activeTop3Selection?.symbols || []
       : draftTopCandidates.map((candidate) => candidate.identity.symbol)
   )
   const selectedTop3SymbolSet = new Set(getActiveSelectionSymbols())
   const scopeSummary = {
     candidateScope: `persistedOnly · all_latest_by_symbol · limit ${scanLimit}`,
-    zoneScope: tradingZones ? `Top3 · ${getActiveSelectionSymbols().join(' / ')} · zones ${tradingZones.zones.length}` : '未生成',
+    zoneScope: tradingZones ? `Top3 · ${getActiveSelectionSymbols().join(' / ')} · zones ${(tradingZones.zones || []).length}` : '未生成',
     rollingScope: rollingBacktest ? `3 年 · Top3 ${getActiveSelectionSymbols().join(' / ')} · ${rollingBacktest.status}` : '未运行',
-    draftScope: manualTradeDraft ? `${manualTradeDraft.summary.selectionSource || selectionSource} · ${(manualTradeDraft.summary.selectedSymbols || manualTradeDraft.actions.map((action) => action.symbol)).join(' / ')}` : '未生成',
+    draftScope: manualTradeDraft ? `${manualTradeDraft.summary.selectionSource || selectionSource} · ${(manualTradeDraft.summary.selectedSymbols || (manualTradeDraft.actions || []).map((action) => action.symbol)).join(' / ')}` : '未生成',
   }
 
   const rollingMetricByStrategy = useMemo(() => {
@@ -812,7 +818,7 @@ const DividendLowVol: React.FC = () => {
 
   const tradingZoneRows = useMemo(() => {
     return (tradingZones?.zones || [])
-      .flatMap((zone) => zone.strategies.map((strategy) => ({
+      .flatMap((zone) => (zone.strategies || []).map((strategy) => ({
         key: `${zone.symbol}-${strategy.strategyId}`,
         symbol: zone.symbol,
         name: zone.name,
@@ -1030,7 +1036,7 @@ const DividendLowVol: React.FC = () => {
       key: 'reasons',
       render: (_, candidate) => (
         <div className="flex flex-wrap gap-1">
-          {candidate.alerts.slice(0, 3).map((alert) => (
+          {(candidate.alerts || []).slice(0, 3).map((alert) => (
             <Tooltip key={`${candidate.identity.symbol}-${alert.type}`} title={alert.triggerReason}>
               <Tag color={alert.severity === 'danger' ? '#f87171' : alert.severity === 'warning' ? '#fbbf24' : '#38bdf8'}>{alert.type}</Tag>
             </Tooltip>
@@ -1038,12 +1044,12 @@ const DividendLowVol: React.FC = () => {
           {candidate.dividend.dividendTrapFlag && <Tag color="#ef4444">高息陷阱</Tag>}
           {candidate.dividend.dividendCutFlag && <Tag color="#ef4444">分红削减</Tag>}
           {candidate.dividend.dpsConsecutiveDecline && <Tag color="#f97316">DPS 连降</Tag>}
-          {candidate.blockedReasons.slice(0, 4).map((reason) => (
+          {(candidate.blockedReasons || []).slice(0, 4).map((reason) => (
             <Tooltip key={`${candidate.identity.symbol}-${reason}`} title={reason}>
               <Tag color="#64748b">{reasonBadge(reason)}</Tag>
             </Tooltip>
           ))}
-          {candidate.blockedReasons.length > 4 && <Tag color="#64748b">+{candidate.blockedReasons.length - 4}</Tag>}
+          {(candidate.blockedReasons || []).length > 4 && <Tag color="#64748b">+{(candidate.blockedReasons || []).length - 4}</Tag>}
         </div>
       ),
     },
@@ -1067,7 +1073,7 @@ const DividendLowVol: React.FC = () => {
       key: 'plainConclusion',
       width: 260,
       render: (_, candidate) => {
-        const hasDataGap = candidate.dataGapSummary.length > 0 || candidate.alerts.some((alert) => alert.type === 'DIVIDEND_DATA_GAP')
+        const hasDataGap = (candidate.dataGapSummary || []).length > 0 || (candidate.alerts || []).some((alert) => alert.type === 'DIVIDEND_DATA_GAP')
         const avoid = candidate.disposition === 'avoid' || candidate.dividend.dividendTrapFlag
         const build = candidate.alerts.some((alert) => alert.type === 'DIVIDEND_BUILD_PLAN' || alert.type === 'DIVIDEND_ADD_ON_PULLBACK')
         const low = candidate.alerts.some((alert) => alert.type === 'DIVIDEND_LOW_ZONE')
@@ -1096,11 +1102,11 @@ const DividendLowVol: React.FC = () => {
         <div className="space-y-1 text-xs leading-5 text-gray-300">
           <div>股息率 {formatScore(candidate.dividend.ttmDividendYield)}%，综合分 {formatScore(candidate.scores.evidenceAdjustedScore)}。</div>
           <div>质量 {formatScore(candidate.scores.dividendQualityScore)}，低波 {formatScore(candidate.scores.lowVolScore)}。</div>
-          {(candidate.blockedReasons.length > 0 || candidate.dataGapSummary.length > 0) && (
+          {((candidate.blockedReasons || []).length > 0 || (candidate.dataGapSummary || []).length > 0) && (
             <div className="text-amber-200">
               需复核：{[
-                ...candidate.blockedReasons,
-                ...candidate.dataGapSummary.map((gap) => gap.userMessage || gap.blockedReason),
+                ...(candidate.blockedReasons || []),
+                ...(candidate.dataGapSummary || []).map((gap) => gap.userMessage || gap.blockedReason),
               ].slice(0, 2).map(shortIssueLabel).join('、')}
             </div>
           )}
@@ -1133,6 +1139,9 @@ const DividendLowVol: React.FC = () => {
         </div>
         <div className="flex flex-wrap gap-2">
           <InputNumber min={20} max={6000} step={100} value={scanLimit} onChange={(value) => setScanLimit(Number(value || DEFAULT_ALL_A_LIMIT))} />
+          <Button icon={<RobotOutlined />} onClick={() => askChatBox('请用普通话解释当前红利低波策略页面，包括候选、买卖观察区间、数据可信和为什么不能正式交易')}>
+            用 ChatBox 解释
+          </Button>
           <Button loading={scanLoading} onClick={runScan}>扫描全 A 样本</Button>
           <Button loading={auditLoading} onClick={createAuditPackage}>生成 GPT 审计包</Button>
           <Button icon={<ReloadOutlined />} loading={loading} onClick={loadCandidates}>刷新</Button>
@@ -1390,10 +1399,10 @@ const DividendLowVol: React.FC = () => {
                   <Tag color={manualWorkflowAudit.summary.executionReady ? '#ef4444' : '#34d399'}>
                     execution {manualWorkflowAudit.summary.executionReady ? 'ready' : 'blocked'}
                   </Tag>
-                  <Tag color="#ef4444">禁止 {manualWorkflowAudit.summary.prohibitedActions.join(' / ')}</Tag>
+                  <Tag color="#ef4444">禁止 {(manualWorkflowAudit.summary.prohibitedActions || []).join(' / ')}</Tag>
                 </div>
                 <div className="grid gap-2 md:grid-cols-6">
-                  {manualWorkflowAudit.stages.map((stage) => (
+                  {(manualWorkflowAudit.stages || []).map((stage) => (
                     <Tooltip key={stage.id} title={stage.artifactRef?.path || stage.status}>
                       <div className="rounded border border-white/10 bg-[#0f172a] p-2">
                         <div className="text-white">{stage.label}</div>
@@ -1421,7 +1430,7 @@ const DividendLowVol: React.FC = () => {
                   <Tag color={manualAcceptanceReview.decisionBoundary.autoTradeUnlocked ? '#ef4444' : '#34d399'}>
                     auto {manualAcceptanceReview.decisionBoundary.autoTradeUnlocked ? 'unlocked' : 'locked'}
                   </Tag>
-                  <Tag color="#ef4444">禁止 {manualAcceptanceReview.decisionBoundary.prohibitedActions.join(' / ')}</Tag>
+                  <Tag color="#ef4444">禁止 {(manualAcceptanceReview.decisionBoundary.prohibitedActions || []).join(' / ')}</Tag>
                   <Button size="small" loading={manualAcceptanceDecisionLoading} onClick={() => decideManualAcceptance('accept_for_manual_draft_review')}>
                     验收通过
                   </Button>
@@ -1433,7 +1442,7 @@ const DividendLowVol: React.FC = () => {
                   </Button>
                 </div>
                 <div className="grid gap-2 md:grid-cols-4">
-                  {manualAcceptanceReview.acceptanceChecklist.map((item) => (
+                  {(manualAcceptanceReview.acceptanceChecklist || []).map((item) => (
                     <Tooltip key={item.id} title={item.requiredHumanCheck || item.evidenceFile || item.status}>
                       <div className="rounded border border-white/10 bg-[#0f172a] p-2">
                         <div className="truncate text-white">{item.id}</div>
@@ -1445,9 +1454,9 @@ const DividendLowVol: React.FC = () => {
                     </Tooltip>
                   ))}
                 </div>
-                {manualAcceptanceReview.remainingValidationGaps.length > 0 && (
+                {(manualAcceptanceReview.remainingValidationGaps || []).length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {manualAcceptanceReview.remainingValidationGaps.map((gap) => (
+                    {(manualAcceptanceReview.remainingValidationGaps || []).map((gap) => (
                       <Tooltip key={gap.id} title={gap.userMessage || gap.status}>
                         <Tag color={gap.formalValidationBlocked ? '#ef4444' : '#fbbf24'}>
                           {gap.id}
@@ -1471,7 +1480,7 @@ const DividendLowVol: React.FC = () => {
                       <Tag color={manualAcceptanceDecision.safetyAssertions?.autoTradeAllowed ? '#ef4444' : '#34d399'}>
                         auto {manualAcceptanceDecision.safetyAssertions?.autoTradeAllowed ? '允许' : '禁止'}
                       </Tag>
-                      <Tag color="#ef4444">禁止 {manualAcceptanceDecision.prohibitedActions.join(' / ')}</Tag>
+                      <Tag color="#ef4444">禁止 {(manualAcceptanceDecision.prohibitedActions || []).join(' / ')}</Tag>
                     </div>
                     <div className="mt-2 break-all text-sky-200">
                       结论编号：{manualAcceptanceDecision.decisionId || '--'}
@@ -1488,10 +1497,10 @@ const DividendLowVol: React.FC = () => {
                   <span className="font-medium text-white">本次 Top 3 人工草案</span>
                   <Tag color={manualTradeDraft.readyForManualTradeDraft ? '#34d399' : '#ef4444'}>{manualTradeDraft.status}</Tag>
                   <Tag color="#64748b">建议权重合计 {formatScore(manualTradeDraft.summary.totalSuggestedDraftWeightPercent)}%</Tag>
-                  {(manualTradeDraft.summary.selectedSymbols || manualTradeDraft.actions.map((action) => action.symbol)).map((symbol) => (
+                  {(manualTradeDraft.summary.selectedSymbols || (manualTradeDraft.actions || []).map((action) => action.symbol)).map((symbol) => (
                     <Tag key={symbol} color="#38bdf8">{symbol}</Tag>
                   ))}
-                  <Tag color="#ef4444">禁止 {manualTradeDraft.prohibitedActions.join(' / ')}</Tag>
+                  <Tag color="#ef4444">禁止 {(manualTradeDraft.prohibitedActions || []).join(' / ')}</Tag>
                 </div>
                 {manualTradeDraft.draftId && (
                   <div className="mb-2 break-all text-sky-200">
@@ -1519,7 +1528,7 @@ const DividendLowVol: React.FC = () => {
                       <Tag color="#34d399">复核 {manualDraftReview.decision || manualDraftReview.status}</Tag>
                       <Tag color="#64748b">formal {manualDraftReview.formalTradeActionAllowed ? '允许' : '禁止'}</Tag>
                       <Tag color="#64748b">auto {manualDraftReview.autoTradeAllowed ? '允许' : '禁止'}</Tag>
-                      <Tag color="#ef4444">禁止 {manualDraftReview.prohibitedActions.join(' / ')}</Tag>
+                      <Tag color="#ef4444">禁止 {(manualDraftReview.prohibitedActions || []).join(' / ')}</Tag>
                     </div>
                     <div className="mt-2 break-all">
                       复核编号：{manualDraftReview.reviewId || '--'}
@@ -1529,19 +1538,19 @@ const DividendLowVol: React.FC = () => {
                     {manualDraftReview.reason && <div className="mt-1">{manualDraftReview.reason}</div>}
                   </div>
                 )}
-                {manualWatchlist && manualWatchlist.entries.length > 0 && (
+                {manualWatchlist && (manualWatchlist.entries || []).length > 0 && (
                   <div className="mb-3 rounded border border-sky-400/20 bg-sky-400/10 p-2 text-xs text-sky-100">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <span className="font-medium text-white">人工观察清单</span>
                       <Tag color="#38bdf8">{manualWatchlist.status}</Tag>
-                      <Tag color="#64748b">标的 {manualWatchlist.entries.length}</Tag>
-                      <Tag color="#ef4444">禁止 {manualWatchlist.prohibitedActions.join(' / ')}</Tag>
+                      <Tag color="#64748b">标的 {(manualWatchlist.entries || []).length}</Tag>
+                      <Tag color="#ef4444">禁止 {(manualWatchlist.prohibitedActions || []).join(' / ')}</Tag>
                       <Button size="small" loading={manualPretradeCheckLoading} onClick={createManualPretradeCheck}>
                         生成执行前检查单
                       </Button>
                     </div>
                     <div className="grid gap-2 md:grid-cols-3">
-                      {manualWatchlist.entries.slice(0, 6).map((entry) => (
+                      {(manualWatchlist.entries || []).slice(0, 6).map((entry) => (
                         <div key={entry.symbol} className="rounded border border-white/10 bg-[#0f172a] p-2">
                           <div className="font-medium text-white">{entry.symbol} {entry.name || ''}</div>
                           <div className="mt-1 text-gray-500">{entry.industry || '行业待确认'}</div>
@@ -1566,7 +1575,7 @@ const DividendLowVol: React.FC = () => {
                       <Tag color={manualPretradeCheck.executionReady ? '#ef4444' : '#34d399'}>
                         execution {manualPretradeCheck.executionReady ? 'ready' : 'blocked'}
                       </Tag>
-                      <Tag color="#ef4444">禁止 {manualPretradeCheck.prohibitedActions.join(' / ')}</Tag>
+                      <Tag color="#ef4444">禁止 {(manualPretradeCheck.prohibitedActions || []).join(' / ')}</Tag>
                       <Button size="small" loading={manualPretradeReviewLoading} onClick={() => reviewManualPretradeCheck('continue_observe')}>
                         继续观察
                       </Button>
@@ -1578,12 +1587,12 @@ const DividendLowVol: React.FC = () => {
                       </Button>
                     </div>
                     <div className="grid gap-2 md:grid-cols-3">
-                      {manualPretradeCheck.entries.slice(0, 6).map((entry) => (
+                      {(manualPretradeCheck.entries || []).slice(0, 6).map((entry) => (
                         <div key={entry.symbol} className="rounded border border-white/10 bg-[#0f172a] p-2">
                           <div className="font-medium text-white">{entry.symbol} {entry.name || ''}</div>
                           <div className="mt-1 text-gray-500">草案 {formatScore(entry.suggestedDraftWeightPercent)}% · 正式 {formatScore(entry.formalTargetWeightPercent)}%</div>
                           <div className="mt-2 flex flex-wrap gap-1">
-                            {entry.checks.slice(0, 4).map((check) => (
+                            {(entry.checks || []).slice(0, 4).map((check) => (
                               <Tooltip key={`${entry.symbol}-${check.id}`} title={check.message}>
                                 <Tag color={check.status === 'passed' ? '#34d399' : check.status === 'blocked' ? '#ef4444' : '#fbbf24'}>{check.id}</Tag>
                               </Tooltip>
@@ -1603,7 +1612,7 @@ const DividendLowVol: React.FC = () => {
                           <Tag color={manualPretradeReview.executionReady ? '#ef4444' : '#34d399'}>
                             execution {manualPretradeReview.executionReady ? 'ready' : 'blocked'}
                           </Tag>
-                          <Tag color="#ef4444">禁止 {manualPretradeReview.prohibitedActions.join(' / ')}</Tag>
+                          <Tag color="#ef4444">禁止 {(manualPretradeReview.prohibitedActions || []).join(' / ')}</Tag>
                         </div>
                         <div className="mt-2 break-all text-sky-200">
                           结论编号：{manualPretradeReview.reviewId || '--'}
@@ -1615,7 +1624,7 @@ const DividendLowVol: React.FC = () => {
                   </div>
                 )}
                 <div className="grid gap-2 md:grid-cols-3">
-                  {manualTradeDraft.actions.map((action) => (
+                  {(manualTradeDraft.actions || []).map((action) => (
                     <div key={action.symbol} className="rounded border border-white/10 bg-[#0f172a] p-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="font-medium text-white">{action.rank}. {action.symbol} {action.name || ''}</div>
@@ -1676,10 +1685,10 @@ const DividendLowVol: React.FC = () => {
               </div>
             </div>
           </div>
-          {((dataReadiness.dataTrust?.blockers || []).length > 0 || (dataReadiness.researchBlockers || dataReadiness.blockers).length > 0) && (
+          {((dataReadiness.dataTrust?.blockers || []).length > 0 || (dataReadiness.researchBlockers || dataReadiness.blockers || []).length > 0) && (
             <div className="mt-2 flex flex-wrap gap-1">
               <span className="mr-1 text-gray-500">可信阻断</span>
-              {unique([...(dataReadiness.dataTrust?.blockers || []), ...(dataReadiness.researchBlockers || dataReadiness.blockers)]).slice(0, 8).map((blocker) => (
+              {unique([...(dataReadiness.dataTrust?.blockers || []), ...(dataReadiness.researchBlockers || dataReadiness.blockers || [])]).slice(0, 8).map((blocker) => (
                 <Tag key={blocker} color="#ef4444">{shortIssueLabel(blocker)}</Tag>
               ))}
             </div>
@@ -1834,13 +1843,13 @@ const DividendLowVol: React.FC = () => {
           </div>
           {rollingBacktest && (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              {rollingBacktest.strategyResults.map((result) => (
+              {(rollingBacktest.strategyResults || []).map((result) => (
                 <div key={result.strategyId} className="rounded border border-white/10 bg-black/10 p-2 text-xs text-gray-300">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-white">{result.label}</span>
                     <Tag color={result.status === 'completed' ? '#34d399' : '#fbbf24'}>{result.status}</Tag>
                     <Tag color="#64748b">交易 {result.sample.tradeCount}</Tag>
-                    {result.insufficientItems.slice(0, 2).map((item) => <Tag key={item} color="#f97316">{item}</Tag>)}
+                    {(result.insufficientItems || []).slice(0, 2).map((item) => <Tag key={item} color="#f97316">{item}</Tag>)}
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-2">
                     <div>胜率 {formatScore(result.metrics.winRatePercent ?? undefined)}%</div>
@@ -1912,12 +1921,12 @@ const DividendLowVol: React.FC = () => {
           </div>
           {poolDataTrustSummary && (
             <div className="flex flex-wrap gap-2">
-              {Object.entries(poolDataTrustSummary.byGrade).map(([grade, count]) => (
+              {Object.entries(poolDataTrustSummary.byGrade || {}).map(([grade, count]) => (
                 <Tag key={grade} color={dataTrustColor[grade] || '#64748b'}>{dataTrustLabel[grade] || grade} {count}</Tag>
               ))}
             </div>
           )}
-          {(pool?.metricCompletenessSummary?.topMissingMetrics.length || missingMetricSummary.length) > 0 && (
+          {((pool?.metricCompletenessSummary?.topMissingMetrics || []).length || missingMetricSummary.length) > 0 && (
             <div className="flex flex-wrap gap-2">
               {(pool?.metricCompletenessSummary?.topMissingMetrics || missingMetricSummary).map((item) => (
                 <Tag key={item.metric} color="#64748b">{metricBadge(item.metric)} {item.count}</Tag>
@@ -1951,7 +1960,7 @@ const DividendLowVol: React.FC = () => {
                 <Tag color="#38bdf8">硬规则不满足 {pool.rejectionSummary.hardRuleCount}</Tag>
               </div>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                {pool.rejectionSummary.byCategory.map((item) => (
+                {(pool.rejectionSummary.byCategory || []).map((item) => (
                   <div key={item.category} className="rounded border border-white/10 bg-black/10 p-2">
                     <div className="text-gray-500">{categoryLabel[item.category] || item.category}</div>
                     <div className="mt-1 text-base font-semibold text-white">{item.count}</div>
@@ -1959,7 +1968,7 @@ const DividendLowVol: React.FC = () => {
                 ))}
               </div>
               <div className="flex flex-wrap gap-2">
-                {pool.rejectionSummary.topReasons.map((item) => (
+                {(pool.rejectionSummary.topReasons || []).map((item) => (
                   <Tooltip key={item.reason} title={item.reason}>
                     <Tag color={item.category === 'data' ? '#fbbf24' : '#64748b'}>{item.label} {item.count}</Tag>
                   </Tooltip>
@@ -2031,7 +2040,7 @@ const DividendLowVol: React.FC = () => {
                 <div className="text-sm text-gray-400">最新持久化扫描没有打开的红利低波提醒。</div>
               ) : (
                 <div className="space-y-2">
-                  {persistedAlerts.alerts.slice(0, 8).map((alert) => (
+                  {(persistedAlerts.alerts || []).slice(0, 8).map((alert) => (
                     <div key={`${alert.symbol}-${alert.alertType}-${alert.triggerDate}`} className="rounded border border-white/10 bg-black/10 p-2 text-xs">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-white">{alert.symbol} {alert.name}</span>
@@ -2085,7 +2094,7 @@ const DividendLowVol: React.FC = () => {
             <div className="mb-1 text-xs text-gray-400">提醒类型</div>
             <Select className="w-full" value={alertFilter} onChange={setAlertFilter} options={[
               { value: 'all', label: '全部提醒' },
-              ...Array.from(new Set(completeDisplayCandidates.flatMap((item) => item.alerts.map((alert) => alert.type)))).map((value) => ({ value, label: value })),
+              ...Array.from(new Set(completeDisplayCandidates.flatMap((item) => (item.alerts || []).map((alert) => alert.type)))).map((value) => ({ value, label: value })),
             ]} />
           </div>
           <div>
@@ -2208,7 +2217,7 @@ const DividendLowVol: React.FC = () => {
                         <Tag color={candidate.leaderEvidence.status === 'verified_industry_leader' ? '#38bdf8' : candidate.leaderEvidence.status === 'not_leader' ? '#94a3b8' : '#fbbf24'}>
                           {leaderStatusLabel[candidate.leaderEvidence.status] || candidate.leaderEvidence.status}
                         </Tag>
-                        {candidate.leaderEvidence.missingFields.length > 0 && <Tag color="#f97316">缺 {candidate.leaderEvidence.missingFields.join(' / ')}</Tag>}
+                        {(candidate.leaderEvidence.missingFields || []).length > 0 && <Tag color="#f97316">缺 {(candidate.leaderEvidence.missingFields || []).join(' / ')}</Tag>}
                       </div>
                       <div className="mb-2 flex flex-wrap gap-2">
                         {([
@@ -2225,9 +2234,9 @@ const DividendLowVol: React.FC = () => {
                         ))}
                       </div>
                       <div className="text-gray-400">{candidate.leaderEvidence.note}</div>
-                      {candidate.leaderEvidence.evidenceRefs.length > 0 && (
+                      {(candidate.leaderEvidence.evidenceRefs || []).length > 0 && (
                         <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2">
-                          {candidate.leaderEvidence.evidenceRefs.slice(0, 8).map((ref) => (
+                          {(candidate.leaderEvidence.evidenceRefs || []).slice(0, 8).map((ref) => (
                             <div key={`${candidate.identity.symbol}-${ref}`} className="truncate rounded border border-white/10 bg-black/10 px-2 py-1 text-[11px] text-sky-100" title={ref}>{ref}</div>
                           ))}
                         </div>
@@ -2251,7 +2260,7 @@ const DividendLowVol: React.FC = () => {
                         证据 {candidate.dataVerification.status}
                       </Tag>
                       <Tag color="#64748b">providers {candidate.dataVerification.providerCount}</Tag>
-                      {candidate.dataVerification.crossCheckedFields.length > 0 && <Tag color="#64748b">fields {candidate.dataVerification.crossCheckedFields.join(' / ')}</Tag>}
+                      {(candidate.dataVerification.crossCheckedFields || []).length > 0 && <Tag color="#64748b">fields {(candidate.dataVerification.crossCheckedFields || []).join(' / ')}</Tag>}
                       <Tag color={candidate.dataVerification.warningCount ? '#f59e0b' : '#64748b'}>warnings {candidate.dataVerification.warningCount}</Tag>
                     </div>
                   )}
@@ -2268,10 +2277,10 @@ const DividendLowVol: React.FC = () => {
                         </Tag>
                       </div>
                       <div className="text-gray-400">{candidate.dataTrust.note}</div>
-                      {(candidate.dataTrust.blockers.length > 0 || candidate.dataTrust.warnings.length > 0 || (candidate.calculationAudit?.missingInputFields.length || 0) > 0) && (
+                      {((candidate.dataTrust.blockers || []).length > 0 || (candidate.dataTrust.warnings || []).length > 0 || (candidate.calculationAudit?.missingInputFields || []).length > 0) && (
                         <div className="mt-2 flex flex-wrap gap-1">
-                          {candidate.dataTrust.blockers.slice(0, 6).map((item) => <Tag key={`blocker-${item}`} color="#ef4444">{shortIssueLabel(item)}</Tag>)}
-                          {candidate.dataTrust.warnings.slice(0, 6).map((item) => <Tag key={`warning-${item}`} color="#f97316">{shortIssueLabel(item)}</Tag>)}
+                          {(candidate.dataTrust.blockers || []).slice(0, 6).map((item) => <Tag key={`blocker-${item}`} color="#ef4444">{shortIssueLabel(item)}</Tag>)}
+                          {(candidate.dataTrust.warnings || []).slice(0, 6).map((item) => <Tag key={`warning-${item}`} color="#f97316">{shortIssueLabel(item)}</Tag>)}
                           {(candidate.calculationAudit?.missingInputFields || []).slice(0, 6).map((item) => <Tag key={`missing-${item}`} color="#fbbf24">缺 {metricBadge(item)}</Tag>)}
                         </div>
                       )}
@@ -2286,7 +2295,7 @@ const DividendLowVol: React.FC = () => {
                     <div className="mb-2 text-gray-400">最近扫描历史</div>
                     {historyBySymbol[candidate.identity.symbol] ? (
                       <div className="grid grid-cols-1 gap-1 md:grid-cols-3">
-                        {historyBySymbol[candidate.identity.symbol].history.slice(0, 6).map((item) => (
+                        {(historyBySymbol[candidate.identity.symbol].history || []).slice(0, 6).map((item) => (
                           <div key={`${candidate.identity.symbol}-${item.tradeDate}`} className="rounded border border-white/10 p-2">
                             <div className="text-white">{item.tradeDate}</div>
                             <div className="text-gray-500">综合 {formatScore(item.evidenceAdjustedScore)} · 低位 {formatScore(item.lowZoneScore)} · 高位 {formatScore(item.highZoneScore)}</div>
@@ -2347,7 +2356,7 @@ const DividendLowVol: React.FC = () => {
             <Card title="验证复测审计" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' } }}>
               <div className="text-sm text-gray-300">状态 {validationRetest.status} · 交易可用 {validationRetest.validationDecision.usableForTradingAdvice ? '是' : '否'}</div>
               <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-gray-400 md:grid-cols-2">
-                {Object.entries(validationRetest.validationEvidenceMatrix.checks).map(([key, check]) => (
+                {Object.entries(validationRetest.validationEvidenceMatrix.checks || {}).map(([key, check]) => (
                   <div key={key} className="rounded border border-white/10 bg-black/10 p-2">
                     <div className="text-white">{key}: {check.status}</div>
                     <div className="mt-1">{check.required}</div>
@@ -2395,7 +2404,7 @@ const DividendLowVol: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {validationGapDiagnostics.gaps.slice(0, 8).map((gap) => (
+                  {(validationGapDiagnostics.gaps || []).slice(0, 8).map((gap) => (
                     <div key={`${gap.category}-${gap.id}-${gap.affectedGate}`} className="rounded border border-white/10 bg-black/10 p-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Tag color={gap.severity === 'blocker' ? '#ef4444' : gap.severity === 'warning' ? '#fbbf24' : '#38bdf8'}>{gap.severity}</Tag>

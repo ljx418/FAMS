@@ -195,6 +195,118 @@ function round(value: number, precision = 2) {
   return Math.round(value * factor) / factor
 }
 
+function isSqliteMalformed(error: unknown) {
+  return String((error as any)?.message || error).includes('database disk image is malformed')
+}
+
+function buildDividendLowVolPersistenceUnavailablePool(userId: string, reason: string) {
+  return {
+    schemaVersion: 'dividend.low_vol.candidate_pool.v1',
+    generatedAt: new Date().toISOString(),
+    strategyFamily: 'dividend_low_volatility',
+    strategyId: 'dividend_low_vol_leader_v1',
+    total: 0,
+    eligibleResearchCandidates: 0,
+    alertSummary: { total: 0, byType: {}, bySeverity: {} },
+    rejectionSummary: {
+      total: 0,
+      byType: {
+        data_gap: ['runtime_health_blocks_persisted_candidate_pool'],
+        hard_rule_failure: [],
+        risk_flag: [],
+        validation_blocker: [],
+      },
+      topReasons: [{ reason: 'runtime_health_blocks_persisted_candidate_pool', count: 1 }],
+      examples: [],
+      userMessage: '红利低波持久化候选池暂时不可用，需要先修复数据库健康。',
+      developerMessage: reason,
+      suggestedFix: '运行 check:sqlite-health 并恢复 known-good DB 后再刷新候选池。',
+    },
+    leaderAuditSummary: { leaderPassed: 0, leaderCandidate: 0, leaderPartial: 0, notLeader: 0, insufficient: 0 },
+    metricCompletenessSummary: {
+      total: 0,
+      complete: 0,
+      incomplete: 0,
+      completePercent: 0,
+      requiredFields: [],
+      topMissingFields: [{ field: 'runtime.sqliteHealth', count: 1 }],
+    },
+    dataTrustSummary: {
+      total: 0,
+      byGrade: { A: 0, B: 0, C: 0, D: 0, INSUFFICIENT: 1 },
+      primaryGrade: 'INSUFFICIENT',
+      status: 'blocked',
+      reason,
+    },
+    calculationAuditSummary: {
+      total: 0,
+      passed: 0,
+      warning: 0,
+      failed: 0,
+      status: 'blocked',
+      reason,
+    },
+    candidates: [],
+    dataQualitySummary: {
+      status: 'blocked',
+      userId,
+      source: 'dividend_low_vol_daily',
+      reason,
+      sqliteHealthy: false,
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+    },
+    policy: {
+      allowedActions: ['RESEARCH', 'OBSERVE', 'ALERT', 'PLAN_DRAFT'],
+      prohibitedActions: ['ADD', 'REDUCE', 'AUTO_TRADE'],
+    },
+    source: {
+      persisted: false,
+      status: 'blocked',
+      reason,
+    },
+    notTradingAdvice: true,
+  }
+}
+
+function buildDividendLowVolPersistenceUnavailableTradingZones(reason: string) {
+  return {
+    schemaVersion: 'dividend.low_vol.trading_zone.v1',
+    generatedAt: new Date().toISOString(),
+    strategyFamily: 'dividend_low_volatility',
+    strategyId: 'dividend_low_vol_leader_v1',
+    totalCandidates: 0,
+    zones: [],
+    dataQualitySummary: {
+      status: 'blocked',
+      source: 'dividend_low_vol_daily',
+      reason,
+      sqliteHealthy: false,
+      blockers: ['runtime_health_blocks_persisted_candidate_pool'],
+    },
+    blockedReasons: ['runtime_health_blocks_persisted_candidate_pool'],
+    policy: {
+      allowedActions: ['RESEARCH', 'OBSERVE', 'ALERT', 'PLAN_DRAFT'],
+      prohibitedActions: ['ADD', 'REDUCE', 'AUTO_TRADE'],
+    },
+    notTradingAdvice: true,
+  }
+}
+
+async function loadLatestDividendLowVolPoolOrBlocked(
+  userId: string,
+  options: { symbols?: string[]; limit: number; scope: 'latest_trade_date' | 'all_latest_by_symbol' },
+) {
+  try {
+    return await dividendLowVolStrategyService.getLatestCandidatePool(userId, options)
+  } catch (error) {
+    if (isSqliteMalformed(error)) {
+      return buildDividendLowVolPersistenceUnavailablePool(userId, String((error as any)?.message || error))
+    }
+    throw error
+  }
+}
+
 function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: number, options: { selectedSymbols?: string[]; selectionSource?: string } = {}) {
   const ready = readiness.readyForManualTradeDraft === true
   const candidates = Array.isArray(pool?.candidates) ? pool.candidates : []
@@ -236,7 +348,7 @@ function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: nu
     guardrails: string[]
     evidenceRefs: string[]
   }
-  const actions: DraftAction[] = eligible.map((candidate: any, index: number) => {
+  let actions: DraftAction[] = eligible.map((candidate: any, index: number) => {
     const position = candidate.positionContext || {}
     const currentWeight = Number(position.portfolioWeightPercent || 0)
     const researchTarget = Number(position.researchTargetWeightPercent || 0)
@@ -299,6 +411,51 @@ function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: nu
       evidenceRefs: (candidate.evidenceRefs || []).slice(0, 20),
     }
   })
+  if (actions.length === 0 && pool?.dataQualitySummary?.status === 'blocked') {
+    actions = [{
+      rank: 1,
+      symbol: 'DATA_HEALTH_BLOCKER',
+      name: '数据健康阻断项',
+      industry: '系统健康',
+      draftType: 'OBSERVE_ONLY',
+      disposition: 'data_insufficient',
+      candidateGrade: 'EXCLUDED',
+      isHolding: false,
+      currentWeightPercent: 0,
+      researchTargetWeightPercent: 0,
+      formalTargetWeightPercent: 0,
+      suggestedDraftWeightPercent: 0,
+      singleStockCapPercent: 0,
+      metrics: {
+        evidenceAdjustedScore: null,
+        ttmDividendYield: null,
+        avgDividendYield3y: null,
+        leaderScore: null,
+        dividendQualityScore: null,
+        lowVolScore: null,
+        valuationScore: null,
+        lowZoneScore: null,
+        highZoneScore: null,
+      },
+      validation: {
+        readinessStatus: readiness.status,
+        sampleSize: readiness.latestEvidence?.bestSampleSize ?? null,
+        credibility: readiness.latestEvidence?.bestCredibility ?? null,
+        prohibitedActions: readiness.prohibitedActions || ['ADD', 'REDUCE', 'AUTO_TRADE'],
+      },
+      rationale: [
+        '当前红利低波持久化候选池因数据库健康问题不可用，无法生成真实股票草案。',
+        '该条目只用于人工审计流程闭环，提醒先修复 SQLite runtime health 后重新刷新候选池。',
+      ],
+      guardrails: [
+        '不是正式 ADD / REDUCE 指令。',
+        'AUTO_TRADE 禁止。',
+        'formalTargetWeightPercent 固定为 0，实际执行需人工审批。',
+        '不得把该数据健康阻断项解释为股票候选。',
+      ],
+      evidenceRefs: ['runtime_health:sqlite_integrity_check:critical'],
+    }]
+  }
   return {
     schemaVersion: 'dividend.low_vol.manual_trade_draft.v1',
     draftId: `dividend-low-vol-draft-${new Date().toISOString().replace(/[:.]/g, '-')}`,
@@ -857,7 +1014,7 @@ export async function strategyRoutes(app: FastifyInstance) {
       const enriched = await dividendLowVolInputBuilderService.enrichWithPortfolioContext(userId, inputs)
       return dividendLowVolStrategyService.buildCandidatePool(enriched, { universeSummary: universe.summary })
     }
-    const latest = await dividendLowVolStrategyService.getLatestCandidatePool(userId, {
+    const latest = await loadLatestDividendLowVolPoolOrBlocked(userId, {
       symbols: symbols.length > 0 ? symbols.slice(0, limit) : undefined,
       limit,
       scope: symbols.length > 0 ? 'latest_trade_date' : 'all_latest_by_symbol',
@@ -915,7 +1072,7 @@ export async function strategyRoutes(app: FastifyInstance) {
     const limit = Math.max(topN, Math.min(6000, Number(query.limit || 6000)))
     const [readiness, pool] = await Promise.all([
       loadLatestDividendLowVolManualDraftReadiness(),
-      dividendLowVolStrategyService.getLatestCandidatePool(userId, {
+      loadLatestDividendLowVolPoolOrBlocked(userId, {
         limit,
         scope: 'all_latest_by_symbol',
       }),
@@ -930,7 +1087,7 @@ export async function strategyRoutes(app: FastifyInstance) {
     const limit = Math.max(topN, Math.min(6000, Number(body?.limit || 6000)))
     const [readiness, pool] = await Promise.all([
       loadLatestDividendLowVolManualDraftReadiness(),
-      dividendLowVolStrategyService.getLatestCandidatePool(userId, {
+      loadLatestDividendLowVolPoolOrBlocked(userId, {
         limit,
         scope: 'all_latest_by_symbol',
       }),
@@ -1080,10 +1237,13 @@ export async function strategyRoutes(app: FastifyInstance) {
       const displayLimit = Math.max(1, Math.min(500, Number(body?.limit || 120)))
       const requestedSymbols = parseSymbols(body?.symbols)
       const requestedSymbolSet = new Set(requestedSymbols)
-      const pool = await dividendLowVolStrategyService.getLatestCandidatePool(body?.userId || 'default', {
+      const pool = await loadLatestDividendLowVolPoolOrBlocked(body?.userId || 'default', {
         limit: Math.max(displayLimit, Math.min(6000, Number(body?.poolLimit || 6000))),
         scope: 'all_latest_by_symbol',
       })
+      if ((pool as any).dataQualitySummary?.status === 'blocked') {
+        return buildDividendLowVolPersistenceUnavailableTradingZones((pool as any).dataQualitySummary?.reason || 'persisted dividend low vol pool unavailable')
+      }
       const candidates = requestedSymbolSet.size > 0
         ? pool.candidates.filter((candidate) => requestedSymbolSet.has(candidate.identity.symbol))
         : pool.candidates

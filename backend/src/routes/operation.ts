@@ -2,6 +2,10 @@ import { FastifyInstance } from 'fastify'
 import { operationService } from '../services/operation/operationService.js'
 import { factsetRefreshScheduler } from '../services/operation/factsetRefreshScheduler.js'
 
+function isSqliteMalformed(error: unknown) {
+  return String((error as any)?.message || error).includes('database disk image is malformed')
+}
+
 const refreshPricesSchema = {
   body: {
     type: 'object',
@@ -198,12 +202,20 @@ export async function operationRoutes(app: FastifyInstance) {
       throw new Error('userId is required')
     }
 
-    return operationService.listOperations({
-      userId,
-      type,
-      status,
-      limit: limit ? Number(limit) : undefined,
-    })
+    try {
+      return await operationService.listOperations({
+        userId,
+        type,
+        status,
+        limit: limit ? Number(limit) : undefined,
+      })
+    } catch (error) {
+      if (isSqliteMalformed(error)) {
+        request.log.warn({ err: error }, 'Operation list unavailable because SQLite health is critical')
+        return []
+      }
+      throw error
+    }
   })
 
   app.get('/artifacts/:ref', async (request) => {

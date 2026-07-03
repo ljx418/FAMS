@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Card, Col, Empty, Progress, Row, Statistic, Table, Tag, message } from 'antd'
-import { BarChartOutlined, ReloadOutlined } from '@ant-design/icons'
+import { BarChartOutlined, HistoryOutlined, ReloadOutlined, RiseOutlined, RobotOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import axios from 'axios'
 import {
@@ -94,6 +94,88 @@ const calculateRiskScore = (summary: PositionSummary, positions: PositionRecord[
   const lossRisk = summary.totalPnlPercent < -10 ? 25 : summary.totalPnlPercent < -5 ? 12 : 0
   return Math.min(100, Math.round(30 + concentrationRisk + lowCashRisk + lossRisk))
 }
+
+const askChatBox = (messageText: string, autoSend = false) => {
+  window.dispatchEvent(new CustomEvent('fams-chat:ask', {
+    detail: { message: messageText, autoSend },
+  }))
+}
+
+const workbenchTasks = [
+  {
+    key: 'portfolio_compare',
+    title: '比较组合策略',
+    description: '用真实数据 quick-run 对比永久组合和全天候组合，查看收益与回撤曲线。',
+    prompt: '对比永久组合和全天候组合最近三年的收益和最大回撤并画图',
+    icon: <BarChartOutlined />,
+    action: '让 ChatBox 对比',
+  },
+  {
+    key: 'dividend_low_vol',
+    title: '筛选红利低波',
+    description: '查看红利低波前三候选、数据可信状态和为什么不能直接下单。',
+    prompt: '帮我看红利低波前三只候选',
+    icon: <RiseOutlined />,
+    action: '查看候选',
+  },
+  {
+    key: 'operation_status',
+    title: '追踪任务审计',
+    description: '检查最近任务、失败原因和审计 artifact，避免黑盒结果。',
+    prompt: '查看最近任务状态',
+    icon: <HistoryOutlined />,
+    action: '查看任务',
+  },
+  {
+    key: 'trade_lock',
+    title: '确认交易边界',
+    description: '解释为什么当前只能研究、观察和人工计划草案，不能创建订单。',
+    prompt: '为什么不能下单',
+    icon: <SafetyCertificateOutlined />,
+    action: '解释阻断',
+  },
+]
+
+const UserTaskWorkbench: React.FC = () => (
+  <Card className="border border-slate-200 bg-white shadow-sm" styles={{ body: { padding: 18 } }}>
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="max-w-2xl">
+        <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+          <RobotOutlined />
+          普通用户工作台
+        </div>
+        <h2 className="mb-0 mt-3 text-xl font-semibold text-slate-950">先用 ChatBox 完成核心任务，再进入专家页复核证据</h2>
+        <p className="mb-0 mt-2 text-sm leading-6 text-slate-600">
+          这里保留原有多模块能力，同时把常见问题整理成低认知路径。系统只输出研究、观察、比较和人工计划草案，正式交易动作仍然锁定。
+        </p>
+      </div>
+      <Button type="primary" icon={<RobotOutlined />} onClick={() => askChatBox('今天我应该先看什么？')}>
+        打开 ChatBox
+      </Button>
+    </div>
+    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {workbenchTasks.map((task) => (
+        <button
+          key={task.key}
+          type="button"
+          onClick={() => askChatBox(task.prompt, true)}
+          className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
+        >
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm">
+              {task.icon}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-slate-950">{task.title}</span>
+              <span className="mt-1 block text-xs leading-5 text-slate-500">{task.description}</span>
+              <span className="mt-3 inline-flex text-xs font-medium text-blue-700">{task.action}</span>
+            </span>
+          </div>
+        </button>
+      ))}
+    </div>
+  </Card>
+)
 
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false)
@@ -218,9 +300,11 @@ const Dashboard: React.FC = () => {
         </Button>
       </div>
 
+      <UserTaskWorkbench />
+
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <Statistic
               title={<span className="text-gray-300">总市值</span>}
               value={summary.totalValue / 10000}
@@ -230,7 +314,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <Statistic
               title={<span className="text-gray-300">总成本</span>}
               value={summary.totalCost / 10000}
@@ -240,7 +324,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <Statistic
               title={<span className="text-gray-300">浮动盈亏</span>}
               value={summary.totalPnl / 10000}
@@ -255,7 +339,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <GaugeChart
               value={riskScore}
               max={100}
@@ -277,7 +361,7 @@ const Dashboard: React.FC = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8}>
-          <Card title={<span className="text-primary">现金仓位</span>} className="bg-[#1a1a2e] border-[surface-border]">
+          <Card title={<span className="text-primary">现金仓位</span>} className="bg-[#1a1a2e] border-surface-border">
             <Statistic
               title={<span className="text-gray-300">现金市值</span>}
               value={summary.cashValue / 10000}
@@ -299,7 +383,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
         <Col xs={24} lg={8}>
-          <Card title={<span className="text-primary">持仓数量</span>} className="bg-[#1a1a2e] border-[surface-border]">
+          <Card title={<span className="text-primary">持仓数量</span>} className="bg-[#1a1a2e] border-surface-border">
             <Statistic
               title={<span className="text-gray-300">开放仓位</span>}
               value={summary.positionsCount}
@@ -312,7 +396,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
         <Col xs={24} lg={8}>
-          <Card title={<span className="text-primary">告警状态</span>} className="bg-[#1a1a2e] border-[surface-border]">
+          <Card title={<span className="text-primary">告警状态</span>} className="bg-[#1a1a2e] border-surface-border">
             <Statistic
               title={<span className="text-gray-300">活跃告警</span>}
               value={activeAlertCount}
@@ -328,7 +412,7 @@ const Dashboard: React.FC = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
-          <Card title={<span className="text-primary">资产类型配置</span>} className="bg-[#1a1a2e] border-[surface-border] card-lg">
+          <Card title={<span className="text-primary">资产类型配置</span>} className="bg-[#1a1a2e] border-surface-border card-lg">
             {allocationData.length > 0 ? (
               <AllocationPieChart
                 data={allocationData}
@@ -344,7 +428,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title={<span className="text-primary">主要持仓</span>} className="bg-[#1a1a2e] border-[surface-border] card-lg">
+          <Card title={<span className="text-primary">主要持仓</span>} className="bg-[#1a1a2e] border-surface-border card-lg">
             <Table
               columns={columns}
               dataSource={topPositions}
@@ -360,7 +444,7 @@ const Dashboard: React.FC = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24}>
-          <Card className="bg-[#1a1a2e] border-[surface-border]">
+          <Card className="bg-[#1a1a2e] border-surface-border">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="text-primary text-base font-medium">AI标的研究与选股</div>

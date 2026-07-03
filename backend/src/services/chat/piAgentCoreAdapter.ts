@@ -27,7 +27,7 @@ class PiAgentCoreAdapter {
         additionalProperties: true,
         properties: {},
       } as any,
-      executionMode: tool.risk === 'read' ? 'parallel' : 'sequential',
+      executionMode: tool.risk === 'read' || tool.risk === 'compute' ? 'parallel' : 'sequential',
       execute: async (_toolCallId: string, params: Record<string, unknown>) => {
         const result = await tool.execute(params || {})
         return {

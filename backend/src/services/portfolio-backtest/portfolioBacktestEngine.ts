@@ -57,6 +57,10 @@ function round(value: number | null | undefined, digits = 4) {
   return Math.round(value * factor) / factor
 }
 
+function isSqliteMalformed(error: unknown) {
+  return String((error as any)?.message || error).includes('database disk image is malformed')
+}
+
 function annualizationFactor(days: number) {
   return days > 0 ? 365 / days : 0
 }
@@ -668,14 +672,20 @@ export class PortfolioBacktestEngine {
     for (const component of nonCashComponents) {
       const symbol = component.symbol || component.proxySymbol
       if (!symbol) continue
-      const fact = await prisma.dividendLowVolDaily.findFirst({
-        where: {
-          symbol,
-          ttmDividendYield: { not: null },
-        },
-        orderBy: { tradeDate: 'desc' },
-        select: { ttmDividendYield: true },
-      })
+      let fact
+      try {
+        fact = await prisma.dividendLowVolDaily.findFirst({
+          where: {
+            symbol,
+            ttmDividendYield: { not: null },
+          },
+          orderBy: { tradeDate: 'desc' },
+          select: { ttmDividendYield: true },
+        })
+      } catch (error) {
+        if (!isSqliteMalformed(error)) throw error
+        return null
+      }
       const yieldValue = fact?.ttmDividendYield
       if (yieldValue === null || yieldValue === undefined || !Number.isFinite(yieldValue) || yieldValue <= 0) continue
       const normalizedYield = yieldValue > 1 ? yieldValue / 100 : yieldValue

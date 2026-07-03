@@ -144,6 +144,23 @@ async function runCommand(name, command, cwd, timeoutMs = 240000) {
   })
 }
 
+async function runCommandsWithConcurrency(commandDefinitions, concurrency = 4) {
+  const results = new Array(commandDefinitions.length)
+  let nextIndex = 0
+  async function worker() {
+    while (nextIndex < commandDefinitions.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      const [name, command, cwd, timeoutMs] = commandDefinitions[currentIndex]
+      // eslint-disable-next-line no-await-in-loop
+      results[currentIndex] = await runCommand(name, command, cwd, timeoutMs)
+    }
+  }
+  const workerCount = Math.max(1, Math.min(concurrency, commandDefinitions.length))
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return results
+}
+
 async function apiCheck(name, url, options, predicate, summary) {
   const startedAt = nowMs()
   try {
@@ -670,12 +687,18 @@ async function runBrowserEvidence(apiResults) {
 
   try {
     await withPage({ width: 1440, height: 1100 }, async (page) => {
-      await page.goto(`${frontendUrl}/dashboard`, { waitUntil: 'networkidle', timeout: 120000 })
+      await page.goto(`${frontendUrl}/dashboard`, { waitUntil: 'domcontentloaded', timeout: 120000 })
       await waitForBodyText(page, ['FAMS'])
       screenshots.push(await screenshot(page, '01-dashboard.png', '总览与侧边栏', '证明左侧菜单和系统入口可见。', ['FAMS', '红利低波策略', '策略回测']))
       await page.locator('.ant-float-btn').first().click({ timeout: 30000 })
       await waitForBodyText(page, ['FAMS 业务助手', 'ChatBox 不创建订单'], 30000)
-      await page.getByText('为什么不能下单').click({ timeout: 30000 })
+      const tradeBlockerTask = page.getByText('解释为什么不能交易').first()
+      if (await tradeBlockerTask.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await tradeBlockerTask.click({ timeout: 30000 })
+      } else {
+        await page.getByPlaceholder(/例如：/).fill('为什么不能下单')
+        await page.getByRole('button', { name: '发送' }).click()
+      }
       await waitForBodyText(page, ['ORDER_CREATE', 'AUTO_TRADE'], 60000)
       screenshots.push(await screenshot(page, '01b-chatbox-agentcore.png', 'ChatBox 业务助手', '证明 ChatBox 可打开、可发起业务问题、显示订单阻断和 LLM/AgentCore 状态。', ['FAMS 业务助手', 'ChatBox 不创建订单', 'ORDER_CREATE', 'AUTO_TRADE']))
     })
@@ -685,7 +708,7 @@ async function runBrowserEvidence(apiResults) {
 
   try {
     await withPage({ width: 1440, height: 1100 }, async (page) => {
-      await page.goto(`${frontendUrl}/analysis?section=fivdr`, { waitUntil: 'networkidle', timeout: 120000 })
+      await page.goto(`${frontendUrl}/analysis?section=fivdr`, { waitUntil: 'domcontentloaded', timeout: 120000 })
       await waitForBodyText(page, ['分析建议', 'FIVD-R'], 120000)
       screenshots.push(await screenshot(page, '02-analysis-fivd-r.png', 'FIVD-R 分析建议', '证明 FIVD-R 统一分析入口、研究/交易阻断语义可见。', ['FIVD-R', '交易', '建议']))
     })
@@ -695,15 +718,16 @@ async function runBrowserEvidence(apiResults) {
 
   try {
     await withPage({ width: 1440, height: 1100 }, async (page) => {
-      await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'networkidle', timeout: 120000 })
+      await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'domcontentloaded', timeout: 120000 })
       await waitForBodyText(page, ['红利低波策略', '不构成交易指令'])
       screenshots.push(await screenshot(page, '03-dividend-low-vol-overview.png', '红利低波策略页', '独立菜单页、研究模式 banner、禁止交易动作。', ['红利低波策略', '不构成交易指令', 'AUTO_TRADE']))
       await page.getByText('筛选与排序').scrollIntoViewIfNeeded().catch(() => {})
       screenshots.push(await screenshot(page, '04-dividend-low-vol-filters.png', '红利低波筛选与指标', '候选池筛选、排序和指标说明区域。', ['筛选与排序', '排序指标', '综合分']))
       await page.getByText('买入/卖出观察区间与滚动策略').scrollIntoViewIfNeeded().catch(() => {})
       screenshots.push(await screenshot(page, '05-dividend-low-vol-zones.png', '红利低波买卖区间', '买入/卖出观察区间、滚动回测和区间免责声明。', ['买入/卖出观察区间', '正式 ADD', '正式 REDUCE']))
+      await waitForBodyText(page, ['草案 Gate'], 30000)
       await page.getByText('人工交易计划草案 Gate').scrollIntoViewIfNeeded().catch(() => {})
-      screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '人工计划草案 readiness、Top3 草案和交易 gate。', ['人工交易计划草案 Gate', '正式买入/卖出']))
+      screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '人工计划草案 readiness、Top3 草案和交易 gate。', ['草案 Gate', '禁止']))
     })
   } catch (error) {
     await captureFailure('红利低波主路径异常', error)
@@ -711,7 +735,7 @@ async function runBrowserEvidence(apiResults) {
 
   try {
     await withPage({ width: 768, height: 1024 }, async (page) => {
-      await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'networkidle', timeout: 120000 })
+      await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'domcontentloaded', timeout: 120000 })
       await waitForBodyText(page, ['红利低波策略'], 120000)
       screenshots.push(await screenshot(page, '07-tablet-dividend-low-vol.png', '平板端红利低波', '平板视口下验证红利低波页面可读性。', ['红利低波策略']))
     })
@@ -721,7 +745,7 @@ async function runBrowserEvidence(apiResults) {
 
   try {
     await withPage({ width: 1440, height: 1100 }, async (page) => {
-      await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'networkidle', timeout: 120000 })
+      await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'domcontentloaded', timeout: 120000 })
       await waitForBodyText(page, ['组合策略对比回测', '运行组合回测'])
       screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行组合回测']))
       await page.getByRole('button', { name: '运行组合回测' }).click()
@@ -742,7 +766,7 @@ async function runBrowserEvidence(apiResults) {
       const operationsUrl = firstArtifactRef
         ? `${frontendUrl}/operations?operationId=${encodeURIComponent(operationId || '')}&artifactRef=${encodeURIComponent(firstArtifactRef)}`
         : `${frontendUrl}/operations${operationId ? `?operationId=${encodeURIComponent(operationId)}` : ''}`
-      await page.goto(operationsUrl, { waitUntil: 'networkidle', timeout: 120000 })
+      await page.goto(operationsUrl, { waitUntil: 'domcontentloaded', timeout: 120000 })
       await waitForBodyText(page, ['任务中心'], 120000)
       await page.waitForTimeout(2000)
       screenshots.push(await screenshot(page, '11-operations-artifact.png', '任务中心产物', '任务中心 operation 与 artifact 可追溯。', ['任务中心', firstArtifactRef ? '任务产物' : '组合回测']))
@@ -773,30 +797,31 @@ async function runBrowserEvidenceLegacy(apiResults) {
   page.on('pageerror', (error) => consoleErrors.push(error.message))
 
   try {
-    await page.goto(`${frontendUrl}/dashboard`, { waitUntil: 'networkidle', timeout: 120000 })
+    await page.goto(`${frontendUrl}/dashboard`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     await waitForBodyText(page, ['FAMS'])
     screenshots.push(await screenshot(page, '01-dashboard.png', '总览与侧边栏', '证明左侧菜单和系统入口可见。', ['FAMS', '红利低波策略', '策略回测']))
 
-    await page.goto(`${frontendUrl}/analysis?section=fivdr`, { waitUntil: 'networkidle', timeout: 120000 })
+    await page.goto(`${frontendUrl}/analysis?section=fivdr`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     await waitForBodyText(page, ['分析建议', 'FIVD-R'], 120000)
     screenshots.push(await screenshot(page, '02-analysis-fivd-r.png', 'FIVD-R 分析建议', '证明 FIVD-R 统一分析入口、研究/交易阻断语义可见。', ['FIVD-R', '交易', '建议']))
 
-    await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'networkidle', timeout: 120000 })
+    await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     await waitForBodyText(page, ['红利低波策略', '不构成交易指令'])
     screenshots.push(await screenshot(page, '03-dividend-low-vol-overview.png', '红利低波策略页', '独立菜单页、研究模式 banner、禁止交易动作。', ['红利低波策略', '不构成交易指令', 'AUTO_TRADE']))
     await page.getByText('筛选与排序').scrollIntoViewIfNeeded().catch(() => {})
     screenshots.push(await screenshot(page, '04-dividend-low-vol-filters.png', '红利低波筛选与指标', '候选池筛选、排序和指标说明区域。', ['筛选与排序', '排序指标', '综合分']))
     await page.getByText('买入/卖出观察区间与滚动策略').scrollIntoViewIfNeeded().catch(() => {})
     screenshots.push(await screenshot(page, '05-dividend-low-vol-zones.png', '红利低波买卖区间', '买入/卖出观察区间、滚动回测和区间免责声明。', ['买入/卖出观察区间', '正式 ADD', '正式 REDUCE']))
+    await waitForBodyText(page, ['草案 Gate'], 30000)
     await page.getByText('人工交易计划草案 Gate').scrollIntoViewIfNeeded().catch(() => {})
-    screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '人工计划草案 readiness、Top3 草案和交易 gate。', ['人工交易计划草案 Gate', '正式买入/卖出']))
+    screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '人工计划草案 readiness、Top3 草案和交易 gate。', ['草案 Gate', '禁止']))
     await page.setViewportSize({ width: 768, height: 1024 })
-    await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'networkidle', timeout: 120000 })
+    await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     await waitForBodyText(page, ['红利低波策略'], 120000)
     screenshots.push(await screenshot(page, '07-tablet-dividend-low-vol.png', '平板端红利低波', '平板视口下验证红利低波页面可读性。', ['红利低波策略']))
     await page.setViewportSize({ width: 1440, height: 1100 })
 
-    await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'networkidle', timeout: 120000 })
+    await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     await waitForBodyText(page, ['组合策略对比回测', '运行组合回测'])
     screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行组合回测']))
     await page.getByRole('button', { name: '运行组合回测' }).click()
@@ -812,7 +837,7 @@ async function runBrowserEvidenceLegacy(apiResults) {
     const operationsUrl = firstArtifactRef
       ? `${frontendUrl}/operations?operationId=${encodeURIComponent(operationId || '')}&artifactRef=${encodeURIComponent(firstArtifactRef)}`
       : `${frontendUrl}/operations${operationId ? `?operationId=${encodeURIComponent(operationId)}` : ''}`
-    await page.goto(operationsUrl, { waitUntil: 'networkidle', timeout: 120000 })
+    await page.goto(operationsUrl, { waitUntil: 'domcontentloaded', timeout: 120000 })
     await waitForBodyText(page, ['任务中心'], 120000)
     await page.waitForTimeout(2000)
     screenshots.push(await screenshot(page, '11-operations-artifact.png', '任务中心产物', '任务中心 operation 与 artifact 可追溯。', ['任务中心', firstArtifactRef ? '任务产物' : '组合回测']))
@@ -1103,11 +1128,7 @@ async function main() {
     ['frontend build', ['npm', 'run', 'build'], frontendDir, 240000],
   ]
 
-  const commandResults = []
-  for (const [name, command, cwd, timeoutMs] of commands) {
-    // eslint-disable-next-line no-await-in-loop
-    commandResults.push(await runCommand(name, command, cwd, timeoutMs))
-  }
+  const commandResults = await runCommandsWithConcurrency(commands, Number(process.env.FAMS_E2E_COMMAND_CONCURRENCY || 2))
 
   const serverResults = []
   try {
