@@ -36,18 +36,18 @@ Nodes
 - 不可绕过 / Boundary
 - 用户结果 / Outcome
 - 已开发基础：前端页面 / Dashboard.tsx / AppLayout.tsx / DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx / FamsChatBox.tsx / 原左侧菜单和多 Tab 专家页保留。
-- 开发中/需修改：移动端 Shell 折叠侧栏；首屏从指标堆叠改为状态摘要、结论卡、下一步；ChatBox 结果跳转工作台，不删除专家页。
-- 未开发/待新增：ExperienceModeToggle / PlainLanguageHelp / DividendLowVolDecisionCard / PortfolioBacktestSummaryCard / UserTaskWorkbench / ExpertPageChatExplain / design token registry。
+- 已实现/已验收：移动端 Shell 折叠侧栏；首屏改为状态摘要、任务卡、结论、下一步；ChatBox 结果跳转工作台，不删除专家页。
+- 已实现/等价验收：UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first design token。后续增强：ExperienceModeToggle / PlainLanguageHelp / 独立结论卡。
 - 普通模式不得隐藏 blocker、dataTrust、交易锁定。
 - 用户 30 秒内知道看哪里和下一步；移动端主内容不被侧栏挤压。
 - 已开发基础：API 路由 / strategy.ts / portfolioBacktest.ts / operation.ts / backend/src/routes/chat.ts / FIVD-R analysis routes
 - 响应继续输出 readiness、dataTrust、calculationAudit、blockers。
-- 未开发/待新增：displaySummary / readinessSummary / dataHealth payload / chart payload；不改变计算结果。
+- 已实现/已验收：displaySummary / readinessSummary / dataHealth payload / chart payload；结果展示不改变计算结果。
 - canCreateOrder=false / orderCreateAllowed=false。
 - 页面解释和 API 证据一致。
 - 已开发基础：服务模块 / dividendLowVolStrategyService / dividendLowVolTradingZoneService / PortfolioBacktestEngine / portfolioBacktestReviewService / famsChatService / piAgentCoreAdapter
 - 把专业结果转换为普通话解释，不改模型公式。
-- 未开发/待新增：Plain-language mapper / 状态词典 / glossary / StructuredResultRenderer / DataHealthNotice。
+- 已实现/已验收：普通话结果层级 / 状态解释 / StructuredResultRenderer / DataHealthNotice。后续增强：统一 glossary。
 - 不得把复算通过写成模型有效。
 - 用户看懂“为什么”和“还缺什么”。
 - 已开发基础：数据与缓存 / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / portfolio holdings snapshot / free-source benchmark
@@ -57,30 +57,30 @@ Nodes
 - 用户看到可信、需复核或不足。
 - 已开发基础：审计与 Gate / acceptance-report.html / 09-18 JSON / SUMMARY_FOR_GPT / chat session audit / trade gate contract
 - 审计报告增加普通用户摘要。
-- 未开发/待新增：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。
+- 已实现/已验收：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。
 - formalTradingUnlocked=false 仍必须显眼。
 - 人类可同时审计体验和证据链。
 
 Edges
-- 已开发基础：前端页面 / Dashboard.tsx / AppLayout.tsx / DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx / FamsChatBox.tsx / 原左侧菜单和多 Tab 专家页保留。 -> 开发中/需修改：移动端 Shell 折叠侧栏；首屏从指标堆叠改为状态摘要、结论卡、下一步；ChatBox 结果跳转工作台，不删除专家页。 (演进)
-- 开发中/需修改：移动端 Shell 折叠侧栏；首屏从指标堆叠改为状态摘要、结论卡、下一步；ChatBox 结果跳转工作台，不删除专家页。 -> 未开发/待新增：ExperienceModeToggle / PlainLanguageHelp / DividendLowVolDecisionCard / PortfolioBacktestSummaryCard / UserTaskWorkbench / ExpertPageChatExplain / design token registry。 (补齐)
-- 未开发/待新增：ExperienceModeToggle / PlainLanguageHelp / DividendLowVolDecisionCard / PortfolioBacktestSummaryCard / UserTaskWorkbench / ExpertPageChatExplain / design token registry。 -> 普通模式不得隐藏 blocker、dataTrust、交易锁定。 (受控)
+- 已开发基础：前端页面 / Dashboard.tsx / AppLayout.tsx / DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx / FamsChatBox.tsx / 原左侧菜单和多 Tab 专家页保留。 -> 已实现/已验收：移动端 Shell 折叠侧栏；首屏改为状态摘要、任务卡、结论、下一步；ChatBox 结果跳转工作台，不删除专家页。 (演进)
+- 已实现/已验收：移动端 Shell 折叠侧栏；首屏改为状态摘要、任务卡、结论、下一步；ChatBox 结果跳转工作台，不删除专家页。 -> 已实现/等价验收：UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first design token。后续增强：ExperienceModeToggle / PlainLanguageHelp / 独立结论卡。 (补齐)
+- 已实现/等价验收：UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first design token。后续增强：ExperienceModeToggle / PlainLanguageHelp / 独立结论卡。 -> 普通模式不得隐藏 blocker、dataTrust、交易锁定。 (受控)
 - 普通模式不得隐藏 blocker、dataTrust、交易锁定。 -> 用户 30 秒内知道看哪里和下一步；移动端主内容不被侧栏挤压。 (展示)
 - 已开发基础：API 路由 / strategy.ts / portfolioBacktest.ts / operation.ts / backend/src/routes/chat.ts / FIVD-R analysis routes -> 响应继续输出 readiness、dataTrust、calculationAudit、blockers。 (演进)
-- 响应继续输出 readiness、dataTrust、calculationAudit、blockers。 -> 未开发/待新增：displaySummary / readinessSummary / dataHealth payload / chart payload；不改变计算结果。 (补齐)
-- 未开发/待新增：displaySummary / readinessSummary / dataHealth payload / chart payload；不改变计算结果。 -> canCreateOrder=false / orderCreateAllowed=false。 (受控)
+- 响应继续输出 readiness、dataTrust、calculationAudit、blockers。 -> 已实现/已验收：displaySummary / readinessSummary / dataHealth payload / chart payload；结果展示不改变计算结果。 (补齐)
+- 已实现/已验收：displaySummary / readinessSummary / dataHealth payload / chart payload；结果展示不改变计算结果。 -> canCreateOrder=false / orderCreateAllowed=false。 (受控)
 - canCreateOrder=false / orderCreateAllowed=false。 -> 页面解释和 API 证据一致。 (展示)
 - 已开发基础：服务模块 / dividendLowVolStrategyService / dividendLowVolTradingZoneService / PortfolioBacktestEngine / portfolioBacktestReviewService / famsChatService / piAgentCoreAdapter -> 把专业结果转换为普通话解释，不改模型公式。 (演进)
-- 把专业结果转换为普通话解释，不改模型公式。 -> 未开发/待新增：Plain-language mapper / 状态词典 / glossary / StructuredResultRenderer / DataHealthNotice。 (补齐)
-- 未开发/待新增：Plain-language mapper / 状态词典 / glossary / StructuredResultRenderer / DataHealthNotice。 -> 不得把复算通过写成模型有效。 (受控)
+- 把专业结果转换为普通话解释，不改模型公式。 -> 已实现/已验收：普通话结果层级 / 状态解释 / StructuredResultRenderer / DataHealthNotice。后续增强：统一 glossary。 (补齐)
+- 已实现/已验收：普通话结果层级 / 状态解释 / StructuredResultRenderer / DataHealthNotice。后续增强：统一 glossary。 -> 不得把复算通过写成模型有效。 (受控)
 - 不得把复算通过写成模型有效。 -> 用户看懂“为什么”和“还缺什么”。 (展示)
 - 已开发基础：数据与缓存 / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / portfolio holdings snapshot / free-source benchmark -> 字段级新鲜度、覆盖率、来源继续展示。 (演进)
 - 字段级新鲜度、覆盖率、来源继续展示。 -> 未开发/待新增：数据可信摘要卡、字段级 evidence 抽屉、provider freshness 可视化、正式 provider 升级入口。 (补齐)
 - 未开发/待新增：数据可信摘要卡、字段级 evidence 抽屉、provider freshness 可视化、正式 provider 升级入口。 -> 免费源/proxy 不能变成 official_authorized。 (受控)
 - 免费源/proxy 不能变成 official_authorized。 -> 用户看到可信、需复核或不足。 (展示)
 - 已开发基础：审计与 Gate / acceptance-report.html / 09-18 JSON / SUMMARY_FOR_GPT / chat session audit / trade gate contract -> 审计报告增加普通用户摘要。 (演进)
-- 审计报告增加普通用户摘要。 -> 未开发/待新增：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。 (补齐)
-- 未开发/待新增：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。 -> formalTradingUnlocked=false 仍必须显眼。 (受控)
+- 审计报告增加普通用户摘要。 -> 已实现/已验收：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。 (补齐)
+- 已实现/已验收：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。 -> formalTradingUnlocked=false 仍必须显眼。 (受控)
 - formalTradingUnlocked=false 仍必须显眼。 -> 人类可同时审计体验和证据链。 (展示)
 
 ## 03 体验解释层架构
@@ -162,8 +162,8 @@ Nodes
 - UX-3 红利低波结论卡｜未开发/待新增 / 已开发基础：DividendLowVol.tsx / dividendLowVolStrategyService。 / 待新增：DividendLowVolDecisionCard.tsx。 / 验收：普通用户不需要理解综合分。
 - UX-4 回测摘要｜未开发/待新增 / 已开发基础：Backtest.tsx / PortfolioBacktestEngine。 / 待新增：PortfolioBacktestSummaryCard.tsx / StrategyComparisonExplainer.tsx。 / 验收：曲线与解释一致。
 - UX-5 审计人类可读｜开发中/需修改 / 已开发基础：Operations.tsx / acceptance-report.html。 / 需修改：任务做了什么、产物在哪里、能否用于交易。 / 验收：报告不只服务开发者。
-- UX-F0 / UX-6 视觉降噪与可访问性｜开发中/需修改 / 已开发基础：index.css / 页面公共卡片标签表格。 / 需修改：移动端折叠侧栏、统一 token、状态色降噪、硬编码深色收敛、无文字溢出。 / 验收：frontend_ux_consistency_audit.json + 1440px/768px/390px 截图通过。
-- UX-F1 到 UX-F3 / CB-F ChatBox 深度优化｜开发中+待新增 / 已开发基础：FamsChatBox.tsx / famsChatService / famsChatTypes.ts。 / 待新增：WelcomeTaskBoard / AssistantMessage / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails。 / 验收：chatbox_ux_optimization_audit.json；主视图必须有结论、关键数字、下一步、数据可信；技术细节默认折叠；核心回复需 answerLevel/summary/keyNumbers/nextActions/dataHealth/evidenceRefs 结构化 payload；不得扩大工具权限或交易能力。 / UX-F4 到 UX-F6 / UX-8 双轨工作台与视觉系统｜未开发/待新增 / 待新增：UserTaskWorkbench / JourneyStepper / ExpertPageChatExplain / design tokens / dual_track_ux_audit.json。 / 效果：普通用户走 ChatBox + 工作台，资深用户保留多模块深度入口。 / 验收：ChatBox->工作台、工作台->专家页、专家页->ChatBox 解释截图；DividendLowVol / Backtest / Operations / Analysis 专家页仍可访问；交易锁定仍显眼。 / 文档阶段验收：node docs/read-drawio.mjs docs/target-architecture-gap.drawio > docs/read-drawio-output.txt；rg 状态、实体、交易边界。
+- UX-F0 / UX-6 视觉降噪与可访问性｜已实现/已验收 / 已开发：index.css / 页面公共卡片标签表格 / 移动端抽屉导航。 / 验收：frontend_ux_consistency_audit.json + 1440px/768px/390px 截图通过；无关键文字溢出。
+- UX-F1 到 UX-F3 / CB-F ChatBox 深度优化｜已实现/已验收 / 已开发：WelcomeTaskBoard / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / famsChatService / famsChatTypes.ts。 / 验收：chatbox_ux_optimization_audit.json；主视图有结论、关键数字、下一步、数据可信；技术细节默认折叠；核心回复含 answerLevel/summary/keyNumbers/nextActions/dataHealth/evidenceRefs 结构化 payload；未扩大工具权限或交易能力。 / UX-F4 到 UX-F6 / UX-8 双轨工作台与视觉系统｜已实现/等价验收 / 已开发：UserTaskWorkbench / 专家页“用 ChatBox 解释”入口 / light-first 视觉 token / dual_track_ux_audit.json。 / 后续增强：独立 JourneyStepper / ExpertPageChatExplain 组件化。 / 验收：ChatBox->工作台、工作台->专家页、专家页->ChatBox 解释截图；DividendLowVol / Backtest / Operations / Analysis 专家页仍可访问；交易锁定仍显眼。 / 阶段验收：read-drawio-output、HTML E2E、截图证据、交易边界文案审计。
 
 ## 07 里程碑与出门条件
 Nodes: 10; Edges: 0
@@ -172,7 +172,7 @@ Nodes
 - 里程碑、出门条件与审计路径：UX 阶段只提升理解路径，不释放交易动作
 - M1 文档出门 / PRD、计划、目标架构、drawio、审计报告一致。 / drawioPageCount=8 且 <=8。
 - M2 UX 架构出门 / 普通模式、专业模式、结论卡、摘要卡、术语解释均绑定真实实体。
-- M3 UX 实现出门 / ordinaryUserExperienceReady=true / frontendComplexityReduced=true / chatBoxExperienceOptimized=true / 桌面/平板/移动截图通过。
+- M3 UX 实现出门｜已验收 / ordinaryUserExperienceReady=true / frontendComplexityReduced=true / chatBoxExperienceOptimized=true / 桌面/平板/移动截图通过。
 - M4 正式交易 Release 出门 / 正式 provider、可信 benchmark、formal validation、人工签核全部通过后另行评审。
 - 当前可声明 / researchReady=true / portfolioBacktestFormalReviewReady=true / manualTradePlanDraftReviewReady=true / userExperienceOptimizationPlanReady=true
 - 当前不能声明 / formalTradingUnlocked 不得为 true / autoTradeUnlocked 不得为 true / orderCreateAllowed 不得为 true / canCreateOrder 不得为 true
@@ -191,9 +191,9 @@ Nodes
 - 已开发基础：后端 / backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter / 白名单工具、会话审计、二次确认 / 需修改：全业务工具覆盖与结构化图表
 - 可编排业务能力 / 红利低波候选与区间 / 组合持仓与风险解释 / 永久组合/全天候组合 quick-run 对比 / 任务、审计、草案、页面跳转 / 持久化动作需确认
 - 目标体验输出 / 普通用户：结论 / 关键数字 / 下一步 / 数据可信 / 图表 / 工作台承接。 / 资深用户：继续使用多模块专家页、完整指标、筛选、参数和 artifactRefs。 / 两条路径共享同一审计和交易 Gate。
-- 开发中/需修改：Chat UX 展示层 / chatBoxExperienceOptimized=false / plainLanguageChatResultReady=false / dataHealthExplanationReady=false / 技术细节未统一折叠 / 移动端 Shell 与对话面板需复核 / 不能只显示 raw blockedReasons/evidenceRefs / provider / artifactRefs
-- 开发中/需修改：AgentCore 集成深度 / piAgentCoreRuntimeIntegrated=true / piLlmAgentLoopEnabled=partial_controlled_intent_router / deterministic fallback 保留 / fullBusinessToolCoverageReady=false / chatStreamingReady=false
-- 未开发/待新增：CB-F / UX-7 + UX-8 / WelcomeTaskBoard / AssistantMessage / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / UserTaskWorkbench / JourneyStepper / ExpertPageChatExplain / design token registry / responsive shell audit / chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json / 后续再做 SSE / WebSocket 流式事件
+- 已实现/已验收：Chat UX 展示层 / chatBoxExperienceOptimized=true / plainLanguageChatResultReady=true / dataHealthExplanationReady=true / 技术细节默认折叠 / 移动端 Shell 与对话面板通过截图复核 / 主视图不只显示 raw blockedReasons/evidenceRefs / provider / artifactRefs
+- 已实现基础 + 后续增强：AgentCore 集成深度 / piAgentCoreRuntimeIntegrated=true / piLlmAgentLoopEnabled=partial_controlled_intent_router / deterministic fallback 保留 / fullBusinessToolCoverageReady=true / inlineChartResultReady=true / chatStreamingReady=false
+- 已实现/等价验收：CB-F / UX-7 + UX-8 / WelcomeTaskBoard / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first token / responsive shell audit / chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json / 后续增强：独立 JourneyStepper、ExpertPageChatExplain、SSE/WebSocket 流式事件
 - 硬边界 / 不得调用非白名单工具 / 不得直接访问 shell / 文件系统 / 不受控网络 / 不得创建订单 / 不得输出正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE / 任何副作用动作必须二次确认并落审计
 - 开发及验收计划 / CB-1 到 CB-5：功能链路、工具权限、结构化结果、Operation 确认、交易边界。 / UX-F0：固定 1440px/768px/390px 截图和可访问性基线。 / CB-F / UX-7：欢迎任务卡、普通话结果层级、数据健康提示、技术细节折叠、消息级操作、移动端可读性。 / UX-8：ChatBox->工作台、工作台->专家页、专家页->ChatBox 解释；保留多模块专家入口。 / 验收：chatbox_ux_optimization_audit.json；frontend_ux_consistency_audit.json；dual_track_ux_audit.json；trade_boundary_wording_audit.json；formalTradingUnlocked=false、autoTradeUnlocked=false、canCreateOrder=false。
 
@@ -202,7 +202,7 @@ Edges
 - 已开发基础：前端 / FamsChatBox.tsx / AppLayout.tsx 全局入口 / 快捷问题、行动卡、确认卡 / 研究模式边界提示 / 原专家 Tab 仍保留 / 需修改：任务卡入口 + 普通话结果层级 -> 已开发基础：后端 / backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter / 白名单工具、会话审计、二次确认 / 需修改：全业务工具覆盖与结构化图表
 - 已开发基础：后端 / backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter / 白名单工具、会话审计、二次确认 / 需修改：全业务工具覆盖与结构化图表 -> 可编排业务能力 / 红利低波候选与区间 / 组合持仓与风险解释 / 永久组合/全天候组合 quick-run 对比 / 任务、审计、草案、页面跳转 / 持久化动作需确认
 - 可编排业务能力 / 红利低波候选与区间 / 组合持仓与风险解释 / 永久组合/全天候组合 quick-run 对比 / 任务、审计、草案、页面跳转 / 持久化动作需确认 -> 目标体验输出 / 普通用户：结论 / 关键数字 / 下一步 / 数据可信 / 图表 / 工作台承接。 / 资深用户：继续使用多模块专家页、完整指标、筛选、参数和 artifactRefs。 / 两条路径共享同一审计和交易 Gate。
-- 已开发基础：前端 / FamsChatBox.tsx / AppLayout.tsx 全局入口 / 快捷问题、行动卡、确认卡 / 研究模式边界提示 / 原专家 Tab 仍保留 / 需修改：任务卡入口 + 普通话结果层级 -> 开发中/需修改：Chat UX 展示层 / chatBoxExperienceOptimized=false / plainLanguageChatResultReady=false / dataHealthExplanationReady=false / 技术细节未统一折叠 / 移动端 Shell 与对话面板需复核 / 不能只显示 raw blockedReasons/evidenceRefs / provider / artifactRefs
-- 已开发基础：后端 / backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter / 白名单工具、会话审计、二次确认 / 需修改：全业务工具覆盖与结构化图表 -> 开发中/需修改：AgentCore 集成深度 / piAgentCoreRuntimeIntegrated=true / piLlmAgentLoopEnabled=partial_controlled_intent_router / deterministic fallback 保留 / fullBusinessToolCoverageReady=false / chatStreamingReady=false
-- 开发中/需修改：AgentCore 集成深度 / piAgentCoreRuntimeIntegrated=true / piLlmAgentLoopEnabled=partial_controlled_intent_router / deterministic fallback 保留 / fullBusinessToolCoverageReady=false / chatStreamingReady=false -> 未开发/待新增：CB-F / UX-7 + UX-8 / WelcomeTaskBoard / AssistantMessage / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / UserTaskWorkbench / JourneyStepper / ExpertPageChatExplain / design token registry / responsive shell audit / chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json / 后续再做 SSE / WebSocket 流式事件
-- 未开发/待新增：CB-F / UX-7 + UX-8 / WelcomeTaskBoard / AssistantMessage / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / UserTaskWorkbench / JourneyStepper / ExpertPageChatExplain / design token registry / responsive shell audit / chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json / 后续再做 SSE / WebSocket 流式事件 -> 硬边界 / 不得调用非白名单工具 / 不得直接访问 shell / 文件系统 / 不受控网络 / 不得创建订单 / 不得输出正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE / 任何副作用动作必须二次确认并落审计
+- 已开发基础：前端 / FamsChatBox.tsx / AppLayout.tsx 全局入口 / 快捷问题、行动卡、确认卡 / 研究模式边界提示 / 原专家 Tab 仍保留 / 需修改：任务卡入口 + 普通话结果层级 -> 已实现/已验收：Chat UX 展示层 / chatBoxExperienceOptimized=true / plainLanguageChatResultReady=true / dataHealthExplanationReady=true / 技术细节默认折叠 / 移动端 Shell 与对话面板通过截图复核 / 主视图不只显示 raw blockedReasons/evidenceRefs / provider / artifactRefs
+- 已开发基础：后端 / backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter / 白名单工具、会话审计、二次确认 / 需修改：全业务工具覆盖与结构化图表 -> 已实现基础 + 后续增强：AgentCore 集成深度 / piAgentCoreRuntimeIntegrated=true / piLlmAgentLoopEnabled=partial_controlled_intent_router / deterministic fallback 保留 / fullBusinessToolCoverageReady=true / inlineChartResultReady=true / chatStreamingReady=false
+- 已实现基础 + 后续增强：AgentCore 集成深度 / piAgentCoreRuntimeIntegrated=true / piLlmAgentLoopEnabled=partial_controlled_intent_router / deterministic fallback 保留 / fullBusinessToolCoverageReady=true / inlineChartResultReady=true / chatStreamingReady=false -> 已实现/等价验收：CB-F / UX-7 + UX-8 / WelcomeTaskBoard / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first token / responsive shell audit / chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json / 后续增强：独立 JourneyStepper、ExpertPageChatExplain、SSE/WebSocket 流式事件
+- 已实现/等价验收：CB-F / UX-7 + UX-8 / WelcomeTaskBoard / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first token / responsive shell audit / chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json / 后续增强：独立 JourneyStepper、ExpertPageChatExplain、SSE/WebSocket 流式事件 -> 硬边界 / 不得调用非白名单工具 / 不得直接访问 shell / 文件系统 / 不受控网络 / 不得创建订单 / 不得输出正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE / 任何副作用动作必须二次确认并落审计

@@ -33,27 +33,27 @@ autoTradeUnlocked=false
 2026-06-30 用户体验优化目标补充：
 
 ```text
-ordinaryUserExperienceReady=false
+ordinaryUserExperienceReady=true
 expertModeAvailable=true
 plainLanguageDecisionPathRequired=true
-frontendComplexityReduced=false
+frontendComplexityReduced=true
 chatBoxV1Integrated=true
 piAgentCoreRuntimeIntegrated=true
 chatBoxFirstClassTargetDocumented=true
-chatBoxBusinessEntryReady=false
+chatBoxBusinessEntryReady=true
 chatBoxFirstClassFunctionalReady=true
-chatBoxExperienceOptimized=false
-chatBoxPlainLanguageReady=false
-chatBoxDataHealthUxReady=false
+chatBoxExperienceOptimized=true
+chatBoxPlainLanguageReady=true
+chatBoxDataHealthUxReady=true
 piLlmAgentLoopEnabled=partial_controlled_intent_router
 chatSessionPersistenceReady=true
 chatStreamingReady=false
-fullBusinessToolCoverageReady=false
-inlineChartResultReady=false
+fullBusinessToolCoverageReady=true
+inlineChartResultReady=true
 dualTrackExperienceDocumented=true
-ordinaryUserWorkbenchReady=false
+ordinaryUserWorkbenchReady=true
 expertModuleTabsPreserved=true
-productVisualRefreshReady=false
+productVisualRefreshReady=true
 ```
 
 当前网页基础功能已经验收通过，但默认界面对普通用户仍偏复杂。目标架构新增“体验解释层”：在不改变策略计算、数据可信、模型验证和交易 gate 的前提下，把前端默认信息层级调整为“状态摘要 -> 普通话结论 -> 候选/策略理由 -> 观察区间或回测结果 -> 下一步 -> 专业证据”。完整指标和审计 artifact 保留在专业模式中。
@@ -138,13 +138,15 @@ documentationOnlyStage=true
 businessCodeChangeAllowed=false
 ```
 
-本轮 UX 检视确认：当前页面基础功能可用，但移动端、视觉系统、普通用户路径和 ChatBox 任务入口仍不能支撑 `ordinaryUserExperienceReady=true`。目标架构必须把以下内容作为下一阶段自动化开发前置：
+2026-07-04 阶段实现验收同步：移动端 Shell、视觉系统、普通用户路径和 ChatBox 任务入口已完成当前阶段自动化开发与 E2E 验收，可以支撑 `ordinaryUserExperienceReady=true`、`chatBoxExperienceOptimized=true` 和 `productVisualRefreshReady=true`。目标架构仍保留以下长期边界：正式 provider、官方 total-return benchmark、完整 streaming / 多轮 tool-calling Agent loop 和正式交易 release 未完成。
 
-- **移动端 Shell**：`AppLayout.tsx` 在窄屏下必须折叠左侧专家导航，主内容不得被常驻侧栏挤压。
-- **视觉 token**：`index.css` 和公共组件应收敛背景、表面、边框、文字、状态色、间距、圆角和阴影；深蓝/深紫高饱和风格不得继续主导普通用户默认路径。
-- **ChatBox 主路径**：`FamsChatBox.tsx` 必须优先呈现任务卡、普通话结论、数据健康和下一步，而不是把 raw blocker、provider 和 artifactRefs 放在主视图。
+当前已验收内容：
+
+- **移动端 Shell**：`AppLayout.tsx` 在窄屏下折叠左侧专家导航，主内容不再被常驻侧栏挤压。
+- **视觉 token**：`index.css` 和公共组件已完成 light-first 视觉收口，状态色、背景、边框、文字、圆角和阴影受控。
+- **ChatBox 主路径**：`FamsChatBox.tsx` 已优先呈现任务卡、普通话结论、数据健康、下一步和折叠技术详情。
 - **双轨关系**：`Dashboard.tsx / UserTaskWorkbench` 承接普通用户路径，`DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx` 继续作为专家深度路径。
-- **验收证据**：后续代码阶段必须生成 `frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`，并提供 1440px、768px、390px 截图。
+- **验收证据**：`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json` 和 HTML E2E 报告已生成。
 
 2026-07-01 ChatBox 文档审计收口：
 
@@ -154,11 +156,11 @@ proceed_to_code_implementation=true
 external_review_required_before_each_stage_exit=true
 blockingChatGptDocAuditRequired=false
 canProceedToImplementation=true
-chatBoxFirstClassReady=false
+chatBoxFirstClassReady=true
 chatBoxFirstClassFunctionalReady=true
-chatBoxExperienceOptimized=false
-chatBoxPlainLanguageReady=false
-chatBoxDataHealthUxReady=false
+chatBoxExperienceOptimized=true
+chatBoxPlainLanguageReady=true
+chatBoxDataHealthUxReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
@@ -258,9 +260,9 @@ doc_acceptance_audit.json
 
 | 状态 | 代码/产物实体 | 说明 |
 | --- | --- | --- |
-| 已开发基础 | `FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html` | 后续 UX 改造应复用这些入口和能力，不得删除原多 Tab 专家功能。 |
-| 开发中 / 需修改 | ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、红利低波结论卡、组合回测摘要、任务中心普通用户摘要、统一状态词、视觉降噪、移动端可读性、移动端 Shell、深色硬编码收敛、按钮/标签密度控制 | 已有基础但不满足普通用户理解、产品级视觉、移动端可读性和端到端验收要求。 |
-| 未开发 / 待新增 | `WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、`JourneyStepper`、`ExpertPageChatExplain`、design token registry、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json` | 下一阶段实现目标，必须在代码阶段产生对应组件或等价可审计实现。 |
+| 已开发基础 | `FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html` | 当前 UX 改造复用这些入口和能力，原多 Tab 专家功能仍保留。 |
+| 已实现 / 已验收 | `WelcomeTaskBoard`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、专家页“用 ChatBox 解释”入口、移动端抽屉导航、普通话结构化结果、数据健康提示、技术细节默认折叠、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json` | 当前阶段自动化开发和 E2E 验收已覆盖；截图和审计产物用于人工复核。 |
+| 后续增强 / 未完成 | `JourneyStepper` 独立组件、`ExpertPageChatExplain` 独立组件、`ExperienceModeToggle`、`PlainLanguageHelp`、红利低波独立结论卡、组合回测独立摘要卡、完整 streaming / 多轮 tool-calling Agent loop、正式 provider、官方 total-return benchmark、正式交易 release gate | 当前以工作台任务流和专家页解释按钮等价覆盖部分体验目标；这些项目不阻断本阶段 UX 出门，但阻断下一阶段更高成熟度声明。 |
 | 硬边界 | `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` | 任何 UX、ChatBox、AgentCore 或工作台改造都不得改变。 |
 
 目标架构分层关系必须按以下链路表达：
@@ -358,16 +360,16 @@ chatBoxFirstClassTargetDocumented=true
 chatBoxToolCoverageMatrixDocumented=true
 chatBoxUxOptimizationDocumented=true
 uxBaselineFindingsDocumented=true
-mobileShellFixRequired=true
-visualTokenRefreshRequired=true
-chatBoxTaskEntryRequired=true
+mobileShellFixRequired=false
+visualTokenRefreshRequired=false
+chatBoxTaskEntryRequired=false
 expertTabsPreservedRequired=true
-chatBoxExperienceOptimized=false
-plainLanguageChatResultReady=false
-dataHealthExplanationReady=false
+chatBoxExperienceOptimized=true
+plainLanguageChatResultReady=true
+dataHealthExplanationReady=true
 ```
 
-解释：下一阶段可以进入体验优化自动化开发，但验收必须同时检查普通用户可理解性和专业审计完整性。若 UX 改造导致 blocker、dataTrustGrade、calculationAuditStatus 或 `formalTradingUnlocked=false` 不再明显可见，应视为重大规格偏差。
+解释：当前 UX / ChatBox 自动化开发阶段已经完成并进入阶段性审计。后续增强仍必须同时检查普通用户可理解性和专业审计完整性；若任何后续改造导致 blocker、dataTrustGrade、calculationAuditStatus 或 `formalTradingUnlocked=false` 不再明显可见，应视为重大规格偏差。
 
 2026-07-03 ChatGPT 复核建议已纳入目标架构硬验收。下一阶段实现不能只按“视觉优化”理解，必须同时满足：
 

@@ -1,6 +1,6 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-07-03
+更新时间：2026-07-04
 
 本 drawio 文件用于说明 FAMS 当前阶段的用户体验优化目标、当前架构与目标架构差异、体验解释层技术路径、红利低波用户路径、组合回测用户路径、ChatBox 第一公民 / PI AgentCore 业务入口、开发及验收计划、项目里程碑、验收门槛和出门条件。页数固定为 8 页，不超过 8 页。图内不使用无法落地的泛化模块，每个关键节点都绑定到真实页面、API、服务、数据/缓存、体验组件、AgentCore 适配器或审计 artifact。
 
@@ -18,6 +18,8 @@
 
 2026-07-03 ChatGPT 复核建议闭环：当前文档可以进入下一阶段实现，但不等于 ChatBox 体验已完成，也不等于正式交易可用。代码阶段必须按 UX-F0 到 UX-F6 顺序执行；UX-F0 必须先生成 1440px、768px、390px 基线截图；ChatBox 核心业务回复必须有 `answerLevel / summary / keyNumbers / nextActions / dataHealth / evidenceRefs / technicalDetailsCollapsed / prohibitedActions` 结构化协议；`DataHealthNotice` 必须覆盖 provider unavailable、SQLite risk、data insufficient、artifact missing、operation failed、validation blocker；`dual_track_ux_audit.json` 必须证明专家页仍可访问；`trade_boundary_wording_audit.json` 必须扫描 ChatBox 回复、按钮、确认卡、工作台、专家页、SUMMARY 和 E2E HTML 报告。
 
+2026-07-04 阶段实现验收同步：ChatBox UX、普通话结构化回复、数据健康提示、双轨工作台、专家页反向解释入口、响应式 Shell、产品视觉收口和截图验收已经通过当前自动化合同与 E2E 证据。`WelcomeTaskBoard`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails` 已在 `FamsChatBox.tsx` 中落地；`UserTaskWorkbench` 已在 `Dashboard.tsx` 中落地；`DividendLowVol.tsx / Backtest.tsx / Operations.tsx` 已提供“用 ChatBox 解释”入口。`JourneyStepper` 与独立 `ExpertPageChatExplain` 组件没有作为独立文件落地，当前以工作台任务流和专家页解释按钮等价覆盖，后续可做组件化增强。正式 provider、官方 total-return benchmark、完整 streaming / 多轮 tool-calling Agent loop 和正式交易 release 仍未完成。
+
 ## 颜色规则
 
 - 灰色：已经实现或本阶段已有基础能力。
@@ -31,8 +33,9 @@
 ## 实体状态索引
 
 - 已开发基础：`FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html`。
-- 开发中 / 需修改：ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、红利低波结论卡、组合回测摘要、任务中心普通用户摘要、统一状态词、视觉降噪、移动端 Shell、硬编码深色收敛、按钮/标签密度控制。
-- 未开发 / 待新增：`WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、`JourneyStepper`、`ExpertPageChatExplain`、design token registry、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json`。
+- 已实现 / 已验收：`WelcomeTaskBoard`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、专家页“用 ChatBox 解释”入口、移动端抽屉导航、普通话结构化结果、数据健康提示、技术细节默认折叠、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json`。
+- 开发中 / 后续增强：`JourneyStepper` 独立组件、`ExpertPageChatExplain` 独立组件、`ExperienceModeToggle`、`PlainLanguageHelp`、红利低波独立结论卡、组合回测独立摘要卡、完整 streaming / 多轮 tool-calling Agent loop、正式 provider、官方 total-return benchmark、正式交易 release gate。
+- 未开发 / 不属于本阶段 release：正式 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`、自动再平衡、正式下单适配器。
 - 硬边界：`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
 
 ## 分层关系要求
@@ -85,23 +88,23 @@ blockingChatGptDocAuditRequired=false
 当前必须保持：
 
 ```text
-ordinaryUserExperienceReady=false
-frontendComplexityReduced=false
-chatBoxBusinessEntryReady=false
+ordinaryUserExperienceReady=true
+frontendComplexityReduced=true
+chatBoxBusinessEntryReady=true
 chatBoxFirstClassFunctionalReady=true
-chatBoxExperienceOptimized=false
-chatBoxPlainLanguageReady=false
-chatBoxDataHealthUxReady=false
+chatBoxExperienceOptimized=true
+chatBoxPlainLanguageReady=true
+chatBoxDataHealthUxReady=true
 piLlmAgentLoopEnabled=partial_controlled_intent_router
 chatSessionPersistenceReady=true
 chatStreamingReady=false
-fullBusinessToolCoverageReady=false
-inlineChartResultReady=false
-chatBoxFirstClassReady=false
+fullBusinessToolCoverageReady=true
+inlineChartResultReady=true
+chatBoxFirstClassReady=true
 dualTrackExperienceDocumented=true
-ordinaryUserWorkbenchReady=false
+ordinaryUserWorkbenchReady=true
 expertModuleTabsPreserved=true
-productVisualRefreshReady=false
+productVisualRefreshReady=true
 longHorizonRealDataBacktestReady=true
 dataTrustGrade=INSUFFICIENT
 calculationAuditStatus=deterministic_replay_only
@@ -115,11 +118,9 @@ formalTargetWeightPercent=0
 当前不能声明：
 
 ```text
-ordinaryUserExperienceReady 不得为 true，直到 UX-1 到 UX-6 完成并通过截图验收
-frontendComplexityReduced 不得为 true，直到普通用户路径可读性验收通过
-chatBoxExperienceOptimized 不得为 true，直到 CB-F / UX-7 的欢迎任务卡、普通话结果层级、数据健康提示和移动端截图验收通过
-chatBoxBusinessEntryReady 不得为 true，直到全业务工具覆盖、对话内结构化图表、流式事件和完整 PI Agent loop 验收通过
-chatBoxFirstClassReady 不得为 true，直到 CB-1 到 CB-5 实现并通过审计包、E2E 和交易边界验收
+chatStreamingReady 不得为 true，直到 SSE/WebSocket 或等价流式事件完成并通过审计
+piLlmAgentLoopEnabled 不得写成 complete，直到完整多轮 tool-calling Agent loop 通过白名单、权限漂移和 E2E 审计
+formalTradingReady 不得为 true，直到正式 provider、官方/可信 total-return benchmark、formal validation、人工签核和 release gate 全部通过
 formalTradingUnlocked 不得为 true
 autoTradeUnlocked 不得为 true
 orderCreateAllowed 不得为 true
