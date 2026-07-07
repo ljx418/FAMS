@@ -26,6 +26,19 @@ export async function assetRoutes(app: FastifyInstance) {
     })
   })
 
+  // 导出当前用户的资产与交易记录 Excel
+  app.get('/export', async (request, reply) => {
+    const { userId = 'default' } = request.query as any
+    const result = await assetService.exportPortfolioWorkbook(String(userId))
+
+    reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="${result.filename}"`)
+      .header('X-FAMS-Export-Summary', encodeURIComponent(JSON.stringify(result.summary)))
+
+    return reply.send(result.buffer)
+  })
+
   // 获取单个资产
   app.get('/:id', async (request) => {
     const { id } = request.params as any

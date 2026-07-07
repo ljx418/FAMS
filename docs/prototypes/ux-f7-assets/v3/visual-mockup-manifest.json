@@ -1,0 +1,16 @@
+{
+  "generatedAt": "2026-07-07T06:40:02.977Z",
+  "type": "target visual page mockups rendered from HTML/CSS",
+  "files": [
+    "dashboard-visual.html",
+    "chatbox-visual.html",
+    "assets-excel-visual.html",
+    "backtest-visual.html",
+    "dividend-low-vol-visual.html",
+    "operations-visual.html",
+    "mobile-visual.html",
+    "component-kit-visual.html"
+  ],
+  "productCodeChanged": false,
+  "note": "These are target display-shape mockups, not production implementation and not process diagrams."
+}

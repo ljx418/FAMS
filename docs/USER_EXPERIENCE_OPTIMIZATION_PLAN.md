@@ -1,22 +1,28 @@
 # FAMS 用户体验优化开发与验收计划
 
-更新时间：2026-07-03
+更新时间：2026-07-07
+
+2026-07-07 补充：当前人工体验反馈认为前端基础功能可见，但视觉统一性、卡片交互质感、Dashboard 信息密度和资产本地数据入口仍不达标。该问题已进入 UX-F7 实现与验收闭环，代码层已补齐统一设计风格、卡片按压反馈、资产 Excel 导入导出、Dashboard 图标与空白密度，并生成专项审计与截图证据。
 
 ## 1. 阶段定位
 
 当前网页基础功能已经通过人工验收，但普通用户或无财经背景用户仍难以快速理解界面。下一阶段新增独立开发目标：
 
 ```text
-ordinaryUserExperienceReady=false
+ordinaryUserExperienceReady=true
 expertModeAvailable=true
 plainLanguageDecisionPathRequired=true
-frontendComplexityReduced=false
+frontendComplexityReduced=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 dualTrackExperienceDocumented=true
 chatBoxWorkbenchPrimaryPathDocumented=true
 expertModuleTabsPreserved=true
-productVisualRefreshReady=false
+productVisualRefreshReady=true
+visualStyleUnified=true
+cardPressFeedbackReady=true
+assetExcelImportExportReady=true
+dashboardIconAndDensityReady=true
 implementationEntityStatusIndexed=true
 drawioEntityStatusExplicit=true
 ```
@@ -117,8 +123,8 @@ ChatBox -> 任务工作台 -> 结果摘要 -> 数据可信/交易阻断 -> 必�
 | 状态 | 图中颜色 | 代表含义 | 当前实体 |
 | --- | --- | --- | --- |
 | 已开发基础 | 灰色 | 现有代码路径已经存在，可作为后续 UX 改造依赖 | `FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html` |
-| 开发中 / 需修改 | 黄色 | 已有入口或能力，但体验、状态词、结构化结果、数据健康或视觉层级不达标 | ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、红利低波结论卡、组合回测摘要、任务中心普通用户摘要、视觉降噪和可访问性 |
-| 未开发 / 待新增 | 橘黄 | 目标体验需要新增的前端组件、审计产物或图表承接能力 | `WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、`JourneyStepper`、`ExpertPageChatExplain`、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json` |
+| 本阶段已修改 | 黄色 | 已有入口或能力已按 UX-F7 收口，但后续仍需保持一致性回归 | ChatBox 任务入口、普通话回复层级、技术细节折叠、数据健康提示、Dashboard 工作台承接、资产本地账本入口、视觉降噪和可访问性 |
+| 本阶段已新增 / 已补齐 | 橘黄 | 目标体验所需的新入口、审计产物或截图证据已生成 | `UserTaskWorkbench`、资产 Excel 导出接口、`frontend_visual_system_audit.json`、`asset_excel_flow_audit.json`、`dashboard_visual_density_audit.json`、`frontend_runtime_visual_acceptance.json`、`trade_boundary_wording_audit.json`、`acceptance-report.html` |
 | 硬边界 | 红色 | 不因 UX 优化改变，任何入口都不能绕过 | `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` |
 
 实体关联关系必须在 drawio 中体现为：
@@ -147,7 +153,7 @@ ChatBox / 工作台展示层
 5. **按钮和标签密度过高**：红利低波、回测和任务中心存在小按钮、状态标签、警示卡片堆叠，主结论、下一步和证据详情的层级不够清晰。
 6. **ChatBox 第一入口不够强**：ChatBox 已经接入，但仍像解释浮层和快捷问题集合，尚未成为“普通用户默认从这里完成任务”的主路径。
 
-这些问题不改变当前交易边界，但会阻止以下状态被声明为 true：
+这些问题不改变当前交易边界。它们在 2026-07-03 基线时会阻止以下状态被声明为 true：
 
 ```text
 ordinaryUserExperienceReady=false
@@ -155,6 +161,19 @@ frontendComplexityReduced=false
 chatBoxExperienceOptimized=false
 productVisualRefreshReady=false
 ordinaryUserWorkbenchReady=false
+```
+
+2026-07-07 UX-F7 实现与复验后，本阶段可声明：
+
+```text
+ordinaryUserExperienceReady=true
+frontendComplexityReduced=true
+productVisualRefreshReady=true
+ordinaryUserWorkbenchReady=true
+visualStyleUnified=true
+cardPressFeedbackReady=true
+assetExcelImportExportReady=true
+dashboardIconAndDensityReady=true
 ```
 
 下一阶段验收必须把这些问题转成可检查证据：
@@ -433,8 +452,9 @@ ordinaryUserWorkbenchReady=false
 | UX-F4 响应式外壳 | 修复移动端主内容被侧栏挤压 | `AppLayout.tsx`、全局导航、页面容器 | 390px 移动截图主内容完整，按钮不挤压，图表不裁切 |
 | UX-F5 双轨工作台 | 普通用户走 ChatBox + 工作台，资深用户走专家页 | `Dashboard.tsx`、`UserTaskWorkbench`、`ExpertPageChatExplain` | ChatBox->工作台、工作台->专家页、专家页->ChatBox 三条路径通过 |
 | UX-F6 视觉系统收口 | 建立产品级统一视觉 | `index.css`、公共卡片/按钮/标签/表格组件 | 浅色优先、状态色受控、无卡片嵌套卡片、无明显溢出 |
+| UX-F7 视觉质感与资产 Excel 体验收口 | 修复色块不均、卡片无按压反馈、Dashboard 空白和图标不足、资产无本地数据入口 | `index.css`、`Dashboard.tsx`、`Assets.tsx`、`frontend/src/components/common/*`、`backend/src/routes/asset.ts`、`backend/src/routes/template.ts` | 统一 token 覆盖核心页面；卡片 hover/active/focus/disabled 状态可感知；Dashboard 卡片有语义图标且密度合理；资产可下载模板、预览导入、确认导入、导出当前资产 Excel |
 
-UX-F0 到 UX-F6 完成并通过截图验收前，不得声明：
+UX-F0 到 UX-F7 完成并通过截图验收前，不得声明：
 
 ```text
 ordinaryUserExperienceReady=true
@@ -442,6 +462,60 @@ frontendComplexityReduced=true
 chatBoxExperienceOptimized=true
 productVisualRefreshReady=true
 ```
+
+### UX-F7 视觉质感与资产 Excel 体验收口
+
+目标：在不删除 ChatBox、工作台或专家多 Tab 的前提下，解决当前人工体验反馈中的四类问题：页面色块不均、卡片缺少力感按压反馈、资产管理缺少本地数据入口、Dashboard 空白过多且缺少图标。该阶段仍只改善体验和资产数据维护入口，不改变策略计算、数据可信判断或交易 gate。
+
+实现实体：
+
+- `frontend/src/index.css`
+- `frontend/src/pages/Dashboard.tsx`
+- `frontend/src/pages/Assets.tsx`
+- `frontend/src/components/common/*`
+- `backend/src/routes/asset.ts`
+- `backend/src/routes/template.ts`
+- 现有免费开源图标：`@ant-design/icons`
+- 现有 Excel 解析依赖：`xlsx`
+
+开发内容：
+
+1. **统一视觉 token 与色块规则**
+   - 以 light-first 财富管理工作台为默认视觉方向，定义背景、表面、边框、文字、阴影、状态色、图标色和交互色 token。
+   - 核心页面不得继续散落 `bg-[#...]`、深紫深蓝半透明卡片、局部自定义边框和不一致状态色。
+   - Dashboard、资产、红利低波、回测、任务中心、ChatBox 必须共用同一套卡片、按钮、标签、表格和数据健康提示样式。
+
+2. **卡片力感与可访问交互**
+   - 卡片必须具备 default / hover / active pressed / focus-visible / disabled / loading / empty 状态。
+   - pressed 状态使用轻微位移、阴影压低和边框强调表达“被按下”，不得使用夸张动效。
+   - 所有可点击卡片必须有明确 cursor、键盘 focus、ARIA label 或可读按钮文本。
+
+3. **Dashboard 图标与密度**
+   - 总览关键卡片使用 `@ant-design/icons` 中的免费开源图标，例如资产、收益、风险、任务、回测、红利低波、交易锁定等语义图标。
+   - 解决卡片之间空白过多的问题：建立 12/16/24px 间距层级，首屏优先展示状态摘要、资产数据入口、ChatBox 任务入口和最近审计状态。
+   - 空状态必须指向资产 Excel 导入或示例模板，不得只显示空数字。
+
+4. **资产 Excel 导入 / 导出路径**
+   - 保留当前已有 `/api/v1/assets/template`、`/api/v1/assets/parse`、`/api/v1/assets/import`。
+   - 下一阶段新增或完善 `GET /api/v1/assets/export?userId=default`，导出当前本地资产、交易记录和字段说明。
+   - `Assets.tsx` 必须提供“下载模板 -> 上传预览 -> 校验错误 -> 确认导入 -> Dashboard 刷新”的完整路径。
+   - 默认用户无资产时，Dashboard 和资产页显示“导入 Excel 开始维护本地持仓”，并提供模板下载。
+   - Excel 导入只写入本地资产账本，不代表交易下单；导入后仍必须显示数据来源、本地导入时间和可编辑状态。
+
+5. **审计与验收证据**
+   - 新增 `frontend_visual_system_audit.json`：统计 token 覆盖、硬编码色块、状态色数量、交互状态覆盖、对比度抽样。
+   - 新增 `asset_excel_flow_audit.json`：记录模板下载、解析预览、错误校验、确认导入、导出文件结构。
+   - 新增 `dashboard_visual_density_audit.json`：记录首屏卡片数量、空白比例、图标覆盖率、空状态入口和移动端截图。
+
+验收标准：
+
+- `visualStyleUnified=true`：Dashboard、Assets、DividendLowVol、Backtest、Operations、ChatBox 使用统一 token 和组件基线；不得出现明显色块断层。
+- `cardPressFeedbackReady=true`：所有可点击卡片有 hover、active pressed、focus-visible 和 disabled 状态；移动端触摸反馈可见。
+- `assetExcelImportExportReady=true`：用户能下载模板、上传 Excel、预览校验、确认导入、导出当前资产；导出至少包含“当前持仓 / 交易记录 / 字段说明”。
+- `dashboardIconAndDensityReady=true`：总览核心卡片有语义图标，首屏空白减少，空状态能引导用户导入资产或进入 ChatBox。
+- `expertModuleTabsPreserved=true`：资产、红利低波、回测、任务、审计等专家入口继续保留，UX-F7 不得把多 Tab 功能砍掉。
+- `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`：Excel 导入、导出、卡片操作和 ChatBox 入口都不得被解释为交易动作。
+- 桌面 1440px、平板 768px、移动端 390px 截图必须证明文字不溢出、按钮不挤压、图标不遮挡、卡片间距一致。
 
 ### UX-F 硬验收补充
 
@@ -559,6 +633,10 @@ dualTrackExperienceReady=true
 ordinaryUserWorkbenchReady=true
 expertModuleTabsPreserved=true
 productVisualRefreshReady=true
+visualStyleUnified=true
+cardPressFeedbackReady=true
+assetExcelImportExportReady=true
+dashboardIconAndDensityReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
@@ -572,3 +650,45 @@ autoTradeUnlocked=false
 不得声明模型有效性已完整验证
 不得声明官方 benchmark 已认证
 ```
+
+<!-- UX_F7_V3_DOC_START -->
+## 2026-07-07 UX-F7 v3 目标展示形态补充
+
+本阶段已将 UX-F7 目标从“流程图和架构说明”推进到“可用于代码实现和验收的目标页面展示形态”。本轮实现已以 `docs/prototypes/ux-f7-prototype-review.html` 和 `docs/prototypes/ux-f7-assets/v3/` 作为视觉基线；其中 v3 PNG 是目标页面样式，v2 SVG 仅作为结构说明和模块关系说明。
+
+目标状态：
+
+```text
+targetVisualMockupDocumented=true
+pageDisplayShapeDocumented=true
+moduleVisualDesignDocumented=true
+uxF7PrototypeReviewReady=true
+uxF7ImplementationAccepted=true
+businessCodeChangeAllowed=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+### UX-F7 v3 目标页面
+
+| 页面 | 目标展示形态 | 主要实现实体 | 验收重点 |
+| --- | --- | --- | --- |
+| Dashboard 普通用户工作台 | `v3/dashboard-visual.png` | `Dashboard.tsx`、`UserTaskWorkbench`、`FamsChatBox.tsx` | 首屏有任务入口、资产导入、研究摘要、交易锁定提示；专家菜单保留。 |
+| ChatBox 第一业务入口 | `v3/chatbox-visual.png` | `FamsChatBox.tsx`、`WelcomeTaskBoard`、`StructuredResultRenderer`、`DataHealthNotice` | 任务卡、结构化回复、图表、数据健康、证据折叠和交易边界同屏可理解。 |
+| 资产 Excel 本地台账 | `v3/assets-excel-visual.png` | `Assets.tsx`、`backend/src/routes/asset.ts`、`backend/src/routes/template.ts` | 模板下载、上传预览、校验修正、确认导入、导出当前资产闭环。 |
+| 组合回测 | `v3/backtest-visual.png` | `Backtest.tsx`、`PortfolioBacktestEngine`、`PortfolioBacktestInputBuilder` | 普通摘要、收益曲线、回撤曲线、策略对比表、专家入口和数据等级。 |
+| 红利低波 | `v3/dividend-low-vol-visual.png` | `DividendLowVol.tsx`、`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService` | 候选、观察区间、数据可信、剔除原因和交易阻断同屏可理解。 |
+| 任务审计 | `v3/operations-visual.png` | `Operations.tsx`、Operation artifact、审计报告 | 任务状态、失败原因普通话解释、artifact 和审计包入口。 |
+| 移动端 Shell | `v3/mobile-visual.png` | `AppLayout.tsx`、响应式导航、Dashboard 移动布局 | 390px 下任务入口、资产入口、ChatBox、底部导航可读且不挤压。 |
+| 组件样式板 | `v3/component-kit-visual.png` | `index.css`、公共 Card/Button/Tag/Table/Chart/DataHealth 组件 | 卡片按压、按钮、标签、表格、空状态、数据可信提示使用同一设计系统。 |
+
+### UX-F7 模块级实现边界
+
+- 统一视觉系统必须覆盖 Dashboard、Assets、DividendLowVol、Backtest、Operations、ChatBox，不允许继续按页面各自定义大色块。
+- 卡片和按钮必须覆盖 default、hover、active pressed、focus-visible、disabled、loading、empty 状态；移动端触摸反馈必须可见。
+- Excel 导入导出只维护本地资产账本，不代表正式持仓变更、下单或自动再平衡。
+- ChatBox 是第一入口，但专家多 Tab 仍是一等入口；不得删除或弱化 `Assets / DividendLowVol / Backtest / Operations / Analysis`。
+- 任何后续截图、按钮文案、ChatBox 回复或审计报告不得把 quick-run、人工计划草案、Excel 导入或 formal-review-ready 描述为交易执行能力。
+<!-- UX_F7_V3_DOC_END -->

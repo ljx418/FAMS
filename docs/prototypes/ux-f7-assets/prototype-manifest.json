@@ -1,0 +1,98 @@
+{
+  "generatedAt": "2026-07-07T03:45:40.226Z",
+  "report": "docs/prototypes/ux-f7-prototype-review.html",
+  "purpose": "UX-F7 prototype review page for visual style, Excel assets, ChatBox/workbench/expert dual-track experience.",
+  "productCodeChanged": false,
+  "images": {
+    "baseline": [
+      "baseline/dashboard-desktop.png",
+      "baseline/dashboard-tablet.png",
+      "baseline/dashboard-mobile.png",
+      "baseline/assets-desktop.png",
+      "baseline/assets-mobile.png",
+      "baseline/backtest-desktop.png",
+      "baseline/dividend-low-vol-desktop.png",
+      "baseline/operations-desktop.png"
+    ],
+    "architecture": [
+      "architecture-current-target.svg",
+      "architecture-dual-track.svg",
+      "architecture-data-flow.svg",
+      "architecture-trade-gate.svg"
+    ],
+    "targetDesigns": [
+      "design-system-overview.svg",
+      "design-dashboard-module.svg",
+      "design-chatbox-module.svg",
+      "design-assets-excel-module.svg",
+      "design-expert-tabs-module.svg",
+      "design-mobile-shell-module.svg"
+    ],
+    "userJourneys": [
+      "journey-ordinary-onboarding.svg",
+      "journey-asset-excel.svg",
+      "journey-portfolio-backtest.svg",
+      "journey-dividend-low-vol.svg",
+      "journey-task-audit.svg",
+      "journey-expert-mode.svg",
+      "journey-trade-blocker.svg"
+    ],
+    "v2PageDesigns": [
+      "v2/target-dashboard-v2.svg",
+      "v2/target-chatbox-v2.svg",
+      "v2/target-assets-excel-v2.svg",
+      "v2/target-backtest-v2.svg",
+      "v2/target-dividend-low-vol-v2.svg",
+      "v2/target-operations-v2.svg",
+      "v2/target-mobile-shell-v2.svg"
+    ],
+    "v2ModuleDesigns": [
+      "v2/module-design-tokens.svg",
+      "v2/module-card-pressed-states.svg",
+      "v2/module-button-icon-system.svg",
+      "v2/module-data-trust-pill.svg",
+      "v2/module-chart-panel.svg",
+      "v2/module-data-table.svg",
+      "v2/module-excel-wizard.svg",
+      "v2/module-chat-structured-answer.svg",
+      "v2/module-expert-page-explain-entry.svg"
+    ],
+    "v2JourneyDesigns": [
+      "v2/route-ordinary-user-v2.svg",
+      "v2/route-asset-excel-v2.svg",
+      "v2/route-research-and-expert-v2.svg"
+    ],
+    "v3TargetVisualPng": [
+      "v3/dashboard-visual.png",
+      "v3/chatbox-visual.png",
+      "v3/assets-excel-visual.png",
+      "v3/backtest-visual.png",
+      "v3/dividend-low-vol-visual.png",
+      "v3/operations-visual.png",
+      "v3/mobile-visual.png",
+      "v3/component-kit-visual.png"
+    ],
+    "v3TargetVisualHtml": [
+      "v3/dashboard-visual.html",
+      "v3/chatbox-visual.html",
+      "v3/assets-excel-visual.html",
+      "v3/backtest-visual.html",
+      "v3/dividend-low-vol-visual.html",
+      "v3/operations-visual.html",
+      "v3/mobile-visual.html",
+      "v3/component-kit-visual.html"
+    ]
+  },
+  "constraints": {
+    "formalTradingUnlocked": false,
+    "autoTradeUnlocked": false,
+    "canCreateOrder": false,
+    "orderCreateAllowed": false,
+    "chatBoxDoesNotReplaceExpertTabs": true,
+    "expertModuleTabsPreserved": true,
+    "productCodeChanged": false
+  },
+  "imageGenerationDecision": "v3 adds target display-shape page mockups rendered from static HTML/CSS to PNG; these are concrete page style images, not interaction flow diagrams.",
+  "updatedAt": "2026-07-07T06:40:59.245Z",
+  "version": "v3-target-visual-page-mockups"
+}

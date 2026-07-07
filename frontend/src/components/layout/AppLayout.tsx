@@ -77,7 +77,7 @@ export function Layout() {
       items={menuItems}
       onClick={({ key }) => handleNavigate(String(key))}
       className="bg-transparent border-0 mt-2"
-      theme="dark"
+      theme="light"
     />
   )
 
@@ -87,26 +87,26 @@ export function Layout() {
         width={200}
         breakpoint="md"
         collapsedWidth={0}
-        className="bg-[#1a1a2e] border-r border-surface-border"
-        theme="dark"
+        className="border-r border-slate-200 bg-white"
+        theme="light"
       >
-        <div className="h-16 flex items-center justify-center border-b border-surface-border">
-          <span className="text-lg font-bold text-white">FAMS</span>
+        <div className="flex h-16 items-center justify-center border-b border-slate-200">
+          <span className="text-lg font-bold text-slate-950">FAMS</span>
         </div>
         {navigationMenu}
       </Sider>
-      <AntLayout className="bg-[#0f0f23] min-w-0">
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-surface-border bg-[#111827]/95 px-4 md:hidden">
+      <AntLayout className="min-w-0 bg-[#f4f7fb]">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-200 bg-white/95 px-4 md:hidden">
           <Button
             type="text"
             icon={<MenuOutlined />}
             aria-label="打开导航菜单"
             onClick={() => setMobileNavOpen(true)}
-            className="text-white"
+            className="text-slate-950"
           />
           <div className="min-w-0 text-center">
-            <div className="text-sm font-semibold text-white">{currentLabel}</div>
-            <div className="text-[11px] text-gray-400">研究与组合管理</div>
+            <div className="text-sm font-semibold text-slate-950">{currentLabel}</div>
+            <div className="text-[11px] text-slate-500">研究与组合管理</div>
           </div>
           <span className="w-8" aria-hidden />
         </header>
@@ -116,7 +116,7 @@ export function Layout() {
           open={mobileNavOpen}
           onClose={() => setMobileNavOpen(false)}
           width={280}
-          styles={{ body: { padding: 0, background: '#1a1a2e' }, header: { background: '#1a1a2e', borderBottomColor: '#2a2a4e' } }}
+          styles={{ body: { padding: 0, background: '#ffffff' }, header: { background: '#ffffff', borderBottomColor: '#e2e8f0' } }}
         >
           {navigationMenu}
         </Drawer>

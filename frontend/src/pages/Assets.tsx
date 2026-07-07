@@ -1,7 +1,20 @@
 import React, { Suspense, lazy, useState, useEffect, useCallback } from 'react'
 import { Card, Table, Button, Upload, message, Modal, Form, Input, InputNumber, Select, Tabs, Popconfirm, Row, Col, Statistic, Segmented, Tag, Spin } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { UploadOutlined, DeleteOutlined, SwapOutlined, DownloadOutlined, EditOutlined } from '@ant-design/icons'
+import {
+  UploadOutlined,
+  DeleteOutlined,
+  SwapOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  FileExcelOutlined,
+  InboxOutlined,
+  WalletOutlined,
+  RiseOutlined,
+  PercentageOutlined,
+  FundOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import AllocationPieChart from '../components/charts/AllocationPieChart'
@@ -164,6 +177,7 @@ const Assets: React.FC = () => {
   const [parsedPreview, setParsedPreview] = useState<ParsedRow[]>([])
   const [tradingAsset, setTradingAsset] = useState<Asset | null>(null)
   const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [tradeSaving, setTradeSaving] = useState(false)
   const [tradeForm] = Form.useForm()
   const tradeType = Form.useWatch('type', tradeForm)
@@ -330,6 +344,32 @@ const Assets: React.FC = () => {
     } catch (error) {
       console.error('Template download failed:', error)
       message.error('模板下载失败')
+    }
+  }
+
+  // 导出当前资产与交易记录
+  const handleExportAssets = async () => {
+    setExporting(true)
+    try {
+      const response = await axios.get(`/api/v1/assets/export?userId=${USER_ID}`, {
+        responseType: 'blob',
+      })
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      const disposition = response.headers?.['content-disposition'] || ''
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/)
+      link.href = url
+      link.setAttribute('download', filenameMatch?.[1] || `asset_export_${USER_ID}.xlsx`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      message.success('资产与交易记录已导出')
+    } catch (error) {
+      console.error('Asset export failed:', error)
+      message.error('导出失败')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -682,7 +722,7 @@ const Assets: React.FC = () => {
         <div className="flex items-center gap-2">
           <span>{v}</span>
           {isNewAsset(record) && (
-            <span className="px-1.5 py-0.5 text-xs rounded bg-success text-white font-medium">
+            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
               NEW
             </span>
           )}
@@ -773,7 +813,7 @@ const Assets: React.FC = () => {
       key: 'unrealizedPnl',
       width: 120,
       render: (v: number, record: Asset) => (
-        <span className={v >= 0 ? 'text-[success]' : 'text-[danger]'}>
+        <span className={v >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
           {v >= 0 ? '+' : ''}{v ? (v / 10000)?.toFixed(2) : '0.00'} ({(record.unrealizedPnlPercent || 0) >= 0 ? '+' : ''}{(record.unrealizedPnlPercent || 0).toFixed(2)}%)
         </span>
       ),
@@ -784,10 +824,10 @@ const Assets: React.FC = () => {
       width: 110,
       render: (_: unknown, record: Asset) => (
         <div className="space-y-1 text-xs">
-          <div className={record.takeProfit ? 'text-[success]' : 'text-gray-400'}>
+          <div className={record.takeProfit ? 'text-emerald-600' : 'text-slate-400'}>
             止盈 {record.takeProfit ? `${record.takeProfit.toFixed(2)}%` : '--'}
           </div>
-          <div className={record.stopLoss ? 'text-[danger]' : 'text-gray-400'}>
+          <div className={record.stopLoss ? 'text-rose-600' : 'text-slate-400'}>
             止损 {record.stopLoss ? `${record.stopLoss.toFixed(2)}%` : '--'}
           </div>
         </div>
@@ -816,7 +856,7 @@ const Assets: React.FC = () => {
             编辑
           </Button>
           <Button size="small" icon={<SwapOutlined />} onClick={() => handleTrade(record)}>
-            交易
+            记账
           </Button>
           <Popconfirm
             title="确认删除"
@@ -849,7 +889,7 @@ const Assets: React.FC = () => {
       key: 'type',
       width: 60,
       render: (v: string) => (
-        <span className={v === 'buy' ? 'text-[success]' : v === 'sell' ? 'text-[danger]' : ''}>
+        <span className={v === 'buy' ? 'text-emerald-600' : v === 'sell' ? 'text-rose-600' : ''}>
           {v === 'buy' ? '买入' : v === 'sell' ? '卖出' : v === 'dividend' ? '分红' : v === 'fee' ? '费用' : v === 'deposit' ? '存入' : v === 'withdraw' ? '取出' : v}
         </span>
       ),
@@ -931,7 +971,7 @@ const Assets: React.FC = () => {
               选择Excel文件导入
             </Button>
           </Upload>
-          <p className="mt-4 text-gray-300 text-sm">
+          <p className="fams-muted mt-4 text-sm">
             支持格式：大类、属性、小类(名称)、代码、持股数、成本(元/股)、市值(万)
           </p>
         </div>
@@ -940,45 +980,68 @@ const Assets: React.FC = () => {
   ]
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white mb-6">资产管理</h1>
+    <div className="fams-page space-y-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="fams-eyebrow">本地资产台账</div>
+          <h1 className="fams-page-title mb-0">资产管理</h1>
+          <p className="fams-muted mb-0 mt-2 max-w-3xl">
+            用 Excel 导入维护本地持仓，系统会保留解析预览和人工确认步骤；导出文件仅用于离线核对，不构成交易建议。
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
+            下载模板
+          </Button>
+          <Upload accept=".xlsx,.xls" showUploadList={false} beforeUpload={handleParseExcel}>
+            <Button type="primary" icon={<UploadOutlined />}>导入 Excel</Button>
+          </Upload>
+          <Button icon={<FileExcelOutlined />} onClick={handleExportAssets} loading={exporting}>
+            导出资产
+          </Button>
+        </div>
+      </div>
 
       {/* 统计卡片 */}
-      <Row gutter={16}>
-        <Col span={6}>
-          <Card className="bg-[#1a1a2e] border-[surface-border] card-sm">
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="fams-stat-card fams-pressable card-sm">
+            <div className="fams-stat-icon text-blue-600"><WalletOutlined /></div>
             <Statistic
-              title={<span className="text-gray-300">总市值</span>}
+              title={<span className="fams-muted">总市值</span>}
               value={(stats.totalValue / 10000).toFixed(2)}
               suffix="万"
-              valueStyle={{ color: '#5470C6', fontSize: '24px' }}
+              valueStyle={{ color: '#2563eb', fontSize: '24px' }}
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card className="bg-[#1a1a2e] border-[surface-border] card-sm">
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="fams-stat-card fams-pressable card-sm">
+            <div className="fams-stat-icon text-amber-600"><FundOutlined /></div>
             <Statistic
-              title={<span className="text-gray-300">总成本</span>}
+              title={<span className="fams-muted">总成本</span>}
               value={(stats.totalCost / 10000).toFixed(2)}
               suffix="万"
-              valueStyle={{ color: '#FAC858', fontSize: '24px' }}
+              valueStyle={{ color: '#b45309', fontSize: '24px' }}
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card className="bg-[#1a1a2e] border-[surface-border] card-sm">
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="fams-stat-card fams-pressable card-sm">
+            <div className="fams-stat-icon text-emerald-600"><RiseOutlined /></div>
             <Statistic
-              title={<span className="text-gray-300">盈亏</span>}
+              title={<span className="fams-muted">盈亏</span>}
               value={(stats.totalPnl / 10000).toFixed(2)}
               suffix="万"
               valueStyle={{ color: stats.totalPnl >= 0 ? SUCCESS_COLOR : DANGER_COLOR, fontSize: '24px' }}
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card className="bg-[#1a1a2e] border-[surface-border] card-sm">
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="fams-stat-card fams-pressable card-sm">
+            <div className="fams-stat-icon text-cyan-600"><PercentageOutlined /></div>
             <Statistic
-              title={<span className="text-gray-300">收益率</span>}
+              title={<span className="fams-muted">收益率</span>}
               value={stats.totalPnlPercent.toFixed(2)}
               suffix="%"
               valueStyle={{ color: stats.totalPnlPercent >= 0 ? SUCCESS_COLOR : DANGER_COLOR, fontSize: '24px' }}
@@ -988,9 +1051,13 @@ const Assets: React.FC = () => {
       </Row>
 
       {/* 主内容 */}
-      <Card className="bg-[#1a1a2e] border-[surface-border] card-md">
-        <div className="flex justify-between mb-4">
-          <div className="flex gap-2">
+      <Card className="fams-card card-md">
+        <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <div className="text-base font-semibold text-slate-950">持仓台账</div>
+            <div className="fams-muted mt-1 text-sm">导入前会先展示解析预览，导出会包含当前持仓、交易流水和字段说明。</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <Upload
               accept=".xlsx,.xls"
               showUploadList={false}
@@ -1001,14 +1068,33 @@ const Assets: React.FC = () => {
             <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
               下载模板
             </Button>
+            <Button icon={<FileExcelOutlined />} onClick={handleExportAssets} loading={exporting}>
+              导出资产
+            </Button>
             <Button danger icon={<DeleteOutlined />} onClick={() => setClearModalVisible(true)}>
               清空数据库
             </Button>
-          </div>
-          <Button onClick={handleRefreshPrices} loading={loading}>
+            <Button icon={<ReloadOutlined />} onClick={handleRefreshPrices} loading={loading}>
             刷新价格
           </Button>
+          </div>
         </div>
+
+        {positions.length === 0 && (
+          <div className="fams-empty-state mb-4">
+            <InboxOutlined className="text-3xl text-blue-600" />
+            <div>
+              <div className="font-semibold text-slate-950">还没有本地资产数据</div>
+              <div className="fams-muted mt-1 text-sm">先下载模板填写持仓，再导入 Excel。系统会在导入前给出预览，避免误写入。</div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>下载模板</Button>
+              <Upload accept=".xlsx,.xls" showUploadList={false} beforeUpload={handleParseExcel}>
+                <Button type="primary" icon={<UploadOutlined />}>导入 Excel</Button>
+              </Upload>
+            </div>
+          </div>
+        )}
 
         <Tabs items={tabItems} />
       </Card>
@@ -1037,21 +1123,21 @@ const Assets: React.FC = () => {
         />
       </Modal>
 
-      {/* 交易Modal - 简化版 */}
+      {/* 记账Modal - 简化版。它只记录本地流水，不创建外部订单。 */}
       <Modal
-        title={`快捷交易 - ${tradingAsset?.asset?.name || tradingAsset?.name || ''}`}
+        title={`快捷记账 - ${tradingAsset?.asset?.name || tradingAsset?.name || ''}`}
         open={tradeModalVisible}
         onCancel={() => setTradeModalVisible(false)}
         onOk={handleTradeConfirm}
-        okText="确认交易"
+        okText="确认并记账"
         confirmLoading={tradeSaving}
         width={380}
         destroyOnHidden
       >
         <div className="py-2">
           <div className="text-center mb-4">
-            <div className="text-gray-300 text-sm">当前市价</div>
-            <div className="text-2xl font-bold text-white">
+            <div className="fams-muted text-sm">当前市价</div>
+            <div className="text-2xl font-bold text-slate-950">
               ¥{tradingAsset?.currentPrice?.toFixed(3) || '--'}
             </div>
           </div>
@@ -1095,7 +1181,7 @@ const Assets: React.FC = () => {
 
             {/* 快捷金额选择 */}
             <div className="mb-4">
-              <div className="text-gray-300 text-xs mb-2">快捷选择（按持仓比例）</div>
+              <div className="fams-muted mb-2 text-xs">快捷选择（按持仓比例）</div>
               <div className="flex gap-2">
                 {[25, 50, 75, 100].map((pct) => (
                   <Button
@@ -1137,10 +1223,10 @@ const Assets: React.FC = () => {
             </Form.Item>
 
             {/* 预估金额 */}
-            <div className="bg-[#0f0f23] rounded p-3 mt-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 mt-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-300">预估金额</span>
-                <span className="text-white font-medium">
+                <span className="fams-muted">预估金额</span>
+                <span className="font-medium text-slate-950">
                   ¥{estimatedTradeAmount > 0
                     ? estimatedTradeAmount.toFixed(2)
                     : '--'}
@@ -1148,12 +1234,12 @@ const Assets: React.FC = () => {
               </div>
               {tradeFee > 0 && (
                 <div className="flex justify-between text-xs mt-2">
-                  <span className="text-gray-300">含手续费</span>
-                  <span className="text-gray-300">¥{estimatedTradeAmountWithFee.toFixed(2)}</span>
+                  <span className="fams-muted">含手续费</span>
+                  <span className="fams-muted">¥{estimatedTradeAmountWithFee.toFixed(2)}</span>
                 </div>
               )}
               {isBoardLotTrade && (
-                <div className="text-xs text-gray-300 mt-2">
+                <div className="fams-muted mt-2 text-xs">
                   股票交易按100股为一手，数量必须为100股整数倍。
                 </div>
               )}
@@ -1183,17 +1269,17 @@ const Assets: React.FC = () => {
         {importSuccessData && (
           <div className="py-4">
             <div className="text-center mb-6">
-              <div className="text-3xl font-bold text-[success] mb-2">
+              <div className="mb-2 text-3xl font-bold text-emerald-600">
                 导入成功 {importSuccessData.successCount} 项
               </div>
-              <div className="text-gray-300">
-                总资产: <span className="text-white font-medium">{importSuccessData.totalValue.toFixed(2)}</span> 万元
+              <div className="fams-muted">
+                总资产: <span className="font-medium text-slate-950">{importSuccessData.totalValue.toFixed(2)}</span> 万元
               </div>
             </div>
 
             {importSuccessData.marketDistribution.length > 0 && (
               <div className="mt-6">
-                <div className="text-gray-300 text-center mb-4">市值分布</div>
+                <div className="fams-muted mb-4 text-center">市值分布</div>
                 <AllocationPieChart
                   data={importSuccessData.marketDistribution}
                   type="donut"
@@ -1238,7 +1324,7 @@ const Assets: React.FC = () => {
       </Modal>
 
       <Modal
-        title={<span className="text-white">编辑标签 - {tagEditingAsset?.asset?.name || tagEditingAsset?.name}</span>}
+        title={<span className="text-slate-950">编辑标签 - {tagEditingAsset?.asset?.name || tagEditingAsset?.name}</span>}
         open={tagModalVisible}
         onCancel={() => setTagModalVisible(false)}
         onOk={handleSaveTags}
@@ -1246,7 +1332,7 @@ const Assets: React.FC = () => {
         cancelText="取消"
       >
         <div className="space-y-3">
-          <div className="text-sm text-gray-300">
+          <div className="fams-muted text-sm">
             可用不同色块区分市场、行业、资产类型和策略标签。
           </div>
           <TagSelector

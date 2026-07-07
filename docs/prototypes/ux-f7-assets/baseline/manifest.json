@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-07-07T03:39:31.543Z",
+  "method": "Windows Chrome headless with virtual-time-budget=12000",
+  "sourceBaseUrl": "http://127.0.0.1:3001",
+  "entries": [
+    {
+      "file": "ux-f7-assets/baseline/dashboard-desktop.png",
+      "sizeBytes": 164715,
+      "capturedAt": "2026-07-07T03:39:31.537Z"
+    },
+    {
+      "file": "ux-f7-assets/baseline/dashboard-tablet.png",
+      "sizeBytes": 124471,
+      "capturedAt": "2026-07-07T03:39:31.538Z"
+    },
+    {
+      "file": "ux-f7-assets/baseline/dashboard-mobile.png",
+      "sizeBytes": 83079,
+      "capturedAt": "2026-07-07T03:39:31.539Z"
+    },
+    {
+      "file": "ux-f7-assets/baseline/assets-desktop.png",
+      "sizeBytes": 74133,
+      "capturedAt": "2026-07-07T03:39:31.540Z"
+    },
+    {
+      "file": "ux-f7-assets/baseline/assets-mobile.png",
+      "sizeBytes": 35383,
+      "capturedAt": "2026-07-07T03:39:31.541Z"
+    },
+    {
+      "file": "ux-f7-assets/baseline/backtest-desktop.png",
+      "sizeBytes": 205933,
+      "capturedAt": "2026-07-07T03:39:31.542Z"
+    },
+    {
+      "file": "ux-f7-assets/baseline/dividend-low-vol-desktop.png",
+      "sizeBytes": 262736,
+      "capturedAt": "2026-07-07T03:39:31.543Z"
+    },
+    {
+      "file": "ux-f7-assets/baseline/operations-desktop.png",
+      "sizeBytes": 162593,
+      "capturedAt": "2026-07-07T03:39:31.543Z"
+    }
+  ]
+}

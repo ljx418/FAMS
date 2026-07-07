@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-07-07T06:30:13.449Z",
+  "stage": "UX-F7 prototype v2",
+  "directory": "docs/prototypes/ux-f7-assets/v2",
+  "productCodeChanged": false,
+  "format": "auditable local SVG diagrams",
+  "diagrams": [
+    "target-dashboard-v2.svg",
+    "target-chatbox-v2.svg",
+    "target-assets-excel-v2.svg",
+    "target-backtest-v2.svg",
+    "target-dividend-low-vol-v2.svg",
+    "target-operations-v2.svg",
+    "target-mobile-shell-v2.svg",
+    "module-design-tokens.svg",
+    "module-card-pressed-states.svg",
+    "module-button-icon-system.svg",
+    "module-data-trust-pill.svg",
+    "module-chart-panel.svg",
+    "module-data-table.svg",
+    "module-excel-wizard.svg",
+    "module-chat-structured-answer.svg",
+    "module-expert-page-explain-entry.svg",
+    "route-ordinary-user-v2.svg",
+    "route-asset-excel-v2.svg",
+    "route-research-and-expert-v2.svg"
+  ],
+  "constraints": {
+    "formalTradingUnlocked": false,
+    "autoTradeUnlocked": false,
+    "canCreateOrder": false,
+    "orderCreateAllowed": false,
+    "chatBoxDoesNotReplaceExpertTabs": true,
+    "expertModuleTabsPreserved": true
+  },
+  "imageGenerationDecision": "No local imag2/gpt-image-2 executor is assumed for v2; SVG diagrams are used to keep target design traceable and editable."
+}

@@ -120,7 +120,7 @@ businessCodeChangeAllowed=false
 
 - 灰色已开发基础：可复用的现有入口、页面、API、服务、数据或审计产物。
 - 黄色开发中 / 需修改：已有能力但体验、结构、可读性、数据健康或状态词不达标。
-- 橘黄未开发 / 待新增：目标体验所需的新组件、新审计产物或新图表承接能力。
+- 橘黄本阶段新增 / 补齐：目标体验所需的新接口、新审计产物或新截图证据。
 - 红色硬边界：交易、下单、自动化和数据真实性不得绕过的约束。
 
 ChatBox 是第一业务入口和解释层，不是替代原专家系统的单页产品。`DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx` 等多模块专家页必须继续作为资深用户路径存在，并在目标架构中与 ChatBox、工作台、API、服务、审计和 Gate 保持强关联。
@@ -147,6 +147,34 @@ businessCodeChangeAllowed=false
 - **ChatBox 主路径**：`FamsChatBox.tsx` 已优先呈现任务卡、普通话结论、数据健康、下一步和折叠技术详情。
 - **双轨关系**：`Dashboard.tsx / UserTaskWorkbench` 承接普通用户路径，`DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx` 继续作为专家深度路径。
 - **验收证据**：`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json` 和 HTML E2E 报告已生成。
+
+2026-07-07 UX-F7 实现复验补充：人工体验反馈指出的视觉统一性、卡片力感、资产本地数据入口和 Dashboard 图标/密度问题已进入代码实现与自动化验收闭环。本轮新增 `UX-F7 视觉质感与资产 Excel 体验收口`，并已生成专项 audit、截图证据和 HTML 验收报告。
+
+```text
+visualStyleUnified=true
+cardPressFeedbackReady=true
+assetExcelImportExportReady=true
+dashboardIconAndDensityReady=true
+productVisualFinalQualityReady=true
+documentationOnlyStage=false
+businessCodeChangeAllowed=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+```
+
+说明：2026-07-04 的 `productVisualRefreshReady=true` 只表示上一轮 light-first 基线、移动端 Shell 和 ChatBox 主路径通过自动化验收；2026-07-07 UX-F7 在此基础上补齐最终视觉质量和资产 Excel 体验。该状态不表示正式交易 release。
+
+UX-F7 目标架构关系：
+
+- `index.css` 作为视觉 token 和交互状态的统一入口，覆盖背景、表面、边框、文字、状态色、图标色、阴影、pressed feedback、focus-visible 和响应式间距。
+- `Dashboard.tsx` 作为普通用户总览工作台，必须减少首屏无意义空白，使用 `@ant-design/icons` 免费开源图标标识资产、收益、风险、任务、回测、红利低波和交易锁定，并在无资产时引导 Excel 导入。
+- `Assets.tsx` 作为本地资产账本入口，必须形成“下载模板 -> 上传预览 -> 校验错误 -> 确认导入 -> 导出当前资产”的完整路径。
+- `backend/src/routes/template.ts` 已提供 `/api/v1/assets/template`；`backend/src/routes/asset.ts` 已提供 parse/import 基础，下一阶段需要补齐 `GET /api/v1/assets/export?userId=default`。
+- `xlsx` 是当前 Excel 解析/生成依赖；不得新增不必要的商业依赖。
+- Excel 导入只维护本地资产账本，不代表买入、卖出、下单或自动再平衡。
+- 审计产物新增 `frontend_visual_system_audit.json`、`asset_excel_flow_audit.json`、`dashboard_visual_density_audit.json`。
+
+UX-F7 不改变此前 ChatBox + 工作台 + 专家多 Tab 的双轨目标：ChatBox 继续作为普通用户第一入口，左侧菜单和 `Assets / DividendLowVol / Backtest / Operations / Analysis` 继续作为资深用户深度入口。
 
 2026-07-01 ChatBox 文档审计收口：
 
@@ -205,6 +233,7 @@ docs/STAGE_DATA_TRUST_BACKTEST_DOC_AUDIT.md
 docs/FORMAL_TRADING_PREREQUISITE_DOC_AUDIT.md
 docs/FORMAL_TRADING_RELEASE_DOC_AUDIT.md
 docs/USER_EXPERIENCE_OPTIMIZATION_DOC_AUDIT.md
+docs/UX_F7_VISUAL_ASSET_EXCEL_DOC_AUDIT.md
 doc_acceptance_audit.json
 ```
 
@@ -262,7 +291,7 @@ doc_acceptance_audit.json
 | --- | --- | --- |
 | 已开发基础 | `FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html` | 当前 UX 改造复用这些入口和能力，原多 Tab 专家功能仍保留。 |
 | 已实现 / 已验收 | `WelcomeTaskBoard`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、专家页“用 ChatBox 解释”入口、移动端抽屉导航、普通话结构化结果、数据健康提示、技术细节默认折叠、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json` | 当前阶段自动化开发和 E2E 验收已覆盖；截图和审计产物用于人工复核。 |
-| 后续增强 / 未完成 | `JourneyStepper` 独立组件、`ExpertPageChatExplain` 独立组件、`ExperienceModeToggle`、`PlainLanguageHelp`、红利低波独立结论卡、组合回测独立摘要卡、完整 streaming / 多轮 tool-calling Agent loop、正式 provider、官方 total-return benchmark、正式交易 release gate | 当前以工作台任务流和专家页解释按钮等价覆盖部分体验目标；这些项目不阻断本阶段 UX 出门，但阻断下一阶段更高成熟度声明。 |
+| 后续增强 / 未完成 | `JourneyStepper` 独立组件、`ExpertPageChatExplain` 独立组件、`ExperienceModeToggle`、`PlainLanguageHelp`、红利低波独立结论卡、组合回测独立摘要卡、UX-F7 统一视觉 token、卡片 pressed feedback、Dashboard 图标/密度、`GET /api/v1/assets/export`、资产 Excel 导入导出完整审计、完整 streaming / 多轮 tool-calling Agent loop、正式 provider、官方 total-return benchmark、正式交易 release gate | 当前以工作台任务流和专家页解释按钮等价覆盖部分体验目标；UX-F7 是下一阶段体验质量与本地资产数据入口的明确开发项；正式交易 release 仍不属于 UX-F7。 |
 | 硬边界 | `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` | 任何 UX、ChatBox、AgentCore 或工作台改造都不得改变。 |
 
 目标架构分层关系必须按以下链路表达：
@@ -324,6 +353,8 @@ doc_acceptance_audit.json
 - 文档和 drawio 能说明 ChatBox 当前下一阶段优先修复体验：任务式入口、普通话结论、数据健康提示、折叠技术细节和移动端可读性。
 - 审计包能解释为什么当前是 formal-review-ready，而不是 formal-trading-ready。
 - `formalTradingUnlocked=false` 和 `autoTradeUnlocked=false` 在所有主文档中保持一致。
+- UX-F7 完成后，用户能在 Dashboard 或资产页通过 Excel 模板建立本地资产数据，能导入、预览、确认、导出；该路径只代表本地账本维护，不代表交易动作。
+- UX-F7 完成后，Dashboard 核心卡片有语义图标、卡片按压反馈和统一视觉 token；普通用户能从空状态理解下一步，而不是面对空数字或大面积空白。
 - `docs/read-drawio-output.txt` 能证明 drawio 原始 XML 本体可读，且页数不超过 8 页。
 - `docs/STAGE_DATA_TRUST_BACKTEST_DOC_AUDIT.md` 能证明数据可信、计算复算、组合回测和交易边界的文档规格一致。
 - `doc_acceptance_audit.json` 状态必须为 `pass_formal_trading_prerequisite_docs`；该状态不等于正式交易 ready。
@@ -1437,3 +1468,36 @@ auto_trade_ready
 进度 2026-05-30：完成 P4.34.18 Factset Coverage 市值补齐子任务接入。`stock_screener_full_scan / strategy_tournament_run` 新增 `factsetNextAction`；当行业覆盖已达标但市值覆盖不足时，返回 `NEEDS_QUOTE_LIST_MARKET_CAP_WARMUP`，并由 `OperationService` 自动创建 queued `quote_list_market_cap_warmup` 子 Operation。新增 `市值补齐上限 / quoteListMarketCapWarmupLimit / FAMS_QUOTE_LIST_MARKET_CAP_WARMUP_LIMIT` 控制补齐规模。受控 40 标的 warmup 将 canonical fullCoverageCount 从 `1970` 提升到 `2005`；500 样本扫描 factset coverage 达到 `99.8%`；阈值 100% 验收自动创建子任务 `f1a53cbe-1cba-48cb-8d9d-6573f15fe0f4` 并完成；500 标的批量 warmup `4b154e59-17ea-4460-b566-b3e0b56ce392` 成功 `500/500`，canonical fullCoverageCount 从 `2010` 提升到 `2510`，全 A screener factset coverage 提升到 `45.44%`。
 
 验证结论：该节点继续填补 `GAP-6 决策建议结构化` 中“行业/市值事实覆盖不足导致分组稳定性降级”的缺口，并把补齐动作接入 `GAP-7 异步任务骨架`。剩余 gap：全 A coverage 距离 80% gate 仍不足，下一步继续分批市值补齐或评审更高吞吐免费市值源。
+
+<!-- UX_F7_V3_DOC_START -->
+## 2026-07-07 UX-F7 v3 目标架构与实体状态同步
+
+UX-F7 v3 已把目标页面从流程图升级为可审查的目标展示形态。目标架构现在必须同时引用：
+
+- 原型审查页：`docs/prototypes/ux-f7-prototype-review.html`
+- 目标页面样式：`docs/prototypes/ux-f7-assets/v3/*.png`
+- 结构说明图：`docs/prototypes/ux-f7-assets/v2/*.svg`
+- Drawio 实现地图：`docs/target-architecture-gap.drawio`
+
+### 实体状态索引
+
+| 状态 | 颜色 | 实体 | 说明 |
+| --- | --- | --- | --- |
+| 已开发基础 | 灰色 | `FamsChatBox.tsx`、`Backtest.tsx`、`DividendLowVol.tsx`、`Operations.tsx`、`Analysis.tsx`、`backend/src/routes/chat.ts`、`backend/src/routes/template.ts` | 可复用入口、页面、路由和服务基础继续保留，UX-F7 不删除专家多 Tab。 |
+| 本阶段已修改 | 黄色 | `index.css`、`AppLayout.tsx`、`Dashboard.tsx`、`Assets.tsx`、Dashboard 密度、卡片状态、资产本地账本入口、专家页入口可见性 | 已按 UX-F7 收口 light-first 视觉、卡片反馈、语义图标、资产入口和普通用户可理解性。 |
+| 本阶段已新增 / 已补齐 | 橘黄 | `GET /api/v1/assets/export`、Excel 导出工作簿、`frontend_visual_system_audit.json`、`asset_excel_flow_audit.json`、`dashboard_visual_density_audit.json`、`frontend_runtime_visual_acceptance.json`、1440/768/390 截图证据 | UX-F7 出门新增能力和验收产物已生成，审计包位于 `backend/data/gpt-audit/ux-f7/latest/`。 |
+| 硬边界 | 红色 | `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` | 不因 UX、ChatBox、Excel 或专家页优化而改变。 |
+
+### 目标架构关系
+
+```text
+ChatBox 第一入口
+  -> 普通用户工作台 Dashboard / UserTaskWorkbench
+  -> 专家页面 Assets / Backtest / DividendLowVol / Operations / Analysis
+  -> 共享 API / Service / Data Evidence / Operation Artifact
+  -> 审计报告与 Trade Gate
+  -> 用户可理解结果：结论、关键数字、下一步、数据可信、证据详情
+```
+
+UX-F7 本轮实现已优先对齐 v3 目标展示形态，而不是只把旧页面换色。若后续截图与 `v3/*.png` 在信息层级、目标入口、视觉统一性、卡片状态、Excel 路径或交易边界上再次明显不一致，应打回 UX-F7 开发阶段。
+<!-- UX_F7_V3_DOC_END -->

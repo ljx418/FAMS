@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920">
+<defs>
+  <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#102033" flood-opacity="0.13"/></filter>
+  <linearGradient id="pageBg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8fbff"/><stop offset="1" stop-color="#eef6ff"/></linearGradient>
+  <linearGradient id="blueSoft" x1="0" x2="1"><stop stop-color="#dbeafe"/><stop offset="1" stop-color="#ecfeff"/></linearGradient>
+  <linearGradient id="greenSoft" x1="0" x2="1"><stop stop-color="#dcfce7"/><stop offset="1" stop-color="#f0fdf4"/></linearGradient>
+  <style>
+    .bg{fill:url(#pageBg)} .panel{fill:#fff;stroke:#d9e2ec;stroke-width:1.2;filter:url(#softShadow)} .box{fill:#fff;stroke:#d9e2ec;stroke-width:1.2}.mutedBox{fill:#f8fafc;stroke:#d9e2ec}.modify{fill:#fff7ed;stroke:#fdba74}.new{fill:#ffedd5;stroke:#fb923c}.done{fill:#f1f5f9;stroke:#cbd5e1}.hard{fill:#fff1f2;stroke:#fda4af}.path{fill:#eff6ff;stroke:#93c5fd}.ok{fill:#dcfce7;stroke:#86efac}.title{font:700 30px 'Microsoft YaHei',Arial;fill:#0f172a}.sub{font:500 14px 'Microsoft YaHei',Arial;fill:#475569}.h{font:700 18px 'Microsoft YaHei',Arial;fill:#102033}.t{font:500 13px 'Microsoft YaHei',Arial;fill:#475569}.s{font:600 12px 'Microsoft YaHei',Arial;fill:#64748b}.mini{font:600 11px 'Microsoft YaHei',Arial;fill:#64748b}.edge{stroke:#94a3b8;stroke-width:2;fill:none;marker-end:url(#arrow)}.dash{stroke:#94a3b8;stroke-width:2;fill:none;stroke-dasharray:8 7;marker-end:url(#arrow)}
+  </style>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#94a3b8"/></marker>
+</defs>
+<rect class="bg" width="1440" height="920"/>
+<text x="64" y="66" class="title">资产 Excel 本地账本数据流</text>
+<text x="64" y="100" class="sub">Excel 只维护本地资产账本，目标是补齐无本地数据时的起步路径，不代表买入、卖出或自动再平衡。</text>
+
+<rect x="78" y="170" width="252" height="138" rx="18" fill="#fff" stroke="#d9e2ec" filter="url(#softShadow)"/><circle cx="114" cy="208" r="18" fill="#2563eb" opacity="0.16"/><text x="105" y="215" font-size="18" font-weight="800" fill="#2563eb" font-family="Arial">1</text><text x="144" y="212" class="h">下载模板</text><text x="102" y="252" class="t">GET /api/v1/assets/template
+字段说明与示例</text>
+<rect x="370" y="170" width="252" height="138" rx="18" fill="#fff" stroke="#d9e2ec" filter="url(#softShadow)"/><circle cx="406" cy="208" r="18" fill="#10b981" opacity="0.16"/><text x="397" y="215" font-size="18" font-weight="800" fill="#10b981" font-family="Arial">2</text><text x="436" y="212" class="h">上传解析</text><text x="394" y="252" class="t">POST /api/v1/assets/parse
+生成预览和错误</text>
+<rect x="662" y="170" width="252" height="138" rx="18" fill="#fff" stroke="#d9e2ec" filter="url(#softShadow)"/><circle cx="698" cy="208" r="18" fill="#f59e0b" opacity="0.16"/><text x="689" y="215" font-size="18" font-weight="800" fill="#f59e0b" font-family="Arial">3</text><text x="728" y="212" class="h">确认导入</text><text x="686" y="252" class="t">POST /api/v1/assets/import
+写入本地账本</text>
+<rect x="954" y="170" width="252" height="138" rx="18" fill="#fff" stroke="#d9e2ec" filter="url(#softShadow)"/><circle cx="990" cy="208" r="18" fill="#6366f1" opacity="0.16"/><text x="981" y="215" font-size="18" font-weight="800" fill="#6366f1" font-family="Arial">4</text><text x="1020" y="212" class="h">刷新总览</text><text x="978" y="252" class="t">Dashboard 重新读取本地资产
+展示市值/成本/风险</text>
+<path class="edge" d="M330 238 H370"/><path class="edge" d="M622 238 H662"/><path class="edge" d="M914 238 H954"/>
+<rect x="78" y="386" width="560" height="250" rx="24" class="panel"/><text x="110" y="430" class="h">字段最小集合</text>
+<rect x="110" y="466" width="470" height="26" rx="8" fill="#f8fafc" stroke="#e2e8f0"/><text x="126" y="484" class="t">代码 / 名称</text><rect x="110" y="500" width="470" height="26" rx="8" fill="#f8fafc" stroke="#e2e8f0"/><text x="126" y="518" class="t">资产类型 / 市场 / 币种</text><rect x="110" y="534" width="470" height="26" rx="8" fill="#f8fafc" stroke="#e2e8f0"/><text x="126" y="552" class="t">数量 / 成本价 / 当前市值</text><rect x="110" y="568" width="470" height="26" rx="8" fill="#f8fafc" stroke="#e2e8f0"/><text x="126" y="586" class="t">标签 / 来源 / 导入时间</text><rect x="110" y="602" width="470" height="26" rx="8" fill="#f8fafc" stroke="#e2e8f0"/><text x="126" y="620" class="t">校验错误 / 用户可读修复建议</text>
+<rect x="704" y="386" width="560" height="250" rx="24" class="panel"/><text x="736" y="430" class="h">导出当前资产</text>
+<rect x="736" y="466" width="470" height="30" rx="8" fill="#f8fafc" stroke="#e2e8f0"/><text x="752" y="486" class="t">GET /api/v1/assets/export?userId=default</text><rect x="736" y="508" width="470" height="30" rx="8" fill="#f8fafc" stroke="#e2e8f0"/><text x="752" y="528" class="t">工作簿包含：当前持仓 / 交易记录 / 字段说明</text><rect x="736" y="550" width="470" height="30" rx="8" fill="#f8fafc" stroke="#e2e8f0"/><text x="752" y="570" class="t">导出文件用于备份和人工核对</text><rect x="736" y="592" width="470" height="30" rx="8" fill="#fff1f2" stroke="#fda4af"/><text x="752" y="612" class="t">不生成订单，不触发买卖动作</text>
+<rect x="78" y="704" width="1186" height="70" rx="18" fill="#0f172a"/><text x="110" y="733" fill="#fff" font-size="17" font-weight="700" font-family="Microsoft YaHei,Arial">数据边界</text><text x="110" y="760" fill="#cbd5e1" font-size="13" font-family="Microsoft YaHei,Arial">Excel 入口解决“没有本地数据无法体验”的问题；所有导入数据仍需数据可信提示和人工复核。</text>
+</svg>

@@ -20,6 +20,13 @@
 9. 保留左侧菜单和专家页，但让普通用户不必先理解复杂表格和内部枚举。
 10. 将硬编码深色、低对比度、小按钮、文字溢出和移动端截图作为自动化验收指标。
 
+2026-07-07 人工 UX 复检后，本阶段新增 UX-F7 目标：
+
+11. 统一前端页面色块、卡片、按钮、标签、表格和状态色，形成一致的 light-first 财富管理工作台视觉系统。
+12. 为可点击卡片补齐 hover、active pressed、focus-visible、disabled、loading、empty 状态，提升交互力感和可访问性。
+13. 为 Dashboard 核心卡片增加免费开源语义图标，减少无意义空白，强化资产、收益、风险、任务、回测、红利低波和交易锁定识别。
+14. 为资产管理提供 Excel 模板下载、上传预览、确认导入和导出当前资产的完整本地数据维护路径。
+
 本阶段不是正式交易 release。必须保持：
 
 ```text
@@ -64,6 +71,7 @@ orderCreateAllowed=false
 | S2 ChatBox 完整业务入口 v1 | 会话审计、确认卡、operationId、交易阻断、审计 JSON | `npm run test:chat-agent-core` 生成 `chatbox_agentcore_audit.json` |
 | S2.5 ChatBox UX 深度优化 | 任务卡欢迎页、普通话回复层级、数据健康提示、消息操作、技术细节折叠 | 生成 `chatbox_ux_optimization_audit.json`，截图覆盖欢迎页、策略对比、数据异常、交易阻断和移动端 |
 | S2.6 双轨工作台与视觉系统 | ChatBox + 工作台作为普通用户主路径；多 Tab / 多模块页面作为专家深度入口；建立 light-first、通透、低噪音视觉方向 | 文档和 drawio 证明双轨关系；后续截图覆盖 ChatBox->工作台、工作台->专家页、专家页->ChatBox 解释 |
+| S2.7 UX-F7 视觉质感与资产 Excel 体验 | 统一视觉 token、卡片 pressed feedback、Dashboard 图标与密度、资产 Excel 导入导出 | 生成 `frontend_visual_system_audit.json`、`asset_excel_flow_audit.json`、`dashboard_visual_density_audit.json`；截图证明 1440px/768px/390px 可读；交易边界仍锁定 |
 | S3 E2E 报告 | 生成全系统验收报告，包含截图和 PRD 对照 | `npm run run:full-system-e2e-acceptance-report` |
 | S4 最终验证 | 后端 tsc、核心合同测试、前端 build | 所有命令通过；失败则打回对应子阶段 |
 
@@ -204,7 +212,44 @@ orderCreateAllowed=false
 5. 资深用户仍可绕过 ChatBox，直接通过左侧菜单进入红利低波、回测、任务和审计模块。
 6. 视觉截图证明页面使用统一设计 token、低噪音状态色、足够留白、无文字溢出；不得只换颜色但保留原有认知负担。
 
-## UX-F0 到 UX-F6 自动化开发顺序
+## S2.7 / UX-F7 视觉质感与资产 Excel 体验验收细则
+
+S2.7 必须晚于 S2.6。它不是重新设计信息架构，也不裁剪专家入口，只收口人工复检发现的视觉质感和本地资产数据入口问题。
+
+通过标准：
+
+```text
+visualStyleUnified=true
+cardPressFeedbackReady=true
+assetExcelImportExportReady=true
+dashboardIconAndDensityReady=true
+expertModuleTabsPreserved=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+实现和验收要求：
+
+- `Dashboard.tsx`、`Assets.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`FamsChatBox.tsx` 使用统一 token 和组件基线，不得出现明显色块断层。
+- 可点击卡片必须具备 hover、active pressed、focus-visible、disabled、loading、empty 状态。
+- Dashboard 核心卡片必须使用 `@ant-design/icons` 中的免费图标表达资产、收益、风险、任务、回测、红利低波和交易锁定。
+- 资产页必须支持“下载模板 -> 上传预览 -> 校验错误 -> 确认导入 -> Dashboard 刷新 -> 导出当前资产”。
+- 新增或完善 `GET /api/v1/assets/export?userId=default`；导出文件至少包含“当前持仓 / 交易记录 / 字段说明”。
+- Excel 导入导出只维护本地资产账本，不代表下单、正式买卖或自动再平衡。
+- 默认用户无资产时，Dashboard 和资产页必须给出资产 Excel 导入入口，而不是只展示空数字。
+
+最小 E2E 用户路径：
+
+1. 打开 Dashboard，看到统一视觉风格、语义图标、紧凑卡片和资产导入入口。
+2. 进入资产页，下载模板。
+3. 上传 Excel，看到预览和校验错误说明。
+4. 确认导入后 Dashboard 汇总刷新。
+5. 导出当前资产 Excel，文件包含当前持仓、交易记录和字段说明。
+6. 全流程中不出现“可下单 / 正式买入 / 正式卖出 / 自动交易已启用”等误导文案。
+
+## UX-F0 到 UX-F7 自动化开发顺序
 
 后续代码开发必须按以下顺序执行，不得先做大范围视觉重构再补 ChatBox 主路径：
 
@@ -215,6 +260,7 @@ orderCreateAllowed=false
 5. **UX-F4 响应式外壳**：移动端折叠导航，主内容完整宽度展示；桌面端保留左侧专家菜单。
 6. **UX-F5 双轨工作台**：普通用户路径为 ChatBox + 工作台，资深用户路径为左侧菜单 + 专家页；两条路径可互相跳转解释。
 7. **UX-F6 视觉系统收口**：建立 token 化浅色优先视觉系统，统一卡片、按钮、标签、表格和状态色。
+8. **UX-F7 视觉质感与资产 Excel 体验收口**：补齐卡片按压反馈、Dashboard 图标密度、资产 Excel 导入导出和专项审计。
 
 每个 UX-F 子阶段都必须落盘：
 
@@ -224,6 +270,14 @@ prd_spec_review.json
 frontend_ux_consistency_audit.json 或对应专项 audit
 1440px/768px/390px screenshot evidence
 trade_boundary_wording_audit.json
+```
+
+UX-F7 必须额外生成：
+
+```text
+frontend_visual_system_audit.json
+asset_excel_flow_audit.json
+dashboard_visual_density_audit.json
 ```
 
 `trade_boundary_wording_audit.json` 必须扫描以下范围：
@@ -254,3 +308,49 @@ E2E HTML 报告
 2. 先记录失败命令、失败原因和是否属于规格偏差。
 3. 若失败来自真实数据或授权缺口，写入 blocker，不伪造通过。
 4. 若失败来自 UI/接口/测试实现，修复后重新验收。
+
+<!-- UX_F7_V3_DOC_START -->
+## 2026-07-07 UX-F7 v3 开发与验收计划补充
+
+UX-F7 代码实现已按目标展示形态完成第一轮收口。v3 PNG 是页面目标样式，v2 SVG 是结构说明；本轮验收以实际运行截图、专项 audit 和 HTML 验收报告共同证明，不得只按流程图或抽象架构图声明完成。
+
+### UX-F7 代码实现顺序与完成状态
+
+1. **视觉系统基础：已完成**。`index.css` 已建立统一 token、表面、边框、阴影、状态色、图标色、卡片和按钮状态。
+2. **Dashboard 目标展示形态：已完成**。`Dashboard.tsx` 已实现普通用户首屏、资产导入入口、研究摘要、任务卡和专家菜单保留。
+3. **ChatBox 目标展示形态：已保持并纳入边界验收**。ChatBox 交易边界文案通过专项扫描；本轮未释放任何正式交易动作。
+4. **资产 Excel 目标展示形态：已完成**。`Assets.tsx` 和 `asset.ts` 已支持模板下载、上传预览、校验修正、确认导入和导出当前资产。
+5. **专家页目标展示形态：已保留入口并纳入回归验收**。组合回测、红利低波、任务审计和分析建议专家入口未被删除或弱化。
+6. **移动端与组件样式板：已通过截图验收**。1440px / 768px / 390px 下 Dashboard 与 Assets 页面生成截图证据，卡片反馈、按钮、标签、表格和空状态纳入专项审计。
+
+### UX-F7 出门验收
+
+必须同时满足：
+
+```text
+visualStyleUnified=true
+cardPressFeedbackReady=true
+assetExcelImportExportReady=true
+dashboardIconAndDensityReady=true
+expertModuleTabsPreserved=true
+targetVisualMockupMatched=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+已生成或本轮验收必须继续保留：
+
+```text
+frontend_visual_system_audit.json
+asset_excel_flow_audit.json
+dashboard_visual_density_audit.json
+trade_boundary_wording_audit.json
+1440px / 768px / 390px screenshot evidence
+acceptance-report.html
+SUMMARY_FOR_GPT.md
+```
+
+验收失败处理：若目标页面截图与 v3 目标展示形态不一致、专家页入口被删除或弱化、Excel 路径不能闭环、交易边界文案出现误导，必须打回 UX-F7 当前子阶段，不得进入最终 E2E。
+<!-- UX_F7_V3_DOC_END -->

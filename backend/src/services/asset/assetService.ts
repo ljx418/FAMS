@@ -52,6 +52,21 @@ export interface ImportResult {
   parsedData: ParsedPosition[]
 }
 
+export interface AssetWorkbookExportResult {
+  buffer: Buffer
+  filename: string
+  summary: {
+    userId: string
+    generatedAt: string
+    positionsCount: number
+    transactionsCount: number
+    totalMarketValue: number
+    totalCostBasis: number
+    totalUnrealizedPnl: number
+    workbookSheets: string[]
+  }
+}
+
 export interface ImportAssetIdentityPreview {
   inputSymbol: string | null
   symbol: string
@@ -525,6 +540,112 @@ class AssetService {
     }
 
     return result
+  }
+
+  /**
+   * 导出当前用户的持仓和交易记录。
+   *
+   * 这是本地资产管理的可逆工作流：用户可以先下载模板导入，也可以把系统内
+   * 已维护的数据导出为 Excel 做离线备份或人工核对。导出只读取数据，不触发交易。
+   */
+  async exportPortfolioWorkbook(userId: string): Promise<AssetWorkbookExportResult> {
+    const [positions, transactions] = await Promise.all([
+      prisma.position.findMany({
+        where: { userId },
+        include: { asset: true },
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.transaction.findMany({
+        where: { userId },
+        include: { asset: true },
+        orderBy: { executedAt: 'desc' },
+      }),
+    ])
+
+    const generatedAt = new Date()
+    const generatedAtText = generatedAt.toISOString()
+    const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '_')
+    const dateKey = generatedAtText.slice(0, 10).replace(/-/g, '')
+
+    const parseTags = (raw?: string | null) => {
+      if (!raw) return ''
+      try {
+        const parsed = JSON.parse(raw)
+        return Array.isArray(parsed) ? parsed.join('、') : String(parsed)
+      } catch {
+        return raw
+      }
+    }
+
+    const positionRows = positions.map((position) => ({
+      positionId: position.id,
+      symbol: position.asset.symbol,
+      name: position.asset.name,
+      assetType: position.asset.type,
+      exchange: position.asset.exchange || '',
+      currency: position.asset.currency,
+      quantity: position.quantity,
+      avgCost: position.avgCost,
+      currentPrice: position.currentPrice ?? '',
+      marketValue: position.marketValue ?? '',
+      costBasis: position.costBasis ?? '',
+      unrealizedPnl: position.unrealizedPnl ?? '',
+      realizedPnl: position.realizedPnl,
+      status: position.status,
+      source: position.source || '',
+      tags: parseTags(position.tags),
+      notes: position.notes || '',
+      openedAt: position.openedAt.toISOString(),
+      updatedAt: position.updatedAt.toISOString(),
+    }))
+
+    const transactionRows = transactions.map((transaction) => ({
+      transactionId: transaction.id,
+      symbol: transaction.asset.symbol,
+      name: transaction.asset.name,
+      type: transaction.type,
+      quantity: transaction.quantity,
+      price: transaction.price,
+      fee: transaction.fee,
+      amount: transaction.amount,
+      status: transaction.status,
+      source: transaction.source || '',
+      broker: transaction.broker || '',
+      confirmationNo: transaction.confirmationNo || '',
+      executedAt: transaction.executedAt.toISOString(),
+      notes: transaction.notes || '',
+    }))
+
+    const fieldGuideRows = [
+      { field: 'current_positions', description: '当前开放/历史仓位快照，用于人工核对和离线备份。' },
+      { field: 'trade_records', description: '交易流水记录，包含买入、卖出、分红、费用等。' },
+      { field: 'marketValue/costBasis/unrealizedPnl', description: '金额字段单位为元，前端展示时通常换算为万元。' },
+      { field: 'notTradingAdvice', description: '本导出文件仅用于资产记录核对，不构成交易建议，不创建订单。' },
+      { field: 'generatedAt', description: generatedAtText },
+    ]
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(positionRows), 'current_positions')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(transactionRows), 'trade_records')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(fieldGuideRows), 'field_guide')
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer
+    const summary = {
+      userId,
+      generatedAt: generatedAtText,
+      positionsCount: positions.length,
+      transactionsCount: transactions.length,
+      totalMarketValue: positions.reduce((sum, position) => sum + (position.marketValue || 0), 0),
+      totalCostBasis: positions.reduce((sum, position) => sum + (position.costBasis || 0), 0),
+      totalUnrealizedPnl: positions.reduce((sum, position) => sum + (position.unrealizedPnl || 0), 0),
+      workbookSheets: ['current_positions', 'trade_records', 'field_guide'],
+    }
+
+    return {
+      buffer,
+      filename: `asset_export_${safeUserId}_${dateKey}.xlsx`,
+      summary,
+    }
   }
 
   async resolveImportAssetIdentity(item: Pick<ParsedPosition, 'category' | 'attribute' | 'subCategory' | 'symbol'>): Promise<ImportAssetIdentityPreview> {

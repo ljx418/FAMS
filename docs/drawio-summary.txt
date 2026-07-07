@@ -1,277 +1,68 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-07-04
+更新时间：2026-07-07T07:16:57.983Z
 
-本 drawio 文件用于说明 FAMS 当前阶段的用户体验优化目标、当前架构与目标架构差异、体验解释层技术路径、红利低波用户路径、组合回测用户路径、ChatBox 第一公民 / PI AgentCore 业务入口、开发及验收计划、项目里程碑、验收门槛和出门条件。页数固定为 8 页，不超过 8 页。图内不使用无法落地的泛化模块，每个关键节点都绑定到真实页面、API、服务、数据/缓存、体验组件、AgentCore 适配器或审计 artifact。
+## 总体结论
 
-当前阶段仍是正式交易 release 前置评审，不是正式交易 release。体验优化只能降低理解成本，不能隐藏数据缺口、模型不足和交易锁定。`dataTrustGrade=INSUFFICIENT` 时只能研究观察；`calculationAuditStatus=deterministic_replay_only` 只证明同一输入下公式复算一致，不证明模型有效或策略可交易。
+当前 drawio 已按 UX-F7 v3 实现结果同步为 8 页，未超过 8 页限制。图中使用中文书写，并用颜色表达实体状态：
 
-2026-07-01 ChatBox 文档审计结论：当前 drawio 与配套文档可以支撑 ChatBox 第一业务入口 / PI AgentCore 集成进入代码实现阶段，但不能声明 ChatBox 第一公民完整能力已经完成。每个 CB 子阶段退出前仍必须生成审计包、执行 E2E、复核 PRD 规格和交易边界。
+- 灰色：已开发基础。
+- 黄色：本阶段已修改 / 已收口。
+- 橘黄：本阶段已新增 / 已补齐。
+- 红色：硬边界。
+- 蓝色 / 绿色：用户路径、目标体验和验收结果。
 
-2026-07-02 ChatBox UX 主线补充：当前 ChatBox 功能链路已有基础，但体验仍偏技术化。下一阶段优先执行 CB-F / UX-7：任务式入口、普通话结果层级、数据健康提示、技术细节折叠、消息级操作和移动端可读性。该补充不扩大工具权限，不释放正式交易。
-
-2026-07-02 双轨 UX 主线补充：下一阶段不是删除现有多 Tab / 多模块系统，而是建立“普通用户默认 ChatBox + 工作台、资深用户保留专家模块页”的双轨体验。普通用户通过 ChatBox 发起任务、在工作台看摘要、图表、数据可信和下一步；资深用户继续直接进入 DividendLowVol / Backtest / Operations / Audit 等页面使用筛选、排序、参数和完整证据。ChatBox、工作台和专家页必须共享同一 API、服务、审计包和交易 gate。
-
-2026-07-03 实体状态补充：本 drawio 必须让人直接看出哪些实体已开发、哪些开发中需修改、哪些未开发待新增、哪些属于交易硬边界。ChatBox 是第一业务入口，不替代原多 Tab 专家系统；原专家模块继续作为资深用户深度入口，必须在图中与 ChatBox、工作台、API、服务、审计和 Gate 保持强关联。
-
-2026-07-03 UX 基线检视补充：当前页面基础功能存在，但移动端侧栏挤压主内容、深蓝/深紫视觉过重、硬编码深色样式扩散、普通模式技术噪音过多、ChatBox 主任务入口不够强。drawio 第 2、6、8 页已补充移动端 Shell、design token、ChatBox 任务入口、普通话结构化回复、数据健康提示、截图审计和交易边界文案审计。该补充不改变业务代码，也不释放交易能力。
-
-2026-07-03 ChatGPT 复核建议闭环：当前文档可以进入下一阶段实现，但不等于 ChatBox 体验已完成，也不等于正式交易可用。代码阶段必须按 UX-F0 到 UX-F6 顺序执行；UX-F0 必须先生成 1440px、768px、390px 基线截图；ChatBox 核心业务回复必须有 `answerLevel / summary / keyNumbers / nextActions / dataHealth / evidenceRefs / technicalDetailsCollapsed / prohibitedActions` 结构化协议；`DataHealthNotice` 必须覆盖 provider unavailable、SQLite risk、data insufficient、artifact missing、operation failed、validation blocker；`dual_track_ux_audit.json` 必须证明专家页仍可访问；`trade_boundary_wording_audit.json` 必须扫描 ChatBox 回复、按钮、确认卡、工作台、专家页、SUMMARY 和 E2E HTML 报告。
-
-2026-07-04 阶段实现验收同步：ChatBox UX、普通话结构化回复、数据健康提示、双轨工作台、专家页反向解释入口、响应式 Shell、产品视觉收口和截图验收已经通过当前自动化合同与 E2E 证据。`WelcomeTaskBoard`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails` 已在 `FamsChatBox.tsx` 中落地；`UserTaskWorkbench` 已在 `Dashboard.tsx` 中落地；`DividendLowVol.tsx / Backtest.tsx / Operations.tsx` 已提供“用 ChatBox 解释”入口。`JourneyStepper` 与独立 `ExpertPageChatExplain` 组件没有作为独立文件落地，当前以工作台任务流和专家页解释按钮等价覆盖，后续可做组件化增强。正式 provider、官方 total-return benchmark、完整 streaming / 多轮 tool-calling Agent loop 和正式交易 release 仍未完成。
-
-## 颜色规则
-
-- 灰色：已经实现或本阶段已有基础能力。
-- 黄色：开发中 / 需修改 / 体验或状态不达标的能力。
-- 橘黄：未开发 / 待新增的体验解释、正式评审或 release 前置能力。
-- 红色：交易硬边界或禁止事项。
-- 蓝色：用户路径。
-- 绿色：阶段输出、验收结果或允许出门状态。
-- 紫色/蓝紫色：体验解释层，包括普通模式、专业模式、结论卡、术语解释和下一步操作。
-
-## 实体状态索引
-
-- 已开发基础：`FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html`。
-- 已实现 / 已验收：`WelcomeTaskBoard`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、专家页“用 ChatBox 解释”入口、移动端抽屉导航、普通话结构化结果、数据健康提示、技术细节默认折叠、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json`。
-- 开发中 / 后续增强：`JourneyStepper` 独立组件、`ExpertPageChatExplain` 独立组件、`ExperienceModeToggle`、`PlainLanguageHelp`、红利低波独立结论卡、组合回测独立摘要卡、完整 streaming / 多轮 tool-calling Agent loop、正式 provider、官方 total-return benchmark、正式交易 release gate。
-- 未开发 / 不属于本阶段 release：正式 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`、自动再平衡、正式下单适配器。
-- 硬边界：`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE`。
-
-## 分层关系要求
-
-图内目标架构必须表达以下强关联，不允许只写抽象模块：
-
-```text
-用户自然语言 / 工作台动作
--> ChatBox UX 展示层与普通用户工作台
--> 原专家页面和现有 API
--> 策略服务、数据证据和 Operation
--> 审计产物与 Trade Gate
--> 普通用户可理解结果 + 专业用户可复核证据
-```
+本轮 drawio 的重点是把 UX-F7 从流程图式说明升级为目标页面展示形态驱动的实现地图，并同步到本轮实际实现。v3 目标页面 PNG 位于 `docs/prototypes/ux-f7-assets/v3/`，本轮代码实现已用实际截图与这些目标展示形态对照验收。
 
 ## 页面结构
 
-1. **目标体验与用户路径**：普通用户默认走 ChatBox + 工作台，看状态摘要、普通话结论、下一步和禁止动作；专业用户保留多模块专家页，可进入完整指标、validation 和审计 artifact。
-2. **当前架构与目标架构差异**：按前端、API、服务、数据、审计/Gate 五层展示“当前基础 -> 需修改 -> 需新增 -> 硬边界 -> 用户体验结果”的强关联路径。
-3. **体验解释层架构**：展示 `ExperienceModeToggle.tsx`、`PlainLanguageHelp.tsx`、`DividendLowVolDecisionCard.tsx`、`PortfolioBacktestSummaryCard.tsx`、`StrategyComparisonExplainer.tsx`、普通用户工作台和 Chat UX Presentation Layer 如何接入现有页面、API 和审计。
-4. **红利低波用户路径**：展示状态摘要、Top 候选卡、买卖观察区间、数据可信、风险提示、人工计划草案和专业证据展开路径。
-5. **组合回测用户路径**：展示策略选择、多时间段收益曲线、收益来源解释、数据等级、模型有效性、交易阻断和人工计划草案。
-6. **开发及验收计划**：把 UX-1 到 UX-8 和 UX-F0 到 UX-F6 映射到实现实体、用户效果、审计产物和验收命令，其中必须先固定 UX 基线，再修复 ChatBox、移动端 Shell 和双轨工作台。
-7. **里程碑与出门条件**：列出 M1 到 M4、当前可声明状态、当前不能声明状态、审计文档路径、截图验收和外部审计重点。
-8. **ChatBox 与 AgentCore 业务入口**：说明 ChatBox 如何作为第一业务入口，通过 `FamsChatBox.tsx / chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter` 串起业务查询、quick-run 回测、对话内图表、二次确认、Operation、页面跳转和交易阻断。
+1. **阶段目标与目标体验**：说明普通用户、资深用户、审计用户三类目标体验，以及 UX-F7 出门状态和交易硬边界。
+2. **当前架构与目标架构差异**：已重排为四层架构映射，分别是“存量前端入口”“存量 API / 服务 / 数据证据”“UX-F7 改造层”“目标体验与验收产物”。这一页不再只做当前/目标摘要，而是逐项标明 `AppLayout.tsx / Dashboard.tsx / FamsChatBox.tsx / Assets.tsx / Backtest.tsx / DividendLowVol.tsx / Operations.tsx / Analysis.tsx`、`chat.ts / asset.ts / template.ts`、`PortfolioBacktestEngine / dividendLowVolStrategyService / Operation artifact` 如何被复用、修改或补齐，并最终对应到普通用户工作台、资产本地账本、专家模式保留和验收证据。
+3. **前端目标页面与模块关系**：绑定 Dashboard、ChatBox、Assets、Backtest、DividendLowVol、Operations、Mobile Shell、组件样式板与对应 v3 目标图。
+4. **ChatBox 工作台 专家页双轨**：说明 ChatBox 是第一入口但不替代专家多 Tab，并展示 ChatBox -> 工作台 -> 专家页 -> ChatBox 解释闭环。
+5. **资产 Excel 本地账本路径**：展示模板下载、上传解析、预览校验、确认导入、导出复核、Dashboard 刷新和资产审计链路。
+6. **策略 回测 任务审计联动**：展示组合回测、红利低波、任务审计共享服务、数据可信、artifact 和 trade gate。
+7. **开发及验收计划**：按视觉系统、Dashboard/ChatBox、资产 Excel、专家页、移动端、专项审计、E2E 出门展示已完成的实现顺序与验收证据。
+8. **里程碑 出门条件 硬边界**：定义文档出门、代码实现、验收产物、UX-F7 出门条件和仍锁定事项，并标明本阶段已通过自动化验收。
 
-## 阶段结论
+## 关键实体绑定
 
-当前可以声明：
+- 前端页面：`Dashboard.tsx`、`Assets.tsx`、`FamsChatBox.tsx`、`Backtest.tsx`、`DividendLowVol.tsx`、`Operations.tsx`、`AppLayout.tsx`、`Analysis.tsx`。
+- 后端路由：`backend/src/routes/chat.ts`、`backend/src/routes/asset.ts`、`backend/src/routes/template.ts`。
+- 服务与数据：`PortfolioBacktestEngine`、`PortfolioBacktestInputBuilder`、`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService`、Operation artifact、dataGrade、evidenceRefs。
+- 原型和验收产物：`docs/prototypes/ux-f7-prototype-review.html`、`docs/prototypes/ux-f7-assets/v3/*.png`、`frontend_visual_system_audit.json`、`asset_excel_flow_audit.json`、`dashboard_visual_density_audit.json`、`trade_boundary_wording_audit.json`、`acceptance-report.html`、`SUMMARY_FOR_GPT.md`。
+- 风险闭环审查：`docs/UX_F7_RISK_CLOSURE_REVIEW.md`。该文件是进入 UX-F7 代码实现前的最终文档阶段审查口径，用于判断前序问题是否已落盘、是否支撑后续开发、是否存在过度承诺和是否仍需人工批准。
+- 文档就绪度复核：`docs/UX_F7_DOCUMENTATION_READINESS_REVIEW.md`。该文件汇总 PRD、目标架构、drawio、执行计划和风险闭环的多轮独立审查结论，并列出后续开发及验收大纲。
 
-```text
-researchReady=true
-interactiveStrategyBacktestReady=true
-portfolioBacktestFormalReviewReady=true
-manualTradePlanDraftReviewReady=true
-paperSandboxReviewReady=true
-expertModeAvailable=true
-plainLanguageDecisionPathRequired=true
-chatBoxV1Integrated=true
-piAgentCoreRuntimeIntegrated=true
-chatBoxFirstClassTargetDocumented=true
-pass_current_stage_doc_audit=true
-proceed_to_code_implementation=true
-external_review_required_before_each_stage_exit=true
-blockingChatGptDocAuditRequired=false
-```
+## 出门条件
 
-说明：`blockingChatGptDocAuditRequired=false` 表示当前文档阶段不再因为等待外部 / ChatGPT 审计而阻断后续实现；`external_review_required_before_each_stage_exit=true` 仍表示每个子阶段退出前必须生成审计包、执行 E2E、复核 PRD 规格和交易边界，必要时可提交外部 / ChatGPT 复核。
-
-当前必须保持：
+UX-F7 本轮代码实现完成后，以下出门条件已通过自动化合同验收和截图验收：
 
 ```text
-ordinaryUserExperienceReady=true
-frontendComplexityReduced=true
-chatBoxBusinessEntryReady=true
-chatBoxFirstClassFunctionalReady=true
-chatBoxExperienceOptimized=true
-chatBoxPlainLanguageReady=true
-chatBoxDataHealthUxReady=true
-piLlmAgentLoopEnabled=partial_controlled_intent_router
-chatSessionPersistenceReady=true
-chatStreamingReady=false
-fullBusinessToolCoverageReady=true
-inlineChartResultReady=true
-chatBoxFirstClassReady=true
-dualTrackExperienceDocumented=true
-ordinaryUserWorkbenchReady=true
+visualStyleUnified=true
+cardPressFeedbackReady=true
+assetExcelImportExportReady=true
+dashboardIconAndDensityReady=true
 expertModuleTabsPreserved=true
-productVisualRefreshReady=true
-longHorizonRealDataBacktestReady=true
-dataTrustGrade=INSUFFICIENT
-calculationAuditStatus=deterministic_replay_only
+targetVisualMockupMatched=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 canCreateOrder=false
 orderCreateAllowed=false
-formalTargetWeightPercent=0
 ```
 
-当前不能声明：
+本轮专项证据包括：
 
 ```text
-chatStreamingReady 不得为 true，直到 SSE/WebSocket 或等价流式事件完成并通过审计
-piLlmAgentLoopEnabled 不得写成 complete，直到完整多轮 tool-calling Agent loop 通过白名单、权限漂移和 E2E 审计
-formalTradingReady 不得为 true，直到正式 provider、官方/可信 total-return benchmark、formal validation、人工签核和 release gate 全部通过
-formalTradingUnlocked 不得为 true
-autoTradeUnlocked 不得为 true
-orderCreateAllowed 不得为 true
-canCreateOrder 不得为 true
-不得出现正式买入/卖出动作已发布
-不得出现自动再平衡 ready
+frontend_visual_system_audit.json=passed
+asset_excel_flow_audit.json=passed
+dashboard_visual_density_audit.json=passed
+frontend_runtime_visual_acceptance.json=passed
+trade_boundary_wording_audit.json=passed
 ```
 
-## 技术实现路径索引
+## 硬边界
 
-- 前端入口：`Dashboard.tsx`、`AppLayout.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`Analysis.tsx`、`FamsChatBox.tsx`
-- 体验组件：`ExperienceModeToggle.tsx`、`PlainLanguageHelp.tsx`、`DividendLowVolDecisionCard.tsx`、`PortfolioBacktestSummaryCard.tsx`、`StrategyComparisonExplainer.tsx`
-- API 入口：`/api/v1/strategy/dividend-low-vol/*`、`/api/v1/strategy/dividend-low-vol/data-readiness`、`/api/v1/portfolio-backtest/*`、`/api/v1/operations/*`、`/api/v1/analysis/fivd-r/*`、`/api/v1/chat/*`
-- ChatBox/AgentCore：`FamsChatBox.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`famsChatTypes.ts`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`verify-chat-agent-core.ts`、`verify-chat-llm-planner.ts`、`CHATBOX_TOOL_COVERAGE_MATRIX.md`、后续 inline chart renderer / `chatbox_first_class_audit.json`
-- ChatBox UX：`WelcomeTaskBoard`、`AssistantMessage`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`chatbox_ux_optimization_audit.json`
-- 组合回测服务：`PortfolioBacktestInputBuilder`、`PortfolioBacktestEngine`、`PortfolioBenchmarkService`、`portfolioBacktestReviewService`
-- 红利低波服务：`dividendLowVolDataReadinessService`、`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService`、`dividendLowVolBacktestService`、`dividendLowVolFivdRAdapter`
-- 数据证据：`DividendLowVolDaily`、`market_bar_canonical`、`market_tradeability_daily`、portfolio holdings snapshot、free-source benchmark、future official benchmark、provider freshness metadata
-- 审计产物：`frontend_ux_consistency_audit.json`、`data_readiness_audit.json`、`calculation_audit.json`、`09_data_grade_audit.json`、`10_model_effectiveness_audit.json`、`11_manual_plan_draft_audit.json`、`12_formal_trading_unlock_blockers.json`、`chatbox_agentcore_audit.json`、`acceptance-report.html`
-- 交易硬边界：`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`
+本阶段仍不属于正式交易 release。Excel 导入导出、ChatBox、组合回测、红利低波候选、观察区间和人工计划草案均不得被描述为交易执行、订单创建或自动交易能力。
 
-## 每页验收重点
-
-- 第 1 页：普通用户能通过 ChatBox + 工作台看懂系统当前能做什么、不能做什么、下一步做什么；专业用户能继续进入多模块专家页和证据详情。
-- 第 2 页：审核者能按前端、API、服务、数据、审计/Gate 五层看清当前架构如何演进到目标架构。
-- 第 3 页：开发者能明确体验解释层和 Chat UX 展示层只重组信息层级，不改变策略计算、数据可信判断和交易 gate。
-- 第 4 页：用户能通过红利低波页面理解 Top 候选、买卖观察区间、风险提示、数据可信和人工计划草案边界。
-- 第 5 页：用户能通过组合回测页面理解不同起止时间段收益曲线、收益来源、benchmark 资格、模型有效性和交易阻断。
-- 第 6 页：开发者能按 UX-1 到 UX-8 执行体验降复杂度开发；先完成 ChatBox UX，再完成双轨工作台和视觉系统，并用桌面、平板、移动端截图和审计 JSON 证明普通用户可理解。
-- 第 7 页：审核者能看懂里程碑、出门条件、不能声明的状态、待审计文档路径和高风险阻断。
-- 第 8 页：审核者能看懂 ChatBox 第一入口目标、当前 v1 能力、CB-F UX 优化、PI AgentCore 后续目标、全业务工具权限分层、对话内图表、二次确认、Operation 联动、交易阻断和审计产物。
-
-双轨 UX 额外验收：
-
-```text
-chatBoxToWorkbenchPathDocumented=true
-workbenchToExpertPagePathDocumented=true
-expertPageToChatExplainPathDocumented=true
-expertModuleTabsPreserved=true
-```
-
-## 本体读取验收
-
-正式文档验收必须同时读取：
-
-```text
-docs/target-architecture-gap.drawio
-docs/read-drawio-output.txt
-```
-
-当前验收结论：
-
-```text
-drawioRawFileReadable=true
-drawioPageCount=8
-drawioPageLimit<=8
-containsConcreteImplementationEntities=true
-containsExperienceLayer=true
-containsChatBoxAgentCore=true
-containsChatBoxFirstClassTarget=true
-containsTradeBoundary=true
-containsDataTrustAndCalculationAudit=true
-documentationStageImplemented=true
-formalTradingReleaseReady=false
-formalTradingUnlocked=false
-autoTradeUnlocked=false
-```
-
-ChatBox 子阶段退出验收必须额外证明：
-
-```text
-toolManifestCoveragePercent=100
-unsafeTools=[]
-extraToolsNotInMatrix=[]
-portfolioBacktestCompareStructuredResultContract=passed
-sideEffectConfirmationContract=passed
-llmPlannerPermissionDriftContract=passed
-tradeBoundaryWordingContract=passed
-chatBoxUxOptimizationContract=passed
-plainLanguageResultContract=passed
-dataHealthUxContract=passed
-mobileShellAuditContract=passed
-visualTokenRefreshContract=passed
-frontendUxConsistencyAuditContract=passed
-external_review_required_before_each_stage_exit=true
-blockingChatGptDocAuditRequired=false
-```
-
-UX-F 子阶段退出验收必须额外证明：
-
-```text
-uxBaselineScreenshots=1440px/768px/390px
-chatBoxStructuredPayloadContract=passed
-dataHealthNoticeScenarioCoverage=provider_unavailable/sqlite_risk/data_insufficient/artifact_missing/operation_failed/validation_blocker
-dualTrackExpertPagesStillAvailable=true
-tradeBoundaryWordingAuditScope=chatbox/buttons/confirm_cards/workbench/expert_pages/summary/e2e_html
-humanPlanDraftNotMisreadAsOrder=true
-quickRunNotMisreadAsFormalValidation=true
-formalReviewReadyNotMisreadAsFormalTradingReady=true
-```
-
-## 风险与备选路线
-
-当前文档允许后续自动化开发继续推进 UX 优化，但不隐藏以下真实风险：
-
-- 体验简化可能误导用户忽略数据缺口、模型不足或交易锁定。
-- 普通模式如果只展示结论而不展示可信度，会形成虚假确定性。
-- 专业模式如果被移除，审计和复核能力会倒退。
-- 免费数据源、proxy benchmark 和 deterministic replay 仍不能作为正式交易 release 证据。
-
-推荐路线：
-
-```text
-普通模式默认展示结论和下一步
-+ 专业模式保留完整证据
-+ 所有 blocker 永久可见
-+ 截图和审计 JSON 双验收
-```
-
-该路线可以支撑 ordinary-user-ready 和 formal-review-ready；不能直接声明正式交易可执行。
-
-## 当前状态源
-
-本阶段当前状态以最新交互式策略回测审计包和 UX 文档为准：
-
-```text
-docs/USER_EXPERIENCE_OPTIMIZATION_PLAN.md
-docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md
-docs/CHATBOX_TOOL_COVERAGE_MATRIX.md
-docs/CHATBOX_FIRST_CLASS_ACCEPTANCE_PLAN.md
-docs/CHATBOX_FIRST_CLASS_DOC_AUDIT.md
-docs/TARGET_ARCHITECTURE_GAP.md
-docs/read-drawio-output.txt
-backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md
-backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-12-17-124Z/03_frontend_runtime_and_operation_audit.json
-```
-
-该审计包显示：
-
-```text
-overallStatus=passed
-portfolioBacktestFormalReviewReady=true
-manualDraftReady=true
-paperSandboxReviewReady=true
-longHorizonRealDataBacktestReady=true
-multiPeriodBacktestStatus=passed
-releaseGateStatus=blocked
-dataGovernanceStatus=blocked
-formalValidationStatus=warning
-manualSignoffStatus=missing
-formalTradingUnlocked=false
-autoTradeUnlocked=false
-orderCreateAllowed=false
-```
+原始 XML 可读性证据见：`docs/read-drawio-output.txt`。

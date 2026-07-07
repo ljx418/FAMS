@@ -1,208 +1,215 @@
 
 # docs/target-architecture-gap.drawio
 
-## 01 目标体验与用户路径
+## 1 阶段目标与目标体验
+Nodes: 7; Edges: 5
+
+Nodes
+- UX-F7 目标：把前端从“功能可见”推进到“普通用户可理解、页面质感统一、资产本地数据可维护”
+- 普通用户目标体验 ChatBox + 工作台默认入口 30 秒内知道：先看哪里、结论是什么、是否可信、下一步做什么
+- 资深用户目标体验｜已开发基础保留 左侧菜单 + 多 Tab 专家页 Assets / Backtest / DividendLowVol / Operations / Analysis
+- 审计用户目标体验 证据、artifactRefs、audit JSON、read-drawio 输出可追溯 不隐藏 data gap / blocker
+- UX-F7 新增目标展示形态 docs/prototypes/ux-f7-prototype-review.html docs/prototypes/ux-f7-assets/v3/*.png 这些 PNG 已作为本轮实现与截图验收基线
+- 硬边界｜不因 UX 优化改变 formalTradingUnlocked=false autoTradeUnlocked=false canCreateOrder=false orderCreateAllowed=false 禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+- UX-F7 出门体验 visualStyleUnified=true；cardPressFeedbackReady=true；assetExcelImportExportReady=true；dashboardIconAndDensityReady=true；expertModuleTabsPreserved=true；targetVisualMockupMatched=true
+
+Edges
+- 普通用户目标体验 ChatBox + 工作台默认入口 30 秒内知道：先看哪里、结论是什么、是否可信、下一步做什么 -> UX-F7 新增目标展示形态 docs/prototypes/ux-f7-prototype-review.html docs/prototypes/ux-f7-assets/v3/*.png 这些 PNG 已作为本轮实现与截图验收基线 (目标页面)
+- 资深用户目标体验｜已开发基础保留 左侧菜单 + 多 Tab 专家页 Assets / Backtest / DividendLowVol / Operations / Analysis -> UX-F7 新增目标展示形态 docs/prototypes/ux-f7-prototype-review.html docs/prototypes/ux-f7-assets/v3/*.png 这些 PNG 已作为本轮实现与截图验收基线 (保留专家页)
+- 审计用户目标体验 证据、artifactRefs、audit JSON、read-drawio 输出可追溯 不隐藏 data gap / blocker -> UX-F7 出门体验 visualStyleUnified=true；cardPressFeedbackReady=true；assetExcelImportExportReady=true；dashboardIconAndDensityReady=true；expertModuleTabsPreserved=true；targetVisualMockupMatched=true (证据验收)
+- UX-F7 新增目标展示形态 docs/prototypes/ux-f7-prototype-review.html docs/prototypes/ux-f7-assets/v3/*.png 这些 PNG 已作为本轮实现与截图验收基线 -> UX-F7 出门体验 visualStyleUnified=true；cardPressFeedbackReady=true；assetExcelImportExportReady=true；dashboardIconAndDensityReady=true；expertModuleTabsPreserved=true；targetVisualMockupMatched=true (实现后对照)
+- 硬边界｜不因 UX 优化改变 formalTradingUnlocked=false autoTradeUnlocked=false canCreateOrder=false orderCreateAllowed=false 禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE -> UX-F7 出门体验 visualStyleUnified=true；cardPressFeedbackReady=true；assetExcelImportExportReady=true；dashboardIconAndDensityReady=true；expertModuleTabsPreserved=true；targetVisualMockupMatched=true (持续锁定)
+
+## 2 当前架构与目标架构差异
+Nodes: 26; Edges: 19
+
+Nodes
+- 当前架构与目标架构差异：从存量实体到 UX-F7 目标能力的分层映射
+- 颜色图例：灰=已实现基础｜黄=本阶段已修改｜橘=本阶段已新增/补齐｜绿=目标体验/出门结果｜红=交易硬边界
+- 一、存量前端入口 已开发，可复用但体验复杂
+- 二、存量 API / 服务 / 数据证据 已开发，可复用为目标能力底座
+- 三、UX-F7 改造层 需要修改或新增的实现实体
+- 四、目标体验与验收产物 实现后必须可截图、可审计
+- AppLayout.tsx / 左侧菜单 / 多 Tab 状态：已开发基础 问题：入口多、普通用户不知道先看哪里；移动端 Shell 与信息密度仍需收口。
+- Dashboard.tsx 状态：已开发基础 问题：卡片空白较多、图标弱、空资产引导不足、数据健康与交易边界不够醒目。
+- FamsChatBox.tsx 状态：已开发基础 问题：可以作为入口，但任务卡、普通话结构化结果、证据折叠和消息级操作仍需加强。
+- Assets.tsx 状态：已开发基础 问题：已有模板/解析/导入路径，但导出当前资产、错误行解释、Dashboard 刷新链路不完整。
+- Backtest.tsx / DividendLowVol.tsx / Operations.tsx / Analysis.tsx 状态：已开发基础 问题：专家能力保留，但普通摘要、目标截图一致性、ChatBox 解释入口不足。
+- backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter 作用：ChatBox intent、白名单工具、结构化结果和审计入口。
+- backend/src/routes/template.ts / backend/src/routes/asset.ts 已有：GET /assets/template、POST /assets/parse、POST /assets/import 缺口：GET /assets/export?userId=default。
+- PortfolioBacktestEngine / dividendLowVolStrategyService / tradingZoneService / Operation artifact 作用：组合回测、红利低波、观察区间、任务产物和 evidenceRefs。
+- 本地账本 / market data cache / audit artifacts 作用：资产、行情、计算结果、证据引用和验收报告。 约束：真实数据缺口必须展示，不得被 UX 美化隐藏。
+- 统一视觉系统｜已修改/已收口 实体：index.css、Card、Button、Tag、Table、Chart、DataHealthNotice 目标：统一 light-first token、表面、边框、状态色、图标色、阴影和间距。
+- Dashboard + ChatBox 任务入口｜已修改/已收口 实体：UserTaskWorkbench、WelcomeTaskBoard、StructuredResultRenderer、ActionCardList 目标：普通用户 30 秒内看懂结论、下一步、数据可信和边界。
+- 资产 Excel 闭环｜已新增/已补齐 实体：Assets.tsx、asset.ts、template.ts、GET /api/v1/assets/export?userId=default 目标：模板 -> 上传预览 -> 校验 -> 导入 -> Dashboard 刷新 -> 导出。
+- 专家页目标展示｜已修改/已收口 实体：Backtest、DividendLowVol、Operations、ExpertPageChatExplain 目标：普通摘要 + 专家详情 + ChatBox 解释；左侧菜单与多 Tab 保留。
+- 专项审计与截图验收｜已生成 实体：frontend_visual_system_audit.json、asset_excel_flow_audit.json、dashboard_visual_density_audit.json、trade_boundary_wording_audit.json、1440/768/390 截图。
+- 目标体验 A：普通用户工作台｜目标 ChatBox + Dashboard 默认入口；无需先理解复杂专家菜单；能看到摘要、图标、数据健康、下一步和审计链接。
+- 目标体验 B：资产本地账本｜目标 无资产时引导下载模板和导入；导入后 Dashboard 刷新；可导出当前持仓、交易记录和字段说明。
+- 目标体验 C：专家模式保留｜目标 Assets / Backtest / DividendLowVol / Operations / Analysis 继续可独立深度使用，并能反向请 ChatBox 解释。
+- 出门验收｜目标 visualStyleUnified=true cardPressFeedbackReady=true assetExcelImportExportReady=true dashboardIconAndDensityReady=true expertModuleTabsPreserved=true targetVisualMockupMatched=true
+- 验收证据｜目标 acceptance-report.html、SUMMARY_FOR_GPT.md、专项 audit JSON、桌面/平板/移动截图、v3 PNG 对照结果。
+- 交易硬边界｜持续锁定 formalTradingUnlocked=false；autoTradeUnlocked=false；canCreateOrder=false；orderCreateAllowed=false；禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE。 Excel、ChatBox、回测、红利低波、人工计划草案都不能创建订单或释放正式交易。
+
+Edges
+- AppLayout.tsx / 左侧菜单 / 多 Tab 状态：已开发基础 问题：入口多、普通用户不知道先看哪里；移动端 Shell 与信息密度仍需收口。 -> 统一视觉系统｜已修改/已收口 实体：index.css、Card、Button、Tag、Table、Chart、DataHealthNotice 目标：统一 light-first token、表面、边框、状态色、图标色、阴影和间距。 (Shell 与多 Tab 复用，但视觉和响应式需收口)
+- Dashboard.tsx 状态：已开发基础 问题：卡片空白较多、图标弱、空资产引导不足、数据健康与交易边界不够醒目。 -> Dashboard + ChatBox 任务入口｜已修改/已收口 实体：UserTaskWorkbench、WelcomeTaskBoard、StructuredResultRenderer、ActionCardList 目标：普通用户 30 秒内看懂结论、下一步、数据可信和边界。 (Dashboard 改成普通用户工作台)
+- FamsChatBox.tsx 状态：已开发基础 问题：可以作为入口，但任务卡、普通话结构化结果、证据折叠和消息级操作仍需加强。 -> Dashboard + ChatBox 任务入口｜已修改/已收口 实体：UserTaskWorkbench、WelcomeTaskBoard、StructuredResultRenderer、ActionCardList 目标：普通用户 30 秒内看懂结论、下一步、数据可信和边界。 (ChatBox 从辅助入口升级为任务入口)
+- Assets.tsx 状态：已开发基础 问题：已有模板/解析/导入路径，但导出当前资产、错误行解释、Dashboard 刷新链路不完整。 -> 资产 Excel 闭环｜已新增/已补齐 实体：Assets.tsx、asset.ts、template.ts、GET /api/v1/assets/export?userId=default 目标：模板 -> 上传预览 -> 校验 -> 导入 -> Dashboard 刷新 -> 导出。 (资产页补齐本地账本闭环)
+- Backtest.tsx / DividendLowVol.tsx / Operations.tsx / Analysis.tsx 状态：已开发基础 问题：专家能力保留，但普通摘要、目标截图一致性、ChatBox 解释入口不足。 -> 专家页目标展示｜已修改/已收口 实体：Backtest、DividendLowVol、Operations、ExpertPageChatExplain 目标：普通摘要 + 专家详情 + ChatBox 解释；左侧菜单与多 Tab 保留。 (专家能力保留并增加普通摘要)
+- backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter 作用：ChatBox intent、白名单工具、结构化结果和审计入口。 -> Dashboard + ChatBox 任务入口｜已修改/已收口 实体：UserTaskWorkbench、WelcomeTaskBoard、StructuredResultRenderer、ActionCardList 目标：普通用户 30 秒内看懂结论、下一步、数据可信和边界。 (Chat intent 和结构化结果支撑入口)
+- backend/src/routes/template.ts / backend/src/routes/asset.ts 已有：GET /assets/template、POST /assets/parse、POST /assets/import 缺口：GET /assets/export?userId=default。 -> 资产 Excel 闭环｜已新增/已补齐 实体：Assets.tsx、asset.ts、template.ts、GET /api/v1/assets/export?userId=default 目标：模板 -> 上传预览 -> 校验 -> 导入 -> Dashboard 刷新 -> 导出。 (模板/解析/导入复用，导出补齐)
+- PortfolioBacktestEngine / dividendLowVolStrategyService / tradingZoneService / Operation artifact 作用：组合回测、红利低波、观察区间、任务产物和 evidenceRefs。 -> 专家页目标展示｜已修改/已收口 实体：Backtest、DividendLowVol、Operations、ExpertPageChatExplain 目标：普通摘要 + 专家详情 + ChatBox 解释；左侧菜单与多 Tab 保留。 (策略和回测服务输出专家证据)
+- 本地账本 / market data cache / audit artifacts 作用：资产、行情、计算结果、证据引用和验收报告。 约束：真实数据缺口必须展示，不得被 UX 美化隐藏。 -> 专项审计与截图验收｜已生成 实体：frontend_visual_system_audit.json、asset_excel_flow_audit.json、dashboard_visual_density_audit.json、trade_boundary_wording_audit.json、1440/768/390 截图。 (数据与 artifact 进入验收报告)
+- 统一视觉系统｜已修改/已收口 实体：index.css、Card、Button、Tag、Table、Chart、DataHealthNotice 目标：统一 light-first token、表面、边框、状态色、图标色、阴影和间距。 -> 目标体验 A：普通用户工作台｜目标 ChatBox + Dashboard 默认入口；无需先理解复杂专家菜单；能看到摘要、图标、数据健康、下一步和审计链接。 (统一视觉和卡片反馈)
+- Dashboard + ChatBox 任务入口｜已修改/已收口 实体：UserTaskWorkbench、WelcomeTaskBoard、StructuredResultRenderer、ActionCardList 目标：普通用户 30 秒内看懂结论、下一步、数据可信和边界。 -> 目标体验 A：普通用户工作台｜目标 ChatBox + Dashboard 默认入口；无需先理解复杂专家菜单；能看到摘要、图标、数据健康、下一步和审计链接。 (任务卡和普通话结果)
+- 资产 Excel 闭环｜已新增/已补齐 实体：Assets.tsx、asset.ts、template.ts、GET /api/v1/assets/export?userId=default 目标：模板 -> 上传预览 -> 校验 -> 导入 -> Dashboard 刷新 -> 导出。 -> 目标体验 B：资产本地账本｜目标 无资产时引导下载模板和导入；导入后 Dashboard 刷新；可导出当前持仓、交易记录和字段说明。 (本地资产导入导出闭环)
+- 专家页目标展示｜已修改/已收口 实体：Backtest、DividendLowVol、Operations、ExpertPageChatExplain 目标：普通摘要 + 专家详情 + ChatBox 解释；左侧菜单与多 Tab 保留。 -> 目标体验 C：专家模式保留｜目标 Assets / Backtest / DividendLowVol / Operations / Analysis 继续可独立深度使用，并能反向请 ChatBox 解释。 (专家页保留与反向解释)
+- 专项审计与截图验收｜已生成 实体：frontend_visual_system_audit.json、asset_excel_flow_audit.json、dashboard_visual_density_audit.json、trade_boundary_wording_audit.json、1440/768/390 截图。 -> 出门验收｜目标 visualStyleUnified=true cardPressFeedbackReady=true assetExcelImportExportReady=true dashboardIconAndDensityReady=true expertModuleTabsPreserved=true targetVisualMockupMatched=true (专项审计证明出门条件)
+- 专项审计与截图验收｜已生成 实体：frontend_visual_system_audit.json、asset_excel_flow_audit.json、dashboard_visual_density_audit.json、trade_boundary_wording_audit.json、1440/768/390 截图。 -> 验收证据｜目标 acceptance-report.html、SUMMARY_FOR_GPT.md、专项 audit JSON、桌面/平板/移动截图、v3 PNG 对照结果。 (生成 HTML 与截图证据)
+- 交易硬边界｜持续锁定 formalTradingUnlocked=false；autoTradeUnlocked=false；canCreateOrder=false；orderCreateAllowed=false；禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE。 Excel、ChatBox、回测、红利低波、人工计划草案都不能创建订单或释放正式交易。 -> 目标体验 A：普通用户工作台｜目标 ChatBox + Dashboard 默认入口；无需先理解复杂专家菜单；能看到摘要、图标、数据健康、下一步和审计链接。 (约束所有入口)
+- 交易硬边界｜持续锁定 formalTradingUnlocked=false；autoTradeUnlocked=false；canCreateOrder=false；orderCreateAllowed=false；禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE。 Excel、ChatBox、回测、红利低波、人工计划草案都不能创建订单或释放正式交易。 -> 目标体验 B：资产本地账本｜目标 无资产时引导下载模板和导入；导入后 Dashboard 刷新；可导出当前持仓、交易记录和字段说明。 (导入导出不是交易)
+- 交易硬边界｜持续锁定 formalTradingUnlocked=false；autoTradeUnlocked=false；canCreateOrder=false；orderCreateAllowed=false；禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE。 Excel、ChatBox、回测、红利低波、人工计划草案都不能创建订单或释放正式交易。 -> 目标体验 C：专家模式保留｜目标 Assets / Backtest / DividendLowVol / Operations / Analysis 继续可独立深度使用，并能反向请 ChatBox 解释。 (观察/草案不是下单)
+- 交易硬边界｜持续锁定 formalTradingUnlocked=false；autoTradeUnlocked=false；canCreateOrder=false；orderCreateAllowed=false；禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE。 Excel、ChatBox、回测、红利低波、人工计划草案都不能创建订单或释放正式交易。 -> 出门验收｜目标 visualStyleUnified=true cardPressFeedbackReady=true assetExcelImportExportReady=true dashboardIconAndDensityReady=true expertModuleTabsPreserved=true targetVisualMockupMatched=true (出门仍锁定交易)
+
+## 3 前端目标页面与模块关系
+Nodes: 11; Edges: 10
+
+Nodes
+- 前端目标页面与模块关系：v3 PNG 是目标展示形态，v2 SVG 是结构说明
+- 统一视觉模块｜已修改/已收口 index.css Card / Button / Tag / Table / Chart / DataHealthNotice 目标：component-kit-visual.png
+- Dashboard｜已修改/已收口 Dashboard.tsx / UserTaskWorkbench 目标：dashboard-visual.png
+- ChatBox｜已修改/已收口 FamsChatBox.tsx / StructuredResultRenderer 目标：chatbox-visual.png
+- 资产 Excel｜已新增/已补齐 Assets.tsx / asset.ts / template.ts 目标：assets-excel-visual.png
+- 组合回测｜已修改/已收口 Backtest.tsx / PortfolioBacktestEngine 目标：backtest-visual.png
+- 红利低波｜已修改/已收口 DividendLowVol.tsx / tradingZoneService 目标：dividend-low-vol-visual.png
+- 任务审计｜已修改/已收口 Operations.tsx / Operation Artifact 目标：operations-visual.png
+- 移动端 Shell｜已修改/已收口 AppLayout.tsx / 响应式导航 目标：mobile-visual.png
+- 验收产物｜已生成 frontend_visual_system_audit.json asset_excel_flow_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json 1440 / 768 / 390 截图
+- 交易边界｜硬锁定 所有目标页面均显示研究/观察/草案边界 不得把 quick-run、Excel 导入、人工计划草案写成交易执行
+
+Edges
+- 统一视觉模块｜已修改/已收口 index.css Card / Button / Tag / Table / Chart / DataHealthNotice 目标：component-kit-visual.png -> Dashboard｜已修改/已收口 Dashboard.tsx / UserTaskWorkbench 目标：dashboard-visual.png
+- 统一视觉模块｜已修改/已收口 index.css Card / Button / Tag / Table / Chart / DataHealthNotice 目标：component-kit-visual.png -> ChatBox｜已修改/已收口 FamsChatBox.tsx / StructuredResultRenderer 目标：chatbox-visual.png
+- 统一视觉模块｜已修改/已收口 index.css Card / Button / Tag / Table / Chart / DataHealthNotice 目标：component-kit-visual.png -> 资产 Excel｜已新增/已补齐 Assets.tsx / asset.ts / template.ts 目标：assets-excel-visual.png
+- 统一视觉模块｜已修改/已收口 index.css Card / Button / Tag / Table / Chart / DataHealthNotice 目标：component-kit-visual.png -> 组合回测｜已修改/已收口 Backtest.tsx / PortfolioBacktestEngine 目标：backtest-visual.png
+- 统一视觉模块｜已修改/已收口 index.css Card / Button / Tag / Table / Chart / DataHealthNotice 目标：component-kit-visual.png -> 红利低波｜已修改/已收口 DividendLowVol.tsx / tradingZoneService 目标：dividend-low-vol-visual.png
+- 统一视觉模块｜已修改/已收口 index.css Card / Button / Tag / Table / Chart / DataHealthNotice 目标：component-kit-visual.png -> 任务审计｜已修改/已收口 Operations.tsx / Operation Artifact 目标：operations-visual.png
+- 统一视觉模块｜已修改/已收口 index.css Card / Button / Tag / Table / Chart / DataHealthNotice 目标：component-kit-visual.png -> 移动端 Shell｜已修改/已收口 AppLayout.tsx / 响应式导航 目标：mobile-visual.png
+- Dashboard｜已修改/已收口 Dashboard.tsx / UserTaskWorkbench 目标：dashboard-visual.png -> 验收产物｜已生成 frontend_visual_system_audit.json asset_excel_flow_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json 1440 / 768 / 390 截图
+- 资产 Excel｜已新增/已补齐 Assets.tsx / asset.ts / template.ts 目标：assets-excel-visual.png -> 验收产物｜已生成 frontend_visual_system_audit.json asset_excel_flow_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json 1440 / 768 / 390 截图
+- 交易边界｜硬锁定 所有目标页面均显示研究/观察/草案边界 不得把 quick-run、Excel 导入、人工计划草案写成交易执行 -> 验收产物｜已生成 frontend_visual_system_audit.json asset_excel_flow_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json 1440 / 768 / 390 截图
+
+## 4 ChatBox 工作台 专家页双轨
+Nodes: 8; Edges: 8
+
+Nodes
+- ChatBox + 工作台 + 专家页双轨：ChatBox 是第一入口，不替代专家多 Tab
+- 普通用户 打开系统先看到 ChatBox 任务卡和 Dashboard 工作台 不需要先理解复杂专家菜单
+- ChatBox｜已修改/已收口 WelcomeTaskBoard StructuredResultRenderer DataHealthNotice ActionCardList
+- 普通用户工作台｜已修改/已收口 Dashboard.tsx / UserTaskWorkbench 摘要、图表、下一步、数据可信、审计链接
+- 专家多 Tab｜已开发基础保留 Assets / Backtest / DividendLowVol / Operations / Analysis 筛选、参数、表格、证据
+- 专家页反向解释｜待组件化 ExpertPageChatExplain 把当前页面上下文交给 ChatBox 普通话解释
+- 验收 ChatBox -> 工作台 工作台 -> 专家页 专家页 -> ChatBox 解释 三条路径必须有截图和 audit
+- 硬边界 ChatBox planner 只能走白名单工具 确认卡不等于订单 正式交易字段持续 false
+
+Edges
+- 普通用户 打开系统先看到 ChatBox 任务卡和 Dashboard 工作台 不需要先理解复杂专家菜单 -> ChatBox｜已修改/已收口 WelcomeTaskBoard StructuredResultRenderer DataHealthNotice ActionCardList
+- ChatBox｜已修改/已收口 WelcomeTaskBoard StructuredResultRenderer DataHealthNotice ActionCardList -> 普通用户工作台｜已修改/已收口 Dashboard.tsx / UserTaskWorkbench 摘要、图表、下一步、数据可信、审计链接
+- 普通用户工作台｜已修改/已收口 Dashboard.tsx / UserTaskWorkbench 摘要、图表、下一步、数据可信、审计链接 -> 专家多 Tab｜已开发基础保留 Assets / Backtest / DividendLowVol / Operations / Analysis 筛选、参数、表格、证据
+- 专家多 Tab｜已开发基础保留 Assets / Backtest / DividendLowVol / Operations / Analysis 筛选、参数、表格、证据 -> 专家页反向解释｜待组件化 ExpertPageChatExplain 把当前页面上下文交给 ChatBox 普通话解释
+- 专家页反向解释｜待组件化 ExpertPageChatExplain 把当前页面上下文交给 ChatBox 普通话解释 -> ChatBox｜已修改/已收口 WelcomeTaskBoard StructuredResultRenderer DataHealthNotice ActionCardList
+- 普通用户工作台｜已修改/已收口 Dashboard.tsx / UserTaskWorkbench 摘要、图表、下一步、数据可信、审计链接 -> 验收 ChatBox -> 工作台 工作台 -> 专家页 专家页 -> ChatBox 解释 三条路径必须有截图和 audit
+- 硬边界 ChatBox planner 只能走白名单工具 确认卡不等于订单 正式交易字段持续 false -> ChatBox｜已修改/已收口 WelcomeTaskBoard StructuredResultRenderer DataHealthNotice ActionCardList
+- 硬边界 ChatBox planner 只能走白名单工具 确认卡不等于订单 正式交易字段持续 false -> 专家多 Tab｜已开发基础保留 Assets / Backtest / DividendLowVol / Operations / Analysis 筛选、参数、表格、证据
+
+## 5 资产 Excel 本地账本路径
+Nodes: 10; Edges: 8
+
+Nodes
+- 资产 Excel 本地账本路径：解决无本地数据的起步体验，不代表交易动作
+- 1 下载模板｜已开发基础 backend/src/routes/template.ts GET /api/v1/assets/template
+- 2 上传解析｜已开发基础 backend/src/routes/asset.ts POST /api/v1/assets/parse
+- 3 预览校验｜已修改/已收口 Assets.tsx 普通话错误解释、错误行高亮
+- 4 确认导入｜已开发基础 POST /api/v1/assets/import 写入本地资产账本
+- 5 导出复核｜已新增 GET /api/v1/assets/export?userId=default 当前持仓 / 交易记录 / 字段说明
+- Dashboard 空状态｜已修改/已收口 无资产时展示：导入 Excel 开始维护本地持仓 刷新资产摘要
+- Assets 目标页面｜已修改/已收口 目标样式：assets-excel-visual.png 下载、上传、预览、确认、导出同屏可理解
+- asset_excel_flow_audit.json｜已生成 记录模板下载、解析预览、错误校验、确认导入、导出工作簿结构
+- 硬边界 Excel 导入导出只维护本地资产账本，不改变正式持仓，不创建订单，不触发自动再平衡
+
+Edges
+- 1 下载模板｜已开发基础 backend/src/routes/template.ts GET /api/v1/assets/template -> 2 上传解析｜已开发基础 backend/src/routes/asset.ts POST /api/v1/assets/parse
+- 2 上传解析｜已开发基础 backend/src/routes/asset.ts POST /api/v1/assets/parse -> 3 预览校验｜已修改/已收口 Assets.tsx 普通话错误解释、错误行高亮
+- 3 预览校验｜已修改/已收口 Assets.tsx 普通话错误解释、错误行高亮 -> 4 确认导入｜已开发基础 POST /api/v1/assets/import 写入本地资产账本
+- 4 确认导入｜已开发基础 POST /api/v1/assets/import 写入本地资产账本 -> 5 导出复核｜已新增 GET /api/v1/assets/export?userId=default 当前持仓 / 交易记录 / 字段说明
+- 4 确认导入｜已开发基础 POST /api/v1/assets/import 写入本地资产账本 -> Dashboard 空状态｜已修改/已收口 无资产时展示：导入 Excel 开始维护本地持仓 刷新资产摘要
+- Assets 目标页面｜已修改/已收口 目标样式：assets-excel-visual.png 下载、上传、预览、确认、导出同屏可理解 -> asset_excel_flow_audit.json｜已生成 记录模板下载、解析预览、错误校验、确认导入、导出工作簿结构
+- 硬边界 Excel 导入导出只维护本地资产账本，不改变正式持仓，不创建订单，不触发自动再平衡 -> Assets 目标页面｜已修改/已收口 目标样式：assets-excel-visual.png 下载、上传、预览、确认、导出同屏可理解
+- 硬边界 Excel 导入导出只维护本地资产账本，不改变正式持仓，不创建订单，不触发自动再平衡 -> 5 导出复核｜已新增 GET /api/v1/assets/export?userId=default 当前持仓 / 交易记录 / 字段说明
+
+## 6 策略 回测 任务审计联动
+Nodes: 8; Edges: 9
+
+Nodes
+- 策略、回测、任务审计联动：普通摘要与专家详情分层，共享数据可信和审计证据
+- 组合回测｜已修改/已收口 Backtest.tsx 目标样式：backtest-visual.png 收益曲线、回撤曲线、策略表、dataGrade
+- 红利低波｜已修改/已收口 DividendLowVol.tsx 目标样式：dividend-low-vol-visual.png 候选、区间、剔除原因、证据
+- 任务审计｜已修改/已收口 Operations.tsx 目标样式：operations-visual.png 失败原因普通话、artifact 入口
+- 已开发服务基础 PortfolioBacktestEngine dividendLowVolStrategyService dividendLowVolTradingZoneService Operation artifact
+- 需统一表达 dataGrade / dataTrustGrade / calculationAuditStatus / evidenceRefs / validation blockers 普通模式先说影响，专家模式展开细节
+- 已生成验收产物 frontend_visual_system_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json acceptance-report.html
+- 硬边界 观察区间、回测曲线、候选排序、人工计划草案都不是正式交易动作
+
+Edges
+- 已开发服务基础 PortfolioBacktestEngine dividendLowVolStrategyService dividendLowVolTradingZoneService Operation artifact -> 组合回测｜已修改/已收口 Backtest.tsx 目标样式：backtest-visual.png 收益曲线、回撤曲线、策略表、dataGrade
+- 已开发服务基础 PortfolioBacktestEngine dividendLowVolStrategyService dividendLowVolTradingZoneService Operation artifact -> 红利低波｜已修改/已收口 DividendLowVol.tsx 目标样式：dividend-low-vol-visual.png 候选、区间、剔除原因、证据
+- 已开发服务基础 PortfolioBacktestEngine dividendLowVolStrategyService dividendLowVolTradingZoneService Operation artifact -> 任务审计｜已修改/已收口 Operations.tsx 目标样式：operations-visual.png 失败原因普通话、artifact 入口
+- 需统一表达 dataGrade / dataTrustGrade / calculationAuditStatus / evidenceRefs / validation blockers 普通模式先说影响，专家模式展开细节 -> 组合回测｜已修改/已收口 Backtest.tsx 目标样式：backtest-visual.png 收益曲线、回撤曲线、策略表、dataGrade
+- 需统一表达 dataGrade / dataTrustGrade / calculationAuditStatus / evidenceRefs / validation blockers 普通模式先说影响，专家模式展开细节 -> 红利低波｜已修改/已收口 DividendLowVol.tsx 目标样式：dividend-low-vol-visual.png 候选、区间、剔除原因、证据
+- 需统一表达 dataGrade / dataTrustGrade / calculationAuditStatus / evidenceRefs / validation blockers 普通模式先说影响，专家模式展开细节 -> 任务审计｜已修改/已收口 Operations.tsx 目标样式：operations-visual.png 失败原因普通话、artifact 入口
+- 已生成验收产物 frontend_visual_system_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json acceptance-report.html -> 任务审计｜已修改/已收口 Operations.tsx 目标样式：operations-visual.png 失败原因普通话、artifact 入口
+- 硬边界 观察区间、回测曲线、候选排序、人工计划草案都不是正式交易动作 -> 组合回测｜已修改/已收口 Backtest.tsx 目标样式：backtest-visual.png 收益曲线、回撤曲线、策略表、dataGrade
+- 硬边界 观察区间、回测曲线、候选排序、人工计划草案都不是正式交易动作 -> 红利低波｜已修改/已收口 DividendLowVol.tsx 目标样式：dividend-low-vol-visual.png 候选、区间、剔除原因、证据
+
+## 7 开发及验收计划
 Nodes: 9; Edges: 7
 
 Nodes
-- FAMS 双轨 UX 优化阶段目标体验 / 普通用户走 ChatBox + 工作台；资深用户保留多模块专家页；交易动作继续锁定
-- 颜色说明 / 灰=已实现基础 / 黄=需修改/体验复杂 / 橘=待新增能力 / 紫=体验解释层 / 红=交易硬边界 / 蓝=用户路径 / 绿=出门体验
-- 普通用户从这里开始 / 入口：FamsChatBox.tsx + Dashboard 工作台 / 用户先看到：今天先做什么、红利低波、策略回测、任务审计，以及“当前只能研究观察”的提示。
-- 路径 B：策略回测 / 页面：Backtest.tsx / 普通模式：收益最高、回撤最低、数据最可信、阻断原因。 / 专业模式：曲线、指标、benchmark、validation matrix。
-- 路径 C：人工计划草案 / 服务：portfolioBacktestReviewService / 只输出 PLAN_DRAFT / MANUAL_TRADE_DRAFT。formalTargetWeight=0，canCreateOrder=false。
-- 路径 D：任务与审计追溯 / 页面：Operations.tsx / 每个任务解释：做了什么、成功/失败、产物在哪里、能否用于交易。
-- 交易硬边界 / prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE / 无下单按钮、无自动再平衡入口、无正式买入/卖出文案。
-- 本阶段出门体验 / 普通用户不用理解 evidenceAdjustedScore、OOS、benchmark proxy，也能通过 ChatBox + 工作台判断：是否值得继续观察、为什么不能正式交易、需要补什么证据。资深用户仍能直接进入专家模块做深度分析。
-- 路径 A：红利低波策略 / 页面：DividendLowVol.tsx / 普通模式：Top 候选结论卡、观察区间、数据可信、下一步按钮。 / 专业模式：完整分数、证据、validation、audit artifact。
+- UX-F7 开发及验收计划：必须按目标展示形态实现并逐项验收
+- 1 视觉系统基础 index.css + 公共组件 统一 token、表面、边框、状态色、卡片/按钮状态
+- 2 Dashboard + ChatBox 按 dashboard-visual.png / chatbox-visual.png 任务入口、研究摘要、数据健康、边界
+- 3 资产 Excel 闭环 模板、上传、预览、确认导入、导出当前资产 补齐导出接口和工作簿
+- 4 专家页目标展示 Backtest / DividendLowVol / Operations 普通摘要 + 专家详情 + ChatBox 解释
+- 5 移动端与组件样式板 390px Shell 卡片 pressed、focus、disabled、loading、empty
+- 6 专项审计 frontend_visual_system_audit.json asset_excel_flow_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json
+- 7 E2E 出门 1440 / 768 / 390 截图 acceptance-report.html SUMMARY_FOR_GPT.md 目标截图对照通过
+- 失败打回规则 目标页面截图与 v3 不一致、专家页入口被删除或弱化、Excel 路径不闭环、交易边界文案误导、真实数据/证据缺口被隐藏：均不得进入下一阶段
 
 Edges
-- 普通用户从这里开始 / 入口：FamsChatBox.tsx + Dashboard 工作台 / 用户先看到：今天先做什么、红利低波、策略回测、任务审计，以及“当前只能研究观察”的提示。 -> 路径 A：红利低波策略 / 页面：DividendLowVol.tsx / 普通模式：Top 候选结论卡、观察区间、数据可信、下一步按钮。 / 专业模式：完整分数、证据、validation、audit artifact。
-- 路径 A：红利低波策略 / 页面：DividendLowVol.tsx / 普通模式：Top 候选结论卡、观察区间、数据可信、下一步按钮。 / 专业模式：完整分数、证据、validation、audit artifact。 -> 路径 B：策略回测 / 页面：Backtest.tsx / 普通模式：收益最高、回撤最低、数据最可信、阻断原因。 / 专业模式：曲线、指标、benchmark、validation matrix。
-- 路径 A：红利低波策略 / 页面：DividendLowVol.tsx / 普通模式：Top 候选结论卡、观察区间、数据可信、下一步按钮。 / 专业模式：完整分数、证据、validation、audit artifact。 -> 路径 C：人工计划草案 / 服务：portfolioBacktestReviewService / 只输出 PLAN_DRAFT / MANUAL_TRADE_DRAFT。formalTargetWeight=0，canCreateOrder=false。
-- 路径 C：人工计划草案 / 服务：portfolioBacktestReviewService / 只输出 PLAN_DRAFT / MANUAL_TRADE_DRAFT。formalTargetWeight=0，canCreateOrder=false。 -> 交易硬边界 / prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE / 无下单按钮、无自动再平衡入口、无正式买入/卖出文案。
-- 路径 A：红利低波策略 / 页面：DividendLowVol.tsx / 普通模式：Top 候选结论卡、观察区间、数据可信、下一步按钮。 / 专业模式：完整分数、证据、validation、audit artifact。 -> 路径 D：任务与审计追溯 / 页面：Operations.tsx / 每个任务解释：做了什么、成功/失败、产物在哪里、能否用于交易。
-- 路径 D：任务与审计追溯 / 页面：Operations.tsx / 每个任务解释：做了什么、成功/失败、产物在哪里、能否用于交易。 -> 本阶段出门体验 / 普通用户不用理解 evidenceAdjustedScore、OOS、benchmark proxy，也能通过 ChatBox + 工作台判断：是否值得继续观察、为什么不能正式交易、需要补什么证据。资深用户仍能直接进入专家模块做深度分析。
-- 路径 B：策略回测 / 页面：Backtest.tsx / 普通模式：收益最高、回撤最低、数据最可信、阻断原因。 / 专业模式：曲线、指标、benchmark、validation matrix。 -> 路径 A：红利低波策略 / 页面：DividendLowVol.tsx / 普通模式：Top 候选结论卡、观察区间、数据可信、下一步按钮。 / 专业模式：完整分数、证据、validation、audit artifact。
+- 1 视觉系统基础 index.css + 公共组件 统一 token、表面、边框、状态色、卡片/按钮状态 -> 2 Dashboard + ChatBox 按 dashboard-visual.png / chatbox-visual.png 任务入口、研究摘要、数据健康、边界
+- 2 Dashboard + ChatBox 按 dashboard-visual.png / chatbox-visual.png 任务入口、研究摘要、数据健康、边界 -> 3 资产 Excel 闭环 模板、上传、预览、确认导入、导出当前资产 补齐导出接口和工作簿
+- 3 资产 Excel 闭环 模板、上传、预览、确认导入、导出当前资产 补齐导出接口和工作簿 -> 4 专家页目标展示 Backtest / DividendLowVol / Operations 普通摘要 + 专家详情 + ChatBox 解释
+- 4 专家页目标展示 Backtest / DividendLowVol / Operations 普通摘要 + 专家详情 + ChatBox 解释 -> 5 移动端与组件样式板 390px Shell 卡片 pressed、focus、disabled、loading、empty
+- 5 移动端与组件样式板 390px Shell 卡片 pressed、focus、disabled、loading、empty -> 6 专项审计 frontend_visual_system_audit.json asset_excel_flow_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json
+- 6 专项审计 frontend_visual_system_audit.json asset_excel_flow_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json -> 7 E2E 出门 1440 / 768 / 390 截图 acceptance-report.html SUMMARY_FOR_GPT.md 目标截图对照通过
+- 失败打回规则 目标页面截图与 v3 不一致、专家页入口被删除或弱化、Excel 路径不闭环、交易边界文案误导、真实数据/证据缺口被隐藏：均不得进入下一阶段 -> 6 专项审计 frontend_visual_system_audit.json asset_excel_flow_audit.json dashboard_visual_density_audit.json trade_boundary_wording_audit.json
 
-## 02 当前架构与目标架构差异
-Nodes: 32; Edges: 20
+## 8 里程碑 出门条件 硬边界
+Nodes: 7; Edges: 5
 
 Nodes
-- 当前架构与目标架构差异：真实代码实体 + 明确状态 + 分层关联；ChatBox 不替代专家 Tab
-- 灰=已开发基础｜黄=开发中/需修改｜橘=未开发/待新增｜红=硬边界｜绿=用户结果；每行按 前端/API/服务/数据/审计/Gate 分层，必须绑定真实代码实体。
-- 已开发基础 / Current / Grey
-- 开发中 / 需修改 / Change / Yellow
-- 未开发 / 待新增 / Target / Orange
-- 不可绕过 / Boundary
-- 用户结果 / Outcome
-- 已开发基础：前端页面 / Dashboard.tsx / AppLayout.tsx / DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx / FamsChatBox.tsx / 原左侧菜单和多 Tab 专家页保留。
-- 已实现/已验收：移动端 Shell 折叠侧栏；首屏改为状态摘要、任务卡、结论、下一步；ChatBox 结果跳转工作台，不删除专家页。
-- 已实现/等价验收：UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first design token。后续增强：ExperienceModeToggle / PlainLanguageHelp / 独立结论卡。
-- 普通模式不得隐藏 blocker、dataTrust、交易锁定。
-- 用户 30 秒内知道看哪里和下一步；移动端主内容不被侧栏挤压。
-- 已开发基础：API 路由 / strategy.ts / portfolioBacktest.ts / operation.ts / backend/src/routes/chat.ts / FIVD-R analysis routes
-- 响应继续输出 readiness、dataTrust、calculationAudit、blockers。
-- 已实现/已验收：displaySummary / readinessSummary / dataHealth payload / chart payload；结果展示不改变计算结果。
-- canCreateOrder=false / orderCreateAllowed=false。
-- 页面解释和 API 证据一致。
-- 已开发基础：服务模块 / dividendLowVolStrategyService / dividendLowVolTradingZoneService / PortfolioBacktestEngine / portfolioBacktestReviewService / famsChatService / piAgentCoreAdapter
-- 把专业结果转换为普通话解释，不改模型公式。
-- 已实现/已验收：普通话结果层级 / 状态解释 / StructuredResultRenderer / DataHealthNotice。后续增强：统一 glossary。
-- 不得把复算通过写成模型有效。
-- 用户看懂“为什么”和“还缺什么”。
-- 已开发基础：数据与缓存 / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / portfolio holdings snapshot / free-source benchmark
-- 字段级新鲜度、覆盖率、来源继续展示。
-- 未开发/待新增：数据可信摘要卡、字段级 evidence 抽屉、provider freshness 可视化、正式 provider 升级入口。
-- 免费源/proxy 不能变成 official_authorized。
-- 用户看到可信、需复核或不足。
-- 已开发基础：审计与 Gate / acceptance-report.html / 09-18 JSON / SUMMARY_FOR_GPT / chat session audit / trade gate contract
-- 审计报告增加普通用户摘要。
-- 已实现/已验收：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。
-- formalTradingUnlocked=false 仍必须显眼。
-- 人类可同时审计体验和证据链。
+- 里程碑、出门条件与硬边界：UX-F7 只能声明体验和本地数据入口完成，不能声明正式交易 release
+- M1 文档出门｜本轮目标 PRD / 目标架构 / drawio / 里程碑 / 验收门槛一致 目标展示形态已落盘
+- M2 代码实现｜已完成 已按 v3 页面样式收口 UX-F7；不只改色，不删除专家页
+- M3 验收产物｜已生成 专项 audit + 截图 + HTML 验收报告 + Git 变更说明
+- UX-F7 出门条件 visualStyleUnified=true cardPressFeedbackReady=true assetExcelImportExportReady=true dashboardIconAndDensityReady=true expertModuleTabsPreserved=true targetVisualMockupMatched=true
+- 继续锁定 formalTradingUnlocked=false autoTradeUnlocked=false canCreateOrder=false orderCreateAllowed=false prohibitedActions includes ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+- 后续不属于 UX-F7 的长期事项 正式 provider、官方 total-return benchmark、formal validation、人工签核、正式交易 release、自动交易和自动再平衡。
 
 Edges
-- 已开发基础：前端页面 / Dashboard.tsx / AppLayout.tsx / DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx / FamsChatBox.tsx / 原左侧菜单和多 Tab 专家页保留。 -> 已实现/已验收：移动端 Shell 折叠侧栏；首屏改为状态摘要、任务卡、结论、下一步；ChatBox 结果跳转工作台，不删除专家页。 (演进)
-- 已实现/已验收：移动端 Shell 折叠侧栏；首屏改为状态摘要、任务卡、结论、下一步；ChatBox 结果跳转工作台，不删除专家页。 -> 已实现/等价验收：UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first design token。后续增强：ExperienceModeToggle / PlainLanguageHelp / 独立结论卡。 (补齐)
-- 已实现/等价验收：UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first design token。后续增强：ExperienceModeToggle / PlainLanguageHelp / 独立结论卡。 -> 普通模式不得隐藏 blocker、dataTrust、交易锁定。 (受控)
-- 普通模式不得隐藏 blocker、dataTrust、交易锁定。 -> 用户 30 秒内知道看哪里和下一步；移动端主内容不被侧栏挤压。 (展示)
-- 已开发基础：API 路由 / strategy.ts / portfolioBacktest.ts / operation.ts / backend/src/routes/chat.ts / FIVD-R analysis routes -> 响应继续输出 readiness、dataTrust、calculationAudit、blockers。 (演进)
-- 响应继续输出 readiness、dataTrust、calculationAudit、blockers。 -> 已实现/已验收：displaySummary / readinessSummary / dataHealth payload / chart payload；结果展示不改变计算结果。 (补齐)
-- 已实现/已验收：displaySummary / readinessSummary / dataHealth payload / chart payload；结果展示不改变计算结果。 -> canCreateOrder=false / orderCreateAllowed=false。 (受控)
-- canCreateOrder=false / orderCreateAllowed=false。 -> 页面解释和 API 证据一致。 (展示)
-- 已开发基础：服务模块 / dividendLowVolStrategyService / dividendLowVolTradingZoneService / PortfolioBacktestEngine / portfolioBacktestReviewService / famsChatService / piAgentCoreAdapter -> 把专业结果转换为普通话解释，不改模型公式。 (演进)
-- 把专业结果转换为普通话解释，不改模型公式。 -> 已实现/已验收：普通话结果层级 / 状态解释 / StructuredResultRenderer / DataHealthNotice。后续增强：统一 glossary。 (补齐)
-- 已实现/已验收：普通话结果层级 / 状态解释 / StructuredResultRenderer / DataHealthNotice。后续增强：统一 glossary。 -> 不得把复算通过写成模型有效。 (受控)
-- 不得把复算通过写成模型有效。 -> 用户看懂“为什么”和“还缺什么”。 (展示)
-- 已开发基础：数据与缓存 / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / portfolio holdings snapshot / free-source benchmark -> 字段级新鲜度、覆盖率、来源继续展示。 (演进)
-- 字段级新鲜度、覆盖率、来源继续展示。 -> 未开发/待新增：数据可信摘要卡、字段级 evidence 抽屉、provider freshness 可视化、正式 provider 升级入口。 (补齐)
-- 未开发/待新增：数据可信摘要卡、字段级 evidence 抽屉、provider freshness 可视化、正式 provider 升级入口。 -> 免费源/proxy 不能变成 official_authorized。 (受控)
-- 免费源/proxy 不能变成 official_authorized。 -> 用户看到可信、需复核或不足。 (展示)
-- 已开发基础：审计与 Gate / acceptance-report.html / 09-18 JSON / SUMMARY_FOR_GPT / chat session audit / trade gate contract -> 审计报告增加普通用户摘要。 (演进)
-- 审计报告增加普通用户摘要。 -> 已实现/已验收：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。 (补齐)
-- 已实现/已验收：frontend_ux_consistency_audit.json / chatbox_ux_optimization_audit.json / dual_track_ux_audit.json / trade_boundary_wording_audit.json / 1440px-768px-390px 截图证据。 -> formalTradingUnlocked=false 仍必须显眼。 (受控)
-- formalTradingUnlocked=false 仍必须显眼。 -> 人类可同时审计体验和证据链。 (展示)
-
-## 03 体验解释层架构
-Nodes: 9; Edges: 7
-
-Nodes
-- 体验解释层架构：ChatBox + 工作台服务普通用户，多模块专家页保留深度审计
-- 输入保持不变 / API：dividend-low-vol / portfolio-backtest / operations / 数据：dataTrust、calculationAudit、blockers、validation、artifactRefs。
-- 模式控制 / ExperienceModeToggle.tsx / 默认普通模式；用户偏好存 localStorage；专业模式只改变展示，不改变结果。
-- 术语解释 / PlainLanguageHelp.tsx / 解释股息率、低波动、回撤、benchmark、数据可信度、样本外验证。
-- 结论与对话展示组件 / DividendLowVolDecisionCard.tsx / PortfolioBacktestSummaryCard.tsx / StrategyComparisonExplainer.tsx / Chat UX：WelcomeTaskBoard / AssistantMessage / DataHealthNotice
-- 普通模式与 Chat 主视图 / 1. 当前状态 / 一句话结论 / 2. 关键数字 / 3. 为什么 / 4. 数据可信/不足 / 5. 下一步按钮或任务卡
-- 专业模式与技术详情 / 完整指标表、字段级 evidence、validation matrix、审计 artifact、API 原始状态、provider、planner mode 默认折叠。
-- 必须始终可见 / dataTrustGrade=INSUFFICIENT / calculationAudit=deterministic_replay_only / formalTradingUnlocked=false / autoTradeUnlocked=false
-- 验收结果 / 普通用户可读性提升；ChatBox 能解释结论、下一步和数据健康；专业用户证据链不丢；交易锁定不被弱化。
-
-Edges
-- 输入保持不变 / API：dividend-low-vol / portfolio-backtest / operations / 数据：dataTrust、calculationAudit、blockers、validation、artifactRefs。 -> 模式控制 / ExperienceModeToggle.tsx / 默认普通模式；用户偏好存 localStorage；专业模式只改变展示，不改变结果。
-- 模式控制 / ExperienceModeToggle.tsx / 默认普通模式；用户偏好存 localStorage；专业模式只改变展示，不改变结果。 -> 术语解释 / PlainLanguageHelp.tsx / 解释股息率、低波动、回撤、benchmark、数据可信度、样本外验证。
-- 术语解释 / PlainLanguageHelp.tsx / 解释股息率、低波动、回撤、benchmark、数据可信度、样本外验证。 -> 结论与对话展示组件 / DividendLowVolDecisionCard.tsx / PortfolioBacktestSummaryCard.tsx / StrategyComparisonExplainer.tsx / Chat UX：WelcomeTaskBoard / AssistantMessage / DataHealthNotice
-- 结论与对话展示组件 / DividendLowVolDecisionCard.tsx / PortfolioBacktestSummaryCard.tsx / StrategyComparisonExplainer.tsx / Chat UX：WelcomeTaskBoard / AssistantMessage / DataHealthNotice -> 普通模式与 Chat 主视图 / 1. 当前状态 / 一句话结论 / 2. 关键数字 / 3. 为什么 / 4. 数据可信/不足 / 5. 下一步按钮或任务卡
-- 结论与对话展示组件 / DividendLowVolDecisionCard.tsx / PortfolioBacktestSummaryCard.tsx / StrategyComparisonExplainer.tsx / Chat UX：WelcomeTaskBoard / AssistantMessage / DataHealthNotice -> 专业模式与技术详情 / 完整指标表、字段级 evidence、validation matrix、审计 artifact、API 原始状态、provider、planner mode 默认折叠。
-- 专业模式与技术详情 / 完整指标表、字段级 evidence、validation matrix、审计 artifact、API 原始状态、provider、planner mode 默认折叠。 -> 必须始终可见 / dataTrustGrade=INSUFFICIENT / calculationAudit=deterministic_replay_only / formalTradingUnlocked=false / autoTradeUnlocked=false
-- 必须始终可见 / dataTrustGrade=INSUFFICIENT / calculationAudit=deterministic_replay_only / formalTradingUnlocked=false / autoTradeUnlocked=false -> 验收结果 / 普通用户可读性提升；ChatBox 能解释结论、下一步和数据健康；专业用户证据链不丢；交易锁定不被弱化。
-
-## 04 红利低波用户路径
-Nodes: 9; Edges: 7
-
-Nodes
-- 红利低波用户路径：从复杂候选表改为“结论卡 + 观察区间 + 下一步”
-- 首屏状态摘要 / DividendLowVol.tsx / 显示研究模式、数据可信、计算复算、最新刷新、交易锁定。
-- Top 候选结论卡 / DividendLowVolDecisionCard.tsx / 可研究 / 仅观察 / 数据不足 / 风险剔除；最多 3 条普通话原因。
-- 筛选与排序 / 行业、综合分、股息率、低波、质量、数据状态。 / 默认展示关键列，专业模式显示全部指标。
-- 买卖观察区间 / 显示低位/中性/高位/需刷新后重算。 / 专业模式展示 priceAudit、tradeDate、sourceType、freshness。
-- 人工计划草案 / 按钮文案：生成草案 / 查看阻断 / 加入观察。 / 草案待复核，不构成交易指令。
-- 专业详情 / 完整评分、leader evidence、dividend factset、rejection taxonomy、validation artifact。
-- 风险不可隐藏 / 数据不足、价格过期、模型验证不足、正式交易锁定必须在普通模式可见。
-- 出门验收 / 普通用户不理解 evidenceAdjustedScore 也能判断：为什么被列出、当前处于什么区间、下一步只能研究或草案。
-
-Edges
-- 首屏状态摘要 / DividendLowVol.tsx / 显示研究模式、数据可信、计算复算、最新刷新、交易锁定。 -> Top 候选结论卡 / DividendLowVolDecisionCard.tsx / 可研究 / 仅观察 / 数据不足 / 风险剔除；最多 3 条普通话原因。
-- Top 候选结论卡 / DividendLowVolDecisionCard.tsx / 可研究 / 仅观察 / 数据不足 / 风险剔除；最多 3 条普通话原因。 -> 筛选与排序 / 行业、综合分、股息率、低波、质量、数据状态。 / 默认展示关键列，专业模式显示全部指标。
-- 筛选与排序 / 行业、综合分、股息率、低波、质量、数据状态。 / 默认展示关键列，专业模式显示全部指标。 -> 买卖观察区间 / 显示低位/中性/高位/需刷新后重算。 / 专业模式展示 priceAudit、tradeDate、sourceType、freshness。
-- 买卖观察区间 / 显示低位/中性/高位/需刷新后重算。 / 专业模式展示 priceAudit、tradeDate、sourceType、freshness。 -> 人工计划草案 / 按钮文案：生成草案 / 查看阻断 / 加入观察。 / 草案待复核，不构成交易指令。
-- 人工计划草案 / 按钮文案：生成草案 / 查看阻断 / 加入观察。 / 草案待复核，不构成交易指令。 -> 专业详情 / 完整评分、leader evidence、dividend factset、rejection taxonomy、validation artifact。
-- 专业详情 / 完整评分、leader evidence、dividend factset、rejection taxonomy、validation artifact。 -> 风险不可隐藏 / 数据不足、价格过期、模型验证不足、正式交易锁定必须在普通模式可见。
-- 风险不可隐藏 / 数据不足、价格过期、模型验证不足、正式交易锁定必须在普通模式可见。 -> 出门验收 / 普通用户不理解 evidenceAdjustedScore 也能判断：为什么被列出、当前处于什么区间、下一步只能研究或草案。
-
-## 05 组合回测用户路径
-Nodes: 9; Edges: 7
-
-Nodes
-- 组合回测用户路径：从曲线指标优先改为“策略对比摘要 + 数据缺口 + 阻断原因”
-- 选择策略和时间 / Backtest.tsx / 推荐组合、红利低波篮子、当前持仓、自定义权重；支持 1年/3年/5年/自定义区间。
-- 运行回测 / PortfolioBacktestEngine / 输出收益曲线、回撤、benchmark、dividendContribution、dataGrade。
-- 结果摘要卡 / PortfolioBacktestSummaryCard.tsx / 哪个收益最高、回撤最低、数据最可信、哪些仍被阻断。
-- 策略解释器 / StrategyComparisonExplainer.tsx / 把 Sharpe、Calmar、最大回撤、超额收益转成普通话解释。
-- 专业视图 / 曲线、指标表、benchmark 资格、OOS、walk-forward、参数敏感性、分组稳定性。
-- 阻断原因 / research_proxy / insufficient / validation warning / manual signoff missing / releaseGate blocked。
-- 草案与审计 / 生成 manualPlanDraft 或查看 blockedReasons；Operations 追踪 artifactRefs。
-- 出门验收 / 用户 10 秒内知道：哪条策略更稳、哪条收益高、哪条数据不足，以及为什么仍不能交易。
-
-Edges
-- 选择策略和时间 / Backtest.tsx / 推荐组合、红利低波篮子、当前持仓、自定义权重；支持 1年/3年/5年/自定义区间。 -> 运行回测 / PortfolioBacktestEngine / 输出收益曲线、回撤、benchmark、dividendContribution、dataGrade。
-- 运行回测 / PortfolioBacktestEngine / 输出收益曲线、回撤、benchmark、dividendContribution、dataGrade。 -> 结果摘要卡 / PortfolioBacktestSummaryCard.tsx / 哪个收益最高、回撤最低、数据最可信、哪些仍被阻断。
-- 结果摘要卡 / PortfolioBacktestSummaryCard.tsx / 哪个收益最高、回撤最低、数据最可信、哪些仍被阻断。 -> 策略解释器 / StrategyComparisonExplainer.tsx / 把 Sharpe、Calmar、最大回撤、超额收益转成普通话解释。
-- 结果摘要卡 / PortfolioBacktestSummaryCard.tsx / 哪个收益最高、回撤最低、数据最可信、哪些仍被阻断。 -> 专业视图 / 曲线、指标表、benchmark 资格、OOS、walk-forward、参数敏感性、分组稳定性。
-- 专业视图 / 曲线、指标表、benchmark 资格、OOS、walk-forward、参数敏感性、分组稳定性。 -> 阻断原因 / research_proxy / insufficient / validation warning / manual signoff missing / releaseGate blocked。
-- 阻断原因 / research_proxy / insufficient / validation warning / manual signoff missing / releaseGate blocked。 -> 草案与审计 / 生成 manualPlanDraft 或查看 blockedReasons；Operations 追踪 artifactRefs。
-- 草案与审计 / 生成 manualPlanDraft 或查看 blockedReasons；Operations 追踪 artifactRefs。 -> 出门验收 / 用户 10 秒内知道：哪条策略更稳、哪条收益高、哪条数据不足，以及为什么仍不能交易。
-
-## 06 开发及验收计划
-Nodes: 8; Edges: 0
-
-Nodes
-- 开发及验收计划：先固定 UX 基线，再修复 ChatBox、移动端 Shell 和双轨工作台
-- UX-1 全局信息架构｜开发中/需修改 / 已开发基础：AppLayout.tsx / Dashboard.tsx / 左侧菜单。 / 需修改：每页说明本页能做什么、适合谁、下一步。 / 验收：首屏不是复杂表格；原专家 Tab 不删除。
-- UX-2 普通/专业模式｜未开发/待新增 / 待新增：ExperienceModeToggle.tsx / PlainLanguageHelp.tsx。 / 效果：普通模式默认，专业模式保留完整审计。 / 验收：切换只改变展示，不改变后端结果。
-- UX-3 红利低波结论卡｜未开发/待新增 / 已开发基础：DividendLowVol.tsx / dividendLowVolStrategyService。 / 待新增：DividendLowVolDecisionCard.tsx。 / 验收：普通用户不需要理解综合分。
-- UX-4 回测摘要｜未开发/待新增 / 已开发基础：Backtest.tsx / PortfolioBacktestEngine。 / 待新增：PortfolioBacktestSummaryCard.tsx / StrategyComparisonExplainer.tsx。 / 验收：曲线与解释一致。
-- UX-5 审计人类可读｜开发中/需修改 / 已开发基础：Operations.tsx / acceptance-report.html。 / 需修改：任务做了什么、产物在哪里、能否用于交易。 / 验收：报告不只服务开发者。
-- UX-F0 / UX-6 视觉降噪与可访问性｜已实现/已验收 / 已开发：index.css / 页面公共卡片标签表格 / 移动端抽屉导航。 / 验收：frontend_ux_consistency_audit.json + 1440px/768px/390px 截图通过；无关键文字溢出。
-- UX-F1 到 UX-F3 / CB-F ChatBox 深度优化｜已实现/已验收 / 已开发：WelcomeTaskBoard / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / famsChatService / famsChatTypes.ts。 / 验收：chatbox_ux_optimization_audit.json；主视图有结论、关键数字、下一步、数据可信；技术细节默认折叠；核心回复含 answerLevel/summary/keyNumbers/nextActions/dataHealth/evidenceRefs 结构化 payload；未扩大工具权限或交易能力。 / UX-F4 到 UX-F6 / UX-8 双轨工作台与视觉系统｜已实现/等价验收 / 已开发：UserTaskWorkbench / 专家页“用 ChatBox 解释”入口 / light-first 视觉 token / dual_track_ux_audit.json。 / 后续增强：独立 JourneyStepper / ExpertPageChatExplain 组件化。 / 验收：ChatBox->工作台、工作台->专家页、专家页->ChatBox 解释截图；DividendLowVol / Backtest / Operations / Analysis 专家页仍可访问；交易锁定仍显眼。 / 阶段验收：read-drawio-output、HTML E2E、截图证据、交易边界文案审计。
-
-## 07 里程碑与出门条件
-Nodes: 10; Edges: 0
-
-Nodes
-- 里程碑、出门条件与审计路径：UX 阶段只提升理解路径，不释放交易动作
-- M1 文档出门 / PRD、计划、目标架构、drawio、审计报告一致。 / drawioPageCount=8 且 <=8。
-- M2 UX 架构出门 / 普通模式、专业模式、结论卡、摘要卡、术语解释均绑定真实实体。
-- M3 UX 实现出门｜已验收 / ordinaryUserExperienceReady=true / frontendComplexityReduced=true / chatBoxExperienceOptimized=true / 桌面/平板/移动截图通过。
-- M4 正式交易 Release 出门 / 正式 provider、可信 benchmark、formal validation、人工签核全部通过后另行评审。
-- 当前可声明 / researchReady=true / portfolioBacktestFormalReviewReady=true / manualTradePlanDraftReviewReady=true / userExperienceOptimizationPlanReady=true
-- 当前不能声明 / formalTradingUnlocked 不得为 true / autoTradeUnlocked 不得为 true / orderCreateAllowed 不得为 true / canCreateOrder 不得为 true
-- 必须审计路径 / docs/USER_EXPERIENCE_OPTIMIZATION_PLAN.md / docs/CHATBOX_FIRST_CLASS_ACCEPTANCE_PLAN.md / docs/CHATBOX_UX_OPTIMIZATION_DOC_AUDIT.md / docs/target-architecture-gap.drawio / docs/read-drawio-output.txt / acceptance-report.html
-- 风险控制 / UX 简化不得隐藏 dataTrustGrade=INSUFFICIENT、calculationAudit=deterministic_replay_only、validation blocker、正式交易锁定。
-- 最终出门条件 / 人类能从文档和图中快速理解目标体验、目标架构、当前差异、开发计划、里程碑、验收门槛与禁止动作。
-
-## 08 ChatBox 与 AgentCore 业务入口
-Nodes: 12; Edges: 8
-
-Nodes
-- ChatBox 与 PI AgentCore：已开发基础、需修改、待新增、硬边界一图说明；专家 Tab 保留
-- 颜色：灰色=已开发基础；黄色=开发中/需修改；橘黄=未开发/待新增；红色=硬边界；蓝色=用户路径；绿色=目标体验输出。ChatBox 是第一入口，不删除专家模块。
-- 用户自然语言入口 / 示例： / 红利低波前三只候选 / 600887 处于什么区间 / 永久组合 vs 全天候组合最近三年收益和最大回撤，并画图 / 最近任务为什么失败
-- 已开发基础：前端 / FamsChatBox.tsx / AppLayout.tsx 全局入口 / 快捷问题、行动卡、确认卡 / 研究模式边界提示 / 原专家 Tab 仍保留 / 需修改：任务卡入口 + 普通话结果层级
-- 已开发基础：后端 / backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter / 白名单工具、会话审计、二次确认 / 需修改：全业务工具覆盖与结构化图表
-- 可编排业务能力 / 红利低波候选与区间 / 组合持仓与风险解释 / 永久组合/全天候组合 quick-run 对比 / 任务、审计、草案、页面跳转 / 持久化动作需确认
-- 目标体验输出 / 普通用户：结论 / 关键数字 / 下一步 / 数据可信 / 图表 / 工作台承接。 / 资深用户：继续使用多模块专家页、完整指标、筛选、参数和 artifactRefs。 / 两条路径共享同一审计和交易 Gate。
-- 已实现/已验收：Chat UX 展示层 / chatBoxExperienceOptimized=true / plainLanguageChatResultReady=true / dataHealthExplanationReady=true / 技术细节默认折叠 / 移动端 Shell 与对话面板通过截图复核 / 主视图不只显示 raw blockedReasons/evidenceRefs / provider / artifactRefs
-- 已实现基础 + 后续增强：AgentCore 集成深度 / piAgentCoreRuntimeIntegrated=true / piLlmAgentLoopEnabled=partial_controlled_intent_router / deterministic fallback 保留 / fullBusinessToolCoverageReady=true / inlineChartResultReady=true / chatStreamingReady=false
-- 已实现/等价验收：CB-F / UX-7 + UX-8 / WelcomeTaskBoard / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first token / responsive shell audit / chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json / 后续增强：独立 JourneyStepper、ExpertPageChatExplain、SSE/WebSocket 流式事件
-- 硬边界 / 不得调用非白名单工具 / 不得直接访问 shell / 文件系统 / 不受控网络 / 不得创建订单 / 不得输出正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE / 任何副作用动作必须二次确认并落审计
-- 开发及验收计划 / CB-1 到 CB-5：功能链路、工具权限、结构化结果、Operation 确认、交易边界。 / UX-F0：固定 1440px/768px/390px 截图和可访问性基线。 / CB-F / UX-7：欢迎任务卡、普通话结果层级、数据健康提示、技术细节折叠、消息级操作、移动端可读性。 / UX-8：ChatBox->工作台、工作台->专家页、专家页->ChatBox 解释；保留多模块专家入口。 / 验收：chatbox_ux_optimization_audit.json；frontend_ux_consistency_audit.json；dual_track_ux_audit.json；trade_boundary_wording_audit.json；formalTradingUnlocked=false、autoTradeUnlocked=false、canCreateOrder=false。
-
-Edges
-- 用户自然语言入口 / 示例： / 红利低波前三只候选 / 600887 处于什么区间 / 永久组合 vs 全天候组合最近三年收益和最大回撤，并画图 / 最近任务为什么失败 -> 已开发基础：前端 / FamsChatBox.tsx / AppLayout.tsx 全局入口 / 快捷问题、行动卡、确认卡 / 研究模式边界提示 / 原专家 Tab 仍保留 / 需修改：任务卡入口 + 普通话结果层级
-- 已开发基础：前端 / FamsChatBox.tsx / AppLayout.tsx 全局入口 / 快捷问题、行动卡、确认卡 / 研究模式边界提示 / 原专家 Tab 仍保留 / 需修改：任务卡入口 + 普通话结果层级 -> 已开发基础：后端 / backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter / 白名单工具、会话审计、二次确认 / 需修改：全业务工具覆盖与结构化图表
-- 已开发基础：后端 / backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter / 白名单工具、会话审计、二次确认 / 需修改：全业务工具覆盖与结构化图表 -> 可编排业务能力 / 红利低波候选与区间 / 组合持仓与风险解释 / 永久组合/全天候组合 quick-run 对比 / 任务、审计、草案、页面跳转 / 持久化动作需确认
-- 可编排业务能力 / 红利低波候选与区间 / 组合持仓与风险解释 / 永久组合/全天候组合 quick-run 对比 / 任务、审计、草案、页面跳转 / 持久化动作需确认 -> 目标体验输出 / 普通用户：结论 / 关键数字 / 下一步 / 数据可信 / 图表 / 工作台承接。 / 资深用户：继续使用多模块专家页、完整指标、筛选、参数和 artifactRefs。 / 两条路径共享同一审计和交易 Gate。
-- 已开发基础：前端 / FamsChatBox.tsx / AppLayout.tsx 全局入口 / 快捷问题、行动卡、确认卡 / 研究模式边界提示 / 原专家 Tab 仍保留 / 需修改：任务卡入口 + 普通话结果层级 -> 已实现/已验收：Chat UX 展示层 / chatBoxExperienceOptimized=true / plainLanguageChatResultReady=true / dataHealthExplanationReady=true / 技术细节默认折叠 / 移动端 Shell 与对话面板通过截图复核 / 主视图不只显示 raw blockedReasons/evidenceRefs / provider / artifactRefs
-- 已开发基础：后端 / backend/src/routes/chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter / 白名单工具、会话审计、二次确认 / 需修改：全业务工具覆盖与结构化图表 -> 已实现基础 + 后续增强：AgentCore 集成深度 / piAgentCoreRuntimeIntegrated=true / piLlmAgentLoopEnabled=partial_controlled_intent_router / deterministic fallback 保留 / fullBusinessToolCoverageReady=true / inlineChartResultReady=true / chatStreamingReady=false
-- 已实现基础 + 后续增强：AgentCore 集成深度 / piAgentCoreRuntimeIntegrated=true / piLlmAgentLoopEnabled=partial_controlled_intent_router / deterministic fallback 保留 / fullBusinessToolCoverageReady=true / inlineChartResultReady=true / chatStreamingReady=false -> 已实现/等价验收：CB-F / UX-7 + UX-8 / WelcomeTaskBoard / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first token / responsive shell audit / chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json / 后续增强：独立 JourneyStepper、ExpertPageChatExplain、SSE/WebSocket 流式事件
-- 已实现/等价验收：CB-F / UX-7 + UX-8 / WelcomeTaskBoard / StructuredResultRenderer / ActionCardList / DataHealthNotice / AgentStatusDetails / UserTaskWorkbench / 专家页 ChatBox 解释入口 / light-first token / responsive shell audit / chatbox_ux_optimization_audit.json / frontend_ux_consistency_audit.json / dual_track_ux_audit.json / 后续增强：独立 JourneyStepper、ExpertPageChatExplain、SSE/WebSocket 流式事件 -> 硬边界 / 不得调用非白名单工具 / 不得直接访问 shell / 文件系统 / 不受控网络 / 不得创建订单 / 不得输出正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE / 任何副作用动作必须二次确认并落审计
+- M1 文档出门｜本轮目标 PRD / 目标架构 / drawio / 里程碑 / 验收门槛一致 目标展示形态已落盘 -> M2 代码实现｜已完成 已按 v3 页面样式收口 UX-F7；不只改色，不删除专家页
+- M2 代码实现｜已完成 已按 v3 页面样式收口 UX-F7；不只改色，不删除专家页 -> M3 验收产物｜已生成 专项 audit + 截图 + HTML 验收报告 + Git 变更说明
+- M3 验收产物｜已生成 专项 audit + 截图 + HTML 验收报告 + Git 变更说明 -> UX-F7 出门条件 visualStyleUnified=true cardPressFeedbackReady=true assetExcelImportExportReady=true dashboardIconAndDensityReady=true expertModuleTabsPreserved=true targetVisualMockupMatched=true
+- 继续锁定 formalTradingUnlocked=false autoTradeUnlocked=false canCreateOrder=false orderCreateAllowed=false prohibitedActions includes ADD / REDUCE / ORDER_CREATE / AUTO_TRADE -> UX-F7 出门条件 visualStyleUnified=true cardPressFeedbackReady=true assetExcelImportExportReady=true dashboardIconAndDensityReady=true expertModuleTabsPreserved=true targetVisualMockupMatched=true (边界约束)
+- 后续不属于 UX-F7 的长期事项 正式 provider、官方 total-return benchmark、formal validation、人工签核、正式交易 release、自动交易和自动再平衡。 -> 继续锁定 formalTradingUnlocked=false autoTradeUnlocked=false canCreateOrder=false orderCreateAllowed=false prohibitedActions includes ADD / REDUCE / ORDER_CREATE / AUTO_TRADE

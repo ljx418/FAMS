@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-07-07T03:42:36.092Z",
+  "mode": "No terminal imag2 executable found; local SVG diagrams generated for traceability.",
+  "sources": [
+    "docs/V1_PHASE1_MVP_DEVELOPMENT_PLAN.md",
+    "docs/USER_EXPERIENCE_OPTIMIZATION_PLAN.md",
+    "docs/TARGET_ARCHITECTURE_GAP.md",
+    "docs/target-architecture-gap.drawio",
+    "docs/UX_F7_VISUAL_ASSET_EXCEL_DOC_AUDIT.md"
+  ],
+  "imageStyle": "light-first financial workstation, consistent tokens, no false trading unlock claims",
+  "prohibitedClaims": [
+    "formalTradingUnlocked=true",
+    "autoTradeUnlocked=true",
+    "canCreateOrder=true",
+    "orderCreateAllowed=true",
+    "ORDER_CREATE allowed",
+    "AUTO_TRADE allowed",
+    "ChatBox can trade"
+  ]
+}

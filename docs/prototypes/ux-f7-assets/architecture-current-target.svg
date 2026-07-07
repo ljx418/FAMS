@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920">
+<defs>
+  <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#102033" flood-opacity="0.13"/></filter>
+  <linearGradient id="pageBg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8fbff"/><stop offset="1" stop-color="#eef6ff"/></linearGradient>
+  <linearGradient id="blueSoft" x1="0" x2="1"><stop stop-color="#dbeafe"/><stop offset="1" stop-color="#ecfeff"/></linearGradient>
+  <linearGradient id="greenSoft" x1="0" x2="1"><stop stop-color="#dcfce7"/><stop offset="1" stop-color="#f0fdf4"/></linearGradient>
+  <style>
+    .bg{fill:url(#pageBg)} .panel{fill:#fff;stroke:#d9e2ec;stroke-width:1.2;filter:url(#softShadow)} .box{fill:#fff;stroke:#d9e2ec;stroke-width:1.2}.mutedBox{fill:#f8fafc;stroke:#d9e2ec}.modify{fill:#fff7ed;stroke:#fdba74}.new{fill:#ffedd5;stroke:#fb923c}.done{fill:#f1f5f9;stroke:#cbd5e1}.hard{fill:#fff1f2;stroke:#fda4af}.path{fill:#eff6ff;stroke:#93c5fd}.ok{fill:#dcfce7;stroke:#86efac}.title{font:700 30px 'Microsoft YaHei',Arial;fill:#0f172a}.sub{font:500 14px 'Microsoft YaHei',Arial;fill:#475569}.h{font:700 18px 'Microsoft YaHei',Arial;fill:#102033}.t{font:500 13px 'Microsoft YaHei',Arial;fill:#475569}.s{font:600 12px 'Microsoft YaHei',Arial;fill:#64748b}.mini{font:600 11px 'Microsoft YaHei',Arial;fill:#64748b}.edge{stroke:#94a3b8;stroke-width:2;fill:none;marker-end:url(#arrow)}.dash{stroke:#94a3b8;stroke-width:2;fill:none;stroke-dasharray:8 7;marker-end:url(#arrow)}
+  </style>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#94a3b8"/></marker>
+</defs>
+<rect class="bg" width="1440" height="920"/>
+<text x="64" y="66" class="title">目标架构与当前架构差异</text>
+<text x="64" y="100" class="sub">基于 drawio 8 页实现地图：灰=已实现基础，黄=需修改，橘=需新增，红=交易硬边界。</text>
+
+<rect x="64" y="132" width="96" height="28" rx="14" fill="#64748b" opacity="0.12"/><text x="78" y="151" font-size="12" font-weight="700" font-family="Microsoft YaHei,Arial" fill="#64748b">当前基础</text><rect x="222" y="132" width="96" height="28" rx="14" fill="#f59e0b" opacity="0.12"/><text x="236" y="151" font-size="12" font-weight="700" font-family="Microsoft YaHei,Arial" fill="#f59e0b">需修改</text><rect x="380" y="132" width="96" height="28" rx="14" fill="#fb923c" opacity="0.12"/><text x="394" y="151" font-size="12" font-weight="700" font-family="Microsoft YaHei,Arial" fill="#fb923c">需新增</text><rect x="538" y="132" width="96" height="28" rx="14" fill="#ef4444" opacity="0.12"/><text x="552" y="151" font-size="12" font-weight="700" font-family="Microsoft YaHei,Arial" fill="#ef4444">硬边界</text>
+<rect x="64" y="184" width="390" height="570" rx="24" class="panel"/><text x="96" y="228" class="h">当前实现基线</text>
+<rect x="96" y="260" width="306" height="84" rx="18" class="done"/><text x="118" y="294" class="h">FamsChatBox.tsx</text><text x="310" y="288" class="mini">已开发</text><text x="118" y="324" class="t">已有任务入口和解释层基础</text>
+<rect x="96" y="366" width="306" height="84" rx="18" class="done"/><text x="118" y="400" class="h">AppLayout / 专家菜单</text><text x="310" y="394" class="mini">已开发</text><text x="118" y="430" class="t">左侧多模块导航仍保留</text>
+<rect x="96" y="472" width="306" height="84" rx="18" class="modify"/><text x="118" y="506" class="h">Dashboard / Assets</text><text x="310" y="500" class="mini">需修改</text><text x="118" y="536" class="t">功能可见但深色块和空状态仍重</text>
+<rect x="96" y="578" width="306" height="84" rx="18" class="modify"/><text x="118" y="612" class="h">Backtest / DividendLowVol</text><text x="310" y="606" class="mini">需修改</text><text x="118" y="642" class="t">专家深度页可用，视觉需统一</text>
+<rect x="526" y="184" width="390" height="570" rx="24" class="panel"/><text x="558" y="228" class="h">UX-F7 目标架构</text>
+<rect x="558" y="260" width="306" height="84" rx="18" class="modify"/><text x="580" y="294" class="h">统一设计系统</text><text x="772" y="288" class="mini">需修改</text><text x="580" y="324" class="t">light-first token、卡片力感、图标体系</text>
+<rect x="558" y="366" width="306" height="84" rx="18" class="modify"/><text x="580" y="400" class="h">普通用户工作台</text><text x="772" y="394" class="mini">需修改</text><text x="580" y="430" class="t">ChatBox + 摘要卡 + 下一步行动</text>
+<rect x="558" y="472" width="306" height="84" rx="18" class="new"/><text x="580" y="506" class="h">资产 Excel 闭环</text><text x="772" y="500" class="mini">需新增</text><text x="580" y="536" class="t">模板、预览、确认导入、导出资产</text>
+<rect x="558" y="578" width="306" height="84" rx="18" class="modify"/><text x="580" y="612" class="h">响应式体验</text><text x="772" y="606" class="mini">需修改</text><text x="580" y="642" class="t">移动端不挤压，图表按钮不裁切</text>
+<rect x="988" y="184" width="330" height="570" rx="24" class="panel"/><text x="1020" y="228" class="h">不变边界</text>
+<rect x="1020" y="260" width="250" height="84" rx="18" class="done"/><text x="1042" y="294" class="h">专家多 Tab 保留</text><text x="1178" y="288" class="mini">保留</text><text x="1042" y="324" class="t">资深用户继续深挖证据</text>
+<rect x="1020" y="366" width="250" height="84" rx="18" class="done"/><text x="1042" y="400" class="h">同一 API/服务/审计</text><text x="1178" y="394" class="mini">保留</text><text x="1042" y="430" class="t">ChatBox 不绕过业务服务</text>
+<rect x="1020" y="472" width="250" height="84" rx="18" class="hard"/><text x="1042" y="506" class="h">交易 Gate</text><text x="1178" y="500" class="mini">锁定</text><text x="1042" y="536" class="t">ADD/REDUCE/ORDER_CREATE 禁止</text>
+<rect x="1020" y="578" width="250" height="84" rx="18" class="hard"/><text x="1042" y="612" class="h">正式交易未解锁</text><text x="1178" y="606" class="mini">锁定</text><text x="1042" y="642" class="t">formalTradingUnlocked=false</text>
+<path class="edge" d="M402 302 C470 302 492 302 558 302"/><path class="edge" d="M402 514 C470 514 492 514 558 514"/><path class="edge" d="M864 408 C920 408 944 408 1020 408"/><path class="edge" d="M864 620 C920 620 944 620 1020 620"/>
+<rect x="64" y="798" width="1254" height="68" rx="18" fill="#0f172a"/><text x="92" y="826" fill="#fff" font-size="17" font-weight="700" font-family="Microsoft YaHei,Arial">架构结论</text><text x="92" y="854" fill="#cbd5e1" font-size="13" font-family="Microsoft YaHei,Arial">UX-F7 是体验质量和本地资产数据入口收口，不是重写业务架构，也不释放正式交易。</text>
+</svg>
