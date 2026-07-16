@@ -1,563 +1,267 @@
-<mxfile host="Electron" agent="Codex" pages="8">
-  <diagram id="1 下一阶段开发目标" name="1 下一阶段开发目标">
-    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+<mxfile host="app.diagrams.net" modified="2026-07-16T19:05:00+08:00" agent="Codex" version="24.7.17" type="device">
+  <diagram id="1-stage-status" name="1 当前阶段实现状态">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="p1_title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=20;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" value="下一阶段目标路线图：从研究级可用，推进到“正式交易前置评审 ready”" vertex="1">
-          <mxGeometry x="40" y="30" width="1180" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_not" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=14;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="本阶段完成后仍不等于正式交易 ready
-不下单、不自动交易、不释放正式买入/卖出。" vertex="1">
-          <mxGeometry x="1260" y="30" width="430" height="80" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_now" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="当前已经具备
-研究级工作台、ChatBox 第一入口、资产 Excel、本地账本、红利低波、组合回测、专家页、多类审计包。" vertex="1">
-          <mxGeometry x="60" y="150" width="360" height="145" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_problem" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff7d6;strokeColor=#c28a13;fontColor=#5f4208;strokeWidth=1;" value="当前核心问题
-数据是否最新、字段来源是否可信、benchmark 是否正式、模型是否长期有效、人工签核和订单防线是否完整，仍不能证明。" vertex="1">
-          <mxGeometry x="470" y="150" width="430" height="145" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_goal" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="下一阶段目标
-把真实数据可信、正式回测验证、人工签核、执行隔离和 release gate 做成可审计闭环。" vertex="1">
-          <mxGeometry x="950" y="150" width="390" height="145" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_user" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" value="用户完成后能获得
-能导入资产、看懂数据可信、比较策略长期表现、理解为什么不能交易、生成人工复核草案。" vertex="1">
-          <mxGeometry x="60" y="370" width="400" height="145" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_auditor" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" value="审计者完成后能判断
-每个字段来源、每条曲线算法、benchmark 资格、validation 结果、人工签核状态、交易硬边界。" vertex="1">
-          <mxGeometry x="510" y="370" width="420" height="145" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_exit" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="出门状态
-formal-trading-prerequisite ready
-manual-review-package ready
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p1_title" value="当前阶段状态：FAMS 受控自动化开发与阶段性审计已完成" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=20;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="30" width="940" height="56" as="geometry"/></mxCell>
+        <mxCell id="p1_done" value="已完成并验收
+S0 文档/状态基线、S1 真实资产复验、S2 数据治理合同、S3 benchmark 合同、S4 formal validation 审计、S5 人工签核合同、S6 执行隔离、S7 release gate、S8 ChatBox 多轮增强。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="440" height="170" as="geometry"/></mxCell>
+        <mxCell id="p1_evidence" value="最新证据
+commit 3d150c2 已推送 origin/main；stage-acceptance-report.html 已生成并打开；Headless Chrome 截图覆盖 Dashboard / Assets / Backtest / DividendLowVol / Operations / Mobile。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="520" y="120" width="440" height="170" as="geometry"/></mxCell>
+        <mxCell id="p1_boundary" value="仍然不能声明
+formalTradingReleaseReady=false
 formalTradingUnlocked=false
-autoTradeUnlocked=false" vertex="1">
-          <mxGeometry x="980" y="360" width="400" height="165" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_steps" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=14;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="开发主线
-S1 真实资产样本复验 -&gt; S2 数据治理 -&gt; S3 benchmark -&gt; S4 formal validation -&gt; S5 人工签核 -&gt; S6 执行隔离 -&gt; S7 release gate -&gt; S8 ChatBox 多轮增强" vertex="1">
-          <mxGeometry x="60" y="600" width="1280" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_e1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="当前缺口" edge="1" source="p1_now" target="p1_problem">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_e2" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="下一阶段补齐" edge="1" source="p1_problem" target="p1_goal">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_e3" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="用户价值" edge="1" source="p1_goal" target="p1_user">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_e4" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="审计价值" edge="1" source="p1_goal" target="p1_auditor">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_e5" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="体验出门" edge="1" source="p1_user" target="p1_exit">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_e6" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="审计出门" edge="1" source="p1_auditor" target="p1_exit">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p1_e7" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="按顺序验收" edge="1" source="p1_steps" target="p1_exit">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fde2e1;strokeColor=#c0392b;fontColor=#7a1b16;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="1000" y="120" width="420" height="170" as="geometry"/></mxCell>
+        <mxCell id="p1_user" value="用户当前可体验
+ChatBox 第一入口、资产 Excel 导入导出、资产/仓位/任务、组合策略回测、红利低波研究、人工计划草案、审计证据查看。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="340" width="440" height="150" as="geometry"/></mxCell>
+        <mxCell id="p1_auditor" value="审计者当前可复核
+current-stage-state.json、S0-S8 manifest、15-18 audit、release gate、ChatBox agent audit、streaming audit、multi-turn audit、drawio read 输出。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="520" y="340" width="440" height="150" as="geometry"/></mxCell>
+        <mxCell id="p1_blocked" value="正式交易 release 阻断原因
+正式 provider 授权、官方/可信 total-return benchmark、formal validation 统计通过、人类签核、生产订单适配器和最终 release approval 尚未完成。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="1000" y="340" width="420" height="150" as="geometry"/></mxCell>
+        <mxCell id="p1e1" value="实现证据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p1_done" target="p1_evidence"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p1e2" value="支撑体验" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p1_evidence" target="p1_user"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p1e3" value="支撑审计" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p1_evidence" target="p1_auditor"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p1e4" value="交易边界复核" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p1_auditor" target="p1_boundary"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p1e5" value="阻断正式交易" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#c0392b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p1_blocked" target="p1_boundary"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="2 当前架构与目标架构差异" name="2 当前架构与目标架构差异">
-    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1050" math="0" shadow="0">
+  <diagram id="2-current-target" name="2 当前架构与目标架构状态">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="p2_title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" value="当前架构 vs 目标架构：下一阶段不是重做系统，而是在现有工作台上补“可信验证闭环”" vertex="1">
-          <mxGeometry x="40" y="30" width="1300" height="65" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_legend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" value="灰=已实现基础｜黄=当前风险｜橘=下一阶段新增/强化｜绿=验收结果｜红=硬边界" vertex="1">
-          <mxGeometry x="1380" y="30" width="360" height="65" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_current" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=14;fontStyle=1;spacing=8;align=center;verticalAlign=top;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#263445;strokeWidth=1;" value="当前已实现基础" vertex="1">
-          <mxGeometry x="80" y="130" width="330" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_risk" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=14;fontStyle=1;spacing=8;align=center;verticalAlign=top;fillColor=#fff7d6;strokeColor=#c28a13;fontColor=#5f4208;strokeWidth=1;" value="为什么还不能正式交易" vertex="1">
-          <mxGeometry x="490" y="130" width="350" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_target" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=14;fontStyle=1;spacing=8;align=center;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="下一阶段目标能力" vertex="1">
-          <mxGeometry x="920" y="130" width="370" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_accept" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=14;fontStyle=1;spacing=8;align=center;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="完成后如何验收" vertex="1">
-          <mxGeometry x="1370" y="130" width="340" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_c1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#263445;strokeWidth=1;" value="前端与入口
-Dashboard / ChatBox / Assets / Backtest / DividendLowVol / Operations / Analysis" vertex="1">
-          <mxGeometry x="80" y="220" width="330" height="110" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_r1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff7d6;strokeColor=#c28a13;fontColor=#5f4208;strokeWidth=1;" value="普通用户可用，但数据可信、模型有效、交易锁定解释仍需更直观。" vertex="1">
-          <mxGeometry x="490" y="220" width="350" height="100" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_t1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="双轨体验持续回归
-ChatBox 第一入口 + 专家多 Tab + 数据健康说明 + 交易锁定解释。" vertex="1">
-          <mxGeometry x="920" y="220" width="370" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_a1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="用户路径截图通过
-ChatBox-&gt;工作台-&gt;专家页-&gt;ChatBox 解释；专家入口不被删除。" vertex="1">
-          <mxGeometry x="1370" y="220" width="340" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_c2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#263445;strokeWidth=1;" value="数据与资产
-本地账本、资产 Excel、market cache、audit artifacts、Operation artifacts" vertex="1">
-          <mxGeometry x="80" y="390" width="330" height="115" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_r2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff7d6;strokeColor=#c28a13;fontColor=#5f4208;strokeWidth=1;" value="行情新鲜度曾 unknown；免费源可 research，但不能证明字段级 formal。" vertex="1">
-          <mxGeometry x="490" y="390" width="350" height="105" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_t2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="数据治理
-FormalDataProviderService / ProviderFreshnessService / FieldEvidenceRef。" vertex="1">
-          <mxGeometry x="920" y="390" width="370" height="115" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_a2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="字段级验收
-15_data_governance_audit.json；providerMode、freshness、coverage、crossCheck、evidenceRefs 可见。" vertex="1">
-          <mxGeometry x="1370" y="390" width="340" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_c3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#263445;strokeWidth=1;" value="回测与策略
-PortfolioBacktestEngine / 红利低波 / 观察区间 / quick-run 曲线" vertex="1">
-          <mxGeometry x="80" y="570" width="330" height="110" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_r3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff7d6;strokeColor=#c28a13;fontColor=#5f4208;strokeWidth=1;" value="proxy benchmark、短样本或缺交易约束会导致收益曲线看起来可用但不能 formal。" vertex="1">
-          <mxGeometry x="490" y="570" width="350" height="115" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_t3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="benchmark + validation
-BenchmarkQualificationService / FormalValidationService。" vertex="1">
-          <mxGeometry x="920" y="570" width="370" height="115" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_a3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="验证验收
-16/17 audit；OOS、walk-forward、参数敏感性、分组稳定性；不足即 insufficient。" vertex="1">
-          <mxGeometry x="1370" y="570" width="340" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_c4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="交易边界
-现有 trade gate、prohibitedActions、ChatBox permission gate" vertex="1">
-          <mxGeometry x="80" y="750" width="330" height="100" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_r4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="人工计划草案容易被误读为交易建议；ChatBox 或 API 可能出现订单意图。" vertex="1">
-          <mxGeometry x="490" y="750" width="350" height="105" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_t4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="签核与隔离
-ManualSignoffService / ExecutionIsolationService / OrderIntentBlocker / ReleaseGateService。" vertex="1">
-          <mxGeometry x="920" y="750" width="370" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_a4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="release gate 验收
-13/14/18 audit；未显式 release approval 前四个交易字段必须 false。" vertex="1">
-          <mxGeometry x="1370" y="750" width="340" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e1a" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="风险" edge="1" source="p2_c1" target="p2_r1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e1b" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="补齐" edge="1" source="p2_r1" target="p2_t1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e1c" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="验收" edge="1" source="p2_t1" target="p2_a1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e2a" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="风险" edge="1" source="p2_c2" target="p2_r2">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e2b" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="补齐" edge="1" source="p2_r2" target="p2_t2">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e2c" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="验收" edge="1" source="p2_t2" target="p2_a2">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e3a" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="风险" edge="1" source="p2_c3" target="p2_r3">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e3b" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="补齐" edge="1" source="p2_r3" target="p2_t3">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e3c" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="验收" edge="1" source="p2_t3" target="p2_a3">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e4a" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="风险" edge="1" source="p2_c4" target="p2_r4">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e4b" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="补齐" edge="1" source="p2_r4" target="p2_t4">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_e4c" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="验收" edge="1" source="p2_t4" target="p2_a4">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_cross1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="数据输入验证" edge="1" source="p2_t2" target="p2_t3">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p2_cross2" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="验证结果进入 release gate" edge="1" source="p2_t3" target="p2_t4">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p2_title" value="当前架构与目标架构状态：不是待开发路线图，而是最新实现映射" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="30" width="1120" height="50" as="geometry"/></mxCell>
+        <mxCell id="p2_legend" value="颜色说明：绿=已实现并验收｜蓝=审计证据｜黄=正式交易阻断/需人工｜红=绝不释放交易｜灰=存量基础" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="1180" y="30" width="340" height="50" as="geometry"/></mxCell>
+        <mxCell id="p2_front_base" value="存量前端基础
+Dashboard / FamsChatBox / Assets / Backtest / DividendLowVol / Operations / Analysis / 多 Tab 专家页" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#263445;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="310" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2_front_done" value="最新前端状态
+普通用户工作台、ChatBox 第一入口、专家页保留、资产 Excel、任务中心、数据健康与交易锁定提示均可见。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="390" y="120" width="330" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2_front_evi" value="前端验收证据
+frontend npm run build passed；Headless Chrome 截图 6 张；Dashboard mobile 截图；专家页没有被删除。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="760" y="120" width="330" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2_api_base" value="存量 API / Service
+chat.ts / operation.ts / strategy.ts / portfolioBacktest.ts / PortfolioBacktestEngine / dividendLowVol 服务" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#263445;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="320" width="310" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2_api_done" value="最新后端状态
+ChatBox streaming、多轮会话、LLM planner、Operation 关联、market freshness、benchmark qualification、formal validation audit、release gate 已实现。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="390" y="320" width="330" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2_api_evi" value="后端验收证据
+test:next-stage-automation、test:next-stage-release-gates、test:chatbox-streaming、formal-review-readiness、total-return-backtest 全部退出 0。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="760" y="320" width="330" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2_data_base" value="存量数据基础
+SQLite 本地账本、market cache、audit artifacts、Operation artifacts、Excel workbook。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#263445;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="520" width="310" height="140" as="geometry"/></mxCell>
+        <mxCell id="p2_data_done" value="最新数据治理状态
+字段级 source/freshness/coverage/cross-check/evidenceRefs 合同已落地；research fallback 不升级为 formal。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="390" y="520" width="330" height="140" as="geometry"/></mxCell>
+        <mxCell id="p2_data_warn" value="当前数据阻断
+部分 formal freshness/coverage/cross-check 仍 blocked；这会阻断正式交易，但不阻断研究级比较与人工计划草案。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="760" y="520" width="330" height="140" as="geometry"/></mxCell>
+        <mxCell id="p2_trade_base" value="存量交易边界
+prohibitedActions、trade gate、ChatBox permission gate、人工计划草案。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#263445;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="700" width="310" height="140" as="geometry"/></mxCell>
+        <mxCell id="p2_trade_done" value="最新隔离状态
+ExecutionIsolationService / OrderIntentBlocker / release gate 已审计；paper/sandbox only；production adapter disabled。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="390" y="700" width="330" height="140" as="geometry"/></mxCell>
+        <mxCell id="p2_trade_red" value="硬边界
+ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 持续禁止；任何正向放行字段为 true 都是 hard fail。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fde2e1;strokeColor=#c0392b;fontColor=#7a1b16;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="760" y="700" width="330" height="140" as="geometry"/></mxCell>
+        <mxCell id="p2e1" value="演进" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_front_base" target="p2_front_done"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2e2" value="证据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_front_done" target="p2_front_evi"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2e3" value="演进" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_api_base" target="p2_api_done"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2e4" value="证据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_api_done" target="p2_api_evi"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2e5" value="演进" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_data_base" target="p2_data_done"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2e6" value="剩余阻断" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_data_done" target="p2_data_warn"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2e7" value="演进" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_trade_base" target="p2_trade_done"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2e8" value="硬边界" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#c0392b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_trade_done" target="p2_trade_red"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2e9" value="数据输入" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_api_done" target="p2_data_done"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2e10" value="阻断 release" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#c0392b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p2_data_warn" target="p2_trade_red"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="3 数据可信与字段级治理" name="3 数据可信与字段级治理">
-    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+  <diagram id="3-data-governance" name="3 数据可信治理状态">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="p3_title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" value="S2 数据可信闭环：让用户知道每个关键数据从哪里来、是否过期、能否用于 formal" vertex="1">
-          <mxGeometry x="40" y="30" width="1200" height="65" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_sources" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="数据来源分层
-formal provider / research_fallback / unavailable
-Tushare 保留升级；免费源只做 research 或 fallback。" vertex="1">
-          <mxGeometry x="80" y="140" width="390" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_fields" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="字段证据
-sourceProvider / sourceEndpoint / asOfDate / fetchedAt / freshnessStatus / coverageStatus / crossCheckStatus / evidenceRefs。" vertex="1">
-          <mxGeometry x="540" y="140" width="440" height="145" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_ui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" value="用户可见
-数据可信卡片：可信 / 需复核 / 不足；过期字段和缺口不能隐藏。" vertex="1">
-          <mxGeometry x="1050" y="140" width="360" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_services" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="实现实体
-FormalDataProviderService
-ProviderFreshnessService
-FieldEvidenceRef
-dataGovernanceAudit" vertex="1">
-          <mxGeometry x="80" y="360" width="390" height="150" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_accept" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="验收
-criticalFieldsHaveEvidenceRefs=true
-staleFieldsVisible=true
-coverageBelowThresholdBlocksFormalValidation=true
-researchFallbackNotPromotedToFormal=true
-providerSecretNotLogged=true" vertex="1">
-          <mxGeometry x="540" y="360" width="520" height="170" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_block" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="打回
-数据新鲜度 unknown 却声明 formal；fallback 被 promoted；字段缺 evidenceRefs；密钥进入日志或审计包。" vertex="1">
-          <mxGeometry x="1120" y="360" width="390" height="150" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_e1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p3_sources" target="p3_fields">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_e2" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p3_fields" target="p3_ui">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_e3" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p3_fields" target="p3_services">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_e4" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p3_services" target="p3_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p3_e5" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="失败不得出门" edge="1" source="p3_block" target="p3_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p3_title" value="S2 数据可信治理：合同已实现，formal 数据放行仍受阻断" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="30" width="980" height="50" as="geometry"/></mxCell>
+        <mxCell id="p3_done" value="已实现实体
+marketDataFreshnessService
+verify-fams-data-governance.ts
+provider_freshness_audit.json
+data_source_audit.json
+15_data_governance_audit.json" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="360" height="220" as="geometry"/></mxCell>
+        <mxCell id="p3_user" value="用户可见状态
+数据健康、过期/缺口、providerMode、freshness、coverage、crossCheck、evidenceRefs 可用于解释为什么仍不能正式交易。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="450" y="120" width="360" height="220" as="geometry"/></mxCell>
+        <mxCell id="p3_block" value="当前阻断
+price / benchmark / dividend / tradeability 多项 freshness unknown 或 coverage below 80，会阻断 formal validation / release gate。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="860" y="120" width="360" height="220" as="geometry"/></mxCell>
+        <mxCell id="p3_gate" value="验收判断
+合同实现通过；正式交易数据治理没有通过，不能写成 formal provider ready。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fde2e1;strokeColor=#c0392b;fontColor=#7a1b16;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="450" y="400" width="360" height="120" as="geometry"/></mxCell>
+        <mxCell id="p3e1" value="呈现" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p3_done" target="p3_user"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p3e2" value="暴露缺口" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p3_user" target="p3_block"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p3e3" value="阻断 release" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#c0392b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p3_block" target="p3_gate"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="4 回测可信与模型验证" name="4 回测可信与模型验证">
-    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+  <diagram id="4-backtest-validation" name="4 回测与模型验证状态">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="p4_title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" value="S3-S4 回测可信与模型验证：让收益曲线可复算，也让模型有效性可审计" vertex="1">
-          <mxGeometry x="40" y="30" width="1280" height="65" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_input" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#263445;strokeWidth=1;" value="输入
-真实资产样本、行情序列、交易约束、分红/成本、benchmark 数据资格。" vertex="1">
-          <mxGeometry x="80" y="140" width="360" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_bench" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="S3 benchmark
-BenchmarkQualificationService
-benchmarkType=official_total_return / trusted_total_return / proxy。" vertex="1">
-          <mxGeometry x="500" y="140" width="390" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_val" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="S4 validation
-FormalValidationService
-OOS / walk-forward / 参数敏感性 / 行业、市场、流动性分组稳定性。" vertex="1">
-          <mxGeometry x="950" y="140" width="440" height="150" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_user" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" value="用户看到
-收益曲线、回撤曲线、策略表、benchmark 资格、数据等级、blocker，不把 proxy 当正式结论。" vertex="1">
-          <mxGeometry x="80" y="360" width="440" height="140" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_accept" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="出门门槛
-effectivePathCount&gt;=30
-industryGroupCount&gt;=3
-walkForwardWindows&gt;=6
-walkForwardPassedRatio&gt;=0.6
-parameterSensitivityStatus != insufficient
-groupStabilityStatus != insufficient" vertex="1">
-          <mxGeometry x="580" y="350" width="500" height="190" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_block" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="打回
-proxyBenchmarkMarkedInsufficient=false；total-return 缺失却 passed；validation insufficient 被写成可交易。" vertex="1">
-          <mxGeometry x="1140" y="370" width="390" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_e1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p4_input" target="p4_bench">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_e2" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p4_bench" target="p4_val">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_e3" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p4_val" target="p4_user">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_e4" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p4_val" target="p4_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p4_e5" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="失败不得出门" edge="1" source="p4_block" target="p4_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p4_title" value="S3-S4 回测可信与模型验证：审计链路已实现，formal validation 当前 insufficient" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="30" width="1060" height="50" as="geometry"/></mxCell>
+        <mxCell id="p4_bench" value="Benchmark 已实现
+BENCHMARK_ENUM_CONTRACT.md
+verify-fams-benchmark-qualification.ts
+16_benchmark_qualification_audit.json
+canonical enum 已统一。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="330" height="190" as="geometry"/></mxCell>
+        <mxCell id="p4_validation" value="Formal validation 已实现
+FORMAL_VALIDATION_METRIC_DEFINITIONS.md
+verify-fams-formal-validation.ts
+17_formal_validation_audit.json
+OOS / walk-forward / 参数敏感性 / 分组稳定性。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="420" y="120" width="360" height="190" as="geometry"/></mxCell>
+        <mxCell id="p4_result" value="当前验证结果
+S3 benchmark qualification contract passed，但 canSupportFormalTrading=false；S4 status=insufficient；passedStrategies=0。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="830" y="120" width="360" height="190" as="geometry"/></mxCell>
+        <mxCell id="p4_user" value="用户可见
+收益曲线、回撤、策略比较和 benchmark 资格可用于研究和人工复核；不能把 proxy 或 insufficient 解释成可交易。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="370" width="360" height="160" as="geometry"/></mxCell>
+        <mxCell id="p4_block" value="正式交易阻断
+official authorized total-return benchmark 未人工确认；模型有效性、样本外、walk-forward、参数敏感性和分组稳定性未 formal passed。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fde2e1;strokeColor=#c0392b;fontColor=#7a1b16;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="420" y="370" width="360" height="160" as="geometry"/></mxCell>
+        <mxCell id="p4e1" value="输入" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p4_bench" target="p4_validation"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p4e2" value="输出" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p4_validation" target="p4_result"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p4e3" value="研究体验" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p4_result" target="p4_user"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p4e4" value="阻断 formal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#c0392b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p4_result" target="p4_block"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="5 人工签核与执行隔离" name="5 人工签核与执行隔离">
-    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+  <diagram id="5-signoff-isolation-release" name="5 签核执行隔离与 Release Gate">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="p5_title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" value="S5-S7 人工签核、执行隔离与 Release Gate：能生成草案，但不能创建订单" vertex="1">
-          <mxGeometry x="40" y="30" width="1280" height="65" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_draft" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="人工计划草案
-manualTradePlanDraft
-用于人工复核，不是交易建议。formalTargetWeightPercent=0。" vertex="1">
-          <mxGeometry x="80" y="140" width="380" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_sign" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="人工签核
-ManualSignoffService
-记录 reviewer、checklist、blockers、decision artifact。" vertex="1">
-          <mxGeometry x="520" y="140" width="380" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_iso" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="执行隔离
-ExecutionIsolationService / OrderIntentBlocker / paperTradingAdapter
-真实订单适配器 disabled。" vertex="1">
-          <mxGeometry x="960" y="140" width="420" height="140" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_gate" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="ReleaseGateService
-汇总数据治理、benchmark、validation、签核、执行隔离，生成 14_release_gate_audit.json。" vertex="1">
-          <mxGeometry x="520" y="350" width="470" height="140" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_accept" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="出门门槛
-manualReviewerRequired=true
-manualSignoffCompleted=false before approval
-realOrderAdapterDisabled=true
-orderCreateBlockedWithoutReleaseGate=true
-formalTradingUnlocked=false" vertex="1">
-          <mxGeometry x="80" y="350" width="390" height="180" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_block" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="打回
-任何页面、ChatBox、API 出现可下单、正式买入/卖出、自动交易、订单创建入口。" vertex="1">
-          <mxGeometry x="1050" y="370" width="390" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_e1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p5_draft" target="p5_sign">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_e2" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p5_sign" target="p5_gate">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_e3" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p5_iso" target="p5_gate">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_e4" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p5_gate" target="p5_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p5_e5" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="硬失败" edge="1" source="p5_block" target="p5_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p5_title" value="S5-S7 人工签核、执行隔离与 Release Gate：合同已实现，release gate 正确 blocked" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="30" width="1100" height="50" as="geometry"/></mxCell>
+        <mxCell id="p5_sign" value="S5 人工签核
+ManualSignoffService / 18_manual_signoff_audit.json / manual_trade_plan_draft_review.json 已生成。当前 requiredRoles 未签核，status=missing。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="350" height="180" as="geometry"/></mxCell>
+        <mxCell id="p5_iso" value="S6 执行隔离
+ExecutionIsolationService / OrderIntentBlocker / paper intent / sandbox only 已实现。productionAdapterEnabled=false。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="430" y="120" width="350" height="180" as="geometry"/></mxCell>
+        <mxCell id="p5_release" value="S7 Release Gate
+14_release_gate_audit.json 已生成；runtime health 与 execution isolation 可通过；数据、validation、人工签核、正式订单适配器阻断。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fde2e1;strokeColor=#c0392b;fontColor=#7a1b16;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="820" y="120" width="350" height="180" as="geometry"/></mxCell>
+        <mxCell id="p5_allowed" value="允许
+RESEARCH / OBSERVE / COMPARE / ALERT / PLAN_DRAFT / MANUAL_TRADE_DRAFT" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="360" width="350" height="120" as="geometry"/></mxCell>
+        <mxCell id="p5_denied" value="禁止
+ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+ChatBox、API、前端按钮、报告文案均不得正向放行。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fde2e1;strokeColor=#c0392b;fontColor=#7a1b16;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="430" y="360" width="350" height="120" as="geometry"/></mxCell>
+        <mxCell id="p5_meaning" value="验收含义
+受控开发完成 ≠ 正式交易可用；release gate blocked 是当前正确安全状态。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="820" y="360" width="350" height="120" as="geometry"/></mxCell>
+        <mxCell id="p5e1" value="缺签核" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p5_sign" target="p5_release"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p5e2" value="隔离输入" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p5_iso" target="p5_release"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p5e3" value="可用范围" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p5_allowed" target="p5_meaning"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p5e4" value="硬阻断" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#c0392b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p5_denied" target="p5_release"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="6 用户场景与验收路径" name="6 用户场景与验收路径">
-    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+  <diagram id="6-user-paths" name="6 用户场景与截图验收">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="p6_title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" value="用户场景验收路径：不是只看系统有页面，而是看用户能否完成可信研究路径" vertex="1">
-          <mxGeometry x="40" y="30" width="1260" height="65" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_s1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="路径 A：导入真实资产
-下载模板 -&gt; 上传 -&gt; 预览错误 -&gt; 确认导入 -&gt; Dashboard 刷新 -&gt; 导出复核 -&gt; 进入组合回测。" vertex="1">
-          <mxGeometry x="80" y="140" width="420" height="140" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_s2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" value="路径 B：比较组合策略
-ChatBox 输入“永久组合 vs 全天候三年收益和回撤” -&gt; 返回曲线、表格、数据等级、benchmark 资格。" vertex="1">
-          <mxGeometry x="560" y="140" width="460" height="150" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_s3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" value="路径 C：红利低波研究
-查看候选、观察区间、剔除原因、字段证据、数据新鲜度和 validation blocker。" vertex="1">
-          <mxGeometry x="1080" y="140" width="390" height="140" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_s4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="路径 D：人工计划草案
-生成草案 -&gt; 查看 blocker -&gt; 人工签核前 formalTargetWeight=0 -&gt; 尝试交易意图被阻断。" vertex="1">
-          <mxGeometry x="80" y="370" width="440" height="140" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_s5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#f1edff;strokeColor=#7c3aed;fontColor=#3b1d78;strokeWidth=1;" value="路径 E：审计复核
-打开 acceptance-report、SUMMARY、13-18 audit、read-drawio-output，判断是否可进入 release 评审。" vertex="1">
-          <mxGeometry x="580" y="370" width="450" height="140" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_accept" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="所有路径必须有
-用户入口、操作步骤、界面结果、数据可信说明、交易锁定提示、截图或 audit 证据。" vertex="1">
-          <mxGeometry x="1080" y="370" width="420" height="140" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_fail" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="三无验收禁止
-无用户场景、无操作步骤、无具体验收门槛的章节必须打回。" vertex="1">
-          <mxGeometry x="80" y="600" width="600" height="110" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_e1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p6_s1" target="p6_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_e2" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p6_s2" target="p6_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_e3" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p6_s3" target="p6_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_e4" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p6_s4" target="p6_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_e5" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p6_s5" target="p6_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p6_e6" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="失败不得出门" edge="1" source="p6_fail" target="p6_accept">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p6_title" value="用户场景与截图验收：普通用户路径 + 专家路径均已保留" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="30" width="1040" height="50" as="geometry"/></mxCell>
+        <mxCell id="p6_dash" value="路径 1 总览
+Dashboard 显示 ChatBox 第一入口、普通用户工作台、资产/告警摘要。截图：dashboard-desktop.png / dashboard-mobile.png。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="330" height="160" as="geometry"/></mxCell>
+        <mxCell id="p6_assets" value="路径 2 资产
+Assets 支持资产管理、Excel 导入导出相关路径；可作为组合回测输入来源。截图：assets-desktop.png。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="410" y="120" width="330" height="160" as="geometry"/></mxCell>
+        <mxCell id="p6_backtest" value="路径 3 回测
+Backtest 专家页保留，支持组合策略比较、收益曲线、回撤和 evidence。截图：backtest-desktop.png。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="780" y="120" width="330" height="160" as="geometry"/></mxCell>
+        <mxCell id="p6_div" value="路径 4 红利低波
+DividendLowVol 专家页保留，展示候选、数据准备、人工计划草案和 blocker。截图：dividend-low-vol-desktop.png。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="340" width="330" height="160" as="geometry"/></mxCell>
+        <mxCell id="p6_ops" value="路径 5 任务审计
+Operations 任务中心保留，展示调度器、任务、失败原因和 freshness。截图：operations-desktop.png。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="410" y="340" width="330" height="160" as="geometry"/></mxCell>
+        <mxCell id="p6_limit" value="验收限制
+截图证明页面可见与路径存在；正式交易仍需 release gate、人工签核和正式数据源，不由截图证明。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="780" y="340" width="330" height="160" as="geometry"/></mxCell>
+        <mxCell id="p6e1" value="导入资产" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p6_dash" target="p6_assets"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p6e2" value="进入回测" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p6_assets" target="p6_backtest"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p6e3" value="策略研究" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p6_backtest" target="p6_div"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p6e4" value="审计追溯" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p6_div" target="p6_ops"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p6e5" value="边界" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p6_ops" target="p6_limit"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="7 开发计划与审计产物" name="7 开发计划与审计产物">
-    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+  <diagram id="7-audit-artifacts" name="7 审计产物与开发完成状态">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="p7_title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" value="开发顺序与产物：每一阶段先计划、再实现、再验收、再审计" vertex="1">
-          <mxGeometry x="40" y="30" width="1160" height="65" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_s0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="S0 文档基线
-产物：substage_plan.md / prd_spec_review.md / doc audit。
-通过后才可代码开发。" vertex="1">
-          <mxGeometry x="80" y="140" width="330" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_s1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="S1 资产样本复验
-产物：portfolio_asset_sample_revalidation_audit.json / 真实样本截图。" vertex="1">
-          <mxGeometry x="460" y="140" width="330" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_s2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="S2 数据治理
-产物：15_data_governance_audit.json / data_source_audit.json。" vertex="1">
-          <mxGeometry x="840" y="140" width="330" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_s3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="S3 Benchmark
-产物：16_benchmark_qualification_audit.json / calculation_replay_audit.json。" vertex="1">
-          <mxGeometry x="1220" y="140" width="330" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_s4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="S4 Formal validation
-产物：17_formal_validation_audit.json / validation_failure_taxonomy.json。" vertex="1">
-          <mxGeometry x="80" y="340" width="330" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_s5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="S5 人工签核
-产物：18_manual_signoff_audit.json / manual review artifact。" vertex="1">
-          <mxGeometry x="460" y="340" width="330" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_s6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="S6 执行隔离
-产物：13_execution_isolation_audit.json / trade boundary audit。" vertex="1">
-          <mxGeometry x="840" y="340" width="330" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_s7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="S7 总验收
-产物：14_release_gate_audit.json / acceptance-report.html / SUMMARY_FOR_GPT.md。" vertex="1">
-          <mxGeometry x="1220" y="340" width="330" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_s8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe6c7;strokeColor=#d97706;fontColor=#6b3b00;strokeWidth=1;" value="S8 ChatBox 增强
-产物：multi_turn_agent_loop_audit.json / chat session audit / unsafe intent tests。" vertex="1">
-          <mxGeometry x="460" y="540" width="430" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_rule" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="阶段规则
-任一子阶段 PRD 偏移、虚假验收、交易边界漂移、真实数据不足未展示，立即打回。" vertex="1">
-          <mxGeometry x="960" y="540" width="520" height="130" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_e1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p7_s0" target="p7_s1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_e2" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p7_s1" target="p7_s2">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_e3" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p7_s2" target="p7_s3">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_e4" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p7_s3" target="p7_s4">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_e5" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p7_s4" target="p7_s5">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_e6" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p7_s5" target="p7_s6">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_e7" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p7_s6" target="p7_s7">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_e8" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p7_s7" target="p7_s8">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p7_e9" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="硬门槛" edge="1" source="p7_rule" target="p7_s7">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p7_title" value="S0-S8 审计产物：文档支撑范围内已实现并可复核" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="30" width="1080" height="50" as="geometry"/></mxCell>
+        <mxCell id="p7_s0" value="S0 通过
+current-stage-state.json
+S0_S8_SUBSTAGE_ACCEPTANCE_MANIFESTS.json
+00_documentation_baseline_audit.json" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="250" height="150" as="geometry"/></mxCell>
+        <mxCell id="p7_s1" value="S1 通过
+01_portfolio_asset_sample_revalidation_audit.json
+真实本地账本/样本输入复验。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="320" y="120" width="250" height="150" as="geometry"/></mxCell>
+        <mxCell id="p7_s2" value="S2 合同通过但 formal blocked
+15_data_governance_audit.json
+provider_freshness_audit.json" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="600" y="120" width="250" height="150" as="geometry"/></mxCell>
+        <mxCell id="p7_s3" value="S3 通过
+16_benchmark_qualification_audit.json
+canonical benchmark enum。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="880" y="120" width="250" height="150" as="geometry"/></mxCell>
+        <mxCell id="p7_s4" value="S4 insufficient
+17_formal_validation_audit.json
+model_effectiveness_audit.json
+validation_failure_taxonomy.json" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="340" width="250" height="150" as="geometry"/></mxCell>
+        <mxCell id="p7_s5" value="S5 missing
+18_manual_signoff_audit.json
+manual_trade_plan_draft_review.json
+人工签核未完成。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="320" y="340" width="250" height="150" as="geometry"/></mxCell>
+        <mxCell id="p7_s6" value="S6 通过
+13_execution_isolation_audit.json
+trade_boundary_wording_audit.json
+paper/sandbox only。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="600" y="340" width="250" height="150" as="geometry"/></mxCell>
+        <mxCell id="p7_s7" value="S7 blocked
+14_release_gate_audit.json
+release gate 正确阻断正式交易。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fde2e1;strokeColor=#c0392b;fontColor=#7a1b16;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="880" y="340" width="250" height="150" as="geometry"/></mxCell>
+        <mxCell id="p7_s8" value="S8 通过
+08_chatbox_streaming_audit.json
+10_chatbox_multi_turn_agent_loop_audit.json
+chatbox_agentcore_audit.json" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="560" width="1090" height="110" as="geometry"/></mxCell>
+        <mxCell id="p7e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p7_s0" target="p7_s1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p7e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p7_s1" target="p7_s2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p7e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p7_s2" target="p7_s3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p7e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p7_s3" target="p7_s4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p7e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p7_s4" target="p7_s5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p7e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p7_s5" target="p7_s6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p7e7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p7_s6" target="p7_s7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p7e8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p7_s7" target="p7_s8"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="8 出门条件与人工审查" name="8 出门条件与人工审查">
-    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+  <diagram id="8-exit-conditions" name="8 出门条件与下一步">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="p8_title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" value="出门条件：下一阶段完成后进入“正式交易前置评审 ready”，不是正式交易 release" vertex="1">
-          <mxGeometry x="40" y="30" width="1280" height="65" as="geometry" />
-        </mxCell>
-        <mxCell id="p8_can" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="可以声明
-formal-trading-prerequisite ready
-manual review package ready
-long-horizon research backtest reviewed
-data governance visible
-release blockers explicit" vertex="1">
-          <mxGeometry x="80" y="140" width="430" height="170" as="geometry" />
-        </mxCell>
-        <mxCell id="p8_cannot" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="不能声明
-formalTradingUnlocked 不得为 true
-autoTradeUnlocked 不得为 true
-canCreateOrder 不得为 true
-orderCreateAllowed 不得为 true
-正式 ADD / REDUCE 不得放行" vertex="1">
-          <mxGeometry x="570" y="140" width="430" height="180" as="geometry" />
-        </mxCell>
-        <mxCell id="p8_human" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" value="人工审查入口
-1 看第 1 页目标是否正确
-2 看第 2 页架构差异是否清晰
-3 看第 6 页用户路径是否完整
-4 看第 7 页产物是否齐全
-5 看第 8 页边界是否锁定" vertex="1">
-          <mxGeometry x="1060" y="140" width="430" height="180" as="geometry" />
-        </mxCell>
-        <mxCell id="p8_done" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" value="文档阶段出门
-drawioPageCount&lt;=8
-drawioCurrentTargetRelationReady=true
-nextStagePlanActionable=true
-noThreeNoAcceptance=true
-prdSpecDeviation=none" vertex="1">
-          <mxGeometry x="80" y="420" width="470" height="170" as="geometry" />
-        </mxCell>
-        <mxCell id="p8_block" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#ffe4e6;strokeColor=#be123c;fontColor=#7f1d1d;strokeWidth=1;" value="打回条件
-看不懂下一阶段目标；当前/目标架构关系不清；无用户场景；无操作步骤；无出门门槛；待开发项写成已完成；交易边界漂移。" vertex="1">
-          <mxGeometry x="620" y="420" width="560" height="160" as="geometry" />
-        </mxCell>
-        <mxCell id="p8_e1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="" edge="1" source="p8_done" target="p8_can">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p8_e2" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="边界约束" edge="1" source="p8_cannot" target="p8_can">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p8_e3" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="人工核验" edge="1" source="p8_human" target="p8_done">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="p8_e4" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" value="失败不得出门" edge="1" source="p8_block" target="p8_done">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p8_title" value="当前出门判断：受控开发验收通过；正式交易 release 不通过且不得放行" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=18;fontStyle=1;spacing=8;align=left;verticalAlign=top;fillColor=#e5f2e8;strokeColor=#2f6b4f;fontColor=#164b35;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="30" width="1120" height="50" as="geometry"/></mxCell>
+        <mxCell id="p8_can" value="现在可以声明
+controlledAutomationDevelopmentImplemented=true
+documentationSupportedScopeAccepted=true
+targetArchitectureImplementationMapPresent=true
+visualEvidenceCapturedHeadless=true
+chatBoxControlledMultiTurnReady=true" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e6f6ec;strokeColor=#2f855a;fontColor=#17452e;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="380" height="190" as="geometry"/></mxCell>
+        <mxCell id="p8_cannot" value="现在不能声明
+formalTradingReleaseReady=true
+formalTradingUnlocked=true
+autoTradeUnlocked=true
+canCreateOrder=true
+orderCreateAllowed=true
+formalValidationPassed=true" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fde2e1;strokeColor=#c0392b;fontColor=#7a1b16;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="460" y="120" width="380" height="190" as="geometry"/></mxCell>
+        <mxCell id="p8_manual" value="人工审查入口
+stage-acceptance-report.html
+stage-acceptance-audit.json
+docs/read-drawio-output.txt
+Git commit 3d150c2" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#e7f0f8;strokeColor=#315f8c;fontColor=#17385b;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="880" y="120" width="380" height="190" as="geometry"/></mxCell>
+        <mxCell id="p8_next" value="下一步可选目标
+1. 修复 formal 数据治理缺口。
+2. 获取官方/可信 total-return benchmark。
+3. 扩展样本与 walk-forward 通过率。
+4. 完成人工签核流程。
+5. 生产订单适配器仍保持 disabled，直到独立 release 审批。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#664d03;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="40" y="370" width="590" height="220" as="geometry"/></mxCell>
+        <mxCell id="p8_fail" value="打回条件
+任何文档、前端、API、ChatBox、审计包把 research/manual draft/formal-review-ready 写成可下单或正式交易 ready；任何交易字段为 true；任何截图或报告伪造全绿。" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontFamily=Microsoft YaHei;fontSize=12;fontStyle=0;spacing=8;align=left;verticalAlign=top;fillColor=#fde2e1;strokeColor=#c0392b;fontColor=#7a1b16;strokeWidth=1;" vertex="1" parent="1"><mxGeometry x="680" y="370" width="580" height="220" as="geometry"/></mxCell>
+        <mxCell id="p8e1" value="证据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p8_can" target="p8_manual"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p8e2" value="硬失败" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#c0392b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p8_cannot" target="p8_fail"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p8e3" value="未完成前不得解锁" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#c0392b;fontFamily=Microsoft YaHei;fontSize=11;" edge="1" parent="1" source="p8_next" target="p8_cannot"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>

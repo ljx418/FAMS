@@ -1,30 +1,30 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-07-14T00:00:00+08:00
+更新时间：2026-07-16T19:05:00+08:00
 
 ## 总体结论
 
-当前 drawio 已重构为“下一阶段开发目标路线图”版本，共 8 页，未超过 8 页限制。本版优先回答“下一阶段到底要做什么”：把 FAMS 从研究级可用工作台推进到正式交易前置评审 ready，但仍不解锁正式交易、不下单、不自动交易。
+当前 drawio 已更新为“当前阶段实现状态 + 剩余正式交易阻断”版本，共 8 页，未超过 8 页限制。本版不再把 S0-S8 描述成纯待开发路线，而是反映最新状态：文档支撑范围内的受控自动化开发、阶段性验收、ChatBox 多轮安全、前端截图验收和审计报告已完成；正式交易 release 仍 blocked。
 
 ## 8 页结构
 
-1. **下一阶段开发目标**：一句话目标、当前已有能力、当前问题、下一阶段用户和审计价值。
-2. **当前架构与目标架构差异**：当前前端/API/数据/回测/交易边界如何演进到数据治理、benchmark、formal validation 和 release gate。
-3. **数据可信与字段级治理**：正式 provider、research fallback、字段级 evidenceRefs 和 freshness。
-4. **回测可信与模型验证**：benchmark 资格、total return、OOS、walk-forward、参数敏感性和分组稳定性。
-5. **人工计划与执行隔离**：人工签核、订单意图阻断、paper/sandbox 隔离和 release gate。
-6. **用户场景与验收路径**：真实资产导入、组合对比、红利低波、人工计划草案、审计复核五条路径。
-7. **开发计划与审计产物**：S0-S8 顺序、每阶段产物和打回规则。
-8. **出门条件与人工审查**：能声明什么、不能声明什么、人工审查入口和打回条件。
+1. **当前阶段实现状态**：已完成内容、证据、用户可体验能力和正式交易阻断。
+2. **当前架构与目标架构状态**：存量前端/API/数据/交易边界到最新实现实体和审计证据的映射。
+3. **数据可信治理状态**：字段级治理合同已实现，但 formal 数据放行仍有 freshness/coverage/cross-check 阻断。
+4. **回测与模型验证状态**：benchmark 合同和 formal validation 审计已实现，当前 validation 仍 insufficient。
+5. **签核执行隔离与 Release Gate**：人工签核、paper/sandbox 隔离、release gate 正确 blocked。
+6. **用户场景与截图验收**：Dashboard、Assets、Backtest、DividendLowVol、Operations、Mobile 的 headless 截图路径。
+7. **审计产物与开发完成状态**：S0-S8 产物和最新状态。
+8. **出门条件与下一步**：当前可声明、不可声明、人工审查入口和打回条件。
 
 ## 当前可以声明
 
 ```text
-drawioPageCount<=8
-drawioNextStageGoalReadable=true
-drawioCurrentTargetRelationReady=true
-nextStagePlanActionable=true
-expertModuleTabsPreserved=true
+controlledAutomationDevelopmentImplemented=true
+documentationSupportedScopeAccepted=true
+targetArchitectureImplementationMapPresent=true
+visualEvidenceCapturedHeadless=true
+chatBoxControlledMultiTurnReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 canCreateOrder=false
@@ -34,21 +34,21 @@ orderCreateAllowed=false
 ## 当前不能声明
 
 ```text
-formalTradingReleaseReady 不得为 true
-formalTradingUnlocked 不得为 true
-autoTradeUnlocked 不得为 true
-canCreateOrder 不得为 true
-orderCreateAllowed 不得为 true
-officialBenchmarkCertified 不得为 true
-formalValidationPassed 不得为 true
+formalTradingReleaseReady=true
+formalTradingUnlocked=true
+autoTradeUnlocked=true
+canCreateOrder=true
+orderCreateAllowed=true
+formalValidationPassed=true
+正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 已放行
 ```
 
 ## 人工审查重点
 
-- 第 1 页是否能直接看懂下一阶段开发目标。
-- 第 2 页是否能看懂当前架构与目标架构关系。
-- 第 6 页是否有用户场景、操作路径和验收结果。
-- 第 7 页是否能指导自动化开发顺序。
-- 第 8 页是否清楚说明出门条件和正式交易锁定边界。
+- 第 1 页是否看得出本阶段已完成的受控自动化开发内容。
+- 第 2 页是否能看懂存量架构、最新实现、审计证据和剩余阻断之间的关系。
+- 第 6 页是否能对应最新 Headless Chrome 截图证据。
+- 第 7 页是否如实区分 passed / blocked / missing / insufficient。
+- 第 8 页是否明确：受控开发验收通过，不等于正式交易 release 通过。
 
 原始 XML 可读性证据见：`docs/read-drawio-output.txt`。
