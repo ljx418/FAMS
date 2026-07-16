@@ -351,7 +351,7 @@ export class DividendLowVolBacktestService {
     if (paths.length === 0 || minLength <= 1) {
       return {
         returnPercent: 0,
-        status: 'proxy',
+        status: 'research_proxy',
         name: 'CSI Dividend Low Volatility Index H30269',
         source: 'missing_candidate_paths_proxy',
         evidenceRefs: [],
@@ -360,7 +360,7 @@ export class DividendLowVolBacktestService {
     const returns = paths.map((path) => (path[minLength - 1].close / path[0].close - 1) * 100)
     return {
       returnPercent: returns.reduce((sum, value) => sum + value, 0) / returns.length,
-      status: 'proxy',
+      status: 'research_proxy',
       name: 'CSI Dividend Low Volatility Index H30269',
       source: 'equal_weight_research_candidate_basket_proxy',
       evidenceRefs: [],

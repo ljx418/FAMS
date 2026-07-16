@@ -89,8 +89,15 @@ async function main() {
   if (position && (!scheduled.submitted || !scheduled.operation?.id)) {
     throw new Error(`Expected scheduler to submit after-hours due refresh, got ${scheduled.reason}`)
   }
-  if (!scheduled.dividendLowVolDailyScan?.submitted || !scheduled.dividendLowVolDailyScan?.operationId) {
-    throw new Error(`Expected scheduler to submit dividend low vol daily scan, got ${JSON.stringify(scheduled.dividendLowVolDailyScan)}`)
+  if (['stale', 'unknown'].includes(scheduled.marketBarFreshness?.status)) {
+    if (!scheduled.marketBarDailyRefresh?.submitted || !scheduled.marketBarDailyRefresh?.operationId) {
+      throw new Error(`Expected scheduler to submit market bar refresh before dividend low vol scan, got ${JSON.stringify(scheduled.marketBarDailyRefresh)}`)
+    }
+    if (scheduled.dividendLowVolDailyScan?.reason !== 'market_bar_refresh_required') {
+      throw new Error(`Expected stale market bars to block dividend low vol daily scan, got ${JSON.stringify(scheduled.dividendLowVolDailyScan)}`)
+    }
+  } else if (!scheduled.dividendLowVolDailyScan?.submitted || !scheduled.dividendLowVolDailyScan?.operationId) {
+    throw new Error(`Expected scheduler to submit dividend low vol daily scan when market bars are fresh/delayed, got ${JSON.stringify(scheduled.dividendLowVolDailyScan)}`)
   }
   const completed = position ? await waitForTerminalOperation(scheduled.operation.id) : null
   if (completed && completed.status !== 'completed' && completed.status !== 'partial') {
@@ -114,6 +121,13 @@ async function main() {
       submitted: scheduled.submitted,
       reason: scheduled.reason,
       due: scheduled.due,
+      marketBarDailyRefresh: scheduled.marketBarDailyRefresh,
+      marketBarFreshness: {
+        status: scheduled.marketBarFreshness?.status,
+        expectedLatestTradeDate: scheduled.marketBarFreshness?.expectedLatestTradeDate,
+        latestTradeDate: scheduled.marketBarFreshness?.latestTradeDate,
+        lagTradingDays: scheduled.marketBarFreshness?.lagTradingDays,
+      },
       dividendLowVolDailyScan: scheduled.dividendLowVolDailyScan,
     },
     operation: completed ? {

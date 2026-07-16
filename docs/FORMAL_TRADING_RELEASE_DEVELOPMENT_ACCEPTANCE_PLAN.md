@@ -399,7 +399,7 @@ git diff --check -- docs
 通过标准：
 
 - Drawio 页数不超过 8 页。
-- Drawio 当前目标页数为 7 页，页面名称和 `docs/read-drawio-output.txt` 必须一致。
+- Drawio 当前目标页数为 8 页，页面名称和 `docs/read-drawio-output.txt` 必须一致。早期“7 页”口径已被 `docs/current-stage-state.json` 和 2026-07-14 目标架构版本取代。
 - 所有关键能力绑定真实页面、API、服务、数据或审计 artifact。
 - 文档没有把 formal-review-ready、manual-draft-ready 或 tradeActionReadiness 写成正式交易放行。
 - Release 计划能指导后续开发，但明确当前仍未解锁正式交易。

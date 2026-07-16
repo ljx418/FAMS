@@ -1,68 +1,54 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-07-07T07:16:57.983Z
+更新时间：2026-07-14T00:00:00+08:00
 
 ## 总体结论
 
-当前 drawio 已按 UX-F7 v3 实现结果同步为 8 页，未超过 8 页限制。图中使用中文书写，并用颜色表达实体状态：
+当前 drawio 已重构为“下一阶段开发目标路线图”版本，共 8 页，未超过 8 页限制。本版优先回答“下一阶段到底要做什么”：把 FAMS 从研究级可用工作台推进到正式交易前置评审 ready，但仍不解锁正式交易、不下单、不自动交易。
 
-- 灰色：已开发基础。
-- 黄色：本阶段已修改 / 已收口。
-- 橘黄：本阶段已新增 / 已补齐。
-- 红色：硬边界。
-- 蓝色 / 绿色：用户路径、目标体验和验收结果。
+## 8 页结构
 
-本轮 drawio 的重点是把 UX-F7 从流程图式说明升级为目标页面展示形态驱动的实现地图，并同步到本轮实际实现。v3 目标页面 PNG 位于 `docs/prototypes/ux-f7-assets/v3/`，本轮代码实现已用实际截图与这些目标展示形态对照验收。
+1. **下一阶段开发目标**：一句话目标、当前已有能力、当前问题、下一阶段用户和审计价值。
+2. **当前架构与目标架构差异**：当前前端/API/数据/回测/交易边界如何演进到数据治理、benchmark、formal validation 和 release gate。
+3. **数据可信与字段级治理**：正式 provider、research fallback、字段级 evidenceRefs 和 freshness。
+4. **回测可信与模型验证**：benchmark 资格、total return、OOS、walk-forward、参数敏感性和分组稳定性。
+5. **人工计划与执行隔离**：人工签核、订单意图阻断、paper/sandbox 隔离和 release gate。
+6. **用户场景与验收路径**：真实资产导入、组合对比、红利低波、人工计划草案、审计复核五条路径。
+7. **开发计划与审计产物**：S0-S8 顺序、每阶段产物和打回规则。
+8. **出门条件与人工审查**：能声明什么、不能声明什么、人工审查入口和打回条件。
 
-## 页面结构
-
-1. **阶段目标与目标体验**：说明普通用户、资深用户、审计用户三类目标体验，以及 UX-F7 出门状态和交易硬边界。
-2. **当前架构与目标架构差异**：已重排为四层架构映射，分别是“存量前端入口”“存量 API / 服务 / 数据证据”“UX-F7 改造层”“目标体验与验收产物”。这一页不再只做当前/目标摘要，而是逐项标明 `AppLayout.tsx / Dashboard.tsx / FamsChatBox.tsx / Assets.tsx / Backtest.tsx / DividendLowVol.tsx / Operations.tsx / Analysis.tsx`、`chat.ts / asset.ts / template.ts`、`PortfolioBacktestEngine / dividendLowVolStrategyService / Operation artifact` 如何被复用、修改或补齐，并最终对应到普通用户工作台、资产本地账本、专家模式保留和验收证据。
-3. **前端目标页面与模块关系**：绑定 Dashboard、ChatBox、Assets、Backtest、DividendLowVol、Operations、Mobile Shell、组件样式板与对应 v3 目标图。
-4. **ChatBox 工作台 专家页双轨**：说明 ChatBox 是第一入口但不替代专家多 Tab，并展示 ChatBox -> 工作台 -> 专家页 -> ChatBox 解释闭环。
-5. **资产 Excel 本地账本路径**：展示模板下载、上传解析、预览校验、确认导入、导出复核、Dashboard 刷新和资产审计链路。
-6. **策略 回测 任务审计联动**：展示组合回测、红利低波、任务审计共享服务、数据可信、artifact 和 trade gate。
-7. **开发及验收计划**：按视觉系统、Dashboard/ChatBox、资产 Excel、专家页、移动端、专项审计、E2E 出门展示已完成的实现顺序与验收证据。
-8. **里程碑 出门条件 硬边界**：定义文档出门、代码实现、验收产物、UX-F7 出门条件和仍锁定事项，并标明本阶段已通过自动化验收。
-
-## 关键实体绑定
-
-- 前端页面：`Dashboard.tsx`、`Assets.tsx`、`FamsChatBox.tsx`、`Backtest.tsx`、`DividendLowVol.tsx`、`Operations.tsx`、`AppLayout.tsx`、`Analysis.tsx`。
-- 后端路由：`backend/src/routes/chat.ts`、`backend/src/routes/asset.ts`、`backend/src/routes/template.ts`。
-- 服务与数据：`PortfolioBacktestEngine`、`PortfolioBacktestInputBuilder`、`dividendLowVolStrategyService`、`dividendLowVolTradingZoneService`、Operation artifact、dataGrade、evidenceRefs。
-- 原型和验收产物：`docs/prototypes/ux-f7-prototype-review.html`、`docs/prototypes/ux-f7-assets/v3/*.png`、`frontend_visual_system_audit.json`、`asset_excel_flow_audit.json`、`dashboard_visual_density_audit.json`、`trade_boundary_wording_audit.json`、`acceptance-report.html`、`SUMMARY_FOR_GPT.md`。
-- 风险闭环审查：`docs/UX_F7_RISK_CLOSURE_REVIEW.md`。该文件是进入 UX-F7 代码实现前的最终文档阶段审查口径，用于判断前序问题是否已落盘、是否支撑后续开发、是否存在过度承诺和是否仍需人工批准。
-- 文档就绪度复核：`docs/UX_F7_DOCUMENTATION_READINESS_REVIEW.md`。该文件汇总 PRD、目标架构、drawio、执行计划和风险闭环的多轮独立审查结论，并列出后续开发及验收大纲。
-
-## 出门条件
-
-UX-F7 本轮代码实现完成后，以下出门条件已通过自动化合同验收和截图验收：
+## 当前可以声明
 
 ```text
-visualStyleUnified=true
-cardPressFeedbackReady=true
-assetExcelImportExportReady=true
-dashboardIconAndDensityReady=true
+drawioPageCount<=8
+drawioNextStageGoalReadable=true
+drawioCurrentTargetRelationReady=true
+nextStagePlanActionable=true
 expertModuleTabsPreserved=true
-targetVisualMockupMatched=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 canCreateOrder=false
 orderCreateAllowed=false
 ```
 
-本轮专项证据包括：
+## 当前不能声明
 
 ```text
-frontend_visual_system_audit.json=passed
-asset_excel_flow_audit.json=passed
-dashboard_visual_density_audit.json=passed
-frontend_runtime_visual_acceptance.json=passed
-trade_boundary_wording_audit.json=passed
+formalTradingReleaseReady 不得为 true
+formalTradingUnlocked 不得为 true
+autoTradeUnlocked 不得为 true
+canCreateOrder 不得为 true
+orderCreateAllowed 不得为 true
+officialBenchmarkCertified 不得为 true
+formalValidationPassed 不得为 true
 ```
 
-## 硬边界
+## 人工审查重点
 
-本阶段仍不属于正式交易 release。Excel 导入导出、ChatBox、组合回测、红利低波候选、观察区间和人工计划草案均不得被描述为交易执行、订单创建或自动交易能力。
+- 第 1 页是否能直接看懂下一阶段开发目标。
+- 第 2 页是否能看懂当前架构与目标架构关系。
+- 第 6 页是否有用户场景、操作路径和验收结果。
+- 第 7 页是否能指导自动化开发顺序。
+- 第 8 页是否清楚说明出门条件和正式交易锁定边界。
 
 原始 XML 可读性证据见：`docs/read-drawio-output.txt`。

@@ -121,6 +121,10 @@ interface FactsetSchedulerStatus {
     horizonMinutes: number
     limit: number
     allowTradingHours: boolean
+    marketBarDailyRefreshEnabled?: boolean
+    marketBarDailyRefreshLimit?: number
+    marketBarDailyRefreshDays?: number
+    marketBarDailyRefreshAfterMinutes?: number
   }
   runtime: {
     localRunning: boolean
@@ -135,6 +139,24 @@ interface FactsetSchedulerStatus {
   }
   lastRunAt?: string | null
   lastResult?: Record<string, any>
+}
+
+interface MarketBarFreshnessStatus {
+  schemaVersion: 'fams.market_data.freshness.v1'
+  generatedAt: string
+  expectedLatestTradeDate: string
+  latestTradeDate: string | null
+  status: 'fresh' | 'delayed' | 'stale' | 'unknown'
+  lagTradingDays: number | null
+  totalSymbols: number
+  freshSymbols: number
+  delayedSymbols: number
+  staleSymbols: number
+  unknownSymbols: number
+  providerSummary: Array<{ provider: string; symbolCount: number; latestTradeDate: string | null }>
+  blockers: string[]
+  warnings: string[]
+  recommendedAction: string
 }
 
 interface AdviceSuggestionPreview {
@@ -2059,6 +2081,7 @@ const Operations: React.FC = () => {
   const [detailFocusTarget, setDetailFocusTarget] = useState<string | null>(null)
   const [artifactDetail, setArtifactDetail] = useState<OperationArtifactDetail | null>(null)
   const [factsetSchedulerStatus, setFactsetSchedulerStatus] = useState<FactsetSchedulerStatus | null>(null)
+  const [marketBarFreshness, setMarketBarFreshness] = useState<MarketBarFreshnessStatus | null>(null)
   const [schedulerLoading, setSchedulerLoading] = useState(false)
   const [pendingArtifactRef, setPendingArtifactRef] = useState<string | null>(initialArtifactRef)
   const [artifactDetailVisible, setArtifactDetailVisible] = useState(Boolean(initialArtifactRef))
@@ -2087,11 +2110,18 @@ const Operations: React.FC = () => {
   const fetchFactsetSchedulerStatus = useCallback(async () => {
     setSchedulerLoading(true)
     try {
-      const response = await axios.get('/api/v1/operations/schedulers/factset-refresh')
-      setFactsetSchedulerStatus(response.data)
+      const [schedulerResponse, freshnessResponse] = await Promise.all([
+        axios.get('/api/v1/operations/schedulers/factset-refresh'),
+        axios.get('/api/v1/operations/market-bar-freshness', {
+          params: { userId: USER_ID, scope: 'active_strategy', limit: 300 },
+        }),
+      ])
+      setFactsetSchedulerStatus(schedulerResponse.data)
+      setMarketBarFreshness(freshnessResponse.data)
     } catch (error) {
       console.error('Failed to fetch factset scheduler status:', error)
       setFactsetSchedulerStatus(null)
+      setMarketBarFreshness(null)
     } finally {
       setSchedulerLoading(false)
     }
@@ -2893,6 +2923,12 @@ const Operations: React.FC = () => {
       disabled: startingMarketBarPreheat,
     },
   ]
+  const marketFreshnessMeta = {
+    fresh: { color: '#34d399', label: '最新' },
+    delayed: { color: '#f59e0b', label: '延迟' },
+    stale: { color: '#ef4444', label: '过旧' },
+    unknown: { color: '#94a3b8', label: '未知' },
+  }[marketBarFreshness?.status || 'unknown']
 
   return (
     <div className="operations-page min-w-0 space-y-6" data-fams-artifact-ref={pendingArtifactRef || ''}>
@@ -2986,7 +3022,7 @@ const Operations: React.FC = () => {
       <Card
         size="small"
         loading={schedulerLoading}
-        title={<span className="text-white"><DatabaseOutlined /> 事实集后台调度</span>}
+        title={<span className="text-white"><DatabaseOutlined /> 事实集与行情后台调度</span>}
         className="bg-[#1a1a2e] border-surface-border"
         extra={(
           <Button size="small" onClick={fetchFactsetSchedulerStatus}>
@@ -2995,7 +3031,7 @@ const Operations: React.FC = () => {
         )}
       >
         {factsetSchedulerStatus ? (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
             <div className="rounded-md border border-white/10 bg-[#0f172a99] p-3">
               <div className="text-xs text-gray-400">运行状态</div>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -3017,6 +3053,28 @@ const Operations: React.FC = () => {
                 提前 {factsetSchedulerStatus.config.horizonMinutes} 分钟，单批 {factsetSchedulerStatus.config.limit}
                 {factsetSchedulerStatus.config.allowTradingHours ? '，交易时段允许' : '，避开交易时段'}
               </div>
+            </div>
+            <div className="rounded-md border border-white/10 bg-[#0f172a99] p-3">
+              <div className="text-xs text-gray-400">K线最新性</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Tag color={marketFreshnessMeta.color}>{marketFreshnessMeta.label}</Tag>
+                <Tag color="#64748b">覆盖 {marketBarFreshness?.totalSymbols ?? 0}</Tag>
+              </div>
+              <div className="mt-1 text-xs leading-5 text-gray-400">
+                预期 {marketBarFreshness?.expectedLatestTradeDate || '--'}，本地 {marketBarFreshness?.latestTradeDate || '未知'}
+                {typeof marketBarFreshness?.lagTradingDays === 'number' ? `，滞后 ${marketBarFreshness.lagTradingDays} 个交易日` : ''}
+              </div>
+              {marketBarFreshness && marketBarFreshness.status !== 'fresh' && (
+                <Button
+                  size="small"
+                  type="link"
+                  loading={startingMarketBarPreheat}
+                  onClick={startMarketBarPreheat}
+                  style={{ paddingInline: 0, color: '#fbbf24' }}
+                >
+                  刷新 K 线后重算策略
+                </Button>
+              )}
             </div>
             <div className="rounded-md border border-white/10 bg-[#0f172a99] p-3">
               <div className="text-xs text-gray-400">租约</div>

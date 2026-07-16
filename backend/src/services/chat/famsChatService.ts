@@ -9,6 +9,7 @@ import { positionService } from '../position/positionService.js'
 import { portfolioBacktestEngine } from '../portfolio-backtest/portfolioBacktestEngine.js'
 import { portfolioBacktestInputBuilder } from '../portfolio-backtest/portfolioBacktestInputBuilder.js'
 import { portfolioStrategyRegistry } from '../portfolio-backtest/portfolioStrategyRegistry.js'
+import { marketDataFreshnessService } from '../market-data/marketDataFreshnessService.js'
 import { piAgentCoreAdapter } from './piAgentCoreAdapter.js'
 import { getFamsLlmPublicStatus } from '../../config/llmConfig.js'
 import { chatLlmPlannerService } from './chatLlmPlannerService.js'
@@ -19,6 +20,7 @@ import type {
   FamsChatIntent,
   FamsChatMessageInput,
   FamsChatResponse,
+  FamsChatStreamEvent,
   FamsChatStructuredResult,
   FamsChatTool,
 } from './famsChatTypes.js'
@@ -573,21 +575,91 @@ class FamsChatService {
       risk: 'read',
       permissionType: 'read_only_direct',
       confirmationPolicy: 'none',
-      auditFields: ['dataGrade', 'formalTradingLocked', 'notTradingAdvice'],
-      execute: async () => ({
-        reply: '当前系统优先使用本地持久化行情、红利事实集、交易约束和免费数据源验证研究结论。free-source research ready 不等于 formal trading ready；正式交易仍需要授权数据源、正式 benchmark、完整 validation 和人工审批。',
-        structuredResult: this.buildPlainStructuredResult('数据可信度说明', '真实数据可用于研究级回测；正式交易级仍 locked。'),
-        dataQualitySummary: {
-          dataGrade: 'free_source_research_or_local_cache',
-          formalTradingUnlocked: false,
-          autoTradeUnlocked: false,
-        },
-        toolAudit: {
-          toolName: 'data.trust.explain',
-          permissionType: 'read_only_direct',
-        },
-        actionCards: [],
-      }),
+      auditFields: ['dataGrade', 'marketBarFreshness', 'formalTradingLocked', 'notTradingAdvice'],
+      execute: async (args) => {
+        const userId = String(args.userId || DEFAULT_USER_ID)
+        const freshness = await marketDataFreshnessService.buildReport({
+          userId,
+          scope: 'active_strategy',
+          limit: 300,
+        })
+        const statusText = freshness.status === 'fresh'
+          ? '行情已达到当前预期交易日'
+          : freshness.status === 'delayed'
+            ? '行情有 1 个交易日延迟，免费源收盘后可能滞后'
+            : freshness.status === 'stale'
+              ? '行情明显过旧，需要先刷新 K 线'
+              : '没有足够行情证据，需要先预热 K 线'
+        const freshnessSummary = { ...freshness } as Record<string, unknown>
+        const structuredResult: FamsChatStructuredResult = {
+          answerLevel: 'plain_language',
+          summary: statusText,
+          keyNumbers: [
+            { label: '预期最新交易日', value: freshness.expectedLatestTradeDate, status: freshness.status === 'fresh' ? 'good' : 'warning' },
+            { label: '本地最新交易日', value: freshness.latestTradeDate || '未知', status: freshness.status === 'fresh' ? 'good' : 'warning' },
+            { label: '滞后交易日', value: freshness.lagTradingDays ?? '未知', status: freshness.status === 'fresh' ? 'good' : 'warning' },
+          ],
+          nextActions: freshness.status === 'fresh'
+            ? ['可以继续做研究级展示和回测复核']
+            : ['先在任务中心提交 K 线刷新/预热', '刷新完成后重新运行红利低波候选或观察区间'],
+          dataHealth: freshnessSummary,
+          technicalDetailsCollapsed: true,
+          prohibitedActions: PROHIBITED_ACTIONS,
+          resultType: 'plain_text',
+          metricCards: [
+            { label: '行情状态', value: freshness.status, status: freshness.status === 'fresh' ? 'good' : 'warning' },
+            { label: '预期最新交易日', value: freshness.expectedLatestTradeDate, status: 'neutral' },
+            { label: '本地最新交易日', value: freshness.latestTradeDate || '未知', status: freshness.status === 'fresh' ? 'good' : 'warning' },
+            { label: '覆盖标的', value: freshness.totalSymbols, status: 'neutral' },
+          ],
+          comparisonTable: {
+            columns: [
+              { key: 'item', label: '项目' },
+              { key: 'value', label: '说明' },
+            ],
+            rows: [
+              { item: '数据源', value: '本地 market_bar_canonical + 免费行情源缓存' },
+              { item: '最新性', value: `${freshness.latestTradeDate || '未知'} / 预期 ${freshness.expectedLatestTradeDate}` },
+              { item: '建议动作', value: freshness.recommendedAction },
+              { item: '交易边界', value: '仍然不能 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE' },
+            ],
+          },
+          charts: [],
+          dataQualitySummary: freshnessSummary,
+          evidenceRefs: ['market_bar_canonical:daily:freshness_gate'],
+          blockedReasons: freshness.blockers,
+          notTradingAdvice: true,
+        }
+        return {
+          reply: [
+            `当前行情状态：${statusText}。`,
+            `预期最新交易日 ${freshness.expectedLatestTradeDate}，本地最新交易日 ${freshness.latestTradeDate || '未知'}，滞后 ${freshness.lagTradingDays ?? '未知'} 个交易日。`,
+            freshness.status === 'fresh'
+              ? '可以继续做研究级展示；正式交易仍 locked。'
+              : '建议先到任务中心执行 K 线刷新/预热，刷新完成后重新计算红利低波候选和观察区间。',
+            'Tushare 接口保留为升级项；当前不把免费源研究数据包装成正式交易数据。',
+          ].join('\n'),
+          structuredResult,
+          dataQualitySummary: freshnessSummary,
+          blockedReasons: freshness.blockers,
+          toolAudit: {
+            toolName: 'data.trust.explain',
+            permissionType: 'read_only_direct',
+            marketBarFreshness: freshness.status,
+            formalTradingUnlocked: false,
+            autoTradeUnlocked: false,
+          },
+          actionCards: [
+            makeCard({
+              type: 'navigation',
+              title: '打开任务中心刷新 K 线',
+              description: '查看行情最新日期，并提交 K 线预热/刷新任务。',
+              href: '/operations',
+              status: 'ready',
+            }),
+          ],
+        }
+      },
     },
     {
       name: 'trade.action.blocked',
@@ -676,6 +748,27 @@ class FamsChatService {
         confirmationPolicy: tool.confirmationPolicy,
         auditFields: tool.auditFields,
       })),
+      streaming: {
+        chatStreamingReady: true,
+        transport: 'server_sent_events',
+        endpoint: '/api/v1/chat/messages/stream',
+        eventSchemaVersion: 'fams.chat.stream_event.v1',
+        finalResponseSchemaVersion: 'fams.chat.response.v1',
+        formalTradingUnlocked: false,
+        autoTradeUnlocked: false,
+      },
+      agentLoop: {
+        controlledMultiTurnAgentLoopReady: true,
+        chatSessionPersistenceReady: true,
+        toolCallingLoopReady: true,
+        confirmationLoopReady: true,
+        streamingLoopReady: true,
+        piLlmAgentLoopEnabled: false,
+        executionModel: 'allowlisted_tools_with_confirmation_gate',
+        blockedCapabilities: ['shell', 'filesystem', 'unrestricted_network', 'ORDER_CREATE', 'AUTO_TRADE'],
+        formalTradingUnlocked: false,
+        autoTradeUnlocked: false,
+      },
       allowedActions: ALLOWED_ACTIONS,
       prohibitedActions: PROHIBITED_ACTIONS,
       notTradingAdvice: true,
@@ -873,6 +966,80 @@ class FamsChatService {
     })
   }
 
+  async streamMessage(input: FamsChatMessageInput): Promise<FamsChatStreamEvent[]> {
+    const userId = input.userId || DEFAULT_USER_ID
+    const conversationId = input.conversationId || `chat-${randomUUID()}`
+    const startedAt = new Date().toISOString()
+    const events: FamsChatStreamEvent[] = [
+      this.streamEvent({
+        conversationId,
+        type: 'start',
+        message: '已收到问题，正在识别业务意图。',
+        generatedAt: startedAt,
+      }),
+      this.streamEvent({
+        conversationId,
+        type: 'status',
+        message: '正在检查工具白名单、数据可信状态和交易边界。',
+      }),
+    ]
+
+    try {
+      const response = await this.sendMessage({
+        ...input,
+        userId,
+        conversationId,
+      })
+      events.push(
+        this.streamEvent({
+          conversationId,
+          type: 'tool_result',
+          message: `已完成 ${response.intent} 工具调用，正在组织结构化结果。`,
+        }),
+        this.streamEvent({
+          conversationId,
+          type: 'final',
+          message: '已生成结果。正式交易动作仍保持锁定。',
+          response,
+        }),
+      )
+      return events
+    } catch (error: any) {
+      const message = String(error?.message || error).slice(0, 500)
+      events.push(this.streamEvent({
+        conversationId,
+        type: 'error',
+        message: `流式响应失败：${message}`,
+      }))
+      return events
+    }
+  }
+
+  private streamEvent(input: {
+    conversationId: string
+    type: FamsChatStreamEvent['type']
+    message: string
+    response?: FamsChatResponse
+    generatedAt?: string
+  }): FamsChatStreamEvent {
+    return {
+      schemaVersion: 'fams.chat.stream_event.v1',
+      generatedAt: input.generatedAt || new Date().toISOString(),
+      conversationId: input.conversationId,
+      eventId: `evt-${randomUUID()}`,
+      type: input.type,
+      message: input.message,
+      response: input.response,
+      allowedActions: ALLOWED_ACTIONS,
+      prohibitedActions: PROHIBITED_ACTIONS,
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+      canCreateOrder: false,
+      orderCreateAllowed: false,
+      notTradingAdvice: true,
+    }
+  }
+
   private async planIntent(message: string, context: Record<string, unknown>) {
     if (!chatLlmPlannerService.isAvailable()) return null
     try {
@@ -992,7 +1159,7 @@ class FamsChatService {
   private detectIntent(message: string): FamsChatIntent {
     if (/(shell|bash|powershell|cmd|rm -rf|文件系统|读文件|写文件|filesystem|curl|wget|任意网络|network tool)/i.test(message)) return 'trade_action_blocked'
     if (/(下单|买入|卖出|加仓|减仓|自动交易|order|auto_trade|add|reduce)/i.test(message)) return 'trade_action_blocked'
-    if (/(数据可信|数据质量|真实数据|数据来源|data trust|data quality)/i.test(message)) return 'data_trust_explain'
+    if (/(数据可信|数据质量|真实数据|数据来源|数据最新|最新数据|上个月|行情最新|行情日期|freshness|data trust|data quality)/i.test(message)) return 'data_trust_explain'
     if (/(审计|报告|验收|audit|acceptance)/i.test(message)) return 'audit_report_explain'
     if (/(草案|人工计划|人工计划|draft)/i.test(message)) return 'dividend_low_vol_plan_draft'
     if (/(刷新数据|数据刷新|refresh data)/i.test(message)) return 'refresh_data'

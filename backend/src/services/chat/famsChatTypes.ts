@@ -118,6 +118,23 @@ export interface FamsChatResponse {
   notTradingAdvice: true
 }
 
+export interface FamsChatStreamEvent {
+  schemaVersion: 'fams.chat.stream_event.v1'
+  generatedAt: string
+  conversationId: string
+  eventId: string
+  type: 'start' | 'status' | 'tool_result' | 'final' | 'error'
+  message: string
+  response?: FamsChatResponse
+  allowedActions: string[]
+  prohibitedActions: string[]
+  formalTradingUnlocked: false
+  autoTradeUnlocked: false
+  canCreateOrder: false
+  orderCreateAllowed: false
+  notTradingAdvice: true
+}
+
 export interface FamsChatMessageInput {
   conversationId?: string
   userId?: string

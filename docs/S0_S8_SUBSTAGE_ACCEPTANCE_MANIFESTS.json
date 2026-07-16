@@ -1,0 +1,157 @@
+{
+  "schemaVersion": "fams.substage_acceptance_manifest.v1",
+  "generatedAt": "2026-07-16T00:00:00+08:00",
+  "scope": {
+    "supportsControlledAutomation": true,
+    "supportsUnattendedEndToEndAutomation": false,
+    "supportsFormalTradingRelease": false
+  },
+  "globalHardGates": [
+    "formalTradingUnlocked must remain false",
+    "autoTradeUnlocked must remain false",
+    "canCreateOrder must remain false",
+    "orderCreateAllowed must remain false",
+    "ADD / REDUCE / ORDER_CREATE / AUTO_TRADE must remain prohibited",
+    "manual gates cannot be self-approved by automation"
+  ],
+  "stages": [
+    {
+      "stageId": "S0",
+      "purpose": "文档与状态基线复核，生成唯一机器状态源并确认 drawio / PRD / 计划一致。",
+      "entryCriteria": ["human approval for documentation-controlled automation"],
+      "commands": [
+        { "id": "state-json-parse", "command": "node -e \"JSON.parse(require('fs').readFileSync('docs/current-stage-state.json','utf8'))\"", "requiredBeforeExit": true },
+        { "id": "current-state-consistency", "command": "cd backend && npm run test:next-stage-documentation-baseline", "requiredBeforeExit": true },
+        { "id": "drawio-read", "command": "node docs/read-drawio.mjs docs/target-architecture-gap.drawio > docs/read-drawio-output.txt", "requiredBeforeExit": true },
+        { "id": "trade-boundary-contract", "command": "cd backend && npm run test:next-stage-release-gates", "requiredBeforeExit": true }
+      ],
+      "requiredArtifacts": ["current-stage-state.json", "doc_acceptance_audit.json", "read-drawio-output.txt"],
+      "artifactSchemas": ["fams.current_stage_state.v1", "fams.substage_acceptance_manifest.v1"],
+      "automatedGates": ["drawioPageCount <= 8", "current state source parsed", "no positive trade unlock context"],
+      "manualGates": ["human approval before code development"],
+      "rollbackConditions": ["state drift found", "drawio unreadable", "trade unlock positive context found"],
+      "exitCodePolicy": { "allCommandsMustExitZero": true, "blockedGateExitCode": 2, "failedGateExitCode": 1 }
+    },
+    {
+      "stageId": "S1",
+      "purpose": "真实资产样本复验，确认 Excel 导入导出可驱动 Dashboard 与组合回测输入。",
+      "entryCriteria": ["S0 passed", "real user workbook available or explicitly blocked"],
+      "commands": [
+        { "id": "asset-excel-flow", "command": "cd backend && npm run test:asset-excel-flow", "requiredBeforeExit": true },
+        { "id": "portfolio-asset-sample", "command": "cd backend && npm run test:portfolio-asset-sample-revalidation", "requiredBeforeExit": true }
+      ],
+      "requiredArtifacts": ["asset_excel_flow_audit.json", "portfolio_asset_sample_revalidation_audit.json", "dashboard_asset_summary_evidence.json"],
+      "artifactSchemas": ["asset_excel_flow_audit.v1", "portfolio_asset_sample_revalidation_audit.v1"],
+      "automatedGates": ["assetPreviewValidationPassed=true", "assetExportWorkbookReadable=true", "portfolioBacktestInputBuiltFromImportedAssets=true"],
+      "manualGates": ["real user workbook is approved for validation use"],
+      "rollbackConditions": ["fixture-only validation used as real user validation", "asset import changes imply order creation"],
+      "exitCodePolicy": { "allCommandsMustExitZero": true, "blockedGateExitCode": 2, "failedGateExitCode": 1 }
+    },
+    {
+      "stageId": "S2",
+      "purpose": "正式 provider 与字段级数据治理，建立 source/freshness/coverage/cross-check 证据。",
+      "entryCriteria": ["S1 passed or explicitly blocked with user-visible data health", "provider mode documented"],
+      "commands": [
+        { "id": "provider-ingestion", "command": "cd backend && npm run test:dividend-low-vol-provider-ingestion", "requiredBeforeExit": true },
+        { "id": "data-governance", "command": "cd backend && npm run test:fams-data-governance", "requiredBeforeExit": true }
+      ],
+      "requiredArtifacts": ["15_data_governance_audit.json", "data_source_audit.json", "provider_freshness_audit.json"],
+      "artifactSchemas": ["15_data_governance_audit.v1", "data_source_audit.v1"],
+      "automatedGates": ["providerMode is formal/research_fallback/unavailable", "critical fields have evidenceRefs", "stale fields are visible", "provider secrets are not logged"],
+      "manualGates": ["formal provider authorization review"],
+      "rollbackConditions": ["research fallback promoted to formal", "secret leaked", "coverage below threshold hidden"],
+      "exitCodePolicy": { "allCommandsMustExitZero": true, "blockedGateExitCode": 2, "failedGateExitCode": 1 }
+    },
+    {
+      "stageId": "S3",
+      "purpose": "官方或可信 total-return benchmark 资格验证，统一 benchmark enum 并阻断 research proxy 升级。",
+      "entryCriteria": ["benchmark enum contract loaded", "S2 data governance not failed"],
+      "commands": [
+        { "id": "benchmark-contract", "command": "cd backend && npm run test:fams-benchmark-qualification", "requiredBeforeExit": true },
+        { "id": "portfolio-backtest", "command": "cd backend && npm run test:portfolio-strategy-backtest", "requiredBeforeExit": true }
+      ],
+      "requiredArtifacts": ["16_benchmark_qualification_audit.json", "calculation_replay_audit.json"],
+      "artifactSchemas": ["16_benchmark_qualification_audit.v1", "calculation_replay_audit.v1"],
+      "automatedGates": ["benchmarkType uses canonical enum", "research_proxy cannot pass formal validation", "dividend/capital/cost contributions are separated"],
+      "manualGates": ["official or trusted benchmark qualification review"],
+      "rollbackConditions": ["proxy alias persisted", "free source marked official", "benchmark evidence missing"],
+      "exitCodePolicy": { "allCommandsMustExitZero": true, "blockedGateExitCode": 2, "failedGateExitCode": 1 }
+    },
+    {
+      "stageId": "S4",
+      "purpose": "formal validation 与模型有效性验证，按公式化指标生成 OOS、walk-forward、参数和分组稳定性证据。",
+      "entryCriteria": ["S3 benchmark status is not failed", "formal validation metric definitions loaded"],
+      "commands": [
+        { "id": "formal-validation", "command": "cd backend && npm run test:fams-formal-validation", "requiredBeforeExit": true },
+        { "id": "validation-retest", "command": "cd backend && npm run test:dividend-low-vol-validation-retest", "requiredBeforeExit": true }
+      ],
+      "requiredArtifacts": ["17_formal_validation_audit.json", "validation_failure_taxonomy.json", "model_effectiveness_audit.json"],
+      "artifactSchemas": ["17_formal_validation_audit.v1", "validation_failure_taxonomy.v1"],
+      "automatedGates": ["effectivePathCount >= 30", "walkForwardWindows >= 6", "walkForwardPassedRatio >= 0.6", "parameterSensitivityStatus != insufficient", "groupStabilityStatus != insufficient"],
+      "manualGates": ["formal validation statistical methodology review"],
+      "rollbackConditions": ["metric formula differs from docs/FORMAL_VALIDATION_METRIC_DEFINITIONS.md", "insufficient gate upgraded to passed"],
+      "exitCodePolicy": { "allCommandsMustExitZero": true, "blockedGateExitCode": 2, "failedGateExitCode": 1 }
+    },
+    {
+      "stageId": "S5",
+      "purpose": "人工计划草案与人工签核流程，确保签核前仍不创建订单。",
+      "entryCriteria": ["manual signoff checklist defined", "formal trade still locked"],
+      "commands": [
+        { "id": "manual-signoff", "command": "cd backend && npm run test:fams-manual-signoff", "requiredBeforeExit": true },
+        { "id": "trade-action-readiness", "command": "cd backend && npm run test:trade-action-readiness", "requiredBeforeExit": true }
+      ],
+      "requiredArtifacts": ["18_manual_signoff_audit.json", "manual_trade_plan_draft_review.json"],
+      "artifactSchemas": ["18_manual_signoff_audit.v1", "manual_trade_plan_draft_review.v1"],
+      "automatedGates": ["manualReviewerRequired=true", "formalTargetWeightPercent=0 before release", "canCreateOrder=false", "orderCreateAllowed=false"],
+      "manualGates": ["authorized reviewer signoff"],
+      "rollbackConditions": ["automation self-approves manual signoff", "draft creates order intent"],
+      "exitCodePolicy": { "allCommandsMustExitZero": true, "blockedGateExitCode": 2, "failedGateExitCode": 1 }
+    },
+    {
+      "stageId": "S6",
+      "purpose": "执行隔离与订单防线，验证 paper/sandbox 和 ChatBox/API/专家页订单阻断。",
+      "entryCriteria": ["real order adapter disabled", "paper/sandbox mode documented"],
+      "commands": [
+        { "id": "execution-isolation", "command": "cd backend && npm run test:fams-execution-isolation", "requiredBeforeExit": true },
+        { "id": "trade-gate-contract", "command": "cd backend && npm run test:fivd-r-trade-gate-contract", "requiredBeforeExit": true }
+      ],
+      "requiredArtifacts": ["13_execution_isolation_audit.json", "trade_boundary_wording_audit.json"],
+      "artifactSchemas": ["13_execution_isolation_audit.v1", "trade_boundary_wording_audit.v1"],
+      "automatedGates": ["realOrderAdapterDisabled=true", "paperOrSandboxOnly=true", "orderCreateBlockedWithoutReleaseGate=true", "ChatBox/expert/API order intents blocked"],
+      "manualGates": ["paper/sandbox isolation review"],
+      "rollbackConditions": ["production adapter reachable", "ORDER_CREATE path succeeds", "ChatBox bypasses gate"],
+      "exitCodePolicy": { "allCommandsMustExitZero": true, "blockedGateExitCode": 2, "failedGateExitCode": 1 }
+    },
+    {
+      "stageId": "S7",
+      "purpose": "release gate 总验收，汇总数据治理、benchmark、formal validation、签核、执行隔离和人工审批状态。",
+      "entryCriteria": ["S2-S6 artifacts present", "human release review scheduled"],
+      "commands": [
+        { "id": "release-gate", "command": "cd backend && npm run test:fams-release-gate", "requiredBeforeExit": true },
+        { "id": "acceptance-report", "command": "cd backend && npm run test:fams-acceptance-report", "requiredBeforeExit": true }
+      ],
+      "requiredArtifacts": ["14_release_gate_audit.json", "acceptance-report.html", "SUMMARY_FOR_GPT.md"],
+      "artifactSchemas": ["14_release_gate_audit.v1", "fams_acceptance_report.v1"],
+      "automatedGates": ["formalValidationStatus=passed may be allowed", "releaseApprovalStatus=pending until human approval", "formalTradingUnlocked=false", "autoTradeUnlocked=false", "canCreateOrder=false", "orderCreateAllowed=false"],
+      "manualGates": ["human release review", "final approval to move beyond formal-review-ready"],
+      "rollbackConditions": ["formal validation passed interpreted as trading unlocked", "manual approval missing but release marked complete"],
+      "exitCodePolicy": { "allCommandsMustExitZero": true, "blockedGateExitCode": 2, "failedGateExitCode": 1 }
+    },
+    {
+      "stageId": "S8",
+      "purpose": "ChatBox 多轮 Agent loop 增强，验证跨轮权限、确认重放、跨会话污染和未登记工具阻断。",
+      "entryCriteria": ["ChatBox first-class baseline ready", "unsafe tool policy documented"],
+      "commands": [
+        { "id": "chat-agent-core", "command": "cd backend && npm run test:chat-agent-core", "requiredBeforeExit": true },
+        { "id": "chat-llm-planner", "command": "cd backend && npm run test:chat-llm-planner", "requiredBeforeExit": true },
+        { "id": "multi-turn-agent-loop", "command": "cd backend && npm run test:chatbox-multi-turn-agent-loop", "requiredBeforeExit": true }
+      ],
+      "requiredArtifacts": ["multi_turn_agent_loop_audit.json", "chat_session_audit.json", "unsafe_intent_audit.json"],
+      "artifactSchemas": ["multi_turn_agent_loop_audit.v1", "chat_session_audit.v1"],
+      "automatedGates": ["unsafe intents blocked", "unregistered tools blocked", "confirmation replay blocked", "cross-session contamination blocked"],
+      "manualGates": ["agent permission review"],
+      "rollbackConditions": ["ChatBox creates order intent", "LLM can call shell/filesystem/network", "stale confirmation replay succeeds"],
+      "exitCodePolicy": { "allCommandsMustExitZero": true, "blockedGateExitCode": 2, "failedGateExitCode": 1 }
+    }
+  ]
+}

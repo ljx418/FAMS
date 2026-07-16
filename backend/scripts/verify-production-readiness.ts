@@ -242,14 +242,23 @@ async function main() {
   const analysisAdviceReady = gates
     .filter((gate) => !gate.id.endsWith('_optional'))
     .every((gate) => gate.status === 'passed')
-  const tradeActionReady = analysisAdviceReady && tradeActionReadiness.readyForManualTradeDraft
-  const productionReady = analysisAdviceReady
+  const manualTradeDraftReady = analysisAdviceReady && tradeActionReadiness.readyForManualTradeDraft
+  const tradeActionReady = false
+  const productionReady = false
   const report = {
     schemaVersion: 'fams.production_readiness_check.v1',
     generatedAt: new Date().toISOString(),
+    analysisInfrastructureReady: analysisAdviceReady,
     analysisAdviceReady,
+    manualTradeDraftReady,
     tradeActionReady,
     productionReady,
+    formalTradingReleaseReady: false,
+    formalTradingUnlocked: false,
+    autoTradeUnlocked: false,
+    canCreateOrder: false,
+    orderCreateAllowed: false,
+    readinessMeaning: 'analysis_and_manual_trade_draft_only_not_formal_trading_release',
     strict,
     strictTrade,
     symbols,
@@ -267,17 +276,21 @@ async function main() {
       ...(postgresShadowReadiness.status === 'ready' ? [] : ['配置并确认 FAMS_POSTGRES_SHADOW_DATABASE_URL 可连接真实 PostgreSQL。']),
       ...(hasFreeSourceSecurityCoverage ? [] : ['先生成/刷新免费源证券状态事实层，确保 status/tradeability 有覆盖。']),
       ...(securityStatusCoverage.formalTradingStateRows > 0 ? [] : ['可选：配置 FAMS_TUSHARE_TOKEN / TUSHARE_TOKEN 作为正式交易状态增强源。']),
-      ...(tradeActionReady
+      ...(manualTradeDraftReady
         ? ['交易动作已可进入人工确认交易计划草案；自动交易仍禁止。']
         : tradeActionReadiness.nextActions),
     ],
   }
   console.log(JSON.stringify(report, null, 2))
-  if (strict && !productionReady) process.exitCode = 1
-  if (strictTrade && !tradeActionReady) process.exitCode = 1
+  if (strict && !analysisAdviceReady) process.exitCode = 1
+  if (strictTrade && !manualTradeDraftReady) process.exitCode = 1
 }
 
-main().catch((error) => {
-  console.error(error)
-  process.exitCode = 1
-})
+main()
+  .catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

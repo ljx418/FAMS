@@ -13,6 +13,7 @@ import {
   decideDividendLowVolManualAcceptance,
   getDividendLowVolCandidateHistory,
   getDividendLowVolCandidates,
+  getMarketBarFreshness,
   getDividendLowVolDataReadiness,
   getDividendLowVolManualDraftReadiness,
   getDividendLowVolManualAcceptanceReview,
@@ -35,6 +36,7 @@ import {
   type DividendLowVolBacktestResult,
   type DividendLowVolCandidateHistory,
   type DividendLowVolCandidatePool,
+  type MarketBarFreshnessReport,
   type DividendLowVolDataReadinessAudit,
   type DividendLowVolRollingBacktestResult,
   type DividendLowVolTradingZoneResult,
@@ -321,6 +323,7 @@ const shortIssueLabel = (issue: string) => (
 
 const DividendLowVol: React.FC = () => {
   const [pool, setPool] = useState<DividendLowVolCandidatePool | null>(null)
+  const [marketBarFreshness, setMarketBarFreshness] = useState<MarketBarFreshnessReport | null>(null)
   const [alerts, setAlerts] = useState<DividendLowVolAlertCheckResult | null>(null)
   const [persistedAlerts, setPersistedAlerts] = useState<DividendLowVolPersistedAlerts | null>(null)
   const [backtest, setBacktest] = useState<DividendLowVolBacktestResult | null>(null)
@@ -394,8 +397,9 @@ const DividendLowVol: React.FC = () => {
         getDividendLowVolManualAcceptanceDecision(),
         getDividendLowVolCandidates('', scanLimit, { scope: 'all', persistedOnly: true }),
         getDividendLowVolV2ResearchValidation(),
+        getMarketBarFreshness('active_strategy', 300),
       ] as const)
-      const names = ['数据就绪', '草案 Gate', '人工草案', '观察清单', '工作流审计', '验收回看', '验收结论', '候选池', 'V2 研究验证']
+      const names = ['数据就绪', '草案 Gate', '人工草案', '观察清单', '工作流审计', '验收回看', '验收结论', '候选池', 'V2 研究验证', '行情最新性']
       results.forEach((result, index) => {
         if (result.status === 'rejected') issues[names[index]] = result.reason?.message || String(result.reason)
       })
@@ -408,6 +412,7 @@ const DividendLowVol: React.FC = () => {
       if (results[6].status === 'fulfilled' && results[6].value.status !== 'missing') setManualAcceptanceDecision(results[6].value)
       if (results[7].status === 'fulfilled') setPool(results[7].value)
       if (results[8].status === 'fulfilled') setV2ResearchValidation(results[8].value)
+      if (results[9].status === 'fulfilled') setMarketBarFreshness(results[9].value)
       setLoadIssues(issues)
       if (issues['候选池']) {
         message.error('红利低波候选池加载失败')
@@ -1155,6 +1160,20 @@ const DividendLowVol: React.FC = () => {
         description="正式 ADD / REDUCE 仍受 validation_evidence gate 限制，AUTO_TRADE 始终禁止。页面内的买入/卖出区间只用于观察和人工计划草案。"
       />
 
+      {marketBarFreshness && marketBarFreshness.status !== 'fresh' && (
+        <Alert
+          type={marketBarFreshness.status === 'delayed' ? 'warning' : 'error'}
+          showIcon
+          message="行情数据需要刷新后再重算策略区间"
+          description={`预期最新交易日 ${marketBarFreshness.expectedLatestTradeDate}，本地最新交易日 ${marketBarFreshness.latestTradeDate || '未知'}，滞后 ${marketBarFreshness.lagTradingDays ?? '未知'} 个交易日。当前候选和买卖观察区间只能作为旧缓存研究结果，刷新 K 线后需要重新扫描/重算。`}
+          action={(
+            <Button size="small" onClick={() => askChatBox('当前行情数据是不是最新？如果不是，请告诉我如何刷新K线后重算红利低波策略')}>
+              问 ChatBox 如何处理
+            </Button>
+          )}
+        />
+      )}
+
       <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-4xl">
@@ -1203,6 +1222,9 @@ const DividendLowVol: React.FC = () => {
               <Tag color={dataTrustColor[poolPrimaryTrustGrade || 'INSUFFICIENT']}>
                 候选池可信 {poolPrimaryTrustGrade || 'NA'}
               </Tag>
+              <Tag color={freshnessColor(marketBarFreshness?.status)}>
+                行情 {marketBarFreshness?.status || 'unknown'}
+              </Tag>
               <Tag color={poolCalculationSummary ? (calculationReplayPassed ? '#34d399' : '#fbbf24') : '#64748b'}>
                 复算通过 {poolCalculationSummary?.replayPassedCount ?? 0}/{poolCalculationSummary?.total ?? 0}
               </Tag>
@@ -1214,7 +1236,7 @@ const DividendLowVol: React.FC = () => {
               候选池展示与复算可用于研究比较；全局行情/特征底座仍单独控制正式验证。
             </div>
             <div className="mt-2 text-xs text-gray-500">
-              候选池平均可信 {formatScore(poolDataTrustSummary?.averageConfidencePercent)}% · 行情覆盖 {formatScore(dataReadiness?.marketData.scanCoveragePercent)}% · provider {dataReadiness?.providerIngestion.status || 'unknown'}
+              候选池平均可信 {formatScore(poolDataTrustSummary?.averageConfidencePercent)}% · 行情覆盖 {formatScore(dataReadiness?.marketData.scanCoveragePercent)}% · 本地行情 {marketBarFreshness?.latestTradeDate || '未知'} / 预期 {marketBarFreshness?.expectedLatestTradeDate || '未知'} · provider {dataReadiness?.providerIngestion.status || 'unknown'}
             </div>
             {trustWarnings.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">

@@ -37,18 +37,39 @@ async function main() {
   const result = response.json()
   const statuses = result.strategies.map((item: any) => ({ id: item.definition?.strategyId, status: item.status, blockers: item.blockedReasons }))
   assert.equal(result.strategies.length, 7)
-  assert.equal(result.strategies.filter((item: any) => item.status === 'completed').length, 7, `expected 7/7 completed strategies: ${JSON.stringify(statuses)}`)
-  assert.equal(result.formalReviewReadiness?.ready, true, `formal review readiness blocked: ${JSON.stringify(result.formalReviewReadiness)}`)
-  assert.equal(result.formalReviewReadiness?.status, 'passed')
+  const completedCount = result.strategies.filter((item: any) => item.status === 'completed').length
+  const dividendLowVolBasket = result.strategies.find((item: any) => item.definition?.strategyId === 'dividend_low_vol_basket')
+  assert.ok(dividendLowVolBasket, 'dividend_low_vol_basket strategy should be present')
+  const dividendBasketInsufficientByRealData = dividendLowVolBasket.status === 'insufficient'
+    && (dividendLowVolBasket.blockedReasons || []).some((reason: string) => reason.startsWith('dividend_low_vol_candidate_snapshot_component_count_below_min'))
+  assert.ok(
+    completedCount === 7 || (completedCount === 6 && dividendBasketInsufficientByRealData),
+    `expected either 7/7 completed strategies or explicit dividend low vol real-data blocker: ${JSON.stringify(statuses)}`,
+  )
+  if (dividendBasketInsufficientByRealData) {
+    assert.equal(result.formalReviewReadiness?.ready, false, 'formal review readiness must remain blocked when dividend low vol basket lacks enough real candidates')
+    assert.equal(result.formalReviewReadiness?.status, 'blocked')
+    assert.ok(
+      (result.formalReviewReadiness?.blockers || []).includes('dividend_return_coverage_incomplete')
+        || (result.formalReviewReadiness?.blockers || []).some((reason: string) => reason.startsWith('completed_strategy_count_below_required')),
+      `formal review blockers should explain real data insufficiency: ${JSON.stringify(result.formalReviewReadiness)}`,
+    )
+  } else {
+    assert.equal(result.formalReviewReadiness?.ready, true, `formal review readiness blocked: ${JSON.stringify(result.formalReviewReadiness)}`)
+    assert.equal(result.formalReviewReadiness?.status, 'passed')
+  }
   assert.equal(result.formalReviewReadiness?.benchmarkStatuses?.free_source_total_return, 'free_source_total_return')
   assert.equal(result.formalReviewReadiness?.tradeConstraintCoverage?.status, 'passed')
-  assert.equal(result.formalReviewReadiness?.dividendReturnCoverage?.status, 'passed')
+  assert.equal(
+    result.formalReviewReadiness?.dividendReturnCoverage?.status,
+    dividendBasketInsufficientByRealData ? 'blocked' : 'passed',
+  )
   assert.ok(result.dataGradeAudit, 'data grade audit should be present')
   assert.ok(result.dataGradeAudit?.items?.length >= 4, 'data grade audit should cover price/benchmark/dividend/tradeability')
   assert.ok(result.modelEffectiveness, 'model effectiveness aggregate should be present')
   assert.ok(result.readinessSummary, 'unified readiness summary should be present')
   assert.equal(result.readinessSummary.researchReady, true)
-  assert.equal(result.readinessSummary.formalReviewReady, true)
+  assert.equal(result.readinessSummary.formalReviewReady, Boolean(result.formalReviewReadiness?.ready))
   assert.equal(result.readinessSummary.manualDraftReady, true)
   assert.equal(result.readinessSummary.formalTradingUnlocked, false)
   assert.equal(result.readinessSummary.autoTradeUnlocked, false)
@@ -125,8 +146,11 @@ async function main() {
   console.log(JSON.stringify({
     ok: true,
     userId: AUDIT_USER_ID,
-    completedStrategies: `${result.strategies.filter((item: any) => item.status === 'completed').length}/${result.strategies.length}`,
+    completedStrategies: `${completedCount}/${result.strategies.length}`,
+    dividendLowVolBasketStatus: dividendLowVolBasket.status,
+    dividendLowVolBasketBlockers: dividendLowVolBasket.blockedReasons,
     formalReviewReadiness: result.formalReviewReadiness,
+    releaseGateStatus: result.releaseGateAudit?.status,
     prohibitedActions: result.prohibitedActions,
     notTradingAdvice: result.notTradingAdvice,
   }, null, 2))

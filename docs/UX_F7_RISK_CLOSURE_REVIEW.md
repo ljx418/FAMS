@@ -112,13 +112,13 @@ orderCreateAllowed=false
 文档中允许出现以下词，但只能出现在禁止、阻断、硬边界、审计扫描规则或失败打回规则语境：
 
 ```text
-formalTradingUnlocked=true
-autoTradeUnlocked=true
-canCreateOrder=true
-orderCreateAllowed=true
-ORDER_CREATE allowed
-AUTO_TRADE allowed
-ChatBox can trade
+formalTradingUnlocked 字段被置为 true
+autoTradeUnlocked 字段被置为 true
+canCreateOrder 字段被置为 true
+orderCreateAllowed 字段被置为 true
+ORDER_CREATE 被描述为 allowed
+AUTO_TRADE 被描述为 allowed
+ChatBox 被描述为可交易
 正式交易可用
 可下单
 ```
@@ -129,8 +129,8 @@ ChatBox can trade
 
 | 类型 | 判定 |
 | --- | --- |
-| `formalTradingUnlocked=true` 出现在 API 示例、前端状态、ChatBox 回复、验收结论中 | hard fail |
-| `formalTradingUnlocked=true` 出现在“禁止出现 / hard fail if found”规则中 | allowed mention |
+| `formalTradingUnlocked` 字段被置为 true，且出现在 API 示例、前端状态、ChatBox 回复、验收结论中 | hard fail |
+| `formalTradingUnlocked` 字段被置为 true，且出现在“禁止出现 / hard fail if found”规则中 | allowed mention |
 | “可下单 / 正式交易可用”出现在产品文案、按钮、ChatBox 回复中 | hard fail |
 | “不得声明可下单 / 不能解释为正式交易可用” | allowed mention |
 

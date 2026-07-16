@@ -58,9 +58,9 @@ async function main() {
   assert.equal(typeof audit.returnComponents.dividendContribution, 'number')
   assert.equal(typeof audit.returnComponents.capitalGainContribution, 'number')
   assert.equal(typeof audit.returnComponents.costDrag, 'number')
-  assert.ok(['proxy', 'free_source_total_return'].includes(audit.benchmark.status))
+  assert.ok(['research_proxy', 'free_source_total_return'].includes(audit.benchmark.status))
   assert.equal(audit.validationImpact.validationEvidenceStatusMustBeInsufficient, true)
-  if (audit.benchmark.status === 'proxy') {
+  if (audit.benchmark.status === 'research_proxy') {
     assert.ok(audit.validationImpact.blockers.includes('total_return_benchmark_missing_or_proxy'))
   } else {
     assert.ok(!audit.validationImpact.blockers.includes('total_return_benchmark_missing_or_proxy'))

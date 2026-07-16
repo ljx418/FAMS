@@ -17,6 +17,10 @@ async function main() {
   assert(capabilities.agentCore.securityBoundary.unrestrictedLocalToolsExposed === false, 'Unrestricted local tools must not be exposed')
   assert(capabilities.tools.some((tool) => tool.name === 'dividendLowVol.candidates.read'), 'Dividend low vol read tool missing')
   assert(capabilities.tools.some((tool) => tool.name === 'dividendLowVol.scan.start' && tool.risk === 'confirm_required'), 'Dividend scan tool should require confirmation')
+  assert((capabilities as any).streaming?.chatStreamingReady === true, 'Chat streaming capability should be ready')
+  assert((capabilities as any).streaming?.endpoint === '/api/v1/chat/messages/stream', 'Chat streaming endpoint should be exposed')
+  assert((capabilities as any).agentLoop?.controlledMultiTurnAgentLoopReady === true, 'Controlled multi-turn Agent loop should be ready')
+  assert((capabilities as any).agentLoop?.piLlmAgentLoopEnabled === false, 'Autonomous LLM agent loop should remain disabled')
 
   const candidateResponse = await famsChatService.sendMessage({
     userId: 'default',
@@ -75,8 +79,9 @@ async function main() {
       chatOperationLinkageReady: Boolean(confirmedScan.operationId),
       fullBusinessToolCoverageReady: (capabilities as any).piToolManifest?.coverage?.coveragePercent === 100,
       inlineChartResultReady: true,
+      controlledMultiTurnAgentLoopReady: (capabilities as any).agentLoop?.controlledMultiTurnAgentLoopReady === true,
       piLlmAgentLoopEnabled: false,
-      chatStreamingReady: false,
+      chatStreamingReady: (capabilities as any).streaming?.chatStreamingReady === true,
       formalTradingUnlocked: false,
       autoTradeUnlocked: false,
     },

@@ -103,7 +103,7 @@ async function main() {
     remainingLimitations: [
       'ChatBox first-class ready 不等于 formal trading ready。',
       '组合回测可研究级展示真实缓存数据，但 formalReviewReady=false 时不能释放正式 ADD/REDUCE。',
-      'chatStreamingReady=false，当前是请求/响应式结构化结果。',
+      'chatStreamingReady=true，SSE 流式事件已可用；完整多轮 tool-calling agent loop 仍是后续增强。',
       '策略表现仍依赖本地缓存和 free-source 数据等级；正式交易仍需授权数据、正式 benchmark、交易约束和人工签核。',
     ],
     requiredVerificationCommands: [

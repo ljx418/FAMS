@@ -1,6 +1,7 @@
 import cron, { type ScheduledTask } from 'node-cron'
 import { prisma } from '../../db/prisma.js'
 import { operationService } from './operationService.js'
+import { marketDataFreshnessService } from '../market-data/marketDataFreshnessService.js'
 
 const SCHEDULER_NAME = 'factset_refresh'
 const SCHEDULER_LEASE_MS = 10 * 60 * 1000
@@ -17,6 +18,13 @@ interface FactsetRefreshSchedulerConfig {
   dividendLowVolDailyScanEnabled: boolean
   dividendLowVolDailyScanLimit: number
   dividendLowVolDailyScanAfterMinutes: number
+  marketBarDailyRefreshEnabled: boolean
+  marketBarDailyRefreshLimit: number
+  marketBarDailyRefreshDays: number
+  marketBarDailyRefreshChunkSize: number
+  marketBarDailyRefreshConcurrency: number
+  marketBarDailyRefreshAfterMinutes: number
+  marketBarDailyRefreshForce: boolean
 }
 
 const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
@@ -186,6 +194,13 @@ class FactsetRefreshScheduler {
       dividendLowVolDailyScanEnabled: parseBooleanEnv(process.env.FAMS_DIVIDEND_LOW_VOL_DAILY_SCHEDULER_ENABLED, true),
       dividendLowVolDailyScanLimit: Math.max(1, parseNumberEnv(process.env.FAMS_DIVIDEND_LOW_VOL_DAILY_SCHEDULER_LIMIT, 6000)),
       dividendLowVolDailyScanAfterMinutes: Math.max(15 * 60 + 31, parseNumberEnv(process.env.FAMS_DIVIDEND_LOW_VOL_DAILY_SCHEDULER_AFTER_MINUTES, 16 * 60)),
+      marketBarDailyRefreshEnabled: parseBooleanEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_ENABLED, true),
+      marketBarDailyRefreshLimit: Math.max(1, parseNumberEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_LIMIT, 300)),
+      marketBarDailyRefreshDays: Math.max(30, parseNumberEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_DAYS, 120)),
+      marketBarDailyRefreshChunkSize: Math.max(1, parseNumberEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_CHUNK_SIZE, 100)),
+      marketBarDailyRefreshConcurrency: Math.max(1, parseNumberEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_CONCURRENCY, 4)),
+      marketBarDailyRefreshAfterMinutes: Math.max(15 * 60 + 31, parseNumberEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_AFTER_MINUTES, 17 * 60)),
+      marketBarDailyRefreshForce: parseBooleanEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_FORCE, true),
     }
   }
 
@@ -276,12 +291,28 @@ class FactsetRefreshScheduler {
         operationId: result.operation?.id || null,
         dueCount: result.due.dueCount,
       }
-      const dividendLowVolDailyScan = await this.maybeScheduleDividendLowVolDailyScan(config, now)
+      const marketBarDailyRefresh = await this.maybeScheduleMarketBarDailyRefresh(config, now)
+      const marketBarFreshness = await marketDataFreshnessService.buildReport({
+        userId: config.userId,
+        scope: 'active_strategy',
+        limit: config.marketBarDailyRefreshLimit,
+        now,
+        timezone: config.timezone,
+      })
+      const dividendLowVolDailyScan = await this.maybeScheduleDividendLowVolDailyScan(config, now, marketBarFreshness)
       tickResult = {
         ...tickResult,
+        marketBarDailyRefresh,
+        marketBarFreshness: {
+          status: marketBarFreshness.status,
+          expectedLatestTradeDate: marketBarFreshness.expectedLatestTradeDate,
+          latestTradeDate: marketBarFreshness.latestTradeDate,
+          lagTradingDays: marketBarFreshness.lagTradingDays,
+          blockers: marketBarFreshness.blockers,
+        },
         dividendLowVolDailyScan,
       }
-      return { ...result, dividendLowVolDailyScan, skipped: false, schedulerReason: reason, config }
+      return { ...result, marketBarDailyRefresh, marketBarFreshness, dividendLowVolDailyScan, skipped: false, schedulerReason: reason, config }
     } catch (error) {
       tickResult = { reason: 'failed', error: error instanceof Error ? error.message : String(error) }
       logger.error({
@@ -296,7 +327,78 @@ class FactsetRefreshScheduler {
     }
   }
 
-  private async maybeScheduleDividendLowVolDailyScan(config: FactsetRefreshSchedulerConfig, now: Date) {
+  private async maybeScheduleMarketBarDailyRefresh(config: FactsetRefreshSchedulerConfig, now: Date) {
+    if (!config.marketBarDailyRefreshEnabled) {
+      return { submitted: false, skipped: true, reason: 'disabled' }
+    }
+    if (!isAshareWeekday(now, config.timezone)) {
+      return { submitted: false, skipped: true, reason: 'non_trading_day' }
+    }
+    if (localMinutes(now, config.timezone) < config.marketBarDailyRefreshAfterMinutes) {
+      return { submitted: false, skipped: true, reason: 'before_after_close_window' }
+    }
+    const freshness = await marketDataFreshnessService.buildReport({
+      userId: config.userId,
+      scope: 'active_strategy',
+      limit: config.marketBarDailyRefreshLimit,
+      now,
+      timezone: config.timezone,
+    })
+    if (freshness.status === 'fresh') {
+      return {
+        submitted: false,
+        skipped: true,
+        reason: 'market_bar_fresh',
+        freshness: {
+          status: freshness.status,
+          expectedLatestTradeDate: freshness.expectedLatestTradeDate,
+          latestTradeDate: freshness.latestTradeDate,
+          lagTradingDays: freshness.lagTradingDays,
+        },
+      }
+    }
+    const symbols = await marketDataFreshnessService.collectRelevantSymbols({
+      userId: config.userId,
+      scope: 'active_strategy',
+      limit: config.marketBarDailyRefreshLimit,
+    })
+    const tradeDate = localDateKey(now, config.timezone)
+    const idempotencyKey = `market-bar-daily-refresh:${config.userId}:${tradeDate}:active_strategy`
+    const operation = await operationService.startMarketBarCachePreheatOperation({
+      userId: config.userId,
+      symbols,
+      limit: config.marketBarDailyRefreshLimit,
+      days: config.marketBarDailyRefreshDays,
+      chunkSize: config.marketBarDailyRefreshChunkSize,
+      concurrency: config.marketBarDailyRefreshConcurrency,
+      forceRefresh: config.marketBarDailyRefreshForce,
+      executionMode: 'queued',
+      createdBy: 'scheduler',
+      idempotencyKey,
+    })
+    return {
+      submitted: true,
+      skipped: false,
+      reason: 'submitted_or_existing',
+      tradeDate,
+      operationId: operation?.id || operation?.operationId || null,
+      idempotencyKey,
+      requestedSymbols: symbols.length,
+      freshness: {
+        status: freshness.status,
+        expectedLatestTradeDate: freshness.expectedLatestTradeDate,
+        latestTradeDate: freshness.latestTradeDate,
+        lagTradingDays: freshness.lagTradingDays,
+        blockers: freshness.blockers,
+      },
+    }
+  }
+
+  private async maybeScheduleDividendLowVolDailyScan(
+    config: FactsetRefreshSchedulerConfig,
+    now: Date,
+    marketBarFreshness?: Awaited<ReturnType<typeof marketDataFreshnessService.buildReport>>
+  ) {
     if (!config.dividendLowVolDailyScanEnabled) {
       return { submitted: false, skipped: true, reason: 'disabled' }
     }
@@ -305,6 +407,21 @@ class FactsetRefreshScheduler {
     }
     if (localMinutes(now, config.timezone) < config.dividendLowVolDailyScanAfterMinutes) {
       return { submitted: false, skipped: true, reason: 'before_after_close_window' }
+    }
+    if (marketBarFreshness && !['fresh', 'delayed'].includes(marketBarFreshness.status)) {
+      return {
+        submitted: false,
+        skipped: true,
+        reason: 'market_bar_refresh_required',
+        marketBarFreshness: {
+          status: marketBarFreshness.status,
+          expectedLatestTradeDate: marketBarFreshness.expectedLatestTradeDate,
+          latestTradeDate: marketBarFreshness.latestTradeDate,
+          lagTradingDays: marketBarFreshness.lagTradingDays,
+          blockers: marketBarFreshness.blockers,
+          recommendedAction: marketBarFreshness.recommendedAction,
+        },
+      }
     }
     const tradeDate = localDateKey(now, config.timezone)
     const idempotencyKey = `dividend-low-vol-daily-scan:${config.userId}:${tradeDate}:all_a`

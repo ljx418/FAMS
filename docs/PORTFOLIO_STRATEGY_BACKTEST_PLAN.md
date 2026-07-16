@@ -571,7 +571,7 @@ POST /api/v1/portfolio-backtest/reviews/:runId
 
 开发项：
 
-- 扩展 total-return benchmark 状态：`formal_total_return / free_source_total_return / price_index / research_proxy / unavailable`。
+- 扩展 total-return benchmark 状态，规范枚举以 `docs/BENCHMARK_ENUM_CONTRACT.md` 为准：`official_total_return / trusted_total_return / free_source_total_return / price_index / research_proxy / unavailable`。`formal_total_return` 为 deprecated alias，必须在持久化前解析为 `official_total_return` 或 `trusted_total_return`。
 - 对分红事件、分红再投资、分红现金持有和除权调整输出 evidenceRefs。
 - 在前端和审计包中显示 benchmark 数据等级与正式 release 阻断项。
 

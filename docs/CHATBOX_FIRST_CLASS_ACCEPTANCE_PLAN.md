@@ -1,14 +1,14 @@
 # ChatBox 第一公民开发与验收计划
 
-更新时间：2026-07-01
+更新时间：2026-07-09
 
 ## 1. 目标
 
 把 ChatBox 从“辅助入口”升级为“FAMS 第一业务入口”。完成后，用户能在对话框内完成核心研究路径：问问题、运行查询或 quick-run、查看图表、理解数据可信度、追踪任务、生成草案、确认阻断原因。
 
-本计划只定义后续开发和验收标准，不表示当前已经实现完整 ChatBox 第一公民能力。
+本计划记录 ChatBox 第一业务入口的开发与验收标准，并区分“当前已通过的功能/UX 范围”和“后续增强”。当前阶段已经完成文档支撑范围内的 ChatBox 功能、结构化结果、数据健康提示、Operation 联动、审计追溯和 UX 可理解性验收；仍不表示正式交易放行。
 
-当前实现状态（2026-07-01 阶段验收后）：
+当前有效实现状态（2026-07-09 文档状态收口后）：
 
 ```text
 chatBoxFirstClassTargetDocumented=true
@@ -20,12 +20,15 @@ inlineChartResultReady=true
 chatOperationLinkageReady=true
 chatSessionAuditReady=true
 chatBoxFirstClassFunctionalReady=true
-chatBoxExperienceOptimized=false
-chatBoxPlainLanguageReady=false
-chatBoxDataHealthUxReady=false
-chatStreamingReady=false
+chatBoxExperienceOptimized=true
+chatBoxPlainLanguageReady=true
+chatBoxDataHealthUxReady=true
+chatBoxFirstClassReady=true
+chatStreamingReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
 ```
 
 本轮文档审计结论：
@@ -36,10 +39,10 @@ proceed_to_code_implementation=true
 external_review_required_before_each_stage_exit=true
 canProceedToImplementation=true
 chatBoxFirstClassFunctionalReady=true
-chatBoxFirstClassReady=false
+chatBoxFirstClassReady=true
 ```
 
-解释：`chatBoxFirstClassFunctionalReady=true` 表示本阶段文档支撑范围内的工具覆盖、结构化结果、Operation 确认闭环、E2E 审计和交易边界合同已经通过；它不表示体验已经足够好，也不表示正式交易放行。`chatBoxFirstClassReady=false` 会保持到 CB-F ChatBox 对话体验深度优化完成并通过可视化验收。`chatStreamingReady=false` 是后续增强项，不阻断 CB-F 体验优化出门。
+解释：`chatBoxFirstClassReady=true` 覆盖当前文档支撑范围内的 ChatBox 第一业务入口能力，包括工具覆盖、结构化结果、SSE 流式事件、Operation 确认闭环、数据健康提示、普通话结果层级、E2E 审计和交易边界合同。完整多轮 tool-calling agent loop 仍是后续增强项。该状态不表示正式交易放行，也不表示 ChatBox 可以创建订单。
 
 ## 2. 非目标
 
@@ -258,17 +261,17 @@ autoTradeReady 被写成 true
 ChatBox 被写成 can trade
 ```
 
-当前文档阶段只能写：
+2026-07-01 文档阶段历史基线只能写：
 
 ```text
 pass_current_stage_doc_audit=true
 proceed_to_code_implementation=true
 external_review_required_before_each_stage_exit=true
-chatBoxFirstClassReady=false
+chatBoxFirstClassReady: false before CB-F / UX acceptance
 chatBoxFirstClassFunctionalReady=true
-chatBoxExperienceOptimized=false
-chatBoxPlainLanguageReady=false
-chatBoxDataHealthUxReady=false
+chatBoxExperienceOptimized: false before CB-F / UX acceptance
+chatBoxPlainLanguageReady: false before CB-F / UX acceptance
+chatBoxDataHealthUxReady: false before CB-F / UX acceptance
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```

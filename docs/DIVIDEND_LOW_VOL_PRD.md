@@ -1,6 +1,6 @@
 # 红利低波行业龙头策略 PRD
 
-更新时间：2026-06-29
+更新时间：2026-07-09
 
 ## 1. 产品定位
 
@@ -15,13 +15,42 @@ formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
+2026-07-09 当前有效状态收口：
+
+```text
+ordinaryUserExperienceReady=true
+frontendComplexityReduced=true
+expertModeAvailable=true
+chatBoxFirstClassFunctionalReady=true
+chatBoxExperienceOptimized=true
+chatBoxPlainLanguageReady=true
+chatBoxDataHealthUxReady=true
+chatSessionPersistenceReady=true
+fullBusinessToolCoverageReady=true
+inlineChartResultReady=true
+ordinaryUserWorkbenchReady=true
+expertModuleTabsPreserved=true
+visualStyleUnified=true
+cardPressFeedbackReady=true
+assetExcelImportExportReady=true
+dashboardIconAndDensityReady=true
+fullSystemE2EAcceptance=passed
+documentationConsistencyReady=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+解释：本块是当前有效状态。下方 2026-06-30、2026-06-27 等段落保留为历史校准和审计背景；若历史段落与本块冲突，以本块为准。当前可以声明普通用户体验、ChatBox 结构化入口、资产 Excel 导入导出和专家页保留已完成当前阶段验收；仍不能声明正式交易 release、正式交易建议、订单创建或自动交易。
+
 2026-06-30 用户体验优化阶段校准：
 
 ```text
-ordinaryUserExperienceReady=false
+ordinaryUserExperienceReady: false at 2026-06-30 baseline; current effective value is true
 expertModeAvailable=true
 plainLanguageDecisionPathRequired=true
-frontendComplexityReduced=false
+frontendComplexityReduced: false at 2026-06-30 baseline; current effective value is true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
@@ -60,14 +89,15 @@ documentationSupportsFormalTradingReleaseWithoutExternalEvidence=false
 ```text
 chatBoxV1Integrated=true
 piAgentCoreRuntimeIntegrated=true
-chatBoxDividendLowVolEntryReady=partial
-piLlmAgentLoopEnabled=false
-chatSessionPersistenceReady=false
+chatBoxDividendLowVolEntryReady=ready
+piLlmAgentLoopEnabled=partial_controlled_intent_router
+chatSessionPersistenceReady=true
+chatStreamingReady=true
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 ```
 
-ChatBox 可以作为红利低波的自然语言入口，帮助用户查询 Top 候选、解释为什么不能交易、跳转到红利低波页面、发起需确认的扫描和人工计划草案。当前 ChatBox v1 已接入 PI AgentCore 受控 runtime 和 FAMS 工具白名单，但仍使用 deterministic planner fallback；完整多轮 Agent、会话持久化和流式事件属于后续 `docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md` 阶段。ChatBox 不得把红利低波观察区间或草案升级为正式交易指令。
+ChatBox 可以作为红利低波的自然语言入口，帮助用户查询 Top 候选、解释为什么不能交易、跳转到红利低波页面、发起需确认的扫描和人工计划草案。当前 ChatBox 已接入 PI AgentCore 受控 runtime、FAMS 工具白名单、受控 intent router、本地会话审计、结构化结果和 SSE 流式事件；完整多轮 tool-calling 体验和更强上下文记忆仍属于后续增强。ChatBox 不得把红利低波观察区间或草案升级为正式交易指令。
 
 2026-06-24 交互式策略回测阶段同步：
 
@@ -619,3 +649,65 @@ canCreateOrder = false
 - 把免费源 total-return 或 research proxy 写成官方授权 benchmark。
 - 把 `tradeActionReadiness=true` 写成交易动作已经放行。
 - 把 `formalTargetWeight=0` 之外的正式仓位写入当前阶段出门条件。
+
+## 2026-07-14 文档开发阶段：架构风险闭环与 drawio 重构
+
+更新时间：2026-07-14 15:24:06+08:00
+
+本轮仍处于文档开发阶段，不进入业务代码实现。目标是把当前已认可的开发主线固化为可审查、可执行、可验收的架构文档，避免 drawio 相比前序文档出现信息退化。
+
+### 当前文档修订目标
+
+```text
+documentationOnlyStage=true
+businessCodeChangeAllowed=false
+drawioPageCountLimit=8
+drawioCurrentTargetRelationReady=true
+implementationEntityStateIndexReady=true
+nextStagePlanActionable=true
+prdSpecDeviation=none
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+### drawio 第 2 页重构要求
+
+`docs/target-architecture-gap.drawio` 的「当前架构与目标架构差异」页必须采用四列映射，而不是抽象流程图：
+
+| 列 | 必须回答的问题 | 示例实体 |
+| --- | --- | --- |
+| 当前存量实体 | 当前项目已经有哪些可复用代码、页面、服务、数据或审计产物 | `Dashboard.tsx`、`Assets.tsx`、`FamsChatBox.tsx`、`Backtest.tsx`、`DividendLowVol.tsx`、`chat.ts`、`asset.ts`、`portfolioBacktest.ts` |
+| 当前风险 | 为什么当前实现还不能支撑正式交易前置出门 | 市场数据新鲜度 unknown、proxy benchmark、formal validation 不足、普通用户路径复杂、状态词漂移 |
+| 目标架构实体 | 下一阶段需要新增或强化的明确代码实体 | `FormalDataProviderService`、`ProviderFreshnessService`、`BenchmarkQualificationService`、`FormalValidationService`、`ManualSignoffService`、`ExecutionIsolationService`、`ReleaseGateService` |
+| 验收证据 | 开发完成后如何证明没有规格偏移和虚假验收 | `15_data_governance_audit.json`、`16_benchmark_qualification_audit.json`、`17_formal_validation_audit.json`、`18_manual_signoff_audit.json`、`acceptance-report.html` |
+
+### 不允许出现的文档退化
+
+以下任一情况出现，则不得声明文档阶段出门：
+
+```text
+无法从 drawio 判断当前架构与目标架构关系
+无法从文档判断 PRD 规格偏移风险
+无法从验收章节判断用户如何操作、如何验收、失败如何打回
+待开发项被写成已完成
+专家多 Tab 被删除或弱化
+真实数据缺口、benchmark 缺口、formal validation 缺口被 UX 文案隐藏
+出现 formalTradingUnlocked 不得为 true / autoTradeUnlocked 不得为 true / canCreateOrder 不得为 true / orderCreateAllowed 不得为 true
+```
+
+### 下一阶段开发仍未完成的明确范围
+
+当前阶段完成后只能说明文档可以支撑下一阶段开发，不能说明正式交易可用。仍未完成：
+
+```text
+S2 正式 provider 与字段级数据治理
+S3 官方或可信 total-return benchmark
+S4 formal validation 与模型有效性验证
+S5 人工签核与 release blocker
+S6 执行隔离与订单防线
+S7 release gate 总验收
+S8 完整多轮 tool-calling Agent loop 增强
+```
+

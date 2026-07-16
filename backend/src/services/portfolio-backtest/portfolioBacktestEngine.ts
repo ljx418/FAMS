@@ -150,7 +150,7 @@ export class PortfolioBacktestEngine {
     const missingSymbols: string[] = []
 
     if (definition.validation.status !== 'valid') {
-      return this.insufficient(definition, blockedReasons, warnings, missingSymbols)
+      return this.insufficient(definition, blockedReasons, warnings, missingSymbols, input.request.endDate)
     }
 
     const seriesBySymbol = new Map<string, PriceSeries>()
@@ -178,7 +178,7 @@ export class PortfolioBacktestEngine {
     const dates = this.resolveCommonDates(definition, seriesBySymbol)
     if (dates.length < 2) {
       blockedReasons.push('common_price_dates_insufficient')
-      return this.insufficient(definition, blockedReasons, warnings, missingSymbols)
+      return this.insufficient(definition, blockedReasons, warnings, missingSymbols, input.request.endDate)
     }
 
     const initialCapital = input.request.initialCapital
@@ -348,7 +348,7 @@ export class PortfolioBacktestEngine {
     warnings: string[],
   ): Promise<PortfolioBacktestFormalReviewReadiness> {
     const tradeConstraintCoverage = await this.tradeConstraintCoverage(definition, dates)
-    const benchmarkReady = Object.values(benchmarkStatuses).some((status) => status === 'formal_total_return' || status === 'free_source_total_return')
+    const benchmarkReady = Object.values(benchmarkStatuses).some((status) => status === 'official_total_return' || status === 'trusted_total_return' || status === 'free_source_total_return')
     const dividendAudited = dividendContributionPercent !== null || warnings.includes('dividend_contribution_insufficient:no_audited_component_yield')
     const blockers = [
       ...(input.request.gradeMode === 'formal_review' ? [] : ['grade_mode_not_formal_review']),
@@ -390,7 +390,7 @@ export class PortfolioBacktestEngine {
         if (match) benchmarkStatuses[match[1]] = match[2]
       }
     }
-    const benchmarkReady = Object.values(benchmarkStatuses).some((status) => status === 'formal_total_return' || status === 'free_source_total_return')
+    const benchmarkReady = Object.values(benchmarkStatuses).some((status) => status === 'official_total_return' || status === 'trusted_total_return' || status === 'free_source_total_return')
     const completedCount = strategies.filter((strategy) => strategy.status === 'completed').length
     const tradeConstraintCoverage = await this.aggregateTradeConstraintCoverage(input)
     const coveredStrategies = strategies.filter((strategy) => {
@@ -787,7 +787,7 @@ export class PortfolioBacktestEngine {
   }
 
   private benchmarkGrade(statuses: any[]): PortfolioSourceDataGrade {
-    if (statuses.includes('formal_total_return')) return 'official_authorized'
+    if (statuses.includes('official_total_return') || statuses.includes('trusted_total_return')) return 'official_authorized'
     if (statuses.includes('free_source_total_return')) return 'free_source_cross_checked'
     if (statuses.includes('price_index')) return 'price_index_only'
     if (statuses.includes('research_proxy')) return 'research_proxy'
@@ -1018,7 +1018,7 @@ export class PortfolioBacktestEngine {
     dataGradeAudit: PortfolioDataGradeAudit,
     modelEffectiveness: NonNullable<PortfolioBacktestResult['modelEffectiveness']>,
   ): PortfolioFormalTradingUnlockChecklist {
-    const officialBenchmarkReviewed = Object.values(formalReviewReadiness.benchmarkStatuses).includes('formal_total_return')
+    const officialBenchmarkReviewed = Object.values(formalReviewReadiness.benchmarkStatuses).some((status) => status === 'official_total_return' || status === 'trusted_total_return')
     const modelEffectivenessReviewed = modelEffectiveness.status === 'passed'
     const tradeConstraintsReviewed = formalReviewReadiness.tradeConstraintCoverage.status === 'passed'
     const priceFreshnessReviewed = dataGradeAudit.items.some((item) => item.scope === 'price' && item.freshnessStatus === 'fresh' && item.coveragePercent >= 80)
@@ -1180,7 +1180,7 @@ export class PortfolioBacktestEngine {
     formalReviewReadiness: PortfolioBacktestFormalReviewReadiness,
   ): PortfolioBenchmarkQualificationAudit {
     const statuses = formalReviewReadiness.benchmarkStatuses
-    const hasFormalTotalReturn = Object.values(statuses).includes('formal_total_return')
+    const hasFormalTotalReturn = Object.values(statuses).some((status) => status === 'official_total_return' || status === 'trusted_total_return')
     const hasFreeSourceTotalReturn = Object.values(statuses).includes('free_source_total_return')
     const canSupportFormalReview = hasFormalTotalReturn || hasFreeSourceTotalReturn
     const canSupportFormalTrading = hasFormalTotalReturn
@@ -1603,6 +1603,7 @@ export class PortfolioBacktestEngine {
     blockedReasons: string[],
     warnings: string[],
     missingSymbols: string[],
+    asOfDate: string,
   ): PortfolioBacktestStrategyResult {
     return {
       definition,
@@ -1666,7 +1667,7 @@ export class PortfolioBacktestEngine {
             grade: 'insufficient',
             sourceProvider: 'none',
             sourceType: 'historical_close',
-            asOfDate: null,
+            asOfDate,
             freshnessStatus: 'unknown',
             coveragePercent: 0,
             blockingForFormalTrading: true,
@@ -1678,7 +1679,7 @@ export class PortfolioBacktestEngine {
             grade: 'insufficient',
             sourceProvider: 'none',
             sourceType: 'benchmark_curve',
-            asOfDate: null,
+            asOfDate,
             freshnessStatus: 'unknown',
             coveragePercent: 0,
             blockingForFormalTrading: true,
@@ -1690,7 +1691,7 @@ export class PortfolioBacktestEngine {
             grade: 'insufficient',
             sourceProvider: 'none',
             sourceType: 'dividend_return',
-            asOfDate: null,
+            asOfDate,
             freshnessStatus: 'unknown',
             coveragePercent: 0,
             blockingForFormalTrading: true,
@@ -1702,7 +1703,7 @@ export class PortfolioBacktestEngine {
             grade: 'insufficient',
             sourceProvider: 'none',
             sourceType: 'limit_up_down_and_suspension_state',
-            asOfDate: null,
+            asOfDate,
             freshnessStatus: 'unknown',
             coveragePercent: 0,
             blockingForFormalTrading: true,

@@ -47,7 +47,7 @@ chatBoxPlainLanguageReady=true
 chatBoxDataHealthUxReady=true
 piLlmAgentLoopEnabled=partial_controlled_intent_router
 chatSessionPersistenceReady=true
-chatStreamingReady=false
+chatStreamingReady=true
 fullBusinessToolCoverageReady=true
 inlineChartResultReady=true
 dualTrackExperienceDocumented=true
@@ -75,7 +75,7 @@ ChatBox 是第一业务入口，但不是唯一入口。
 - ChatBox、工作台和专家模块页共享同一组 API、服务、Operation、审计包和 trade gate；任一入口都不能绕过 `formalTradingUnlocked=false / autoTradeUnlocked=false`。
 - 下一阶段执行顺序为：先完成 CB-F / UX-7 ChatBox 对话体验深度优化，再进入 UX-8 产品级双轨体验与视觉系统重构。
 
-ChatBox 已作为体验解释层的全局入口接入 v1：`FamsChatBox.tsx`、`chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter` 形成受控业务编排路径。当前只允许白名单工具、二次确认和交易阻断；PI AgentCore 已作为 runtime/tool manifest 适配层接入；dotenv LLM planner 当前只做受控 intent router；本地 JSON 会话审计已可恢复最近会话。完整第一公民目标仍需补齐全业务工具覆盖、对话内结构化图表、SSE/WebSocket 流式事件和完整多轮 tool-calling agent loop。
+ChatBox 已作为体验解释层的全局入口接入 v1：`FamsChatBox.tsx`、`chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter` 形成受控业务编排路径。当前只允许白名单工具、二次确认和交易阻断；PI AgentCore 已作为 runtime/tool manifest 适配层接入；dotenv LLM planner 当前只做受控 intent router；本地 JSON 会话审计已可恢复最近会话。SSE 流式事件已通过 `/api/v1/chat/messages/stream` 接入；完整第一公民长期目标仍需补齐完整多轮 tool-calling agent loop。
 
 2026-07-01 ChatBox 第一公民目标补充：
 
@@ -138,7 +138,7 @@ documentationOnlyStage=true
 businessCodeChangeAllowed=false
 ```
 
-2026-07-04 阶段实现验收同步：移动端 Shell、视觉系统、普通用户路径和 ChatBox 任务入口已完成当前阶段自动化开发与 E2E 验收，可以支撑 `ordinaryUserExperienceReady=true`、`chatBoxExperienceOptimized=true` 和 `productVisualRefreshReady=true`。目标架构仍保留以下长期边界：正式 provider、官方 total-return benchmark、完整 streaming / 多轮 tool-calling Agent loop 和正式交易 release 未完成。
+2026-07-04 阶段实现验收同步：移动端 Shell、视觉系统、普通用户路径和 ChatBox 任务入口已完成当前阶段自动化开发与 E2E 验收，可以支撑 `ordinaryUserExperienceReady=true`、`chatBoxExperienceOptimized=true` 和 `productVisualRefreshReady=true`。目标架构仍保留以下长期边界：正式 provider、官方 total-return benchmark、完整多轮 tool-calling Agent loop 和正式交易 release 未完成；SSE streaming 基线已在后续阶段补齐。
 
 当前已验收内容：
 
@@ -169,7 +169,7 @@ UX-F7 目标架构关系：
 - `index.css` 作为视觉 token 和交互状态的统一入口，覆盖背景、表面、边框、文字、状态色、图标色、阴影、pressed feedback、focus-visible 和响应式间距。
 - `Dashboard.tsx` 作为普通用户总览工作台，必须减少首屏无意义空白，使用 `@ant-design/icons` 免费开源图标标识资产、收益、风险、任务、回测、红利低波和交易锁定，并在无资产时引导 Excel 导入。
 - `Assets.tsx` 作为本地资产账本入口，必须形成“下载模板 -> 上传预览 -> 校验错误 -> 确认导入 -> 导出当前资产”的完整路径。
-- `backend/src/routes/template.ts` 已提供 `/api/v1/assets/template`；`backend/src/routes/asset.ts` 已提供 parse/import 基础，下一阶段需要补齐 `GET /api/v1/assets/export?userId=default`。
+- `backend/src/routes/template.ts` 已提供 `/api/v1/assets/template`；`backend/src/routes/asset.ts` 已提供 parse/import/export 基础，其中 `GET /api/v1/assets/export?userId=default` 已作为资产 Excel 闭环的一部分完成当前阶段验收。
 - `xlsx` 是当前 Excel 解析/生成依赖；不得新增不必要的商业依赖。
 - Excel 导入只维护本地资产账本，不代表买入、卖出、下单或自动再平衡。
 - 审计产物新增 `frontend_visual_system_audit.json`、`asset_excel_flow_audit.json`、`dashboard_visual_density_audit.json`。
@@ -250,12 +250,79 @@ doc_acceptance_audit.json
 
 这些文件用于说明“正式交易 release 还缺什么”，不是交易放行证明。
 
+## 2026-07-09 文档状态收口与下一阶段准备
+
+本阶段当前工作是文档状态收口，不进入业务代码开发。目标是把 PRD、UX 计划、ChatBox 计划、目标架构、drawio 和审计口径统一到同一组“当前有效状态”，并明确下一阶段仍未完成的真实数据、正式交易 release 和长期增强项。
+
+当前有效状态：
+
+```text
+documentationConsistencyReady=true
+drawioCurrentTargetRelationReady=true
+uxF7Accepted=true
+fullSystemE2EAcceptance=passed
+ordinaryUserExperienceReady=true
+frontendComplexityReduced=true
+chatBoxFirstClassReady=true
+chatBoxExperienceOptimized=true
+chatBoxPlainLanguageReady=true
+chatBoxDataHealthUxReady=true
+assetExcelImportExportReady=true
+expertModuleTabsPreserved=true
+formalTradingReleaseReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+历史段落中的 `documentationOnlyStage=true`、`businessCodeChangeAllowed=false`、`chatBoxExperienceOptimized: false at baseline` 等状态仅描述当时阶段边界或基线问题。后续自动化开发必须读取本节作为当前有效状态。
+
+下一阶段仍未完成且不得在当前阶段虚假声明通过的内容：
+
+- `FTR-1 FormalDataProviderService`：正式 provider、字段级数据治理、授权数据源、稳定 freshness / coverage / cross-check。
+- `FTR-2 BenchmarkQualificationService`：官方或可信 total-return benchmark、proxy benchmark 明确降级。
+- `FTR-3 FormalValidationService`：OOS、walk-forward、参数敏感性、行业/市场/流动性分组稳定性。
+- `FTR-4 ManualSignoffService`：人工计划草案、人工复核、签核记录和 release blocker。
+- `FTR-5 ExecutionIsolation`：paper/sandbox 隔离、订单适配器隔离、正式订单仍不可创建。
+- `FTR-6 ReleaseGate`：release gate 审计、正式交易解锁清单和最终出门报告。
+- `ChatBox multi-turn tool-calling agent loop`：SSE streaming endpoint 和流式验收基线已完成；后续增强重点是多轮上下文、连续工具调用和任务追踪，不阻断当前 ChatBox 第一入口出门。
+- `real imported user-asset revalidation per account`：审计用户真实资产样本复验已通过；每个真实用户账本仍需导入后重新跑资产汇总和回测验收。
+
+后续开发前置验收材料：
+
+```text
+docs/CURRENT_STAGE_DOCUMENTATION_CONSISTENCY_AUDIT.md
+docs/NEXT_STAGE_DEVELOPMENT_ACCEPTANCE_PLAN.md
+docs/target-architecture-gap.drawio
+docs/read-drawio-output.txt
+docs/drawio-summary.txt
+```
+
+这些文档必须能让人类判断：当前实现已经覆盖 UX-F7 与 ChatBox/工作台/专家页双轨体验；正式交易 release 仍 locked；下一阶段未完成项具有可执行的服务实体、审计产物和出门门槛。
+
+下一阶段详细开发顺序已固化为：
+
+```text
+S0 文档与状态基线复核
+S1 真实资产样本复验
+S2 正式 provider 与字段级数据治理
+S3 官方或可信 total-return benchmark
+S4 formal validation 与模型有效性验证
+S5 人工签核与 release blocker
+S6 执行隔离与订单防线
+S7 release gate 总验收
+S8 ChatBox 多轮 tool-calling Agent loop 增强
+```
+
+该顺序维护在 `docs/NEXT_STAGE_DEVELOPMENT_ACCEPTANCE_PLAN.md`。若后续实际开发跳过 S0 文档基线、跳过真实数据验收、或把 S2-S7 任一 blocker 写成已完成，应视为重大规格偏差。
+
 当前架构与目标架构关系：
 
 - 灰色已实现：`DividendLowVol.tsx / Backtest.tsx / Operations.tsx / Analysis.tsx`、`strategy.ts / portfolioBacktest.ts / operation.ts`、`dividendLowVolStrategyService / dividendLowVolTradingZoneService / dividendLowVolDataReadinessService / PortfolioBacktestEngine / portfolioBacktestReviewService`、`SQLite/Prisma / DividendLowVolDaily / market_bar_canonical / market_tradeability_daily / free-source benchmark`、`09-12` 审计产物和 `acceptance-report.html`。
 - 灰色已实现：`FamsChatBox.tsx / chat.ts / famsChatService / chatLlmPlannerService / piAgentCoreAdapter` 的 v1 受控集成，已能查询核心业务、显示行动卡、要求确认、保存本地 JSON 会话审计并阻断交易动作。
-- 黄色需修改：前端展示需要持续统一 `dataGrade / dataTrustGrade / calculationAuditStatus / modelEffectiveness / manualPlanDraft / blockers / priceAudit freshness`；API 响应需要统一 `readinessSummary / dataTrust / calculationAudit / releaseGateAudit / canCreateOrder=false`；服务输出需要稳定生成 `dataGovernanceAudit / benchmarkQualificationAudit / formalValidationAudit / manualSignoffAudit`；数据层需要字段级 `sourceProvider / asOfDate / fetchedAt / freshness / coverage / crossCheckStatus`；审计口径需要保证 blocked/warning/missing 不被升级 passed；ChatBox 需补任务式入口、普通话回复层级、数据健康提示、技术细节折叠、移动端可读性、流式事件和完整 PI Agent loop。
-- 橘黄需新增：`LongHorizonPortfolioBacktestAcceptance`、`FormalDataProviderService / BenchmarkQualificationService / FormalValidationService / ManualSignoffService`、`official_authorized provider`、官方或可信 total-return benchmark、formal tradeability constraints、release review API 契约、`13_execution_isolation_audit.json` 到 `18_manual_signoff_audit.json`、ChatBox UX Presentation Layer、Chat inline chart renderer、全业务 tool coverage matrix 验收、`chatbox_first_class_audit.json` 和 `chatbox_ux_optimization_audit.json`。
+- 黄色需修改：前端展示需要持续统一 `dataGrade / dataTrustGrade / calculationAuditStatus / modelEffectiveness / manualPlanDraft / blockers / priceAudit freshness`；API 响应需要统一 `readinessSummary / dataTrust / calculationAudit / releaseGateAudit / canCreateOrder=false`；服务输出需要稳定生成 `dataGovernanceAudit / benchmarkQualificationAudit / formalValidationAudit / manualSignoffAudit`；数据层需要字段级 `sourceProvider / asOfDate / fetchedAt / freshness / coverage / crossCheckStatus`；审计口径需要保证 blocked/warning/missing 不被升级 passed；ChatBox 需从已完成的 SSE streaming 基线继续增强到完整多轮 PI Agent loop。
+- 橘黄需新增：`LongHorizonPortfolioBacktestAcceptance`、`FormalDataProviderService / BenchmarkQualificationService / FormalValidationService / ManualSignoffService`、`official_authorized provider`、官方或可信 total-return benchmark、formal tradeability constraints、release review API 契约、`13_execution_isolation_audit.json` 到 `18_manual_signoff_audit.json`、完整多轮 tool-calling agent loop 审计、真实用户账本逐账户复跑验收。
 - 红色硬边界：正式 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` 继续禁止；`/reviews` 只保存审计，不创建订单；free source 只能 research/fallback；proxy benchmark 不得当 formal benchmark；release gate blocked 时必须保持 `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`。
 - 绿色用户出门体验：用户能看到候选、曲线、区间、数据等级、数据可信度、复算状态、验证状态、阻断原因、数据来源、更新时间、覆盖率、缺口和可复核审计报告；用户不会看到下单按钮、自动再平衡入口或正式买卖文案。
 - 蓝色体验解释层：`AppLayout.tsx / Dashboard.tsx / DividendLowVol.tsx / Backtest.tsx / Operations.tsx` 需要提供普通模式、专业模式、结论卡、术语解释、下一步按钮和可读审计摘要；复杂分数表默认折叠，但 blocker 和交易锁定不能隐藏。
@@ -291,7 +358,7 @@ doc_acceptance_audit.json
 | --- | --- | --- |
 | 已开发基础 | `FamsChatBox.tsx`、`AppLayout.tsx`、`Dashboard.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`Operations.tsx`、`backend/src/routes/chat.ts`、`famsChatService`、`chatLlmPlannerService`、`piAgentCoreAdapter`、`PortfolioBacktestEngine`、`dividendLowVolStrategyService`、`DividendLowVolDaily`、`market_bar_canonical`、`acceptance-report.html` | 当前 UX 改造复用这些入口和能力，原多 Tab 专家功能仍保留。 |
 | 已实现 / 已验收 | `WelcomeTaskBoard`、`StructuredResultRenderer`、`ActionCardList`、`DataHealthNotice`、`AgentStatusDetails`、`UserTaskWorkbench`、专家页“用 ChatBox 解释”入口、移动端抽屉导航、普通话结构化结果、数据健康提示、技术细节默认折叠、`frontend_ux_consistency_audit.json`、`chatbox_ux_optimization_audit.json`、`dual_track_ux_audit.json`、`trade_boundary_wording_audit.json` | 当前阶段自动化开发和 E2E 验收已覆盖；截图和审计产物用于人工复核。 |
-| 后续增强 / 未完成 | `JourneyStepper` 独立组件、`ExpertPageChatExplain` 独立组件、`ExperienceModeToggle`、`PlainLanguageHelp`、红利低波独立结论卡、组合回测独立摘要卡、UX-F7 统一视觉 token、卡片 pressed feedback、Dashboard 图标/密度、`GET /api/v1/assets/export`、资产 Excel 导入导出完整审计、完整 streaming / 多轮 tool-calling Agent loop、正式 provider、官方 total-return benchmark、正式交易 release gate | 当前以工作台任务流和专家页解释按钮等价覆盖部分体验目标；UX-F7 是下一阶段体验质量与本地资产数据入口的明确开发项；正式交易 release 仍不属于 UX-F7。 |
+| 后续增强 / 未完成 | `JourneyStepper` 独立组件、`ExpertPageChatExplain` 独立组件、`ExperienceModeToggle`、`PlainLanguageHelp`、红利低波独立结论卡、组合回测独立摘要卡、完整多轮 tool-calling Agent loop、真实用户账本逐账户复跑验收、正式 provider、官方 total-return benchmark、正式交易 release gate | 当前以工作台任务流和专家页解释按钮等价覆盖部分体验目标；UX-F7 视觉 token、卡片 pressed feedback、Dashboard 图标/密度、`GET /api/v1/assets/export` 和资产 Excel 审计已经完成当前阶段验收；正式交易 release 仍不属于 UX-F7。 |
 | 硬边界 | `formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`、禁止 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` | 任何 UX、ChatBox、AgentCore 或工作台改造都不得改变。 |
 
 目标架构分层关系必须按以下链路表达：
@@ -1501,3 +1568,65 @@ ChatBox 第一入口
 
 UX-F7 本轮实现已优先对齐 v3 目标展示形态，而不是只把旧页面换色。若后续截图与 `v3/*.png` 在信息层级、目标入口、视觉统一性、卡片状态、Excel 路径或交易边界上再次明显不一致，应打回 UX-F7 开发阶段。
 <!-- UX_F7_V3_DOC_END -->
+
+## 2026-07-14 文档开发阶段：架构风险闭环与 drawio 重构
+
+更新时间：2026-07-14 15:24:06+08:00
+
+本轮仍处于文档开发阶段，不进入业务代码实现。目标是把当前已认可的开发主线固化为可审查、可执行、可验收的架构文档，避免 drawio 相比前序文档出现信息退化。
+
+### 当前文档修订目标
+
+```text
+documentationOnlyStage=true
+businessCodeChangeAllowed=false
+drawioPageCountLimit=8
+drawioCurrentTargetRelationReady=true
+implementationEntityStateIndexReady=true
+nextStagePlanActionable=true
+prdSpecDeviation=none
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+### drawio 第 2 页重构要求
+
+`docs/target-architecture-gap.drawio` 的「当前架构与目标架构差异」页必须采用四列映射，而不是抽象流程图：
+
+| 列 | 必须回答的问题 | 示例实体 |
+| --- | --- | --- |
+| 当前存量实体 | 当前项目已经有哪些可复用代码、页面、服务、数据或审计产物 | `Dashboard.tsx`、`Assets.tsx`、`FamsChatBox.tsx`、`Backtest.tsx`、`DividendLowVol.tsx`、`chat.ts`、`asset.ts`、`portfolioBacktest.ts` |
+| 当前风险 | 为什么当前实现还不能支撑正式交易前置出门 | 市场数据新鲜度 unknown、proxy benchmark、formal validation 不足、普通用户路径复杂、状态词漂移 |
+| 目标架构实体 | 下一阶段需要新增或强化的明确代码实体 | `FormalDataProviderService`、`ProviderFreshnessService`、`BenchmarkQualificationService`、`FormalValidationService`、`ManualSignoffService`、`ExecutionIsolationService`、`ReleaseGateService` |
+| 验收证据 | 开发完成后如何证明没有规格偏移和虚假验收 | `15_data_governance_audit.json`、`16_benchmark_qualification_audit.json`、`17_formal_validation_audit.json`、`18_manual_signoff_audit.json`、`acceptance-report.html` |
+
+### 不允许出现的文档退化
+
+以下任一情况出现，则不得声明文档阶段出门：
+
+```text
+无法从 drawio 判断当前架构与目标架构关系
+无法从文档判断 PRD 规格偏移风险
+无法从验收章节判断用户如何操作、如何验收、失败如何打回
+待开发项被写成已完成
+专家多 Tab 被删除或弱化
+真实数据缺口、benchmark 缺口、formal validation 缺口被 UX 文案隐藏
+出现 formalTradingUnlocked 不得为 true / autoTradeUnlocked 不得为 true / canCreateOrder 不得为 true / orderCreateAllowed 不得为 true
+```
+
+### 下一阶段开发仍未完成的明确范围
+
+当前阶段完成后只能说明文档可以支撑下一阶段开发，不能说明正式交易可用。仍未完成：
+
+```text
+S2 正式 provider 与字段级数据治理
+S3 官方或可信 total-return benchmark
+S4 formal validation 与模型有效性验证
+S5 人工签核与 release blocker
+S6 执行隔离与订单防线
+S7 release gate 总验收
+S8 完整多轮 tool-calling Agent loop 增强
+```
+

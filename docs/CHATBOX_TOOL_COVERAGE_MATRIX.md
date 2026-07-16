@@ -244,10 +244,10 @@ chatBoxExperienceOptimized=false
 plainLanguageChatResultReady=false
 guidedTaskEntryReady=false
 dataHealthExplanationReady=false
-chatStreamingReady=false
+chatStreamingReady=true
 ```
 
-`chatStreamingReady=false` 是后续体验增强项；当前请求/响应式结构化结果已满足本阶段 ChatBox 第一业务入口出门条件。
+`chatStreamingReady=true` 表示 `/api/v1/chat/messages/stream` 已提供 SSE 流式事件；完整多轮 tool-calling agent loop 和更强上下文记忆仍是后续体验增强项。
 
 ## 8. 出门条件
 

@@ -3,7 +3,7 @@ export class DividendLowVolTotalReturnAuditService {
     const tradeConstraintAudit = backtest?.tradeConstraintAudit || {}
     const benchmark = backtest?.benchmark || { status: 'missing' }
     const insufficientItems = Array.isArray(tradeConstraintAudit.insufficientItems) ? tradeConstraintAudit.insufficientItems : []
-    const benchmarkReady = benchmark.status === 'formal_total_return' || benchmark.status === 'free_source_total_return'
+    const benchmarkReady = benchmark.status === 'official_total_return' || benchmark.status === 'trusted_total_return' || benchmark.status === 'free_source_total_return'
     const tradeConstraintsComplete = insufficientItems.length === 0
     const ready = benchmarkReady && tradeConstraintsComplete
     return {
@@ -12,13 +12,13 @@ export class DividendLowVolTotalReturnAuditService {
       strategyFamily: 'dividend_low_volatility',
       strategyId: 'dividend_low_vol_leader_v1',
       status: ready
-        ? benchmark.status === 'formal_total_return'
+        ? benchmark.status === 'official_total_return' || benchmark.status === 'trusted_total_return'
           ? 'formal_grade_ready'
           : 'free_source_validation_ready'
         : 'research_only_insufficient',
       notTradingAdvice: true,
       allowedActions: ['RESEARCH', 'OBSERVE', 'ALERT', 'PLAN_DRAFT'],
-      prohibitedActions: ['ADD', 'REDUCE', 'AUTO_TRADE'],
+      prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
       returnComponents: {
         priceOnlyReturn: backtest?.metrics?.priceOnlyReturnPercent ?? null,
         dividendContribution: backtest?.metrics?.dividendContributionPercent ?? null,

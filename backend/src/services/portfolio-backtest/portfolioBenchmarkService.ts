@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 type BenchmarkSeries = Map<string, { netValue: number; cumulativeReturnPercent: number }>
-type BenchmarkStatus = 'formal_total_return' | 'free_source_total_return' | 'price_index' | 'research_proxy' | 'unavailable'
+type BenchmarkStatus = 'official_total_return' | 'trusted_total_return' | 'free_source_total_return' | 'price_index' | 'research_proxy' | 'unavailable'
 
 export type PortfolioBenchmarkResult = {
   seriesById: Record<string, BenchmarkSeries>

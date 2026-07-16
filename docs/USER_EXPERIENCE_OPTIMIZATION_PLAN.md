@@ -35,21 +35,21 @@ drawioEntityStatusExplicit=true
 chatBoxFirstClassTargetDocumented=true
 chatBoxV1Integrated=true
 piAgentCoreRuntimeIntegrated=true
-chatBoxBusinessEntryReady=false
-chatBoxUxOptimized=false
-plainLanguageChatResultReady=false
-guidedTaskEntryReady=false
-dataHealthExplanationReady=false
+chatBoxBusinessEntryReady=true
+chatBoxUxOptimized=true
+plainLanguageChatResultReady=true
+guidedTaskEntryReady=true
+dataHealthExplanationReady=true
 piLlmAgentLoopEnabled=partial_controlled_intent_router
 chatSessionPersistenceReady=true
-chatStreamingReady=false
-fullBusinessToolCoverageReady=false
-inlineChartResultReady=false
-ordinaryUserWorkbenchReady=false
+chatStreamingReady=true
+fullBusinessToolCoverageReady=true
+inlineChartResultReady=true
+ordinaryUserWorkbenchReady=true
 expertModuleDeepUseReady=true
 ```
 
-ChatBox 是第一业务入口和体验解释层的一部分，用于帮助用户查询候选、组合、任务、回测入口和阻断原因。它可以发起需要二次确认的扫描、刷新和人工计划草案，但不能创建订单、不能输出正式 ADD / REDUCE，也不能绕过 validation、audit 或 trade gate。ChatBox 后续完整集成计划维护在 `docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md`，全业务覆盖范围维护在 `docs/CHATBOX_TOOL_COVERAGE_MATRIX.md`。
+ChatBox 是第一业务入口和体验解释层的一部分，用于帮助用户查询候选、组合、任务、回测入口和阻断原因。当前阶段已完成任务式入口、普通话结构化回复、数据健康提示、对话内结构化图表、SSE 流式事件、Operation 联动、审计追溯和交易阻断验收。它可以发起需要二次确认的扫描、刷新和人工计划草案，但不能创建订单、不能输出正式 ADD / REDUCE，也不能绕过 validation、audit 或 trade gate。ChatBox 后续增强重点是完整多轮上下文记忆和更强 tool-calling agent loop，不阻断当前 UX 出门。ChatBox 后续完整集成计划维护在 `docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md`，全业务覆盖范围维护在 `docs/CHATBOX_TOOL_COVERAGE_MATRIX.md`。
 
 ## 2. 目标体验
 
@@ -153,14 +153,14 @@ ChatBox / 工作台展示层
 5. **按钮和标签密度过高**：红利低波、回测和任务中心存在小按钮、状态标签、警示卡片堆叠，主结论、下一步和证据详情的层级不够清晰。
 6. **ChatBox 第一入口不够强**：ChatBox 已经接入，但仍像解释浮层和快捷问题集合，尚未成为“普通用户默认从这里完成任务”的主路径。
 
-这些问题不改变当前交易边界。它们在 2026-07-03 基线时会阻止以下状态被声明为 true：
+这些问题不改变当前交易边界。它们在 2026-07-03 基线时曾阻止以下状态被声明为 true；该块是历史基线，不是当前有效状态：
 
 ```text
-ordinaryUserExperienceReady=false
-frontendComplexityReduced=false
-chatBoxExperienceOptimized=false
-productVisualRefreshReady=false
-ordinaryUserWorkbenchReady=false
+ordinaryUserExperienceReady: false at 2026-07-03 baseline
+frontendComplexityReduced: false at 2026-07-03 baseline
+chatBoxExperienceOptimized: false at 2026-07-03 baseline
+productVisualRefreshReady: false at 2026-07-03 baseline
+ordinaryUserWorkbenchReady: false at 2026-07-03 baseline
 ```
 
 2026-07-07 UX-F7 实现与复验后，本阶段可声明：
@@ -692,3 +692,65 @@ orderCreateAllowed=false
 - ChatBox 是第一入口，但专家多 Tab 仍是一等入口；不得删除或弱化 `Assets / DividendLowVol / Backtest / Operations / Analysis`。
 - 任何后续截图、按钮文案、ChatBox 回复或审计报告不得把 quick-run、人工计划草案、Excel 导入或 formal-review-ready 描述为交易执行能力。
 <!-- UX_F7_V3_DOC_END -->
+
+## 2026-07-14 文档开发阶段：架构风险闭环与 drawio 重构
+
+更新时间：2026-07-14 15:24:06+08:00
+
+本轮仍处于文档开发阶段，不进入业务代码实现。目标是把当前已认可的开发主线固化为可审查、可执行、可验收的架构文档，避免 drawio 相比前序文档出现信息退化。
+
+### 当前文档修订目标
+
+```text
+documentationOnlyStage=true
+businessCodeChangeAllowed=false
+drawioPageCountLimit=8
+drawioCurrentTargetRelationReady=true
+implementationEntityStateIndexReady=true
+nextStagePlanActionable=true
+prdSpecDeviation=none
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+### drawio 第 2 页重构要求
+
+`docs/target-architecture-gap.drawio` 的「当前架构与目标架构差异」页必须采用四列映射，而不是抽象流程图：
+
+| 列 | 必须回答的问题 | 示例实体 |
+| --- | --- | --- |
+| 当前存量实体 | 当前项目已经有哪些可复用代码、页面、服务、数据或审计产物 | `Dashboard.tsx`、`Assets.tsx`、`FamsChatBox.tsx`、`Backtest.tsx`、`DividendLowVol.tsx`、`chat.ts`、`asset.ts`、`portfolioBacktest.ts` |
+| 当前风险 | 为什么当前实现还不能支撑正式交易前置出门 | 市场数据新鲜度 unknown、proxy benchmark、formal validation 不足、普通用户路径复杂、状态词漂移 |
+| 目标架构实体 | 下一阶段需要新增或强化的明确代码实体 | `FormalDataProviderService`、`ProviderFreshnessService`、`BenchmarkQualificationService`、`FormalValidationService`、`ManualSignoffService`、`ExecutionIsolationService`、`ReleaseGateService` |
+| 验收证据 | 开发完成后如何证明没有规格偏移和虚假验收 | `15_data_governance_audit.json`、`16_benchmark_qualification_audit.json`、`17_formal_validation_audit.json`、`18_manual_signoff_audit.json`、`acceptance-report.html` |
+
+### 不允许出现的文档退化
+
+以下任一情况出现，则不得声明文档阶段出门：
+
+```text
+无法从 drawio 判断当前架构与目标架构关系
+无法从文档判断 PRD 规格偏移风险
+无法从验收章节判断用户如何操作、如何验收、失败如何打回
+待开发项被写成已完成
+专家多 Tab 被删除或弱化
+真实数据缺口、benchmark 缺口、formal validation 缺口被 UX 文案隐藏
+出现 formalTradingUnlocked 不得为 true / autoTradeUnlocked 不得为 true / canCreateOrder 不得为 true / orderCreateAllowed 不得为 true
+```
+
+### 下一阶段开发仍未完成的明确范围
+
+当前阶段完成后只能说明文档可以支撑下一阶段开发，不能说明正式交易可用。仍未完成：
+
+```text
+S2 正式 provider 与字段级数据治理
+S3 官方或可信 total-return benchmark
+S4 formal validation 与模型有效性验证
+S5 人工签核与 release blocker
+S6 执行隔离与订单防线
+S7 release gate 总验收
+S8 完整多轮 tool-calling Agent loop 增强
+```
+

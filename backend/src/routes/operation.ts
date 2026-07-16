@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { operationService } from '../services/operation/operationService.js'
 import { factsetRefreshScheduler } from '../services/operation/factsetRefreshScheduler.js'
+import { marketDataFreshnessService, type MarketDataFreshnessScope } from '../services/market-data/marketDataFreshnessService.js'
 
 function isSqliteMalformed(error: unknown) {
   return String((error as any)?.message || error).includes('database disk image is malformed')
@@ -194,6 +195,26 @@ const dividendLowVolDailyScanSchema = {
 export async function operationRoutes(app: FastifyInstance) {
   app.get('/schedulers/factset-refresh', async () => {
     return factsetRefreshScheduler.getStatus()
+  })
+
+  app.get('/market-bar-freshness', async (request) => {
+    const query = request.query as any
+    const userId = query.userId || 'default'
+    const scope = (query.scope || 'active_strategy') as MarketDataFreshnessScope
+    const symbols = typeof query.symbols === 'string'
+      ? query.symbols.split(',').map((item: string) => item.trim()).filter(Boolean)
+      : undefined
+    const report = await marketDataFreshnessService.buildReport({
+      userId,
+      scope,
+      symbols,
+      limit: query.limit ? Number(query.limit) : undefined,
+    })
+    if (query.writeAudit === 'true') {
+      const audit = await marketDataFreshnessService.writeAudit(report)
+      return { ...report, audit }
+    }
+    return report
   })
 
   app.get('/', async (request) => {

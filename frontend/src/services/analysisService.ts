@@ -2235,6 +2235,31 @@ export async function getDividendLowVolCandidates(symbols = '600000,000001,60139
   return response.json()
 }
 
+export interface MarketBarFreshnessReport {
+  schemaVersion: 'fams.market_data.freshness.v1'
+  generatedAt: string
+  expectedLatestTradeDate: string
+  latestTradeDate: string | null
+  status: 'fresh' | 'delayed' | 'stale' | 'unknown'
+  lagTradingDays: number | null
+  totalSymbols: number
+  blockers: string[]
+  warnings: string[]
+  recommendedAction: string
+}
+
+export async function getMarketBarFreshness(scope: 'active_strategy' | 'holdings' | 'dividend_low_vol' | 'all_cached' = 'active_strategy', limit = 300): Promise<MarketBarFreshnessReport> {
+  const params = new URLSearchParams()
+  params.set('userId', 'default')
+  params.set('scope', scope)
+  params.set('limit', String(limit))
+  const response = await fetch(`${API_BASE}/api/v1/operations/market-bar-freshness?${params.toString()}`)
+  if (!response.ok) {
+    throw new Error(`Market bar freshness failed: ${response.status}`)
+  }
+  return response.json()
+}
+
 export async function getDividendLowVolDataReadiness(): Promise<DividendLowVolDataReadinessAudit> {
   const response = await fetch(`${API_BASE}/api/v1/strategy/dividend-low-vol/data-readiness`)
   if (!response.ok) {
@@ -2944,6 +2969,7 @@ export default {
   searchInvestmentSuggestions,
   analyzeTarget,
   getDividendLowVolCandidates,
+  getMarketBarFreshness,
   getDividendLowVolDataReadiness,
   getDividendLowVolV2ResearchValidation,
   getDividendLowVolManualDraftReadiness,

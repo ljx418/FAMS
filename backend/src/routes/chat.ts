@@ -27,6 +27,29 @@ export async function chatRoutes(app: FastifyInstance) {
     })
   })
 
+  app.post('/messages/stream', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const events = await famsChatService.streamMessage({
+      conversationId: typeof body?.conversationId === 'string' ? body.conversationId : undefined,
+      userId: typeof body?.userId === 'string' ? body.userId : 'default',
+      message: typeof body?.message === 'string' ? body.message : '',
+      context: typeof body?.context === 'object' && body.context ? body.context as Record<string, unknown> : undefined,
+    })
+
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    })
+    for (const event of events) {
+      reply.raw.write(`event: ${event.type}\n`)
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
+    }
+    reply.raw.end()
+    return reply
+  })
+
   app.post('/messages', async (request) => {
     const body = request.body as Record<string, unknown>
     return famsChatService.sendMessage({
