@@ -1,478 +1,389 @@
-# 下一阶段开发及验收计划
+# FAMS 下一阶段开发及验收计划
 
 更新时间：2026-07-16
 
-## 1. 阶段定位
+## 1. 阶段结论
 
-本计划用于承接当前文档状态收口后的下一阶段开发。当前阶段已经完成普通用户 UX、ChatBox 第一入口、资产 Excel 导入导出、专家页保留和全系统 E2E 的文档/验收闭环；下一阶段目标不是直接放行正式交易，而是把真实数据可信、正式回测验证、人工签核和 release gate 拆成可执行、可验收、可审计的子阶段。
-
-二次审计后的当前状态：
+下一阶段统一命名为：
 
 ```text
-FAMS_NEXT_STAGE_DOCUMENTATION_STATUS=APPROVED_FOR_CONTROLLED_IMPLEMENTATION
-documentationSupportsControlledNextStageDevelopment=true
-documentationSupportsSubstageAcceptance=true
-documentationSupportsUnattendedEndToEndAutomation=false
-documentationSupportsFormalTradingRelease=false
-implementationEntry=after_human_approval_and_stage_gate
-machineReadableStateSource=docs/current-stage-state.json
-substageManifestSource=docs/S0_S8_SUBSTAGE_ACCEPTANCE_MANIFESTS.json
+Formal Release Readiness Closure
+stageId=formal_release_readiness_closure
 ```
 
-自动化开发必须优先读取 `docs/current-stage-state.json` 与 `docs/S0_S8_SUBSTAGE_ACCEPTANCE_MANIFESTS.json`，不得从旧 Markdown 历史状态中推断当前状态。
+当前 S0-S8 受控自动化开发已经完成并通过阶段验收，不再作为待开发内容。下一阶段只处理正式 release 仍未闭环的能力：正式数据治理、可信 total-return benchmark、formal validation、人工签核、执行隔离回归和最终 release review package。
 
-当前必须保持：
+本计划可以支撑后续受控自动化开发和子阶段验收，但不授权无人值守 release，也不自动开放真实交易：
 
 ```text
+documentationStatus=ready_for_human_review
+implementationStatus=not_started
+implementationApprovalRequired=true
+supportsUnattendedEndToEndAutomation=false
+supportsFormalTradingUnlock=false
 formalTradingUnlocked=false
 autoTradeUnlocked=false
 canCreateOrder=false
 orderCreateAllowed=false
+productionAdapterEnabled=false
 ```
 
-允许动作：
+机器状态源：`docs/current-stage-state.json`。
+
+下一阶段门禁源：`docs/FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json`。
+
+## 2. 当前真实基线
+
+历史验收链兼容说明：`S0 -> S1 -> S2 -> S3 -> S4 -> S5 -> S6 -> S7 -> S8` 已完成并成为只读基线；这些编号不是本轮 FTR 待开发阶段。自动化仍可用该序列验证旧审计脚本，但不得将其重新标记为 pending。
+
+最新 2026-07-16 审计结果：
+
+| 能力 | 当前实现 | 当前业务状态 | 下一阶段含义 |
+| --- | --- | --- | --- |
+| S0-S8 受控开发 | 已实现并验收 | `accepted` | 作为不可倒退基线 |
+| 字段级数据治理合同 | `PortfolioBacktestEngine.buildDataGovernanceAudit` 与 `15_data_governance_audit.json` 已实现 | `blocked` | 正式 provider、授权、候选级完整 evidence 待补 |
+| Benchmark 合同 | `portfolioBenchmarkService` 与 benchmark audit 已实现 | formal review passed，formal trading blocked | official/trusted total-return 待人工确认 |
+| Formal validation 合同 | 引擎内嵌 audit 和指标定义已实现 | `insufficient`，`0/7 passed` | 真实 candidate 集合须达到统计门槛 |
+| 人工签核合同 | review service 和 audit 已实现 | data/model/risk/compliance/final_release 全部 missing | 建立不可伪造签核链 |
+| 执行隔离 | paper/sandbox 与 blocker 已实现 | `ready_for_paper_review` | 作为回归门，生产适配器保持 disabled |
+| Release gate | 引擎内嵌 gate audit 已实现 | `blocked` | 目标是生成完整人类 release review package |
+
+当前数据审计显示 `asOfDate=2026-06-05` 的本地/免费源证据仍在使用。部分策略存在 price、benchmark、dividend、tradeability 的 `providerClass=unknown`、`freshnessStatus=unknown` 或 `coverageStatus=blocked`。文档不得只引用高覆盖策略并隐藏这些失败路径。
+
+## 3. 架构决策
+
+采用模块化单体内增量拆分，详见：
+
+`docs/adr/ADR-2026-07-16-formal-release-readiness-modular-monolith.md`
 
 ```text
-RESEARCH / OBSERVE / COMPARE / ALERT / PLAN_DRAFT / MANUAL_TRADE_DRAFT
+React / FamsChatBox / 专家页
+  -> Fastify routes
+  -> PortfolioBacktestInputBuilder
+  -> PortfolioBacktestEngine（保留回测计算）
+  -> FTR 独立 gate services（下一阶段拆分）
+  -> Operation / audit artifacts
+  -> Backtest / Operations / ChatBox 可见结果
 ```
 
-禁止动作：
+不在本阶段迁移微服务、PostgreSQL、TimescaleDB、Redis 或生产订单系统。当前 blocker 是证据和决策 gate，不是部署规模。
+
+## 4. 子阶段顺序
+
+### FTR-0 文档与状态基线冻结
+
+目标：在代码开发前固定当前事实、下一阶段目标、实体状态和禁止声明。
+
+实现/文档对象：
 
 ```text
-ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
+current-stage-state.json
+FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json
+fams-ftr-substage-acceptance-manifest.schema.json
+target-architecture-gap.drawio
+CURRENT_STAGE_DOCUMENTATION_CONSISTENCY_AUDIT.md
 ```
 
-## 2. 开发顺序总览
+用户验收：审计者打开 drawio 第 1、2、8 页，能区分已经完成的 S0-S8、下一阶段目标服务、当前真实 blocker 和人工 release 决策。
+
+出门门槛：
 
 ```text
-S0 文档与状态基线复核
-S1 真实资产样本复验
-S2 正式 provider 与字段级数据治理
-S3 官方或可信 total-return benchmark
-S4 formal validation 与模型有效性验证
-S5 人工签核与 release blocker
-S6 执行隔离与订单防线
-S7 release gate 总验收
-S8 ChatBox 多轮 tool-calling Agent loop 增强
+drawioPageCount=8
+currentStageAndNextStageSeparated=true
+allFtrStagesDocumented=true
+currentToTargetEntityMappingComplete=true
+nextStageImplementationApprovalRequired=true
+tradeBoundaryFieldsAllFalse=true
 ```
 
-S1 到 S8 可以在技术实现上拆分，但每个子阶段开始前必须先生成子阶段计划和验收标准；每个子阶段结束后必须生成审计包、E2E 证据和 PRD 规格检视。
+### FTR-1 正式数据源与字段级治理
 
-## 3. 子阶段开发计划
-
-### S0 文档与状态基线复核
-
-目标：进入任何代码开发前，确认当前状态词、drawio、PRD、UX、ChatBox 和目标架构没有漂移。
-
-开发对象：
+当前链路：
 
 ```text
-docs/CURRENT_STAGE_DOCUMENTATION_CONSISTENCY_AUDIT.md
-docs/target-architecture-gap.drawio
-docs/read-drawio-output.txt
-docs/drawio-summary.txt
-```
-
-验收标准：
-
-```text
-drawioPageCount <= 8
-documentationConsistencyReady=true
-stateDriftResolved=true
-nextStagePlanActionable=true
-formalTradingUnlocked=false
-autoTradeUnlocked=false
-canCreateOrder=false
-orderCreateAllowed=false
-```
-
-打回条件：
-
-```text
-当前有效状态冲突
-drawio 超过 8 页
-专家页被描述为删除或弱化
-待开发项被写成已完成
-出现正式交易放行文案
-```
-
-### S1 真实资产样本复验
-
-目标：验证资产 Excel 导入导出不只是 UI 路径可见，而是能用真实用户样本驱动资产总览、组合回测和审计链路。当前审计用户基线样本已通过 `verify-portfolio-asset-sample-revalidation.ts`，后续每个真实用户账本导入后仍必须复跑本阶段验收，不能用历史审计用户样本替代真实用户验收。
-
-实现实体：
-
-```text
-frontend/src/pages/Assets.tsx
-frontend/src/pages/Dashboard.tsx
-backend/src/routes/asset.ts
-backend/src/routes/template.ts
-PortfolioBacktestInputBuilder
-asset_excel_flow_audit.json
-portfolio_asset_sample_revalidation_audit.json
-```
-
-验收标准：
-
-```text
-realAssetSampleImported=true
-assetPreviewValidationPassed=true
-assetExportWorkbookReadable=true
-dashboardAssetSummaryUpdated=true
-portfolioBacktestInputBuiltFromImportedAssets=true
-dataHealthNoticeShownForMissingMarketData=true
-auditUserBaselineRevalidated=true
-newUserWorkbookRequiresRevalidation=true
-noOrderCreated=true
-```
-
-用户体验验收：
-
-```text
-用户能下载模板
-用户能导入真实资产 Excel
-用户能看到错误行和修复建议
-用户能确认导入
-用户能导出当前资产
-用户能从 Dashboard 看到资产摘要
-用户能从资产样本进入组合回测输入
-```
-
-### S2 正式 provider 与字段级数据治理
-
-目标：把 research/free-source 数据和正式 provider 数据分层，确保字段级证据、覆盖率、新鲜度和交叉验证可见。
-
-实现实体：
-
-```text
-FormalDataProviderService
-ProviderFreshnessService
-FieldEvidenceRef
-dataGovernanceAudit
+formalProviderIngestionService
+marketDataFreshnessService
+PortfolioBacktestEngine.buildDataGovernanceAudit
 15_data_governance_audit.json
 ```
 
-字段 contract：
+目标链路：
 
 ```text
-sourceProvider
-sourceEndpoint
-asOfDate
-fetchedAt
-freshnessStatus
-coverageStatus
-crossCheckStatus
-evidenceRefs
-providerMode
+FormalDataProviderService
+FormalDataFreshnessPolicy
+FieldEvidenceValidator
+FormalDataSnapshot
 ```
 
-验收标准：
+用户操作：在 Backtest 选择明确的 `releaseCandidateStrategyIds` 并运行正式评审；页面按候选和字段展示 provider、授权、日期、覆盖率、cross-check、evidenceRefs 和恢复动作；Operations 可打开同一 artifact。
+
+出门门槛遵循 `FORMAL_DATA_GOVERNANCE_CONTRACT.md`：
 
 ```text
-providerMode in formal / research_fallback / unavailable
+providerAuthorizationVerified=true
 criticalFieldsHaveEvidenceRefs=true
-staleFieldsVisible=true
-coverageBelowThresholdBlocksFormalValidation=true
-researchFallbackNotPromotedToFormal=true
-providerSecretNotLogged=true
+noCriticalProviderUnknown=true
+noCriticalFreshnessUnknownOrStale=true
+noCriticalCoverageBlocked=true
+researchFallbackPromotedToFormal=false
+formalDataGovernancePassed=true
 ```
 
-### S3 官方或可信 total-return benchmark
+任一候选缺口不能由其他策略的高覆盖率抵消。
 
-目标：组合回测不能只依赖 proxy benchmark；total-return benchmark 缺失时必须降级 validation。
+### FTR-2 官方或可信 total-return benchmark
 
-实现实体：
+当前链路：
+
+```text
+portfolioBenchmarkService
+PortfolioBacktestEngine.buildBenchmarkQualificationAudit
+16_benchmark_qualification_audit.json
+```
+
+目标链路：
 
 ```text
 BenchmarkQualificationService
-totalReturnBenchmarkAdapter
-16_benchmark_qualification_audit.json
-PortfolioBacktestEngine
+OfficialTotalReturnBenchmarkAdapter
+TrustedTotalReturnBenchmarkAdapter
 ```
 
-验收标准：
+用户操作：用户在组合比较中选择 benchmark，查看类型、授权状态、总回报曲线、分红贡献、成本拖累和证据。免费源或 price index 必须显示降级原因。
+
+出门门槛：
 
 ```text
-benchmarkType in official_total_return / trusted_total_return / free_source_total_return / price_index / research_proxy / unavailable
-deprecated benchmark alias proxy must be normalized to research_proxy
-researchProxyBenchmarkMarkedInsufficient=true
+benchmarkType in official_total_return / trusted_total_return
+benchmarkAuthorizationReviewed=true
 benchmarkSourceRefsPresent=true
-dividendContributionSeparated=true
-capitalGainContributionSeparated=true
-costDragVisible=true
+deprecatedAliasesPersisted=false
+researchProxyCannotPassFormalValidation=true
+benchmarkQualificationPassed=true
 ```
 
-Benchmark 枚举以 `docs/BENCHMARK_ENUM_CONTRACT.md` 为准。
+### FTR-3 Formal validation
 
-### S4 formal validation 与模型有效性验证
-
-目标：把“可复算”与“模型有效”分开，输出 OOS、walk-forward、参数敏感性和分组稳定性。
-
-实现实体：
+当前链路：
 
 ```text
-FormalValidationService
-ModelEffectivenessAudit
+PortfolioBacktestEngine.buildFormalValidationAudit
 17_formal_validation_audit.json
-validation_failure_taxonomy.json
+FORMAL_VALIDATION_METRIC_DEFINITIONS.md
 ```
 
-最低验收门槛：
+目标链路：
 
 ```text
-effectivePathCount >= 30
+ReleaseCandidateSet
+FormalValidationService
+ValidationFailureTaxonomy
+```
+
+`releaseCandidateStrategyIds` 是本次拟 release 的策略和版本；`excludedStrategyIds` 必须记录排除原因。失败策略不得为获得全绿而静默移出 candidate 集合。
+
+用户操作：研究用户逐策略查看 OOS、walk-forward、参数敏感性、行业/市场/流动性分组和失败原因，并能打开对应 evidence。
+
+最低门槛：
+
+```text
+releaseEffectivePathCount >= 30
+releaseEffectivePathBenchmark in official_total_return / trusted_total_return
 industryGroupCount >= 3
 walkForwardWindows >= 6
 walkForwardPassedRatio >= 0.6
 parameterSensitivityStatus != insufficient
 groupStabilityStatus != insufficient
 tradeConstraintsComplete=true
-totalReturnBenchmarkAvailable=true or validationStatus=insufficient
+allReleaseCandidatesPassed=true
+formalValidationStatus=passed
+formalValidationPassed=true
 ```
 
-指标公式以 `docs/FORMAL_VALIDATION_METRIC_DEFINITIONS.md` 为准。自动化实现不得只按自然语言阈值解释 `effectivePathCount`、`walkForwardPassedRatio` 或 `industryGroupCount`。
+`formalValidationPassed=true` 只表示模型验证 gate 通过，不等于交易解锁。
 
-### S5 人工签核与 release blocker
+### FTR-4 人工签核
 
-目标：人工计划草案必须进入人工签核流程，但人工签核未完成前仍不能创建订单。
+当前链路：
 
-实现实体：
+```text
+portfolioBacktestReviewService
+PortfolioBacktestEngine.buildManualSignoffAudit
+18_manual_signoff_audit.json
+```
+
+目标链路：
 
 ```text
 ManualSignoffService
-manualTradePlanDraftReview
-18_manual_signoff_audit.json
-formalTradingBlockers
+ManualSignoffRecord
+SignoffEvidencePolicy
 ```
 
-验收标准：
+用户操作：授权审核人在 Operations 依次复核数据、模型、风控、合规和最终 release；每次签核绑定 reviewer、时间、输入 artifact 哈希、结论和备注。普通用户和自动化 Agent 无签核权限。
+
+出门门槛：
 
 ```text
-manualDraftGenerated=true
-manualReviewerRequired=true
-manualSignoffCompleted=false before approval
-formalTargetWeightPercent=0 before release
-canCreateOrder=false
-orderCreateAllowed=false
+requiredRoles=data/model/risk/compliance/final_release
+allRequiredSignedOff=true
+reviewerAndTimestampPresent=true
+signedArtifactHashesMatch=true
+automationSelfApprovalBlocked=true
+manualSignoffPassed=true
 ```
 
-### S6 执行隔离与订单防线
+### FTR-5 执行隔离回归
 
-目标：即使后续进入 release review，也必须先验证 paper/sandbox 隔离和订单创建防线。
+当前链路：
 
-实现实体：
+```text
+PortfolioBacktestEngine.buildExecutionIsolationAudit
+portfolioBacktest.ts / famsChatService.ts 内嵌交易阻断
+13_execution_isolation_audit.json
+```
+
+目标链路：
 
 ```text
 ExecutionIsolationService
-OrderIntentBlocker
-paperTradingAdapter
-13_execution_isolation_audit.json
-trade_boundary_wording_audit.json
+OrderBoundaryRuntimeContract
+ProductionAdapterApprovalRecord
 ```
 
-验收标准：
+用户操作：用户只能预览 paper/sandbox intent。ChatBox、专家页和 API 尝试 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` 均返回 blocked，并且不创建订单、不修改持仓。
+
+自动化出门值固定为：
 
 ```text
-realOrderAdapterDisabled=true
+executionIsolationPassed=true
 paperOrSandboxOnly=true
-orderCreateBlockedWithoutReleaseGate=true
-chatBoxOrderIntentBlocked=true
-expertPageOrderIntentBlocked=true
-apiOrderIntentBlocked=true
+productionAdapterEnabled=false
+realPositionMutationAllowed=false
+orderCreateAllowed=false
 ```
 
-### S7 release gate 总验收
+生产适配器启用属于独立高风险人工审批，不由 FTR 自动化开发完成。
 
-目标：集中判断 FTR-1 到 FTR-6 是否全部通过。未全绿时，不允许声明正式交易可用。
+### FTR-6 Release review 总验收
 
-实现实体：
+当前链路：
+
+```text
+PortfolioBacktestEngine.buildReleaseGateAudit
+14_release_gate_audit.json
+acceptance-report.html
+```
+
+目标链路：
 
 ```text
 ReleaseGateService
-14_release_gate_audit.json
-SUMMARY_FOR_GPT.md
-acceptance-report.html
+FormalReleaseReviewPackage
+HumanReleaseDecision
 ```
 
-验收标准：
+用户操作：审计者从 HTML 报告进入每个 gate、用户场景、测试结果和原始 artifact，查看状态、责任人、失败归属和打回阶段。
+
+自动化阶段最终只能声明：
 
 ```text
-dataGovernancePassed=true
-benchmarkQualificationPassed=true
-formalValidationStatus=passed
-formalValidationPassed=true
-manualSignoffPassed=true
-executionIsolationPassed=true
-humanReviewCompleted=true
-releaseApprovalStatus=pending
-formalTradingUnlocked=false until explicit release approval
+formalTradingReleaseReviewReady=true
+releaseApprovalStatus=pending_human_approval
+formalTradingUnlocked=false
 autoTradeUnlocked=false
 canCreateOrder=false
 orderCreateAllowed=false
 ```
 
-说明：S7 可以要求 formal validation 作为独立 gate 通过，但正式交易动作仍必须等待独立人工 release approval。`formalValidationPassed=true` 不等于 `formalTradingUnlocked` 字段可以置为 true。
+任何生产权限变化必须另行人工审批并建立独立变更记录。
 
-### S8 ChatBox 多轮 tool-calling Agent loop 增强
+## 5. 里程碑
 
-目标：在不改变交易边界的前提下增强 ChatBox 的多轮上下文、连续工具调用和任务追踪。SSE streaming endpoint、流式事件 schema 和结构化 final response 已通过 `verify-chatbox-streaming.ts` 建立基线；本阶段后续重点不是重新证明 streaming 存在，而是把它纳入完整多轮 tool-calling agent loop。
+| 里程碑 | 用户可见效果 | 工程出门条件 | 失败归属 |
+| --- | --- | --- | --- |
+| M0 文档冻结 | 看懂当前与目标，不混淆已完成/待开发 | FTR-0 全绿并人工认可 drawio | 文档阶段 |
+| M1 正式数据可评审 | 看见字段级 provider、日期、覆盖率和缺口 | FTR-1 无关键字段 blocker | 数据治理 |
+| M2 Benchmark 合格 | 看见官方/可信总回报比较 | FTR-2 资格和授权通过 | Benchmark |
+| M3 模型验证通过 | 看见可复核统计验证 | release candidates 全部通过 FTR-3 | 模型验证 |
+| M4 人工签核完成 | 看见五角色签核状态 | 五角色 artifact 与哈希完整 | 人工签核 |
+| M5 隔离防线通过 | 只能 paper/sandbox，交易动作被阻断 | FTR-5 回归通过且生产适配器 disabled | 执行隔离 |
+| M6 Release review ready | 一份报告解释所有 gate 和责任人 | FTR-1 至 FTR-5 关联完整，等待人工 release 决策 | Release Gate |
 
-实现实体：
+## 6. 端到端验收路径
+
+### 路径 A：真实资产到正式评审
+
+1. 用户导入真实资产 Excel。
+2. Dashboard 展示资产摘要和数据健康。
+3. 用户从 ChatBox 或 Backtest 运行组合比较。
+4. 系统展示真实数据日期、benchmark 资格、formal validation 和 blocker。
+5. Operations 能追溯输入资产、Operation 和 FTR artifacts。
+
+门槛：导入资产与回测输入一致；缺数据有恢复说明；无订单创建。
+
+### 路径 B：策略候选到模型验证
+
+1. 研究用户选择 release candidate 和版本。
+2. 运行 1 年、3 年、5 年及验证窗口。
+3. 查看收益、回撤、OOS、walk-forward、参数和分组稳定性。
+4. 失败策略保留在报告并说明排除/打回原因。
+
+门槛：所有 candidate 都有完整结果；insufficient 不得写成 passed。
+
+### 路径 C：人工签核与审计
+
+1. 数据、模型、风控、合规审核人分别打开对应证据。
+2. 审核人提交签核或打回。
+3. 最终 release 审核人查看完整链路。
+4. 报告展示签核时使用的 artifact 哈希。
+
+门槛：缺任一角色即 blocked；自动化不能自签核。
+
+### 路径 D：交易边界
+
+1. 用户从 ChatBox、Backtest 或 API 请求正式交易动作。
+2. 系统返回明确 blocked response 和当前缺失 gate。
+3. Operations 不出现真实订单或持仓变更。
+
+门槛：四类禁止动作在全部入口被阻断；生产适配器不可达。
+
+## 7. 审计产物
 
 ```text
-FamsChatBox.tsx
-backend/src/routes/chat.ts
-famsChatService
-chatLlmPlannerService
-piAgentCoreAdapter
-chat_session_audit.json
-chatbox_streaming_audit.json
-multi_turn_agent_loop_audit.json
-```
-
-验收标准：
-
-```text
-chatStreamingReady=true
-streamingBaselineAuditPassed=true
-multiTurnContextReady=true
-toolCallProgressVisible=true
-operationStatusLinked=true
-multiStepToolCallingReady=true
-unsafeIntentBlocked=true
-formalTradingUnlocked=false
-autoTradeUnlocked=false
-```
-
-## 4. 阶段性验收矩阵
-
-| 维度 | 必须验收 | 失败处理 |
-| --- | --- | --- |
-| PRD 规格 | 用户体验、研究边界、交易锁定是否一致 | 打回子阶段计划 |
-| 真实数据 | 真实资产样本、正式 provider 或明确 fallback | 不得声明 formal |
-| 回测验证 | total-return、成本、分红、交易约束、benchmark | validation insufficient |
-| ChatBox | 工具白名单、结构化结果、审计、阻断 | 不得出门 |
-| 前端体验 | 普通用户路径、专家路径、截图、可读性 | 打回 UX 修复 |
-| 审计包 | JSON、SUMMARY、HTML 报告、artifactRefs | 不得声明验收通过 |
-| 交易边界 | ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 阻断 | hard fail |
-
-## 5. 每个子阶段必须生成的材料
-
-```text
-substage_acceptance_manifest.json
-substage_plan.md
-prd_spec_review.md
-substage_acceptance_audit.json
+13_execution_isolation_audit.json
+14_release_gate_audit.json
+15_data_governance_audit.json
+16_benchmark_qualification_audit.json
+17_formal_validation_audit.json
+18_manual_signoff_audit.json
+provider_authorization_audit.json
+release_candidate_set.json
+formal_release_review_manifest.json
 trade_boundary_wording_audit.json
 acceptance-report.html
 SUMMARY_FOR_GPT.md
 ```
 
-涉及真实数据或回测的子阶段还必须生成：
+每个 artifact 必须包含 schemaVersion、生成时间、commit、输入引用、状态、blockers、warnings 和 evidenceRefs。通过报告不能只引用截图，必须能回到机器产物。
+
+## 8. Hard Fail 与打回规则
+
+以下任一项出现，子阶段不得出门：
 
 ```text
-data_source_audit.json
-calculation_replay_audit.json
-model_effectiveness_audit.json
-artifact_manifest.json
+把 S0-S8 写成下一阶段待开发
+把目标 Service 写成当前已实现
+使用免费源或 research proxy 通过正式数据/benchmark gate
+隐藏失败策略或无效窗口
+自动化写入人工签核通过
+生产适配器在人工审批前启用
+formalTradingUnlocked=true  # 禁止出现的正向状态
+autoTradeUnlocked=true      # 禁止出现的正向状态
+canCreateOrder=true         # 禁止出现的正向状态
+orderCreateAllowed=true     # 禁止出现的正向状态
 ```
 
-## 6. 出门条件
-
-下一阶段整体出门前必须满足：
-
-```text
-allSubstageAcceptancePassed=true
-prdSpecDeviation=none
-criticalAuditFinding=none
-majorOverPromiseRisk=none
-formalTradingUnlocked=false unless separate release approval is granted
-autoTradeUnlocked=false
-humanReviewPackageReady=true
-```
-
-如果目标是“正式交易 release”，则必须另开 release 审批阶段；本计划完成只代表正式交易前置材料更完整，不自动代表正式交易可用。
-
-## 7. 需要人工或外部复核的点
-
-```text
-正式 provider 授权与数据许可
-官方 benchmark 资格
-formal validation 统计口径
-人工签核流程
-正式交易 release gate
-任何将 locked 状态改为 unlocked 的变更
-```
-
-## 8. 文档审计结论
-
-```text
-documentationSupportsNextStageDevelopment=true
-documentationSupportsExitAcceptance=true
-documentationSupportsFormalTradingRelease=false
-chatGptBlockingAuditRequiredBeforeImplementation=false
-externalReviewRequiredBeforeEachStageExit=true
-```
-
-当前无需继续阻断在文档审计上；但每个子阶段退出时仍应生成审计包并可提交 ChatGPT 或人工复核。
-
-## 2026-07-14 文档开发阶段：架构风险闭环与 drawio 重构
-
-更新时间：2026-07-14 15:24:06+08:00
-
-本轮仍处于文档开发阶段，不进入业务代码实现。目标是把当前已认可的开发主线固化为可审查、可执行、可验收的架构文档，避免 drawio 相比前序文档出现信息退化。
-
-### 当前文档修订目标
-
-```text
-documentationOnlyStage=true
-businessCodeChangeAllowed=false
-drawioPageCountLimit=8
-drawioCurrentTargetRelationReady=true
-implementationEntityStateIndexReady=true
-nextStagePlanActionable=true
-prdSpecDeviation=none
-formalTradingUnlocked=false
-autoTradeUnlocked=false
-canCreateOrder=false
-orderCreateAllowed=false
-```
-
-### drawio 第 2 页重构要求
-
-`docs/target-architecture-gap.drawio` 的「当前架构与目标架构差异」页必须采用四列映射，而不是抽象流程图：
-
-| 列 | 必须回答的问题 | 示例实体 |
-| --- | --- | --- |
-| 当前存量实体 | 当前项目已经有哪些可复用代码、页面、服务、数据或审计产物 | `Dashboard.tsx`、`Assets.tsx`、`FamsChatBox.tsx`、`Backtest.tsx`、`DividendLowVol.tsx`、`chat.ts`、`asset.ts`、`portfolioBacktest.ts` |
-| 当前风险 | 为什么当前实现还不能支撑正式交易前置出门 | 市场数据新鲜度 unknown、proxy benchmark、formal validation 不足、普通用户路径复杂、状态词漂移 |
-| 目标架构实体 | 下一阶段需要新增或强化的明确代码实体 | `FormalDataProviderService`、`ProviderFreshnessService`、`BenchmarkQualificationService`、`FormalValidationService`、`ManualSignoffService`、`ExecutionIsolationService`、`ReleaseGateService` |
-| 验收证据 | 开发完成后如何证明没有规格偏移和虚假验收 | `15_data_governance_audit.json`、`16_benchmark_qualification_audit.json`、`17_formal_validation_audit.json`、`18_manual_signoff_audit.json`、`acceptance-report.html` |
-
-### 不允许出现的文档退化
-
-以下任一情况出现，则不得声明文档阶段出门：
-
-```text
-无法从 drawio 判断当前架构与目标架构关系
-无法从文档判断 PRD 规格偏移风险
-无法从验收章节判断用户如何操作、如何验收、失败如何打回
-待开发项被写成已完成
-专家多 Tab 被删除或弱化
-真实数据缺口、benchmark 缺口、formal validation 缺口被 UX 文案隐藏
-出现 formalTradingUnlocked 不得为 true / autoTradeUnlocked 不得为 true / canCreateOrder 不得为 true / orderCreateAllowed 不得为 true
-```
-
-### 下一阶段开发仍未完成的明确范围
-
-当前阶段完成后只能说明文档可以支撑下一阶段开发，不能说明正式交易可用。仍未完成：
-
-```text
-S2 正式 provider 与字段级数据治理
-S3 官方或可信 total-return benchmark
-S4 formal validation 与模型有效性验证
-S5 人工签核与 release blocker
-S6 执行隔离与订单防线
-S7 release gate 总验收
-S8 完整多轮 tool-calling Agent loop 增强
-```
+任一真实数据或 E2E 验收失败，必须回到对应 FTR 子阶段计划，不能通过修改报告文案判绿。

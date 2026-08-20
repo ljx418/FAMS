@@ -48,7 +48,7 @@
 - TailwindCSS
 
 ### 后端
-- Node.js + Express + TypeScript
+- Node.js + Fastify + TypeScript
 - Prisma ORM
 - PostgreSQL + TimescaleDB
 - Redis

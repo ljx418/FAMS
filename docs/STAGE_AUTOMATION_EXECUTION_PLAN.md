@@ -2,6 +2,8 @@
 
 生成日期：2026-07-03
 
+> 历史基线声明（2026-07-16）：本文记录已经完成的 S0-S8 / UX / ChatBox / Excel 受控自动化开发阶段，不再是下一阶段执行入口。下一阶段以 `docs/current-stage-state.json`、`docs/NEXT_STAGE_DEVELOPMENT_ACCEPTANCE_PLAN.md` 和 `docs/FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json` 为唯一有效入口。本文中的历史状态不得覆盖机器状态源，也不得用于声明正式交易 release。
+
 ## 阶段目标
 
 完成已经被 PRD、目标架构和 UX/ChatBox 文档完整支撑的自动化开发项：

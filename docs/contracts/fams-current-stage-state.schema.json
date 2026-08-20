@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/fams-current-stage-state.schema.json",
+  "title": "FAMS Current Stage State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "effectiveAt",
+    "stage",
+    "statusSourcePolicy",
+    "nextStageManifestSource",
+    "tradeBoundaryContract",
+    "formalDataGovernanceContract",
+    "benchmarkEnumContract",
+    "formalValidationMetricDefinitions",
+    "implementationApprovalRequired",
+    "nextStage",
+    "statuses",
+    "allowedActions",
+    "prohibitedActions",
+    "blockingExternalGates"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "fams.current_stage_state.v1"},
+    "effectiveAt": {"type": "string", "format": "date-time"},
+    "stage": {"type": "string", "minLength": 1},
+    "statusSourcePolicy": {"const": "automation_must_read_this_file_before_markdown_status_text"},
+    "substageManifestSource": {"type": "string", "minLength": 1},
+    "nextStageManifestSource": {"const": "docs/FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json"},
+    "tradeBoundaryContract": {"const": "docs/TRADE_BOUNDARY_CONTRACT.md"},
+    "formalDataGovernanceContract": {"const": "docs/FORMAL_DATA_GOVERNANCE_CONTRACT.md"},
+    "benchmarkEnumContract": {"const": "docs/BENCHMARK_ENUM_CONTRACT.md"},
+    "formalValidationMetricDefinitions": {"const": "docs/FORMAL_VALIDATION_METRIC_DEFINITIONS.md"},
+    "supersedes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "implementationApprovalRequired": {"type": "boolean"},
+    "implementationEntry": {"type": "string", "minLength": 1},
+    "reviewStatus": {"type": "string", "minLength": 1},
+    "documentationSupportsControlledNextStageDevelopment": {"const": true},
+    "documentationSupportsSubstageAcceptance": {"const": true},
+    "documentationSupportsUnattendedEndToEndAutomation": {"const": false},
+    "documentationSupportsFormalTradingRelease": {"const": false},
+    "chatGptReview": {"type": "object"},
+    "nextStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stageId", "documentationStatus", "implementationStatus", "implementationApprovalRequired", "unattendedReleaseAllowed", "targetExitClaim", "targetExitDoesNotImplyTradingUnlock", "releaseApprovalStatus"],
+      "properties": {
+        "stageId": {"const": "formal_release_readiness_closure"},
+        "documentationStatus": {"enum": ["ready_for_human_review", "accepted"]},
+        "implementationStatus": {"enum": ["not_started", "in_progress", "engineering_complete_business_gates_blocked"]},
+        "implementationApprovalRequired": {"type": "boolean"},
+        "unattendedReleaseAllowed": {"const": false},
+        "targetExitClaim": {"const": "formalTradingReleaseReviewReady"},
+        "targetExitDoesNotImplyTradingUnlock": {"const": true},
+        "releaseApprovalStatus": {"const": "pending_human_approval"}
+      }
+    },
+    "statuses": {
+      "type": "object",
+      "required": ["formalDataGovernancePassed", "benchmarkQualificationPassed", "formalValidationPassed", "manualSignoffPassed", "executionIsolationPassed", "formalTradingReleaseReviewReady", "formalTradingReleaseReady", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+      "properties": {
+        "formalDataGovernancePassed": {"type": "boolean"},
+        "benchmarkQualificationPassed": {"type": "boolean"},
+        "formalValidationPassed": {"type": "boolean"},
+        "manualSignoffPassed": {"type": "boolean"},
+        "executionIsolationPassed": {"type": "boolean"},
+        "formalTradingReleaseReviewReady": {"type": "boolean"},
+        "formalTradingReleaseReady": {"const": false},
+        "formalTradingUnlocked": {"const": false},
+        "autoTradeUnlocked": {"const": false},
+        "canCreateOrder": {"const": false},
+        "orderCreateAllowed": {"const": false}
+      },
+      "additionalProperties": {"type": "boolean"}
+    },
+    "allowedActions": {"type": "array", "items": {"enum": ["RESEARCH", "OBSERVE", "COMPARE", "ALERT", "PLAN_DRAFT", "MANUAL_TRADE_DRAFT"]}, "uniqueItems": true},
+    "prohibitedActions": {"type": "array", "items": {"enum": ["ADD", "REDUCE", "ORDER_CREATE", "AUTO_TRADE"]}, "uniqueItems": true},
+    "blockingExternalGates": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "controlledDevelopmentNotes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

@@ -1,5 +1,7 @@
 # FAMS Benchmark 枚举合同
 
+> 2026-07-16 下一阶段补充：FTR-2 只有 `official_total_return` 或经授权人工复核的 `trusted_total_return` 可以设置 `benchmarkQualificationPassed=true`。`free_source_total_return` 可以继续支持 formal review，但不能通过正式 release gate。
+
 更新时间：2026-07-16
 
 ## 1. 目的
@@ -38,4 +40,3 @@ proxy -> deprecated alias of research_proxy.
 ## 5. 自动化要求
 
 API DTO、审计 JSON、数据库持久化和前端展示必须使用规范枚举。Deprecated alias 只能出现在迁移、兼容或文档说明中，不得作为新产物输出。
-

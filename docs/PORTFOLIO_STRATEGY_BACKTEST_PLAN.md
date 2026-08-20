@@ -1,5 +1,34 @@
 # 交互式策略回测与正式交易级前置 PRD / 开发与验收计划
 
+## 2026-07-16 当前有效阶段与下一阶段目标
+
+本节是当前有效口径，优先于下方历史开发段落。组合回测、长周期真实数据 replay、ChatBox 结构化比较、Operation artifact 和 formal-review-ready 审计已经完成当前阶段验收。下一阶段不重做回测基础，而是从 `PortfolioBacktestEngine` 内嵌 release audit 构建逻辑拆出独立 gate services，并对明确的 release candidate 集合完成正式数据、benchmark、validation、签核和 release review。
+
+当前事实：
+
+```text
+longHorizonRealDataBacktestReady=true
+benchmark formal review contract passed, formal trading qualification blocked
+formalValidationStatus=insufficient
+formalValidationPassed=false
+manualSignoffPassed=false
+executionIsolationPassed=true
+formalTradingReleaseReviewReady=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+下一阶段必须新增 `releaseCandidateStrategyIds`、`excludedStrategyIds` 和策略版本。只有明确 candidate 需要全部通过 FTR-1 至 FTR-4；未进入 candidate 的研究策略必须记录排除原因，不能从报告中消失。自动化阶段不启用生产订单适配器，只产出等待人类审核的 release review package。
+
+完整 FTR-0 至 FTR-6 计划、命令、artifact 和打回条件维护在：
+
+- `docs/NEXT_STAGE_DEVELOPMENT_ACCEPTANCE_PLAN.md`
+- `docs/FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json`
+- `docs/FORMAL_DATA_GOVERNANCE_CONTRACT.md`
+- `docs/FORMAL_VALIDATION_METRIC_DEFINITIONS.md`
+
 更新时间：2026-06-29
 
 ## 1. 阶段目标

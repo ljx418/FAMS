@@ -1,5 +1,35 @@
 # 红利低波行业龙头策略 PRD
 
+## 2026-07-16 当前有效阶段与下一阶段目标
+
+本节是本 PRD 的当前有效口径，优先于下方历史校准段落。
+
+当前受控开发范围已经完成：红利低波候选、观察区间、研究回测、ChatBox 解释、资产 Excel、普通用户工作台、专家页和审计追溯均可使用。下一阶段不是重复开发这些能力，而是把红利低波 release candidate 纳入 `Formal Release Readiness Closure`：
+
+```text
+FTR-1 正式字段级数据治理
+FTR-2 官方或可信 total-return benchmark
+FTR-3 候选级 formal validation
+FTR-4 数据/模型/风控/合规/final release 人工签核
+FTR-5 paper/sandbox 执行隔离回归
+FTR-6 release review package
+```
+
+当前真实基线：formal 数据治理 blocked，官方/可信 benchmark 未确认，formal validation 为 insufficient，人工签核 missing，生产订单适配器 disabled。红利低波候选进入 release 评审时必须记录策略版本、候选成分、排除原因、provider、分红事件、可交易性、验证窗口和 evidenceRefs；失败候选不得为获得全绿而被静默删除。
+
+下一阶段自动化完成后最多声明：
+
+```text
+formalTradingReleaseReviewReady=true
+releaseApprovalStatus=pending_human_approval
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+详细开发和验收以 `NEXT_STAGE_DEVELOPMENT_ACCEPTANCE_PLAN.md`、`FORMAL_DATA_GOVERNANCE_CONTRACT.md` 和 `FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json` 为准。
+
 更新时间：2026-07-09
 
 ## 1. 产品定位
@@ -710,4 +740,3 @@ S6 执行隔离与订单防线
 S7 release gate 总验收
 S8 完整多轮 tool-calling Agent loop 增强
 ```
-

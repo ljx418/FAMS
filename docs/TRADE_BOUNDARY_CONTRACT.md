@@ -1,5 +1,7 @@
 # FAMS 交易边界合同
 
+> 2026-07-16 下一阶段补充：`formalTradingReleaseReviewReady=true` 只表示人类 release 决策包完整，仍必须保持 `productionAdapterEnabled=false`、`formalTradingUnlocked=false`、`autoTradeUnlocked=false`、`canCreateOrder=false`、`orderCreateAllowed=false`。任何自动化流程不得把 review ready 升级为 production ready。
+
 更新时间：2026-07-16
 
 ## 1. 目标

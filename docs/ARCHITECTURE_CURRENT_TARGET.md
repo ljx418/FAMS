@@ -1,373 +1,154 @@
-# FAMS Architecture: Current Implementation And Target Vision
+# FAMS 当前架构与下一阶段目标架构
 
-## Summary
+更新时间：2026-07-16
 
-FAMS is a financial asset management application for positions, transactions,
-portfolio analysis, investment suggestions, backtesting, and AI-agent-facing
-tool calls. The current system is a modular local application: React frontend,
-Fastify backend, Prisma, and SQLite. The target vision described by earlier
-project docs extends this into a production-grade platform with PostgreSQL,
-TimescaleDB, Redis, queue workers, durable workflows, and richer Agent/MCP
-integration.
+## 1. 架构结论
 
-The paired draw.io diagram is stored at `docs/fams-architecture.drawio`.
-A focused target-and-gap diagram is stored at
-`docs/target-architecture-gap.drawio`.
-
-2026-06-25 formal trading release documentation target:
-
-- Release development and acceptance plan:
-  `docs/FORMAL_TRADING_RELEASE_DEVELOPMENT_ACCEPTANCE_PLAN.md`.
-- The current system remains locked:
-  `formalTradingUnlocked=false`, `autoTradeUnlocked=false`,
-  `canCreateOrder=false`, `orderCreateAllowed=false`.
-- Long-horizon real-data portfolio backtesting is formal-review-ready:
-  `longHorizonRealDataBacktestReady=true`.
-- The target architecture must mark formal provider data, official or trusted
-  total-return benchmarks, formal validation, human signoff, paper/sandbox
-  execution isolation, and release gate audit as future release capabilities.
-- The draw.io gap diagram must stay within 8 pages and express the release path
-  inside the existing 7-page structure without contradicting the current trade
-  lock.
-- The current release-gate audit model is explicit:
-  `executionIsolationAudit=ready_for_review`,
-  `releaseGateAudit=blocked`, `dataGovernanceAudit=blocked`,
-  `benchmarkQualificationAudit=review_ready`,
-  `formalValidationAudit=warning`, and
-  `manualSignoffAudit=missing`.
-
-2026-06-29 documentation implementation status:
-
-- Documentation stage implemented:
-  `documentationStageImplemented=true`.
-- The active target architecture is represented by
-  `docs/target-architecture-gap.drawio`, which remains a 7-page diagram under
-  the 8-page limit.
-- The current stage can guide automated development for FTR-1 through FTR-6:
-  formal data governance, trusted total-return benchmark, formal validation,
-  manual signoff, execution isolation, and release gate audit.
-- The documentation can support formal-review-ready and user acceptance
-  planning. It cannot unlock formal trading without external evidence,
-  formal validation, and human signoff.
-- The current system remains locked:
-  `formalTradingUnlocked=false`, `autoTradeUnlocked=false`,
-  `canCreateOrder=false`, and `orderCreateAllowed=false`.
-
-## Current Implementation
-
-### Runtime Shape
-
-- Browser UI uses React 18 + Vite + TypeScript.
-- Frontend pages are mounted through `frontend/src/App.tsx`:
-  dashboard, assets, positions, fund detail, stock analysis, transactions,
-  analysis, backtest, and portfolios.
-- Frontend services call `http://localhost:4000` directly for backend APIs.
-- Backend is a Fastify server in `backend/src/index.ts`.
-- API documentation is exposed through Swagger UI at `/api-docs`.
-- Prisma uses SQLite through `backend/prisma/schema.prisma`.
-- `server.py` is a separate FastAPI + akshare prototype for global stock
-  analysis and technical indicators.
-
-### Backend Modules
-
-The Fastify server registers these route groups under `/api/v1`:
-
-- `auth`, `assets`, `positions`, `transactions`, `portfolios`
-- `analysis`, `backtest`, `alerts`, `prices`
-- `stocks`, `fund`, `tags`, `llm`
-- `mcp`, `agents`, `workflows`
-
-Business behavior is organized by services:
-
-- Asset and import parsing: `assetService`
-- Position lifecycle and holdings: `positionService`
-- Transaction creation and import support: `transactionService`
-- Price fetching and validation: `priceService`
-- Portfolio allocation and scoring: `portfolioService`
-- Analysis, suggestions, snapshots: `analysisService`
-- Backtest execution: `backtestService`
-- Alert and risk checks: `alertService`
-- Stock technical analysis: `stockAnalysisService`, `technicalService`
-- LLM stock advice prompting and parsing: `llmService`
-
-### Data Model
-
-Current Prisma models include:
-
-- Users, assets, positions, transactions
-- Price history and tags
-- Portfolios and portfolio allocations
-- Strategies, backtests, backtest results, trade signals
-- Daily snapshots, alerts, suggestions
-
-The active provider is SQLite. JSON-like fields are currently stored as strings
-in several models.
-
-### Agent And MCP Surface
-
-The current backend exposes an HTTP MCP-style router:
-
-- `GET /api/v1/mcp/tools`
-- `POST /api/v1/mcp/call`
-- `POST /api/v1/mcp/batch`
-
-Registered tools map directly to service methods:
-
-- `get_real_time_price`
-- `get_positions`
-- `get_investment_suggestions`
-- `get_portfolio_analysis`
-- `run_backtest`
-- `get_daily_snapshot`
-- `create_transaction`
-- `get_alerts`
-
-The Agent router defines roles and capabilities in process. The workflow router
-defines templates for daily analysis, strategy backtesting, and news sentiment.
-Workflow execution is currently a lightweight placeholder rather than a durable
-or distributed execution engine.
-
-## Target Vision
-
-The target architecture should evolve the current modular app without forcing a
-rewrite:
-
-- Replace local SQLite with PostgreSQL for transactional data.
-- Move price history, equity curves, and daily snapshots into TimescaleDB or
-  PostgreSQL time-series tables.
-- Use Redis for cache, rate limits, sessions, and queue coordination.
-- Use Bull workers for scheduled price refreshes, snapshot generation,
-  backtests, alert checks, and report generation.
-- Persist workflow executions, step outputs, errors, retries, and cancellation
-  state.
-- Separate current HTTP MCP endpoints from a formal MCP server process if
-  external Agent clients require stdio or native MCP transport.
-- Treat external data providers as unreliable dependencies with caching,
-  validation, retry, timeout, and source attribution.
-- Add production security boundaries: authentication enforcement, authorization
-  checks per user-owned resource, request validation, and secret management.
-- Add observability around API latency, provider failures, workflow duration,
-  queue lag, and LLM parsing failures.
-
-## Current Stage Target: Interactive Strategy Backtest And Formal-Trading Prerequisites
-
-The active product target is no longer only a generic portfolio ledger and
-analysis workspace. The current stage is an interactive strategy backtesting
-and formal-trading-prerequisite system.
-
-The user-facing target experience is:
-
-- Select dividend-low-volatility, current holdings, permanent portfolio,
-  all-weather, local real-data sample, or custom-weight strategies.
-- Configure start/end dates, initial capital, rebalance frequency, dividend
-  mode, fees, slippage, and benchmark.
-- Compare 1-year, 3-year, 5-year, and custom-range results when the required
-  real data coverage exists; otherwise see explicit insufficiency reasons.
-- View multi-strategy equity curves, drawdown curves, metrics, benchmark
-  returns, excess returns, dividend contribution, data coverage, blocked
-  reasons, and evidence references.
-- Trace each heavy run through Operation artifacts and audit packages.
-- Generate manual plan drafts only when the gate allows it.
-
-The target architecture relationship is:
-
-- Current implemented layer: React/Vite frontend, Fastify REST backend,
-  portfolio backtest services, dividend-low-vol services, Operation artifacts,
-  local market data cache, and research-grade validation artifacts.
-- Modification layer: runtime-health consistency, ETF proxy market data,
-  benchmark adapters, dividend total-return replay, front-end runtime
-  acceptance, and artifact completeness.
-- New target layer: formal-review readiness artifact that aggregates runtime,
-  provider, benchmark, tradeability, validation, manual review, and frontend
-  visibility.
-- Hard boundary: this stage can produce research comparison and manual plan
-  drafts. It must not unlock formal `ADD / REDUCE`, order creation, automatic
-  rebalance, or `AUTO_TRADE`.
-
-2026-06-24 implementation sync:
-
-- Runtime health consistency is implemented for `/health`, SQLite health,
-  portfolio backtest APIs, and the interactive strategy backtest audit package.
-  Latest status is `healthy`.
-- ETF proxy coverage is `ready`; permanent and all-weather portfolios can
-  complete as portfolio formal-review-ready strategies when the local/free
-  source data gates pass.
-- The `/backtest` frontend runtime path passed headless-browser validation and
-  shows runtime gate, benchmark status, dividend contribution, cost drag, and
-  non-trading warnings.
-- `current_holdings_buy_and_hold` is completed for the audit user
-  `audit_portfolio_backtest_user`; default users with no open positions still
-  return `insufficient`, which is an expected blocked state.
-- Portfolio backtest formal review readiness is true for the latest audit
-  package. This does not unlock formal trading because official benchmark
-  upgrade, model effectiveness validation, human review records, and execution
-  controls are still separate gates.
-- Multi-period portfolio replay is now materialized for 1-year, 3-year,
-  5-year, and custom windows through `PortfolioBacktestEngine`. The latest
-  audit sets `longHorizonRealDataBacktestReady=true`: 1-year `96.43%`,
-  3-year `95.90%`, and 5-year `95.71%` coverage across 7 comparable strategies.
-  This still does not unlock formal trading because data governance, model
-  validation, human signoff, and production order controls remain separate gates.
-
-2026-06-25 formal-trading-prerequisite documentation sync:
-
-- The active target is now a documented formal-trading-prerequisite stage, not a
-  formal-trading release.
-- Current implemented components remain the React/Vite frontend, Fastify REST
-  backend, SQLite/Prisma runtime, Operation artifacts, dividend-low-vol
-  strategy services, portfolio backtest services, local/free-source market
-  evidence, and manual draft gates.
-- Components requiring modification are data-grade propagation, official/free
-  benchmark status, model-effectiveness validation, manual-plan draft audit,
-  frontend formal-review visibility, and consolidated unlock blockers.
-- Components to add next are a formal trading unlock checklist, data-grade audit
-  artifacts, model-effectiveness artifacts, manual-plan-draft artifacts, and
-  blocker reports for human review.
-- Release-stage artifacts are now part of the target architecture:
-  `13_execution_isolation_audit.json`, `14_release_gate_audit.json`,
-  `15_data_governance_audit.json`, `16_benchmark_qualification_audit.json`,
-  `17_formal_validation_audit.json`, and `18_manual_signoff_audit.json`.
-  These artifacts explain release blockers. They are not evidence that formal
-  trading has been unlocked.
-- The hard boundary remains unchanged: no formal `ADD / REDUCE`, no
-  `ORDER_CREATE`, no automatic rebalance, and no `AUTO_TRADE` in this stage.
-
-2026-06-26 formal-trading-release planning sync:
-
-- Current state source is
-  `backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SUMMARY_FOR_GPT.md`.
-- Frontend runtime evidence is
-  `backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-12-17-124Z/03_frontend_runtime_and_operation_audit.json`.
-- FTR-1 field-level data governance now requires and exposes
-  `sourceProvider`, `sourceEndpoint`, `asOfDate`, `fetchedAt`,
-  `freshnessStatus`, `coverageStatus`, `crossCheckStatus`, and `evidenceRefs`.
-- The latest release data governance audit has `asOfDate` populated for price,
-  benchmark, dividend, and tradeability fields. This improves formal-review
-  evidence, but official providers, official or trusted benchmark qualification,
-  formal validation, and human signoff still keep release blocked.
-
-Exit status for this stage should be:
+FAMS 当前是 React/Vite + Fastify + Prisma/SQLite 的模块化单体。S0-S8 已完成 ChatBox、普通用户工作台、专家多 Tab、资产 Excel、真实数据研究回测、Operation 审计、release gate 合同和交易阻断。下一阶段不重写系统，只从现有回测引擎中拆分 Formal Release Readiness 的决策职责。
 
 ```text
-interactive_strategy_backtest_ready
-research_grade_strategy_comparison_ready
-portfolio_backtest_formal_review_ready
-manual_trade_draft_ready
-formal_trading_locked
-auto_trade_locked
+当前能力：research / formal-review-ready / manual draft / paper-sandbox audit
+下一阶段目标：formal release review package ready
+不在本阶段：production order enablement / AUTO_TRADE / unattended release
 ```
 
-Exit status for the next documentation/development stage should be:
+权威状态：`docs/current-stage-state.json`。
+
+架构决策：`docs/adr/ADR-2026-07-16-formal-release-readiness-modular-monolith.md`。
+
+## 2. 当前运行架构
+
+### 2.1 体验层
+
+| 实体 | 当前状态 | 职责 |
+| --- | --- | --- |
+| `frontend/src/components/FamsChatBox.tsx` | 已开发并验收 | 普通用户第一入口、受控 intent、结构化结果、数据健康和交易阻断解释 |
+| `frontend/src/pages/Dashboard.tsx` | 已开发并验收 | 普通用户工作台、资产/任务/风险摘要 |
+| `frontend/src/pages/Assets.tsx` | 已开发并验收 | 本地资产账本、Excel 模板/预览/导入/导出 |
+| `frontend/src/pages/Backtest.tsx` | 已开发并验收，release 视图待增强 | 组合比较、收益/回撤、数据等级、validation 和 release blockers |
+| `frontend/src/pages/DividendLowVol.tsx` | 已开发并验收，正式证据待增强 | 候选、观察区间、回测和人工计划草案 |
+| `frontend/src/pages/Operations.tsx` | 已开发并验收，签核视图待增强 | Operation、artifactRefs、失败原因和审计报告 |
+| `frontend/src/pages/Analysis.tsx` | 已开发并验收 | 专家分析和 gate 解释 |
+
+ChatBox 是第一入口但不是唯一入口；上述专家页必须继续保留。
+
+### 2.2 API 与应用层
+
+| 实体 | 当前状态 | 职责 |
+| --- | --- | --- |
+| `backend/src/routes/chat.ts` | 已开发并验收 | ChatBox 消息、SSE、确认和会话 |
+| `backend/src/routes/portfolioBacktest.ts` | 已开发并验收 | 回测、review、Operation artifact 和 13-18 audit 输出 |
+| `backend/src/routes/strategy.ts` | 已开发并验收 | 红利低波候选、观察区间、rolling validation |
+| `backend/src/routes/operation.ts` | 已开发并验收 | 任务与 artifact 追溯 |
+| `PortfolioBacktestInputBuilder` | 已开发并验收 | 构建持仓、永久组合、全天候、红利低波和自定义输入 |
+| `portfolioBacktestReviewService` | 已开发，签核能力不足 | 保存复核材料；不能创建订单 |
+| `operationService` | 已开发并验收 | 持久化任务状态和 artifact refs |
+
+### 2.3 回测、数据与 Gate
+
+| 实体 | 当前状态 | 职责/缺口 |
+| --- | --- | --- |
+| `PortfolioBacktestEngine` | 已开发并验收，职责过重 | 计算策略曲线，同时内嵌六类 release audit 构建逻辑 |
+| `portfolioBenchmarkService` | 已开发，formal trading blocked | 提供 price index、research proxy、free-source total return |
+| `formalProviderIngestionService` | 已开发基础，覆盖域有限 | 红利低波 provider 导入，不是组合级统一正式数据服务 |
+| `marketDataFreshnessService` | 已开发 | 本地缓存 freshness；部分候选仍 unknown/blocked |
+| `market_bar_canonical` | 已开发 | 历史行情缓存和 evidence |
+| `market_tradeability_daily` | 已开发 | 停牌/涨跌停/可交易性研究证据 |
+| `DividendLowVolDaily` | 已开发 | 红利低波候选与研究级分红/质量证据 |
+| `buildDataGovernanceAudit` | 已开发内嵌 | 合同可生成，业务 gate blocked |
+| `buildBenchmarkQualificationAudit` | 已开发内嵌 | formal review 可用，官方/可信资格未通过 |
+| `buildFormalValidationAudit` | 已开发内嵌 | 当前 `insufficient`、`0/7 passed` |
+| `buildManualSignoffAudit` | 已开发内嵌 | 五角色全部 missing |
+| `buildExecutionIsolationAudit` | 已开发内嵌 | paper/sandbox ready，生产适配器 disabled |
+| `buildReleaseGateAudit` | 已开发内嵌 | 正确输出 blocked，不是正式 release 通过 |
+
+## 3. 目标架构
+
+下一阶段保持同进程、同数据库和现有 API，拆出以下应用/领域服务：
+
+| 目标实体 | 来源 | 输入 | 输出 | 状态 |
+| --- | --- | --- | --- | --- |
+| `FormalDataProviderService` | `formalProviderIngestionService` + provider adapters | candidate、字段、日期范围、授权上下文 | `FormalDataSnapshot` | 待新增 |
+| `FormalDataFreshnessPolicy` | `marketDataFreshnessService` | 市场日历、provider SLA、asOfDate | freshness decision | 待新增 |
+| `FieldEvidenceValidator` | 引擎 data governance builder | snapshot、coverage、evidenceRefs | FTR-1 gate result | 待新增 |
+| `BenchmarkQualificationService` | `portfolioBenchmarkService` + benchmark builder | benchmark snapshot、授权证据 | FTR-2 gate result | 待新增 |
+| `FormalValidationService` | 引擎 validation builder | candidate set、曲线、benchmark、约束 | FTR-3 gate result | 待新增 |
+| `ManualSignoffService` | review service + signoff builder | immutable artifacts、reviewer context | FTR-4 signoff records | 待新增 |
+| `ExecutionIsolationService` | isolation builder + blocker | paper intents、runtime route | FTR-5 gate result | 待拆分 |
+| `ReleaseGateService` | release gate builder | FTR-1 至 FTR-5 结果 | review package | 待新增 |
+
+`PortfolioBacktestEngine` 目标只负责输入重放、交易约束、成本、收益、回撤和策略结果，不再自行决定 provider 授权、人工签核或 release 状态。
+
+## 4. 交互与依赖方向
 
 ```text
-formal_trading_prerequisites_documented
-portfolio_strategy_backtest_formal_review_ready
-manual_trade_plan_draft_review_ready
-formal_trading_locked
-auto_trade_locked
+FamsChatBox / Backtest / DividendLowVol
+  -> chat.ts / portfolioBacktest.ts / strategy.ts
+  -> PortfolioBacktestInputBuilder
+  -> PortfolioBacktestEngine
+  -> FormalDataProviderService
+  -> BenchmarkQualificationService
+  -> FormalValidationService
+  -> ManualSignoffService
+  -> ExecutionIsolationService
+  -> ReleaseGateService
+  -> operationService / 13-18 audit / HTML report
+  -> Operations / Backtest / ChatBox explanation
 ```
 
-Machine-readable aliases for implementation and audit checks:
+依赖规则：
+
+- `ReleaseGateService` 只消费 gate result，不调用外部 provider，不重新计算回测。
+- `ManualSignoffService` 只允许授权用户写入，不接受 LLM/Agent 自签核。
+- provider secret 只存在于服务配置，不进入 DTO、日志和 artifact。
+- 前端只显示 gate 结果和可执行的恢复动作，不根据 UI 状态自行推导交易权限。
+- 任一入口都必须读取同一交易边界合同。
+
+## 5. 状态演进关系
 
 ```text
-portfolioBacktestFormalReviewReady=true
-portfolioStrategyBacktestFormalReviewReady=true
-manualTradePlanDraftReviewReady=true
-longHorizonRealDataBacktestReady=true
+S0-S8 accepted
+  -> FTR-0 documentation frozen
+  -> FTR-1 formal data passed
+  -> FTR-2 benchmark qualified
+  -> FTR-3 release candidates validated
+  -> FTR-4 human signoff passed
+  -> FTR-5 execution isolation passed, production disabled
+  -> FTR-6 release review package ready
+  -> human release decision outside automated development
+```
+
+自动化目标状态：
+
+```text
+formalTradingReleaseReviewReady=true
+releaseApprovalStatus=pending_human_approval
+productionAdapterEnabled=false
 formalTradingUnlocked=false
 autoTradeUnlocked=false
-orderCreateAllowed=false
 canCreateOrder=false
+orderCreateAllowed=false
 ```
 
-The stage target API and artifact surface must expose:
+## 6. 风险与技术路线
 
-```text
-dataGrade
-modelEffectiveness
-modelEffectivenessStatus
-manualPlanDraft
-formalTradingUnlockChecklist
-formalTradingBlockers
-allowedActions=RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT
-prohibitedActions=ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
-```
+| 风险 | 影响 | 采用路线 | 未采用路线及原因 |
+| --- | --- | --- | --- |
+| 正式 provider 或授权不可获得 | FTR-1 不能通过 | 免费源继续研究，正式 gate 保持 blocked | 伪装为 official 会造成虚假验收 |
+| 官方 total-return benchmark 不可获得 | FTR-2 不能通过 | 允许经授权复核的 trusted benchmark | research proxy 不能用于 formal pass |
+| 统计结果长期不足 | FTR-3 不能通过 | 扩大真实样本和窗口，保留失败结果 | 降低阈值只为判绿不可接受 |
+| 多角色签核无法及时完成 | FTR-4 blocked | 明确责任人和 artifact hash，等待人工 | 自动签核不允许 |
+| 生产订单风险 | 真实资金风险 | 生产适配器保持 disabled | 在同阶段启用会把评审与执行混在一起 |
+| 引擎职责过重 | 维护和测试耦合 | 模块化单体内拆服务 | 立即微服务化扩大风险且不关闭 blocker |
 
-Required formal-trading-prerequisite audit files:
+## 7. 架构出门条件
 
-```text
-09_data_grade_audit.json
-10_model_effectiveness_audit.json
-11_manual_plan_draft_audit.json
-12_formal_trading_unlock_blockers.json
-SUMMARY_FOR_GPT.md
-acceptance-report.html
-```
+人类必须能从文档和 drawio 回答：
 
-### Concrete Implementation Map For This Stage
+1. 哪些实体已经存在，哪些只是引擎内嵌实现，哪些尚未开发。
+2. 每个目标 Service 从哪个当前实体演进而来。
+3. 用户从哪个页面触发、看见什么结果、在哪里追溯证据。
+4. 每个 FTR gate 的机器门槛、人工门槛和失败归属。
+5. 为什么 release review ready 仍不等于正式交易 unlocked。
 
-The draw.io architecture and the stage documents must describe concrete code
-and artifact entities, not generic boxes. The current implementation map is:
-
-| Layer | Implemented Entity | Responsibility In This Stage |
-| --- | --- | --- |
-| Frontend research page | `frontend/src/pages/DividendLowVol.tsx` | Shows dividend-low-vol candidates, filters, explanations, buy/sell observation zones, rolling backtest results, and non-trading warnings. |
-| Frontend backtest page | `frontend/src/pages/Backtest.tsx` | Runs interactive portfolio backtests and shows curves, metrics, data grade, model effectiveness, manual draft readiness, review records, and trade blockers. |
-| Frontend audit page | `frontend/src/pages/Operations.tsx` | Lets users trace Operation status and artifact references for scans, backtests, and acceptance reports. |
-| Dividend strategy API | `backend/src/routes/strategy.ts` | Serves dividend-low-vol candidate pool, trading zones, rolling backtest, FIVD-R adapter, and manual acceptance data. |
-| Portfolio backtest API | `backend/src/routes/portfolioBacktest.ts` | Serves strategy templates, run results, Operation artifacts, readiness summary, and review endpoints. |
-| Dividend strategy services | `dividendLowVolStrategyService`, `dividendLowVolTradingZoneService`, `dividendLowVolBacktestService`, `dividendLowVolFivdRAdapter` | Produce candidates, scores, rejection taxonomy, observation zones, rolling strategy evidence, and research-only FIVD-R integration. |
-| Portfolio backtest services | `PortfolioBacktestInputBuilder`, `PortfolioBacktestEngine`, `PortfolioBenchmarkService`, `portfolioBacktestReviewService` | Build portfolio inputs, replay strategies, calculate metrics, attach data/model readiness, and persist human review audit records without creating orders. |
-| Runtime and evidence | `operationService`, SQLite/Prisma, local/free-source market cache, `DividendLowVolDaily`, `market_bar_canonical`, `market_tradeability_daily` | Provide current research runtime, persisted artifacts, local evidence, and data freshness gates. |
-| Audit package | `SUMMARY_FOR_GPT.md`, `09_data_grade_audit.json`, `10_model_effectiveness_audit.json`, `11_manual_plan_draft_audit.json`, `12_formal_trading_unlock_blockers.json`, `acceptance-report.html` | Explains research readiness, formal review readiness, manual draft readiness, model/data gaps, and why formal trading remains locked. |
-
-The target relationship is intentionally incremental:
-
-- Gray in the diagram means the entity already exists and is part of the
-  current research/formal-review-ready flow.
-- Yellow means the entity exists but needs stronger data propagation,
-  validation detail, frontend visibility, or terminology alignment.
-- Orange means the entity is a new formal-trading-prerequisite artifact or
-  checklist, not a trading execution feature.
-- Red means a fixed boundary: no formal `ADD / REDUCE`, no `ORDER_CREATE`, no
-  automatic rebalance, and no `AUTO_TRADE`.
-
-This mapping is the source of truth for documentation-level architecture. If a
-future diagram includes an abstract module such as "strategy service" or
-"data layer", it must also name the concrete service, route, table/cache, or
-artifact that implements the behavior.
-
-## Design Decisions
-
-- Keep a modular monolith as the default backend shape. The domain boundaries
-  are visible enough for maintainability, but current scale does not justify
-  independent services.
-- Keep current and target architecture documents separate in meaning. Current
-  diagrams describe code that exists; target diagrams describe migration
-  direction.
-- Preserve Agent and MCP abstractions because they are part of the product
-  direction, but document the current placeholder behavior honestly.
-- Prefer incremental database migration from SQLite to PostgreSQL over a broad
-  data-layer rewrite.
-
-## Risks And Gaps
-
-- Several route handlers use broad `any` request typing and rely on service or
-  database errors for validation.
-- Some current docs overstate production infrastructure readiness.
-- MCP config in `mcp/financial-mcp.json` does not exactly match the active HTTP
-  router shape.
-- `server.py` is outside the Node backend lifecycle and should be treated as an
-  integration candidate, not a fully integrated service.
-- The repository contains built output under `frontend/dist` and `backend/dist`;
-  confirm whether those should remain versioned before introducing CI.
-
-## Suggested Next Steps
-
-- Update README after this migration so quick-start instructions match SQLite
-  and Fastify accurately.
-- Add integration tests for the critical route-to-service paths.
-- Decide whether `server.py` becomes a supported service, a backend route, or a
-  retired prototype.
-- Define a real workflow persistence model before adding more workflow types.
-- Add an ADR for the eventual SQLite-to-PostgreSQL migration.
+无法回答任一问题，架构文档不得出门。

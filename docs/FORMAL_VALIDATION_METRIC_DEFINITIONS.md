@@ -6,6 +6,19 @@
 
 将 S4 formal validation 中的阈值公式化，避免不同实现对 `effectivePathCount`、walk-forward、行业分组和参数敏感性产生不同解释。
 
+2026-07-16 起，本合同同时作为 `FTR-3` 的正式指标定义。`S4` 是已完成的合同实现基线；`FTR-3` 负责使用正式数据和合格 benchmark 对明确的 release candidate 集合执行这些指标。
+
+必须先固定：
+
+```text
+releaseCandidateStrategyIds
+releaseCandidateStrategyVersions
+excludedStrategyIds
+excludedStrategyReasons
+```
+
+release candidate 的失败结果不得为获得全绿而静默移除。`allReleaseCandidatesPassed=true` 才能设置 `formalValidationPassed=true`。
+
 ## 2. 指标定义
 
 ### effectivePath
@@ -23,6 +36,15 @@ artifactReplayable=true
 ```
 
 `effectivePathCount` 是满足以上条件的路径数量。缺 benchmark 或 replay 不可复算的路径不得计入。
+
+上述集合用于兼容已经完成的 S4 formal-review 基线。进入 FTR-3 release candidate 验证时必须额外满足：
+
+```text
+benchmarkStatus in official_total_return / trusted_total_return
+benchmarkQualificationPassed=true
+```
+
+因此 `free_source_total_return` 路径可以继续显示在研究/评审报告中，但不得计入 FTR-3 的 `releaseEffectivePathCount`，也不得帮助 `allReleaseCandidatesPassed` 判绿。
 
 ### walk-forward window
 
@@ -71,10 +93,11 @@ liquidityGroupCount >= 3
 eachGroupHasEffectivePath=true
 ```
 
-## 3. S4 最低门槛
+## 3. S4 基线与 FTR-3 最低门槛
 
 ```text
 effectivePathCount >= 30
+releaseEffectivePathCount >= 30  # FTR-3，仅 official/trusted benchmark
 industryGroupCount >= 3
 walkForwardWindows >= 6
 walkForwardPassedRatio >= 0.6
@@ -86,3 +109,12 @@ totalReturnBenchmarkAvailable=true or validationStatus=insufficient
 
 任一门槛不满足，`formalValidationStatus` 必须是 `insufficient` 或 `failed`，不得写成 `passed`。
 
+即使 `formalValidationPassed=true`，仍必须保持：
+
+```text
+releaseApprovalStatus=pending_human_approval
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```

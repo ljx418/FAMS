@@ -100,6 +100,7 @@
     "seed:portfolio-backtest-audit-holdings": "node node_modules/tsx/dist/cli.mjs scripts/seed-portfolio-backtest-audit-holdings.ts",
     "test:portfolio-backtest-current-holdings-sample": "node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-backtest-current-holdings-sample.ts",
     "test:portfolio-backtest-formal-review-readiness": "node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-backtest-formal-review-readiness.ts",
+    "test:ftr-manifest-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-ftr-manifest-contract.ts",
     "test:next-stage-documentation-baseline": "node node_modules/tsx/dist/cli.mjs scripts/verify-next-stage-documentation-baseline.ts",
     "test:portfolio-asset-sample-revalidation": "node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-asset-sample-revalidation.ts",
     "test:fams-data-governance": "node node_modules/tsx/dist/cli.mjs scripts/verify-fams-data-governance.ts",
