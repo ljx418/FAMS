@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-5-execution-isolation-audit.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schemaVersion", "status", "mode", "paperTradingReady", "sandboxReady", "productionAdapterEnabled", "realPositionMutationAllowed", "orderCreateAllowed", "canCreateOrder", "formalTradingUnlocked", "autoTradeUnlocked", "intents", "blockers", "notTradingAdvice"],
+  "properties": {
+    "schemaVersion": {"const": "portfolio.execution_isolation_audit.v1"},
+    "mode": {"const": "paper_sandbox_only"},
+    "productionAdapterEnabled": {"const": false},
+    "realPositionMutationAllowed": {"const": false},
+    "orderCreateAllowed": {"const": false},
+    "canCreateOrder": {"const": false},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false}
+  }
+}

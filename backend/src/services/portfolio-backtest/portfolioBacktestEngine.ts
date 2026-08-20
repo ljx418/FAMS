@@ -18,7 +18,6 @@ import {
   PortfolioModelEffectiveness,
   PortfolioModelEffectivenessStatus,
   PortfolioMultiPeriodBacktestResult,
-  PortfolioPaperOrderIntent,
   PortfolioFormalTradingReleaseGateAudit,
   PortfolioBenchmarkQualificationAudit,
   PortfolioFormalValidationAudit,
@@ -30,6 +29,7 @@ import {
 } from './portfolioBacktestTypes.js'
 import { portfolioBenchmarkService } from './portfolioBenchmarkService.js'
 import { formalValidationService } from '../formal-release/formalValidationService.js'
+import { executionIsolationService } from '../formal-release/executionIsolationService.js'
 
 type PriceSeries = Map<string, number>
 type PriceSource = 'price_history' | 'market_bar_canonical'
@@ -89,7 +89,7 @@ export class PortfolioBacktestEngine {
       manualPlanDrafts,
       formalTradingUnlockChecklist,
     })
-    const executionIsolationAudit = this.buildExecutionIsolationAudit(runId, generatedAt, manualPlanDrafts)
+    const executionIsolationAudit = executionIsolationService.buildAudit(runId, generatedAt, manualPlanDrafts)
     const dataGovernanceAudit = this.buildDataGovernanceAudit(generatedAt, dataGradeAudit)
     const benchmarkQualificationAudit = this.buildBenchmarkQualificationAudit(formalReviewReadiness)
     const formalValidationAudit = formalValidationService.evaluatePortfolioBacktest({
@@ -1047,68 +1047,6 @@ export class PortfolioBacktestEngine {
       formalTradingUnlocked: false,
       autoTradeUnlocked: false,
       blockers,
-    }
-  }
-
-  private buildExecutionIsolationAudit(
-    runId: string,
-    generatedAt: string,
-    manualPlanDrafts: PortfolioManualPlanDraft[],
-  ): PortfolioExecutionIsolationAudit {
-    const intents: PortfolioPaperOrderIntent[] = manualPlanDrafts.map((draft) => ({
-      schemaVersion: 'portfolio.paper_order_intent.v1',
-      intentId: `paper-intent:${runId}:${draft.strategyId}`,
-      generatedAt,
-      source: 'manual_plan_draft',
-      executionMode: 'paper',
-      strategyId: draft.strategyId,
-      draftStatus: draft.status,
-      currentWeightPercent: draft.currentWeightPercent,
-      researchTargetWeightPercent: draft.researchTargetWeightPercent,
-      formalTargetWeightPercent: 0,
-      notionalAmount: null,
-      suggestedActionTypes: draft.suggestedActionTypes,
-      canCreateOrder: false,
-      orderCreateAllowed: false,
-      formalTradingUnlocked: false,
-      autoTradeUnlocked: false,
-      blockedReasons: Array.from(new Set([
-        ...draft.blockedReasons,
-        'production_order_adapter_not_enabled',
-        'formal_trading_release_gate_not_passed',
-      ])),
-      evidenceRefs: draft.evidenceRefs,
-      notTradingAdvice: true,
-    }))
-
-    const blockers = Array.from(new Set([
-      ...(intents.length === 0 ? ['manual_plan_draft_missing'] : []),
-      'production_order_adapter_not_enabled',
-      'real_position_mutation_disabled',
-      'formal_trading_release_gate_not_passed',
-      'auto_trade_policy_locked',
-    ]))
-
-    return {
-      schemaVersion: 'portfolio.execution_isolation_audit.v1',
-      status: intents.length > 0 ? 'ready_for_paper_review' : 'blocked',
-      mode: 'paper_sandbox_only',
-      paperTradingReady: intents.length > 0,
-      sandboxReady: intents.length > 0,
-      productionAdapterEnabled: false,
-      realPositionMutationAllowed: false,
-      orderCreateAllowed: false,
-      canCreateOrder: false,
-      formalTradingUnlocked: false,
-      autoTradeUnlocked: false,
-      intents,
-      blockers,
-      warnings: [
-        'paper_or_sandbox_intents_are_for_manual_review_only',
-        'no_real_order_or_position_mutation_is_permitted',
-      ],
-      evidenceRefs: Array.from(new Set(intents.flatMap((intent) => intent.evidenceRefs))),
-      notTradingAdvice: true,
     }
   }
 

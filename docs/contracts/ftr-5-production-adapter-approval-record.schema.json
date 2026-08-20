@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-5-production-adapter-approval-record.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "status", "separateHighRiskApprovalRequired", "approvalEndpointAvailable", "productionAdapterEnabled", "realPositionMutationAllowed", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed", "blockers"],
+  "properties": {
+    "schemaVersion": {"const": "fams.production_adapter.approval_record.v1"},
+    "status": {"const": "missing"},
+    "separateHighRiskApprovalRequired": {"const": true},
+    "approvalEndpointAvailable": {"const": false},
+    "productionAdapterEnabled": {"const": false},
+    "realPositionMutationAllowed": {"const": false},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  }
+}
