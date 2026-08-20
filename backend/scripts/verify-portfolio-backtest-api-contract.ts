@@ -205,12 +205,12 @@ async function main() {
     '09_model_effectiveness_audit.json',
     '10_manual_plan_draft_audit.json',
     '11_formal_trading_unlock_checklist.json',
-    '12_execution_isolation_audit.json',
-    '13_formal_trading_release_gate_audit.json',
-    '14_release_data_governance_audit.json',
-    '15_benchmark_qualification_audit.json',
-    '16_formal_validation_audit.json',
-    '17_manual_signoff_audit.json',
+    '13_execution_isolation_audit.json',
+    '14_release_gate_audit.json',
+    '15_data_governance_audit.json',
+    '16_benchmark_qualification_audit.json',
+    '17_formal_validation_audit.json',
+    '18_manual_signoff_audit.json',
   ]) {
     assert.ok(operationSubmission.artifactRefs.some((ref: string) => ref.includes(requiredArtifact)), `operation should expose ${requiredArtifact}`)
   }

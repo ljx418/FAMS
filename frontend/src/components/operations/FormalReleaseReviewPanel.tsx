@@ -31,6 +31,7 @@ export default function FormalReleaseReviewPanel({ operationId: suggestedOperati
   const [operationId, setOperationId] = useState(suggestedOperationId || '')
   const [context, setContext] = useState<ReviewerContext | null>(null)
   const [run, setRun] = useState<RunReview | null>(null)
+  const [packageSummary, setPackageSummary] = useState<{ packageHash: string; status: string; blockers: string[] } | null>(null)
   const [role, setRole] = useState<ReviewerRole>('data')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
@@ -63,6 +64,7 @@ export default function FormalReleaseReviewPanel({ operationId: suggestedOperati
     setToken('')
     setContext(null)
     setRun(null)
+    setPackageSummary(null)
   }
 
   const loadRun = async () => {
@@ -94,6 +96,23 @@ export default function FormalReleaseReviewPanel({ operationId: suggestedOperati
       await loadRun()
     } catch (error: any) {
       message.error(error?.response?.data?.message || '签核提交失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadPackage = async () => {
+    if (!run) return
+    setLoading(true)
+    try {
+      const response = await axios.get(`/api/v1/formal-release/runs/${encodeURIComponent(run.operation.id)}/package`, { headers })
+      setPackageSummary({
+        packageHash: response.data.packageHash,
+        status: response.data.manifest?.status || 'unknown',
+        blockers: response.data.releaseGateAudit?.blockers || [],
+      })
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || '正式发布评审包生成失败')
     } finally {
       setLoading(false)
     }
@@ -134,6 +153,16 @@ export default function FormalReleaseReviewPanel({ operationId: suggestedOperati
               <Descriptions.Item label="生产适配器"><Tag color="red">disabled</Tag></Descriptions.Item>
               <Descriptions.Item label="订单创建"><Tag color="red">blocked</Tag></Descriptions.Item>
             </Descriptions>
+            <div>
+              <Button loading={loading} onClick={loadPackage}>生成/复核正式发布评审包</Button>
+              {packageSummary && (
+                <div className="mt-2 rounded border border-white/10 p-2 text-xs text-gray-300">
+                  <Tag color={packageSummary.status === 'ready_for_human_review' ? 'green' : 'orange'}>{packageSummary.status}</Tag>
+                  <span className="break-all font-mono">{packageSummary.packageHash}</span>
+                  {packageSummary.blockers.length > 0 && <div className="mt-1 text-amber-200">业务门禁：{packageSummary.blockers.join('、')}</div>}
+                </div>
+              )}
+            </div>
             <div className="grid gap-2 md:grid-cols-5">
               {run.signoffAudit.records.map((record) => (
                 <div key={record.role} className="rounded border border-white/10 p-2 text-xs text-gray-300">

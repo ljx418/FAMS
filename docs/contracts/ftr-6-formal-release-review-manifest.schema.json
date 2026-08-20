@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-6-formal-release-review-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "operationId", "operationManifestHash", "status", "sourceArtifacts", "generatedArtifacts", "missingArtifacts", "packageChecks", "businessGates", "manualSignoffAuditHash", "providerAuthorizationAuditHash", "formalBenchmarkAuditsHash", "productionAdapterApprovalRecordHash", "humanReviewRequired", "releaseApprovalStatus", "formalTradingReleaseReviewReady", "formalTradingReleaseReady", "productionAdapterEnabled", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_release.review_manifest.v1"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "operationId": {"type": "string", "minLength": 1},
+    "operationManifestHash": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["ready_for_human_review", "incomplete"]},
+    "sourceArtifacts": {"type": "array", "items": {"$ref": "#/$defs/artifactHash"}, "minItems": 1},
+    "generatedArtifacts": {"type": "array", "items": {"$ref": "#/$defs/artifactHash"}, "minItems": 3},
+    "missingArtifacts": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "packageChecks": {"$ref": "#/$defs/packageChecks"},
+    "businessGates": {"$ref": "#/$defs/businessGates"},
+    "manualSignoffAuditHash": {"$ref": "#/$defs/sha256"},
+    "providerAuthorizationAuditHash": {"$ref": "#/$defs/sha256"},
+    "formalBenchmarkAuditsHash": {"$ref": "#/$defs/sha256"},
+    "productionAdapterApprovalRecordHash": {"$ref": "#/$defs/sha256"},
+    "humanReviewRequired": {"const": true},
+    "releaseApprovalStatus": {"const": "pending_human_approval"},
+    "formalTradingReleaseReviewReady": {"type": "boolean"},
+    "formalTradingReleaseReady": {"const": false},
+    "productionAdapterEnabled": {"const": false},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "artifactHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "source", "sha256"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "source": {"enum": ["operation", "generated"]},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "businessGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["formalDataGovernancePassed", "benchmarkQualificationPassed", "formalValidationPassed", "manualSignoffPassed", "executionIsolationPassed"],
+      "properties": {
+        "formalDataGovernancePassed": {"type": "boolean"},
+        "benchmarkQualificationPassed": {"type": "boolean"},
+        "formalValidationPassed": {"type": "boolean"},
+        "manualSignoffPassed": {"type": "boolean"},
+        "executionIsolationPassed": {"type": "boolean"}
+      }
+    },
+    "packageChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allRequiredArtifactsPresent", "allArtifactHashesVerified", "allReleaseCandidatesVisible", "blockedAndInsufficientResultsPreserved"],
+      "properties": {
+        "allRequiredArtifactsPresent": {"type": "boolean"},
+        "allArtifactHashesVerified": {"type": "boolean"},
+        "allReleaseCandidatesVisible": {"type": "boolean"},
+        "blockedAndInsufficientResultsPreserved": {"type": "boolean"}
+      }
+    }
+  }
+}

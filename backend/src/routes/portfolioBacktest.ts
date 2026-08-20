@@ -184,7 +184,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           autoTradeUnlocked: false,
           notTradingAdvice: true,
         },
-        '12_execution_isolation_audit.json': {
+        '13_execution_isolation_audit.json': {
           schemaVersion: 'portfolio.backtest.execution_isolation_audit.v1',
           generatedAt: generatedAt.toISOString(),
           executionIsolationAudit: result.executionIsolationAudit,
@@ -197,7 +197,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           autoTradeUnlocked: false,
           notTradingAdvice: true,
         },
-        '13_formal_trading_release_gate_audit.json': {
+        '14_release_gate_audit.json': {
           schemaVersion: 'portfolio.backtest.formal_trading_release_gate_audit.v1',
           generatedAt: generatedAt.toISOString(),
           releaseGateAudit: result.releaseGateAudit,
@@ -207,7 +207,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           canCreateOrder: false,
           notTradingAdvice: true,
         },
-        '14_release_data_governance_audit.json': {
+        '15_data_governance_audit.json': {
           schemaVersion: 'portfolio.backtest.release_data_governance_audit.v1',
           generatedAt: generatedAt.toISOString(),
           dataGovernanceAudit: result.dataGovernanceAudit,
@@ -217,7 +217,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           canCreateOrder: false,
           notTradingAdvice: true,
         },
-        '15_benchmark_qualification_audit.json': {
+        '16_benchmark_qualification_audit.json': {
           schemaVersion: 'portfolio.backtest.benchmark_qualification_audit.v1',
           generatedAt: generatedAt.toISOString(),
           benchmarkQualificationAudit: result.benchmarkQualificationAudit,
@@ -227,7 +227,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           canCreateOrder: false,
           notTradingAdvice: true,
         },
-        '16_formal_validation_audit.json': {
+        '17_formal_validation_audit.json': {
           schemaVersion: 'portfolio.backtest.formal_validation_audit.v1',
           generatedAt: generatedAt.toISOString(),
           formalValidationAudit: result.formalValidationAudit,
@@ -237,7 +237,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           canCreateOrder: false,
           notTradingAdvice: true,
         },
-        '17_manual_signoff_audit.json': {
+        '18_manual_signoff_audit.json': {
           schemaVersion: 'portfolio.backtest.manual_signoff_audit.v1',
           generatedAt: generatedAt.toISOString(),
           manualSignoffAudit: result.manualSignoffAudit,
@@ -247,7 +247,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           canCreateOrder: false,
           notTradingAdvice: true,
         },
-        '18_long_horizon_data_coverage_audit.json': {
+        '19_long_horizon_data_coverage_audit.json': {
           schemaVersion: 'portfolio.backtest.long_horizon_data_coverage_audit.v1',
           generatedAt: generatedAt.toISOString(),
           longHorizonDataCoverageAudit: result.longHorizonDataCoverageAudit,
@@ -258,7 +258,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           canCreateOrder: false,
           notTradingAdvice: true,
         },
-        '19_multi_period_backtest_result.json': {
+        '20_multi_period_backtest_result.json': {
           schemaVersion: 'portfolio.backtest.multi_period_backtest_result.v1',
           generatedAt: generatedAt.toISOString(),
           multiPeriodBacktestResult: result.multiPeriodBacktestResult,
@@ -268,7 +268,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           canCreateOrder: false,
           notTradingAdvice: true,
         },
-        '20_dividend_total_return_audit.json': {
+        '21_dividend_total_return_audit.json': {
           schemaVersion: 'portfolio.backtest.dividend_total_return_audit.v1',
           generatedAt: generatedAt.toISOString(),
           dividendTotalReturnAudit: result.dividendTotalReturnAudit,

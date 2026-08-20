@@ -12,20 +12,20 @@
     "FTR-0": {
       "stageId": "FTR-0",
       "purpose": "冻结当前已验收基线、下一阶段范围和机器状态，关闭历史状态漂移。",
-      "currentImplementationState": "implementation_approved_ftr_0_in_progress",
+      "currentImplementationState": "engineering_implemented",
       "currentEntities": ["docs/current-stage-state.json", "docs/S0_S8_SUBSTAGE_ACCEPTANCE_MANIFESTS.json", "docs/target-architecture-gap.drawio"],
       "targetEntities": ["docs/FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json", "docs/CURRENT_STAGE_DOCUMENTATION_CONSISTENCY_AUDIT.md"],
       "entryCriteria": ["S0-S8 accepted baseline remains immutable", "human approval for documentation development recorded"],
       "commands": [
         {"id": "state-json", "command": "node -e \"JSON.parse(require('fs').readFileSync('docs/current-stage-state.json','utf8'))\"", "availability": "existing", "requiredBeforeExit": true},
         {"id": "manifest-json", "command": "node -e \"JSON.parse(require('fs').readFileSync('docs/FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json','utf8'))\"", "availability": "existing", "requiredBeforeExit": true},
-        {"id": "manifest-contract", "command": "cd backend && npm run test:ftr-manifest-contract", "availability": "planned", "requiredBeforeExit": true},
+        {"id": "manifest-contract", "command": "cd backend && npm run test:ftr-manifest-contract", "availability": "existing", "requiredBeforeExit": true},
         {"id": "drawio-read", "command": "node docs/read-drawio.mjs docs/target-architecture-gap.drawio", "availability": "existing", "requiredBeforeExit": true}
       ],
       "requiredArtifacts": ["current-stage-state.json", "CURRENT_STAGE_DOCUMENTATION_CONSISTENCY_AUDIT.md", "read-drawio-output.txt", "drawio-summary.txt"],
       "artifactSchemas": [
         {"artifact": "FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json", "schemaPath": "docs/fams-ftr-substage-acceptance-manifest.schema.json", "availability": "existing"},
-        {"artifact": "current-stage-state.json", "schemaPath": "docs/contracts/fams-current-stage-state.schema.json", "availability": "planned_in_stage"}
+        {"artifact": "current-stage-state.json", "schemaPath": "docs/contracts/fams-current-stage-state.schema.json", "availability": "existing"}
       ],
       "automatedGates": ["drawioPageCount=8", "currentStageAndNextStageSeparated=true", "tradeBoundaryFieldsAllFalse=true"],
       "manualGates": ["human architecture direction review completed", "human implementation approval recorded; production trading approval remains pending"],
@@ -37,19 +37,19 @@
     "FTR-1": {
       "stageId": "FTR-1",
       "purpose": "把研究/免费源数据升级为字段级可授权、可追溯、可判定的正式数据证据。",
-      "currentImplementationState": "contract_implemented_business_gate_blocked",
+      "currentImplementationState": "engineering_implemented_business_gate_blocked",
       "currentEntities": ["formalProviderIngestionService", "marketDataFreshnessService", "PortfolioBacktestEngine.buildDataGovernanceAudit", "15_data_governance_audit.json"],
       "targetEntities": ["FormalDataProviderService", "FormalDataFreshnessPolicy", "FieldEvidenceValidator", "FormalDataSnapshot"],
       "entryCriteria": ["FTR-0 passed", "provider authorization owner identified", "releaseCandidateStrategyIds fixed"],
       "commands": [
-        {"id": "data-governance", "command": "cd backend && npm run test:fams-data-governance", "availability": "existing_requires_ftr_extension", "requiredBeforeExit": true},
+        {"id": "data-governance", "command": "cd backend && npm run test:fams-data-governance", "availability": "existing", "requiredBeforeExit": true},
         {"id": "asset-sample", "command": "cd backend && npm run test:portfolio-asset-sample-revalidation", "availability": "existing", "requiredBeforeExit": true}
       ],
       "requiredArtifacts": ["15_data_governance_audit.json", "provider_authorization_audit.json", "field_evidence_validation_audit.json"],
       "artifactSchemas": [
-        {"artifact": "15_data_governance_audit.json", "schemaPath": "docs/contracts/ftr-1-data-governance-audit.schema.json", "availability": "planned_in_stage"},
-        {"artifact": "provider_authorization_audit.json", "schemaPath": "docs/contracts/ftr-1-provider-authorization-audit.schema.json", "availability": "planned_in_stage"},
-        {"artifact": "field_evidence_validation_audit.json", "schemaPath": "docs/contracts/ftr-1-field-evidence-validation-audit.schema.json", "availability": "planned_in_stage"}
+        {"artifact": "15_data_governance_audit.json", "schemaPath": "docs/contracts/ftr-1-data-governance-audit.schema.json", "availability": "existing"},
+        {"artifact": "provider_authorization_audit.json", "schemaPath": "docs/contracts/ftr-1-provider-authorization-audit.schema.json", "availability": "existing"},
+        {"artifact": "field_evidence_validation_audit.json", "schemaPath": "docs/contracts/ftr-1-field-evidence-validation-audit.schema.json", "availability": "existing"}
       ],
       "automatedGates": ["noCriticalProviderUnknown=true", "criticalFieldsHaveEvidenceRefs=true", "noCriticalFreshnessUnknownOrStale=true", "noCriticalCoverageBlocked=true", "researchFallbackPromotedToFormal=false"],
       "manualGates": ["formal provider authorization verification", "data owner review"],
@@ -61,18 +61,18 @@
     "FTR-2": {
       "stageId": "FTR-2",
       "purpose": "为 release candidate 提供官方或经授权复核的可信 total-return benchmark。",
-      "currentImplementationState": "formal_review_passed_formal_trading_blocked",
+      "currentImplementationState": "engineering_implemented_no_qualified_imported_benchmark",
       "currentEntities": ["portfolioBenchmarkService", "PortfolioBacktestEngine.buildBenchmarkQualificationAudit", "16_benchmark_qualification_audit.json"],
       "targetEntities": ["BenchmarkQualificationService", "OfficialTotalReturnBenchmarkAdapter", "TrustedTotalReturnBenchmarkAdapter"],
       "entryCriteria": ["FTR-1 provider identity available", "benchmark license or trust review owner identified"],
       "commands": [
-        {"id": "benchmark-qualification", "command": "cd backend && npm run test:fams-benchmark-qualification", "availability": "existing_requires_ftr_extension", "requiredBeforeExit": true},
+        {"id": "benchmark-qualification", "command": "cd backend && npm run test:fams-benchmark-qualification", "availability": "existing", "requiredBeforeExit": true},
         {"id": "total-return-backtest", "command": "cd backend && npm run test:dividend-low-vol-total-return-backtest", "availability": "existing", "requiredBeforeExit": true}
       ],
       "requiredArtifacts": ["16_benchmark_qualification_audit.json", "benchmark_license_review.json", "benchmark_total_return_replay.json"],
       "artifactSchemas": [
-        {"artifact": "16_benchmark_qualification_audit.json", "schemaPath": "docs/contracts/ftr-2-benchmark-qualification-audit.schema.json", "availability": "planned_in_stage"},
-        {"artifact": "benchmark_total_return_replay.json", "schemaPath": "docs/contracts/ftr-2-benchmark-replay.schema.json", "availability": "planned_in_stage"}
+        {"artifact": "16_benchmark_qualification_audit.json", "schemaPath": "docs/contracts/ftr-2-benchmark-qualification-audit.schema.json", "availability": "existing"},
+        {"artifact": "benchmark_total_return_replay.json", "schemaPath": "docs/contracts/ftr-2-benchmark-replay.schema.json", "availability": "existing"}
       ],
       "automatedGates": ["benchmarkType in official_total_return/trusted_total_return", "benchmarkSourceRefsPresent=true", "researchProxyCannotPassFormalValidation=true", "deprecatedAliasesPersisted=false"],
       "manualGates": ["benchmark authorization or trust review"],
@@ -84,18 +84,18 @@
     "FTR-3": {
       "stageId": "FTR-3",
       "purpose": "对明确的 release candidate 集合完成 OOS、walk-forward、参数敏感性和分组稳定性验证。",
-      "currentImplementationState": "contract_implemented_status_insufficient_0_of_7_passed",
+      "currentImplementationState": "engineering_implemented_status_insufficient_0_of_7_passed",
       "currentEntities": ["PortfolioBacktestEngine.buildFormalValidationAudit", "17_formal_validation_audit.json", "FORMAL_VALIDATION_METRIC_DEFINITIONS.md"],
       "targetEntities": ["FormalValidationService", "ReleaseCandidateSet", "ValidationFailureTaxonomy"],
       "entryCriteria": ["FTR-1 passed", "FTR-2 passed", "releaseCandidateStrategyIds and excludedStrategyIds recorded"],
       "commands": [
-        {"id": "formal-validation", "command": "cd backend && npm run test:fams-formal-validation", "availability": "existing_requires_ftr_extension", "requiredBeforeExit": true},
+        {"id": "formal-validation", "command": "cd backend && npm run test:fams-formal-validation", "availability": "existing", "requiredBeforeExit": true},
         {"id": "long-horizon", "command": "cd backend && npm run test:portfolio-backtest-long-horizon", "availability": "existing", "requiredBeforeExit": true}
       ],
       "requiredArtifacts": ["17_formal_validation_audit.json", "validation_failure_taxonomy.json", "release_candidate_set.json"],
       "artifactSchemas": [
-        {"artifact": "17_formal_validation_audit.json", "schemaPath": "docs/contracts/ftr-3-formal-validation-audit.schema.json", "availability": "planned_in_stage"},
-        {"artifact": "release_candidate_set.json", "schemaPath": "docs/contracts/ftr-3-release-candidate-set.schema.json", "availability": "planned_in_stage"}
+        {"artifact": "17_formal_validation_audit.json", "schemaPath": "docs/contracts/ftr-3-formal-validation-audit.schema.json", "availability": "existing"},
+        {"artifact": "release_candidate_set.json", "schemaPath": "docs/contracts/ftr-3-release-candidate-set.schema.json", "availability": "existing"}
       ],
       "automatedGates": ["releaseEffectivePathCount>=30", "releaseEffectivePathBenchmark in official_total_return/trusted_total_return", "industryGroupCount>=3", "walkForwardWindows>=6", "walkForwardPassedRatio>=0.6", "parameterSensitivityStatus!=insufficient", "groupStabilityStatus!=insufficient", "allReleaseCandidatesPassed=true"],
       "manualGates": ["model reviewer confirms candidate set and policy thresholds"],
@@ -107,17 +107,17 @@
     "FTR-4": {
       "stageId": "FTR-4",
       "purpose": "完成数据、模型、风控、合规和最终 release 的不可伪造人工签核链。",
-      "currentImplementationState": "contract_implemented_all_five_roles_missing",
+      "currentImplementationState": "engineering_implemented_all_five_roles_missing",
       "currentEntities": ["portfolioBacktestReviewService", "PortfolioBacktestEngine.buildManualSignoffAudit", "18_manual_signoff_audit.json"],
       "targetEntities": ["ManualSignoffService", "ManualSignoffRecord", "SignoffEvidencePolicy"],
       "entryCriteria": ["FTR-1 to FTR-3 artifacts immutable", "authorized reviewer roster available"],
       "commands": [
-        {"id": "manual-signoff-contract", "command": "cd backend && npm run test:fams-manual-signoff", "availability": "existing_requires_ftr_extension", "requiredBeforeExit": true}
+        {"id": "manual-signoff-contract", "command": "cd backend && npm run test:fams-manual-signoff", "availability": "existing", "requiredBeforeExit": true}
       ],
       "requiredArtifacts": ["18_manual_signoff_audit.json", "manual_signoff_records.json", "manual_trade_plan_draft_review.json"],
       "artifactSchemas": [
-        {"artifact": "18_manual_signoff_audit.json", "schemaPath": "docs/contracts/ftr-4-manual-signoff-audit.schema.json", "availability": "planned_in_stage"},
-        {"artifact": "manual_signoff_records.json", "schemaPath": "docs/contracts/ftr-4-manual-signoff-records.schema.json", "availability": "planned_in_stage"}
+        {"artifact": "18_manual_signoff_audit.json", "schemaPath": "docs/contracts/ftr-4-manual-signoff-audit.schema.json", "availability": "existing"},
+        {"artifact": "manual_signoff_records.json", "schemaPath": "docs/contracts/ftr-4-manual-signoff-records.schema.json", "availability": "existing"}
       ],
       "automatedGates": ["requiredRoles exactly data/model/risk/compliance/final_release", "automationSelfApprovalBlocked=true", "reviewerAndTimestampRequiredForPassedRecord=true"],
       "manualGates": ["data signoff", "model signoff", "risk signoff", "compliance signoff", "final release signoff"],
@@ -129,7 +129,7 @@
     "FTR-5": {
       "stageId": "FTR-5",
       "purpose": "回归验证 paper/sandbox 隔离，并把生产适配器启用保留为独立高风险人工门。",
-      "currentImplementationState": "paper_review_ready_production_adapter_disabled",
+      "currentImplementationState": "engineering_implemented_isolation_passed_production_adapter_disabled",
       "currentEntities": ["PortfolioBacktestEngine.buildExecutionIsolationAudit", "backend/src/routes/portfolioBacktest.ts", "backend/src/services/chat/famsChatService.ts", "13_execution_isolation_audit.json"],
       "targetEntities": ["ExecutionIsolationService", "ProductionAdapterApprovalRecord", "OrderBoundaryRuntimeContract"],
       "entryCriteria": ["FTR-3 validation artifact present", "trade boundary contract unchanged"],
@@ -139,8 +139,8 @@
       ],
       "requiredArtifacts": ["13_execution_isolation_audit.json", "trade_boundary_wording_audit.json", "production_adapter_approval_record.json"],
       "artifactSchemas": [
-        {"artifact": "13_execution_isolation_audit.json", "schemaPath": "docs/contracts/ftr-5-execution-isolation-audit.schema.json", "availability": "planned_in_stage"},
-        {"artifact": "production_adapter_approval_record.json", "schemaPath": "docs/contracts/ftr-5-production-adapter-approval-record.schema.json", "availability": "planned_in_stage"}
+        {"artifact": "13_execution_isolation_audit.json", "schemaPath": "docs/contracts/ftr-5-execution-isolation-audit.schema.json", "availability": "existing"},
+        {"artifact": "production_adapter_approval_record.json", "schemaPath": "docs/contracts/ftr-5-production-adapter-approval-record.schema.json", "availability": "existing"}
       ],
       "automatedGates": ["paperOrSandboxOnly=true", "realPositionMutationAllowed=false", "productionAdapterEnabled=false", "orderCreateAllowed=false"],
       "manualGates": ["production adapter remains disabled until separate high-risk approval"],
@@ -152,19 +152,19 @@
     "FTR-6": {
       "stageId": "FTR-6",
       "purpose": "生成可供人类决定是否进入正式 release 的完整审计包，不自动解锁交易。",
-      "currentImplementationState": "release_gate_contract_implemented_business_gate_blocked",
+      "currentImplementationState": "engineering_implemented_review_package_ready_business_gate_blocked",
       "currentEntities": ["PortfolioBacktestEngine.buildReleaseGateAudit", "14_release_gate_audit.json", "acceptance-report.html"],
       "targetEntities": ["ReleaseGateService", "FormalReleaseReviewPackage", "HumanReleaseDecision"],
       "entryCriteria": ["FTR-1 to FTR-5 artifacts present", "all artifact hashes fixed", "human release meeting scheduled"],
       "commands": [
-        {"id": "release-gate", "command": "cd backend && npm run test:fams-release-gate", "availability": "existing_requires_ftr_extension", "requiredBeforeExit": true},
-        {"id": "acceptance-report", "command": "cd backend && npm run test:fams-acceptance-report", "availability": "existing_requires_ftr_extension", "requiredBeforeExit": true},
+        {"id": "release-gate", "command": "cd backend && npm run test:fams-release-gate", "availability": "existing", "requiredBeforeExit": true},
+        {"id": "acceptance-report", "command": "cd backend && npm run test:fams-acceptance-report", "availability": "existing", "requiredBeforeExit": true},
         {"id": "trade-action-readiness", "command": "cd backend && npm run test:trade-action-readiness", "availability": "existing", "requiredBeforeExit": true}
       ],
       "requiredArtifacts": ["14_release_gate_audit.json", "formal_release_review_manifest.json", "acceptance-report.html", "SUMMARY_FOR_GPT.md"],
       "artifactSchemas": [
-        {"artifact": "14_release_gate_audit.json", "schemaPath": "docs/contracts/ftr-6-release-gate-audit.schema.json", "availability": "planned_in_stage"},
-        {"artifact": "formal_release_review_manifest.json", "schemaPath": "docs/contracts/ftr-6-formal-release-review-manifest.schema.json", "availability": "planned_in_stage"}
+        {"artifact": "14_release_gate_audit.json", "schemaPath": "docs/contracts/ftr-6-release-gate-audit.schema.json", "availability": "existing"},
+        {"artifact": "formal_release_review_manifest.json", "schemaPath": "docs/contracts/ftr-6-formal-release-review-manifest.schema.json", "availability": "existing"}
       ],
       "automatedGates": ["FTR-1 to FTR-5 results linked", "artifactHashesVerified=true", "releaseApprovalStatus=pending_human_approval", "formalTradingUnlocked=false", "autoTradeUnlocked=false", "canCreateOrder=false", "orderCreateAllowed=false"],
       "manualGates": ["human reviews complete package", "separate approval required for any production adapter or trading permission change"],

@@ -91,6 +91,10 @@ async function main() {
   await access(resolve(repoRoot, manifest.architectureDecision))
   validateManifest(manifest)
   validateState(state)
+  const artifactSchemaPaths = Array.from(new Set(stageOrder.flatMap((stageId) => manifest.stages[stageId].artifactSchemas.map((artifact: JsonObject) => artifact.schemaPath))))
+  await Promise.all(artifactSchemaPaths.map((schemaPath) => access(resolve(repoRoot, schemaPath))))
+  assert.ok(stageOrder.every((stageId) => manifest.stages[stageId].commands.every((command: JsonObject) => command.availability === 'existing')))
+  assert.ok(stageOrder.every((stageId) => manifest.stages[stageId].artifactSchemas.every((artifact: JsonObject) => artifact.availability === 'existing')))
 
   expectRejected('manifest permits trading unlock', () => validateManifest({ ...manifest, supportsFormalTradingUnlock: true }))
   expectRejected('stage order omits FTR-4', () => validateManifest({ ...manifest, stageOrder: stageOrder.filter((id) => id !== 'FTR-4') }))
@@ -108,6 +112,9 @@ async function main() {
     status: 'passed',
     stageOrder,
     stageCount: stageOrder.length,
+    artifactSchemaCount: artifactSchemaPaths.length,
+    allCommandsImplemented: true,
+    allArtifactSchemasImplemented: true,
     negativeFixturesPassed: 4,
     implementationStatus: state.nextStage.implementationStatus,
     tradeBoundaryLocked: true,

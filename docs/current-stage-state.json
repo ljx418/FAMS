@@ -1,7 +1,7 @@
 {
   "schemaVersion": "fams.current_stage_state.v1",
-  "effectiveAt": "2026-08-20T00:00:00+08:00",
-  "stage": "formal_release_readiness_implementation_in_progress",
+  "effectiveAt": "2026-08-20T14:00:00+08:00",
+  "stage": "formal_release_readiness_engineering_complete_business_gates_blocked",
   "statusSourcePolicy": "automation_must_read_this_file_before_markdown_status_text",
   "substageManifestSource": "docs/S0_S8_SUBSTAGE_ACCEPTANCE_MANIFESTS.json",
   "nextStageManifestSource": "docs/FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json",
@@ -29,7 +29,7 @@
   "nextStage": {
     "stageId": "formal_release_readiness_closure",
     "documentationStatus": "accepted",
-    "implementationStatus": "in_progress",
+    "implementationStatus": "engineering_complete_business_gates_blocked",
     "implementationApprovalRequired": false,
     "unattendedReleaseAllowed": false,
     "targetExitClaim": "formalTradingReleaseReviewReady",
@@ -57,7 +57,7 @@
     "formalValidationPassed": false,
     "manualSignoffPassed": false,
     "executionIsolationPassed": true,
-    "formalTradingReleaseReviewReady": false,
+    "formalTradingReleaseReviewReady": true,
     "formalTradingReleaseReady": false,
     "formalTradingUnlocked": false,
     "autoTradeUnlocked": false,

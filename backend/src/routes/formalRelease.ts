@@ -4,6 +4,8 @@ import { formalBenchmarkService, type FormalBenchmarkImportInput } from '../serv
 import { formalDataProviderService, type FormalProviderAuthorizationDecision, type FormalProviderId } from '../services/formal-release/formalDataProviderService.js'
 import { formalReviewerAuthService, FORMAL_RELEASE_REVIEWER_ROLES, type FormalReleaseReviewerRole } from '../services/formal-release/formalReviewerAuth.js'
 import { computeOperationManifestHash, manualSignoffService, type FormalReleaseSignoffDecision } from '../services/formal-release/manualSignoffService.js'
+import { executionIsolationService } from '../services/formal-release/executionIsolationService.js'
+import { formalReleasePackageService } from '../services/formal-release/formalReleasePackageService.js'
 
 function httpError(message: string, statusCode: number) {
   return Object.assign(new Error(message), { statusCode })
@@ -162,5 +164,36 @@ export async function formalReleaseRoutes(app: FastifyInstance) {
       formalTradingUnlocked: false,
       orderCreateAllowed: false,
     })
+  })
+
+  app.get('/runs/:operationId/package', async (request) => {
+    await formalReviewerAuthService.authenticateRequest(request)
+    const { operationId } = request.params as { operationId: string }
+    const operation = await findBacktestOperation(operationId)
+    const operationManifestHash = computeOperationManifestHash(operation)
+    const [providerAuthorizationAudit, benchmarks, manualSignoffAudit] = await Promise.all([
+      formalDataProviderService.authorizationAudit('tushare_pro'),
+      formalBenchmarkService.listBenchmarks(),
+      manualSignoffService.audit(operationId, operationManifestHash),
+    ])
+    const formalBenchmarkAudits = benchmarks.map((artifact) => formalBenchmarkService.qualificationAudit(artifact))
+    const packageResult = await formalReleasePackageService.build({
+      operation,
+      operationManifestHash,
+      providerAuthorizationAudit,
+      formalBenchmarkAudits,
+      manualSignoffAudit,
+      productionAdapterApprovalRecord: executionIsolationService.productionAdapterApprovalRecord(),
+    })
+    return {
+      schemaVersion: 'fams.formal_release.package_response.v1',
+      ...packageResult,
+      releaseApprovalStatus: 'pending_human_approval',
+      productionAdapterEnabled: false,
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+      canCreateOrder: false,
+      orderCreateAllowed: false,
+    }
   })
 }
