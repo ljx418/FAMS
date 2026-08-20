@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>FAMS 人类验收清单</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-strong: #1d4ed8;
+      --success: #057a55;
+      --success-soft: #e9f8f1;
+      --warning: #b45309;
+      --warning-soft: #fff6e6;
+      --danger: #c2413a;
+      --danger-soft: #fff0ee;
+      --ink: #0f172a;
+      --text: #334155;
+      --muted: #64748b;
+      --canvas: #f4f7fb;
+      --surface: #ffffff;
+      --surface-soft: #eef3f8;
+      --line: #dbe3ef;
+      --line-strong: #b9c6d8;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-2: 0 16px 40px rgba(15, 23, 42, 0.08);
+      --ease: 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-width: 320px; background: var(--canvas); }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(37, 99, 235, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(37, 99, 235, 0.025) 1px, transparent 1px),
+        var(--canvas);
+      background-size: 32px 32px;
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      font-size: 17px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button { touch-action: manipulation; }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    a:focus-visible {
+      outline: 3px solid rgba(37, 99, 235, 0.28);
+      outline-offset: 3px;
+    }
+
+    .app-shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 64px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: var(--ink);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      color: #fff;
+      background: var(--ink);
+      font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+      font-size: 14px;
+      box-shadow: var(--shadow-1);
+    }
+
+    .machine-lock {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 7px 12px;
+      border: 1px solid #f0c4be;
+      border-radius: 999px;
+      color: #98362f;
+      background: var(--danger-soft);
+      font-size: 14px;
+      font-weight: 700;
+      text-wrap: pretty;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(28px, 5vw, 58px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-2);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      top: -76px;
+      right: -58px;
+      width: 220px;
+      height: 220px;
+      border: 34px solid rgba(37, 99, 235, 0.07);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--primary-strong);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(34px, 5vw, 64px);
+      line-height: 1.08;
+      letter-spacing: -0.045em;
+      text-wrap: balance;
+    }
+
+    .hero-copy {
+      max-width: 720px;
+      margin: 20px 0 0;
+      color: var(--text);
+      font-size: clamp(17px, 2vw, 21px);
+      text-wrap: pretty;
+    }
+
+    .plain-rule {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 24px;
+      padding: 10px 13px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-soft);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .plain-rule-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(5, 122, 85, 0.12);
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 22px;
+      margin-top: 22px;
+      align-items: start;
+    }
+
+    .side-panel {
+      position: sticky;
+      top: 18px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow-1);
+      backdrop-filter: blur(14px);
+    }
+
+    .side-label {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .progress-number {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      margin-bottom: 12px;
+    }
+
+    .progress-number strong {
+      font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+      font-size: 38px;
+      line-height: 1;
+      letter-spacing: -0.05em;
+    }
+
+    .progress-number span { color: var(--muted); font-size: 14px; }
+
+    .progress-track {
+      overflow: hidden;
+      height: 9px;
+      border-radius: 99px;
+      background: #e5ebf3;
+    }
+
+    .progress-bar {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--success);
+      transition: width var(--ease);
+    }
+
+    .progress-copy {
+      margin: 12px 0 0;
+      color: var(--text);
+      font-size: 14px;
+      text-wrap: pretty;
+    }
+
+    .mode-switch {
+      display: grid;
+      gap: 7px;
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+
+    .mode-button {
+      width: 100%;
+      min-height: 44px;
+      padding: 9px 11px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+      font-size: 15px;
+      font-weight: 650;
+      transition: background var(--ease), border-color var(--ease), color var(--ease);
+    }
+
+    .mode-button:hover { background: var(--surface-soft); }
+    .mode-button[aria-pressed="true"] {
+      color: var(--primary-strong);
+      border-color: #b9cff9;
+      background: #edf4ff;
+    }
+
+    .side-help {
+      margin: 20px 0 0;
+      padding: 13px;
+      border-radius: var(--radius-sm);
+      color: #73400c;
+      background: var(--warning-soft);
+      font-size: 13px;
+      text-wrap: pretty;
+    }
+
+    .content-stack { min-width: 0; }
+
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 2px 0 14px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(23px, 3vw, 32px);
+      letter-spacing: -0.025em;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .checklist { display: grid; gap: 14px; }
+
+    .check-card {
+      display: none;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: var(--shadow-1);
+      transition: border-color var(--ease), box-shadow var(--ease), transform var(--ease);
+    }
+
+    .check-card.is-visible { display: block; animation: enter 220ms var(--ease) both; }
+    .mode-overview .check-card,
+    .mode-print .check-card { display: block; }
+    .mode-overview .check-card:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07); }
+
+    .check-card[data-status="done"] { border-color: #98d5bd; }
+    .check-card[data-status="blocked"] { border-color: #edb1aa; }
+    .check-card[data-status="unsure"] { border-color: #e5c98b; }
+
+    .card-main { padding: clamp(20px, 4vw, 32px); }
+
+    .card-heading {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .step-number {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      color: var(--primary-strong);
+      background: #edf4ff;
+      font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+      font-weight: 800;
+    }
+
+    .card-title-wrap h3 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 29px);
+      line-height: 1.22;
+      letter-spacing: -0.025em;
+      text-wrap: balance;
+    }
+
+    .owner {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: var(--surface-soft);
+      font-size: 13px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .check-card[data-status="done"] .status-badge { color: var(--success); border-color: #b8e1d0; background: var(--success-soft); }
+    .check-card[data-status="blocked"] .status-badge { color: var(--danger); border-color: #f0c4be; background: var(--danger-soft); }
+    .check-card[data-status="unsure"] .status-badge { color: var(--warning); border-color: #ebd39d; background: var(--warning-soft); }
+
+    .question-copy {
+      margin: 24px 0 0 62px;
+      color: var(--text);
+      font-size: 18px;
+      text-wrap: pretty;
+    }
+
+    .completion-rule {
+      margin: 18px 0 0 62px;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      background: var(--surface-soft);
+      font-size: 15px;
+      text-wrap: pretty;
+    }
+
+    .completion-rule strong { color: var(--ink); }
+
+    .decision-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 24px 0 0 62px;
+    }
+
+    .decision-button {
+      min-height: 50px;
+      padding: 11px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      background: var(--surface);
+      cursor: pointer;
+      font-weight: 750;
+      transition: transform var(--ease), border-color var(--ease), background var(--ease), color var(--ease);
+    }
+
+    .decision-button:hover { transform: translateY(-1px); border-color: #8fa4c0; background: var(--surface-soft); }
+    .decision-button:active { transform: translateY(0); }
+    .decision-button[data-choice="done"][aria-pressed="true"] { color: var(--success); border-color: #76c6a7; background: var(--success-soft); }
+    .decision-button[data-choice="blocked"][aria-pressed="true"] { color: var(--danger); border-color: #e3968d; background: var(--danger-soft); }
+    .decision-button[data-choice="unsure"][aria-pressed="true"] { color: var(--warning); border-color: #dfbd70; background: var(--warning-soft); }
+
+    .evidence-wrap {
+      margin: 18px 0 0 62px;
+    }
+
+    .evidence-wrap label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .evidence-input {
+      width: 100%;
+      min-height: 50px;
+      padding: 12px 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      background: #fbfcfe;
+      resize: vertical;
+      transition: border-color var(--ease), box-shadow var(--ease);
+    }
+
+    .evidence-input::placeholder { color: #8b9aae; }
+    .evidence-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.11); }
+
+    .meeting-select {
+      width: 100%;
+      min-height: 50px;
+      margin-top: 10px;
+      padding: 10px 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      background: #fbfcfe;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px clamp(20px, 4vw, 32px);
+      border-top: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+
+    .nav-button {
+      min-height: 44px;
+      padding: 9px 16px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      background: var(--surface);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .nav-button:hover { border-color: #8fa4c0; background: var(--surface-soft); }
+    .nav-button.primary { color: #fff; border-color: var(--primary); background: var(--primary); }
+    .nav-button.primary:hover { border-color: var(--primary-strong); background: var(--primary-strong); }
+    .nav-button:disabled { cursor: not-allowed; opacity: 0.42; }
+
+    .step-position { color: var(--muted); font-size: 14px; font-weight: 650; }
+
+    .system-boundary {
+      margin-top: 20px;
+      padding: clamp(22px, 4vw, 32px);
+      border: 1px solid #c9d6e7;
+      border-radius: var(--radius-md);
+      color: var(--text);
+      background: #eaf0f8;
+    }
+
+    .system-boundary h2 { margin: 0 0 10px; color: var(--ink); font-size: 22px; }
+    .system-boundary p { margin: 7px 0; text-wrap: pretty; }
+
+    .boundary-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .boundary-item {
+      padding: 13px;
+      border: 1px solid rgba(100, 116, 139, 0.22);
+      border-radius: var(--radius-sm);
+      color: #435269;
+      background: rgba(255, 255, 255, 0.58);
+      font-size: 14px;
+      font-weight: 650;
+      text-align: center;
+    }
+
+    .result-panel {
+      margin-top: 20px;
+      padding: clamp(22px, 4vw, 34px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: var(--shadow-1);
+    }
+
+    .result-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .result-head h2 { margin: 0; font-size: 25px; letter-spacing: -0.02em; }
+    .result-head p { margin: 5px 0 0; color: var(--muted); font-size: 14px; }
+
+    .result-state {
+      max-width: 330px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      background: var(--surface-soft);
+      font-size: 14px;
+      font-weight: 700;
+      text-wrap: pretty;
+    }
+
+    .result-text {
+      width: 100%;
+      min-height: 260px;
+      padding: 16px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      color: #1e293b;
+      background: #f8fafc;
+      font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.65;
+      resize: vertical;
+    }
+
+    .result-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .action-button {
+      min-height: 46px;
+      padding: 10px 16px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      background: var(--surface);
+      cursor: pointer;
+      font-weight: 750;
+    }
+
+    .action-button:hover { background: var(--surface-soft); }
+    .action-button.primary { color: #fff; border-color: var(--primary); background: var(--primary); }
+    .action-button.primary:hover { background: var(--primary-strong); }
+    .action-button.danger { color: var(--danger); }
+
+    .copy-feedback {
+      min-height: 24px;
+      margin: 10px 0 0;
+      color: var(--success);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .privacy-note {
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      text-wrap: pretty;
+    }
+
+    .print-only { display: none; }
+
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell { width: min(100% - 20px, 680px); padding-top: 16px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .hero { padding: 26px 22px; }
+      .hero::after { opacity: 0.55; }
+      .dashboard { grid-template-columns: 1fr; }
+      .side-panel { position: static; }
+      .mode-switch { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .mode-button { text-align: center; }
+      .section-head { align-items: flex-start; flex-direction: column; }
+      .card-heading { grid-template-columns: 42px minmax(0, 1fr); }
+      .step-number { width: 42px; height: 42px; border-radius: 12px; }
+      .status-badge { grid-column: 2; justify-self: start; }
+      .question-copy,
+      .completion-rule,
+      .decision-row,
+      .evidence-wrap { margin-left: 0; }
+      .decision-row { grid-template-columns: 1fr; }
+      .boundary-list { grid-template-columns: 1fr; }
+      .result-head { flex-direction: column; }
+      .result-state { max-width: none; }
+    }
+
+    @media (max-width: 480px) {
+      body { font-size: 16px; }
+      .mode-switch { grid-template-columns: 1fr; }
+      .card-main { padding: 20px 17px; }
+      .card-footer { padding: 13px 17px; }
+      .nav-button { flex: 1; }
+      .step-position { display: none; }
+      .result-actions { display: grid; }
+      .action-button { width: 100%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    @media print {
+      body { background: #fff; font-size: 12pt; }
+      .app-shell { width: 100%; padding: 0; }
+      .topbar, .hero::after, .side-panel, .card-footer, .decision-row, .result-actions, .copy-feedback { display: none !important; }
+      .hero, .check-card, .system-boundary, .result-panel { box-shadow: none; break-inside: avoid; }
+      .hero { padding: 20px; }
+      h1 { font-size: 28pt; }
+      .dashboard { display: block; }
+      .content-stack { margin-top: 18px; }
+      .check-card { display: block !important; margin-bottom: 10px; }
+      .print-only { display: block; }
+      .result-text { min-height: 0; border: 0; white-space: pre-wrap; overflow: visible; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell" id="appShell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">FA</span><span>FAMS · 人类验收</span></div>
+      <div class="machine-lock">交易、下单、生产适配器仍保持关闭</div>
+    </header>
+
+    <section class="hero" aria-labelledby="pageTitle">
+      <p class="eyebrow">Formal release review</p>
+      <h1 id="pageTitle">你只需要回答<br>7 件事</h1>
+      <p class="hero-copy">不需要读技术文档，也不要输入 Token。每一步选择“已完成、卡住了或不确定”，页面会自动告诉 Codex 接下来该验收还是修复。</p>
+      <div class="plain-rule"><span class="plain-rule-dot" aria-hidden="true"></span>所有答案只保存在当前浏览器，除非你主动复制或下载。</div>
+    </section>
+
+    <div class="dashboard" id="dashboard">
+      <aside class="side-panel" aria-label="清单进度与显示方式">
+        <p class="side-label">当前进度</p>
+        <div class="progress-number"><strong id="answeredCount">0</strong><span>/ 7 已回答</span></div>
+        <div class="progress-track" role="progressbar" aria-label="验收清单完成进度" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <p class="progress-copy" id="progressCopy">从第一项开始，不会影响系统数据。</p>
+
+        <div class="mode-switch" aria-label="显示方式">
+          <button class="mode-button" type="button" data-mode="guided" aria-pressed="true">逐项引导</button>
+          <button class="mode-button" type="button" data-mode="overview" aria-pressed="false">全部查看</button>
+          <button class="mode-button" type="button" data-mode="print" aria-pressed="false">打印交接</button>
+        </div>
+        <p class="side-help">看不懂就选“不确定”；做不到就选“卡住了”。这两种答案都会进入 Codex 的修复清单。</p>
+      </aside>
+
+      <div class="content-stack">
+        <div class="section-head">
+          <h2>人类需要确认</h2>
+          <p id="modeHint">当前一次只显示一项</p>
+        </div>
+        <section class="checklist" id="checklist" aria-label="人类验收事项"></section>
+
+        <section class="system-boundary" aria-labelledby="systemBoundaryTitle">
+          <h2 id="systemBoundaryTitle">下面三件事不是你的任务</h2>
+          <p>如果页面结果显示系统能力不足，应由 Codex 修代码，不应由你修改数据库或状态文件。</p>
+          <div class="boundary-list">
+            <div class="boundary-item">不要把密钥贴进页面</div>
+            <div class="boundary-item">不要手改通过状态</div>
+            <div class="boundary-item">不要尝试真实下单</div>
+          </div>
+        </section>
+
+        <section class="result-panel" aria-labelledby="resultTitle">
+          <div class="result-head">
+            <div>
+              <h2 id="resultTitle">交给 Codex 的结果</h2>
+              <p>页面会把复杂答案整理成一段普通中文。</p>
+            </div>
+            <div class="result-state" id="resultState">还未开始，请先回答清单。</div>
+          </div>
+          <textarea class="result-text" id="resultText" readonly aria-label="可复制给 Codex 的验收结果"></textarea>
+          <div class="result-actions">
+            <button class="action-button primary" type="button" id="copyResult">复制结果给 Codex</button>
+            <button class="action-button" type="button" id="downloadResult">下载结果 JSON</button>
+            <button class="action-button" type="button" id="printResult">打印或保存 PDF</button>
+            <button class="action-button danger" type="button" id="resetResult">清空重来</button>
+          </div>
+          <p class="copy-feedback" id="copyFeedback" role="status" aria-live="polite"></p>
+          <p class="privacy-note">安全提醒：说明栏只能填写人员、合同编号、Operation ID、Manifest Hash 或问题描述，不要填写密码、JWT、Token、银行卡或个人证件信息。</p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const STORAGE_KEY = "fams.formal-release-human-checklist.v1";
+      const PAGE_VERSION = "2026.08.20-v1";
+      const STATUS_LABELS = { pending: "待回答", done: "已完成", blocked: "卡住了", unsure: "不确定" };
+      const ITEMS = [
+        {
+          id: "review_team",
+          title: "评审人员已经找齐",
+          owner: "项目负责人",
+          question: "是否已经明确数据、模型、风险、合规、最终发布这 5 个角色分别由谁负责？",
+          complete: "5 个角色都有真实负责人和可用邮箱，并知道自己要审哪一部分。",
+          placeholder: "可填负责人姓名或邮箱；不要填密码"
+        },
+        {
+          id: "formal_data",
+          title: "有合法可用的正式数据源",
+          owner: "数据负责人",
+          question: "是否已经取得正式数据源授权，并由管理员安全配置了凭据？",
+          complete: "有合同或授权编号、有效期限、允许范围；凭据未出现在聊天、页面和审计记录中。",
+          placeholder: "可填合同/授权编号，或写清卡在哪里"
+        },
+        {
+          id: "total_return_benchmark",
+          title: "有正式总回报基准数据",
+          owner: "数据负责人 + 合规负责人",
+          question: "是否有获得授权的 official/trusted total-return Benchmark，并覆盖完整回测日期？",
+          complete: "不是普通价格指数、免费源或研究代理；有许可证、来源、版本和完整历史序列。",
+          placeholder: "可填 Benchmark 名称、版本或缺失原因"
+        },
+        {
+          id: "candidate_set",
+          title: "模型负责人确认 7 个候选",
+          owner: "模型负责人",
+          question: "模型负责人是否认可当前 7 个 release candidate、各自版本和排除规则？",
+          complete: "失败候选不会被悄悄删除；所有排除项都有可审计原因。",
+          placeholder: "可填确认人、候选版本或需要调整的候选"
+        },
+        {
+          id: "four_reviews",
+          title: "前四类证据已经逐项复核",
+          owner: "数据 / 模型 / 风险 / 合规",
+          question: "四位评审人是否看过同一个 Operation 和 Manifest Hash，并对阻断项给出明确意见？",
+          complete: "数据、模型、风险、合规各自选择批准或打回；有问题时没有勉强点通过。",
+          placeholder: "可填 Operation ID、Manifest Hash 或尚未完成的角色"
+        },
+        {
+          id: "final_review",
+          title: "最终发布人完成复核",
+          owner: "最终发布负责人",
+          question: "最终发布人是否在前四项评审完成后，复核了同一个 Manifest Hash？",
+          complete: "最终意见有说明；明确知道“评审完成”不等于“真实交易已解锁”。",
+          placeholder: "可填最终评审人、Manifest Hash 或打回原因"
+        },
+        {
+          id: "release_meeting",
+          title: "发布会议已经形成书面结论",
+          owner: "发布委员会",
+          question: "是否已经记录 Go、No-Go 或 Request Changes，并写明责任人和下一步？",
+          complete: "会议纪要包含 Operation ID、Package Hash、参与人、风险、结论与回滚条件。",
+          placeholder: "可填会议纪要编号或需要 Codex 处理的问题",
+          hasMeetingDecision: true
+        }
+      ];
+
+      const emptyAnswers = () => Object.fromEntries(ITEMS.map((item) => [item.id, { status: "pending", note: "" }]));
+      let state = {
+        mode: "guided",
+        currentIndex: 0,
+        meetingDecision: "",
+        answers: emptyAnswers(),
+        updatedAt: null
+      };
+
+      function loadState() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+          if (!saved || typeof saved !== "object") return;
+          const answers = emptyAnswers();
+          ITEMS.forEach((item) => {
+            const candidate = saved.answers && saved.answers[item.id];
+            if (candidate && ["pending", "done", "blocked", "unsure"].includes(candidate.status)) {
+              answers[item.id] = {
+                status: candidate.status,
+                note: typeof candidate.note === "string" ? candidate.note.slice(0, 500) : ""
+              };
+            }
+          });
+          state = {
+            mode: ["guided", "overview", "print"].includes(saved.mode) ? saved.mode : "guided",
+            currentIndex: Math.max(0, Math.min(ITEMS.length - 1, Number(saved.currentIndex) || 0)),
+            meetingDecision: ["", "go_next_development", "no_go", "request_changes"].includes(saved.meetingDecision) ? saved.meetingDecision : "",
+            answers,
+            updatedAt: typeof saved.updatedAt === "string" ? saved.updatedAt : null
+          };
+        } catch {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
+
+      function saveState() {
+        state.updatedAt = new Date().toISOString();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[character]);
+      }
+
+      function cardMarkup(item, index) {
+        const answer = state.answers[item.id];
+        const decisionSelect = item.hasMeetingDecision ? `
+          <select class="meeting-select" data-meeting-decision aria-label="发布会议结论">
+            <option value="">请选择会议结论</option>
+            <option value="go_next_development" ${state.meetingDecision === "go_next_development" ? "selected" : ""}>Go：只批准进入下一阶段开发</option>
+            <option value="no_go" ${state.meetingDecision === "no_go" ? "selected" : ""}>No-Go：保持阻断</option>
+            <option value="request_changes" ${state.meetingDecision === "request_changes" ? "selected" : ""}>Request Changes：修复后重审</option>
+          </select>` : "";
+        return `
+          <article class="check-card ${state.mode === "guided" && state.currentIndex === index ? "is-visible" : ""}" data-item-id="${item.id}" data-status="${answer.status}" data-testid="check-${item.id}">
+            <div class="card-main">
+              <div class="card-heading">
+                <div class="step-number">${String(index + 1).padStart(2, "0")}</div>
+                <div class="card-title-wrap">
+                  <h3>${escapeHtml(item.title)}</h3>
+                  <p class="owner">负责人：${escapeHtml(item.owner)}</p>
+                </div>
+                <span class="status-badge">${STATUS_LABELS[answer.status]}</span>
+              </div>
+              <p class="question-copy">${escapeHtml(item.question)}</p>
+              <p class="completion-rule"><strong>什么算完成：</strong>${escapeHtml(item.complete)}</p>
+              <div class="decision-row" role="group" aria-label="${escapeHtml(item.title)}的回答">
+                <button type="button" class="decision-button" data-choice="done" aria-pressed="${answer.status === "done"}">已完成</button>
+                <button type="button" class="decision-button" data-choice="blocked" aria-pressed="${answer.status === "blocked"}">卡住了</button>
+                <button type="button" class="decision-button" data-choice="unsure" aria-pressed="${answer.status === "unsure"}">不确定</button>
+              </div>
+              <div class="evidence-wrap">
+                <label for="note-${item.id}">补充一句说明（可不填）</label>
+                <textarea id="note-${item.id}" class="evidence-input" data-note maxlength="500" placeholder="${escapeHtml(item.placeholder)}">${escapeHtml(answer.note)}</textarea>
+                ${decisionSelect}
+              </div>
+            </div>
+            <div class="card-footer">
+              <button type="button" class="nav-button" data-nav="previous" ${index === 0 ? "disabled" : ""}>上一项</button>
+              <span class="step-position">第 ${index + 1} 项，共 ${ITEMS.length} 项</span>
+              <button type="button" class="nav-button primary" data-nav="next">${index === ITEMS.length - 1 ? "查看结果" : "下一项"}</button>
+            </div>
+          </article>`;
+      }
+
+      function buildResult() {
+        const counts = { done: 0, blocked: 0, unsure: 0, pending: 0 };
+        ITEMS.forEach((item) => { counts[state.answers[item.id].status] += 1; });
+        const decisionLabels = {
+          "": "尚未选择",
+          go_next_development: "Go：只批准进入下一阶段开发",
+          no_go: "No-Go：保持阻断",
+          request_changes: "Request Changes：修复后重审"
+        };
+        let outcome = "还未开始，请先回答清单。";
+        if (counts.blocked > 0) outcome = `有 ${counts.blocked} 项卡住，需要 Codex 验收或修复。`;
+        else if (counts.unsure > 0) outcome = `有 ${counts.unsure} 项不确定，需要 Codex 先解释。`;
+        else if (counts.pending > 0) outcome = `还有 ${counts.pending} 项未回答。`;
+        else if (!state.meetingDecision) outcome = "7 项已回答，还需选择发布会议结论。";
+        else if (state.meetingDecision === "go_next_development") outcome = "人类清单完成：可以验收评审包，只批准下一阶段开发。";
+        else if (state.meetingDecision === "no_go") outcome = "人类清单完成：结论 No-Go，系统继续保持阻断。";
+        else outcome = "人类清单完成：需要修复后重新评审。";
+
+        const lines = [
+          "FAMS 人类验收清单结果",
+          `页面版本：${PAGE_VERSION}`,
+          `生成时间：${new Date().toLocaleString("zh-CN", { hour12: false })}`,
+          `完成度：${counts.done}/${ITEMS.length} 已完成；${counts.blocked} 卡住；${counts.unsure} 不确定；${counts.pending} 未回答`,
+          `发布会议结论：${decisionLabels[state.meetingDecision]}`,
+          "",
+          "逐项结果："
+        ];
+        ITEMS.forEach((item, index) => {
+          const answer = state.answers[item.id];
+          lines.push(`${index + 1}. ${item.title}：${STATUS_LABELS[answer.status]}`);
+          if (answer.note.trim()) lines.push(`   说明：${answer.note.trim()}`);
+        });
+        const needsCodex = ITEMS.filter((item) => ["blocked", "unsure"].includes(state.answers[item.id].status));
+        lines.push("", "请 Codex 接下来：");
+        if (needsCodex.length === 0) {
+          lines.push(counts.pending > 0 ? "- 等我完成剩余问题后再验收。" : "- 根据以上结果执行系统验收；如门禁失败，直接定位并修复。" );
+        } else {
+          needsCodex.forEach((item) => lines.push(`- 处理“${item.title}”：${state.answers[item.id].status === "blocked" ? "请定位阻断并给出可执行修复" : "请用简单语言解释并帮助确认"}`));
+        }
+        lines.push(
+          "",
+          "固定安全边界：",
+          "- 本清单不是交易授权。",
+          "- productionAdapterEnabled=false",
+          "- formalTradingUnlocked=false",
+          "- autoTradeUnlocked=false",
+          "- orderCreateAllowed=false"
+        );
+
+        return {
+          counts,
+          outcome,
+          text: lines.join("\n"),
+          json: {
+            schemaVersion: "fams.formal_release.human_checklist_result.v1",
+            pageVersion: PAGE_VERSION,
+            generatedAt: new Date().toISOString(),
+            outcome,
+            meetingDecision: state.meetingDecision || "pending",
+            counts,
+            items: ITEMS.map((item) => ({
+              id: item.id,
+              title: item.title,
+              status: state.answers[item.id].status,
+              note: state.answers[item.id].note.trim()
+            })),
+            humanReviewOnly: true,
+            productionAdapterEnabled: false,
+            formalTradingUnlocked: false,
+            autoTradeUnlocked: false,
+            canCreateOrder: false,
+            orderCreateAllowed: false
+          }
+        };
+      }
+
+      function render() {
+        const dashboard = document.getElementById("dashboard");
+        dashboard.className = `dashboard mode-${state.mode}`;
+        document.getElementById("checklist").innerHTML = ITEMS.map(cardMarkup).join("");
+        document.querySelectorAll("[data-mode]").forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode));
+        });
+        document.getElementById("modeHint").textContent = state.mode === "guided"
+          ? "当前一次只显示一项"
+          : state.mode === "overview" ? "当前显示全部 7 项" : "当前适合打印或保存 PDF";
+
+        const result = buildResult();
+        const answered = ITEMS.length - result.counts.pending;
+        document.getElementById("answeredCount").textContent = String(answered);
+        document.getElementById("progressBar").style.width = `${(answered / ITEMS.length) * 100}%`;
+        const progress = document.querySelector("[role=progressbar]");
+        progress.setAttribute("aria-valuenow", String(answered));
+        document.getElementById("progressCopy").textContent = answered === 0
+          ? "从第一项开始，不会影响系统数据。"
+          : answered === ITEMS.length ? "清单已回答完，可以复制结果。" : `还剩 ${ITEMS.length - answered} 项，答案已自动保存。`;
+        document.getElementById("resultState").textContent = result.outcome;
+        document.getElementById("resultText").value = result.text;
+        bindCardEvents();
+      }
+
+      function bindCardEvents() {
+        document.querySelectorAll(".check-card").forEach((card) => {
+          const itemId = card.dataset.itemId;
+          card.querySelectorAll("[data-choice]").forEach((button) => {
+            button.addEventListener("click", () => {
+              state.answers[itemId].status = button.dataset.choice;
+              saveState();
+              render();
+            });
+          });
+          const note = card.querySelector("[data-note]");
+          note.addEventListener("input", () => {
+            state.answers[itemId].note = note.value.slice(0, 500);
+            saveState();
+            const result = buildResult();
+            document.getElementById("resultText").value = result.text;
+            document.getElementById("resultState").textContent = result.outcome;
+          });
+          const meetingDecision = card.querySelector("[data-meeting-decision]");
+          if (meetingDecision) {
+            meetingDecision.addEventListener("change", () => {
+              state.meetingDecision = meetingDecision.value;
+              saveState();
+              render();
+            });
+          }
+          card.querySelectorAll("[data-nav]").forEach((button) => {
+            button.addEventListener("click", () => {
+              if (button.dataset.nav === "previous") state.currentIndex = Math.max(0, state.currentIndex - 1);
+              if (button.dataset.nav === "next") state.currentIndex = Math.min(ITEMS.length - 1, state.currentIndex + 1);
+              saveState();
+              render();
+              window.scrollTo({ top: document.getElementById("dashboard").offsetTop - 12, behavior: "smooth" });
+              if (button.dataset.nav === "next" && state.currentIndex === ITEMS.length - 1) {
+                document.querySelector(`[data-item-id="${ITEMS[state.currentIndex].id}"] h3`).focus?.();
+              }
+            });
+          });
+        });
+      }
+
+      document.querySelectorAll("[data-mode]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.mode = button.dataset.mode;
+          saveState();
+          render();
+        });
+      });
+
+      document.getElementById("copyResult").addEventListener("click", async () => {
+        const text = buildResult().text;
+        try {
+          await navigator.clipboard.writeText(text);
+          document.getElementById("copyFeedback").textContent = "已复制。回到对话框直接粘贴即可。";
+        } catch {
+          const output = document.getElementById("resultText");
+          output.focus();
+          output.select();
+          document.execCommand("copy");
+          document.getElementById("copyFeedback").textContent = "结果已选中并尝试复制；如未成功，可手动复制。";
+        }
+      });
+
+      document.getElementById("downloadResult").addEventListener("click", () => {
+        const payload = JSON.stringify(buildResult().json, null, 2);
+        const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+        const anchor = document.createElement("a");
+        anchor.href = URL.createObjectURL(blob);
+        anchor.download = `fams-human-checklist-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(anchor.href);
+        document.getElementById("copyFeedback").textContent = "结果 JSON 已下载，可直接发给 Codex。";
+      });
+
+      document.getElementById("printResult").addEventListener("click", () => window.print());
+
+      document.getElementById("resetResult").addEventListener("click", () => {
+        if (!window.confirm("确定清空全部回答吗？此操作无法撤销。")) return;
+        localStorage.removeItem(STORAGE_KEY);
+        state = { mode: "guided", currentIndex: 0, meetingDecision: "", answers: emptyAnswers(), updatedAt: null };
+        document.getElementById("copyFeedback").textContent = "已清空，可以重新开始。";
+        render();
+      });
+
+      loadState();
+      render();
+    })();
+  </script>
+</body>
+</html>

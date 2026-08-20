@@ -127,6 +127,9 @@ export default function FormalReleaseReviewPanel({ operationId: suggestedOperati
         description="该工作台只记录数据、模型、风控、合规和最终发布签核。生产适配器、订单创建和自动交易始终保持关闭。"
         className="mb-4"
       />
+      <div className="mb-4">
+        <Button href="/formal-release-human-checklist.html" target="_blank">打开简单版人类验收清单</Button>
+      </div>
       <Space direction="vertical" className="w-full" size="middle">
         <Space.Compact className="w-full">
           <Input.Password value={token} onChange={(event) => setToken(event.target.value)} placeholder="审阅人 JWT（仅保存在 sessionStorage）" />
