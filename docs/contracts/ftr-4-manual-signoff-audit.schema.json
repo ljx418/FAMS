@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-4-manual-signoff-audit.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schemaVersion", "operationId", "currentManifestHash", "status", "chainValid", "appendOnly", "automationSelfApprovalBlocked", "requiredRoles", "records", "allRequiredSignedOff", "manualSignoffPassed", "blockers", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_release.manual_signoff_audit.v1"},
+    "status": {"enum": ["missing", "partial", "passed"]},
+    "appendOnly": {"const": true},
+    "automationSelfApprovalBlocked": {"const": true},
+    "requiredRoles": {"const": ["data", "model", "risk", "compliance", "final_release"]},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  }
+}

@@ -910,6 +910,26 @@ model FormalProviderAuthorization {
   @@unique([providerId, sequence])
 }
 
+model FormalReleaseSignoff {
+  id              String   @id @default(uuid())
+  operationId     String
+  sequence        Int
+  role            String
+  decision        String
+  notes           String
+  manifestHash    String
+  reviewerUserId  String
+  reviewerEmail   String
+  previousHash    String?
+  recordHash      String
+  createdAt       DateTime @default(now())
+
+  @@index([operationId, createdAt])
+  @@index([reviewerUserId, createdAt])
+  @@index([recordHash])
+  @@unique([operationId, sequence])
+}
+
 model StockFactSetCache {
   id                   String   @id @default(uuid())
   assetId              String?

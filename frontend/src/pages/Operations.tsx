@@ -29,6 +29,7 @@ import ProviderHealthSummary, { type ProviderHealthItem, ProviderHealthTags } fr
 import RefreshFailureTable, { type RefreshFailureItem } from '../components/common/RefreshFailureTable'
 import ReliabilityWarnings from '../components/common/ReliabilityWarnings'
 import OperationTimeline from '../components/common/OperationTimeline'
+import FormalReleaseReviewPanel from '../components/operations/FormalReleaseReviewPanel'
 
 const USER_ID = 'default'
 
@@ -2989,6 +2990,8 @@ const Operations: React.FC = () => {
           </div>
         </div>
       </Card>
+
+      <FormalReleaseReviewPanel operationId={selectedOperation?.type === 'portfolio_backtest_run' ? selectedOperation.id : null} />
 
       <div
         className="rounded-lg border px-4 py-3 text-sm flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"

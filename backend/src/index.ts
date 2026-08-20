@@ -26,6 +26,7 @@ import { chatRoutes } from './routes/chat.js'
 import { templateRoutes } from './routes/template.js'
 import { operationRoutes } from './routes/operation.js'
 import { strategyRoutes } from './routes/strategy.js'
+import { formalReleaseRoutes } from './routes/formalRelease.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { operationService } from './services/operation/operationService.js'
 import { factsetRefreshScheduler } from './services/operation/factsetRefreshScheduler.js'
@@ -127,6 +128,7 @@ async function registerRoutes() {
   await app.register(analysisRoutes, { prefix: '/api/v1/analysis' })
   await app.register(backtestRoutes, { prefix: '/api/v1/backtest' })
   await app.register(portfolioBacktestRoutes, { prefix: '/api/v1/portfolio-backtest' })
+  await app.register(formalReleaseRoutes, { prefix: '/api/v1/formal-release' })
   await app.register(alertRoutes, { prefix: '/api/v1/alerts' })
   await app.register(operationRoutes, { prefix: '/api/v1/operations' })
   await app.register(priceRoutes, { prefix: '/api/v1/prices' })
