@@ -7,7 +7,13 @@ import InvestmentAdvice from './InvestmentAdvice'
 import { KLinedChart } from '../charts'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { getStockAnalysis, generateKLineDataFromAnalysis, type StockAnalysisResponse } from '../../services/stockService'
+import {
+  getStockAnalysis,
+  getStockMarketTrend,
+  mapStockTrendToKLineData,
+  type StockAnalysisResponse,
+  type StockMarketTrendResponse,
+} from '../../services/stockService'
 import type { KLineData } from '../charts'
 import { colors, fonts, darkTheme } from '../../styles/chartTheme'
 import axios from 'axios'
@@ -29,6 +35,7 @@ const StockDetailModal: React.FC<StockDetailModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false)
   const [analysis, setAnalysis] = useState<StockAnalysisResponse | null>(null)
+  const [marketTrend, setMarketTrend] = useState<StockMarketTrendResponse | null>(null)
   const [klineData, setKlineData] = useState<KLineData[]>([])
   const [fundTrends, setFundTrends] = useState<Record<string, Array<{ date: string; nav: number; navChange: number }>>>({})
   const [matchedFunds, setMatchedFunds] = useState<Array<{ fundCode: string; fundName: string; proportion: number }>>([])
@@ -45,13 +52,13 @@ const StockDetailModal: React.FC<StockDetailModalProps> = ({
     setLoading(true)
     try {
       const marketParam = market || (stockCode.startsWith('6') ? 'A股' : stockCode.startsWith('0') ? 'A股' : 'A股')
-      const data = await getStockAnalysis(stockCode, marketParam)
+      const [data, trend] = await Promise.all([
+        getStockAnalysis(stockCode, marketParam),
+        getStockMarketTrend(stockCode, 30).catch(() => null),
+      ])
       setAnalysis(data)
-      // 生成K线数据
-      if (data) {
-        const kData = generateKLineDataFromAnalysis(data, 60)
-        setKlineData(kData)
-      }
+      setMarketTrend(trend)
+      setKlineData(trend ? mapStockTrendToKLineData(trend) : [])
       // 获取持有该股票的基金趋势
       fetchFundTrends()
     } catch (error) {
@@ -85,6 +92,8 @@ const StockDetailModal: React.FC<StockDetailModalProps> = ({
 
   const handleClose = () => {
     setAnalysis(null)
+    setMarketTrend(null)
+    setKlineData([])
     setFundTrends({})
     setMatchedFunds([])
     onClose()
@@ -358,6 +367,8 @@ const StockDetailModal: React.FC<StockDetailModalProps> = ({
                 period="日线"
                 showVolume
                 showMA
+                maPeriods={[5, 10, 30]}
+                visibleTradingDays={30}
                 height={280}
               />
             </Card>
@@ -428,10 +439,11 @@ const StockDetailModal: React.FC<StockDetailModalProps> = ({
             rsi={analysis.rsi}
             support={analysis.support}
             resistance={analysis.resistance}
-            ma={analysis.ma5 !== undefined && analysis.ma10 !== undefined && analysis.ma20 !== undefined ? {
-              ma5: analysis.ma5,
-              ma10: analysis.ma10,
-              ma20: analysis.ma20
+            ma={marketTrend ? {
+              ma5: marketTrend.indicators.ma5,
+              ma10: marketTrend.indicators.ma10,
+              ma20: analysis.ma20,
+              ma30: marketTrend.indicators.ma30,
             } : undefined}
             externalTechnical={analysis.external_technical}
             technicalAdvice={analysis.technical_advice}

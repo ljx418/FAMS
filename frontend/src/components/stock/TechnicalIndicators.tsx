@@ -7,7 +7,7 @@ interface TechnicalIndicatorsData {
   boll?: { upper: number; middle: number; lower: number }
   atr?: number
   rsi?: number
-  ma?: { ma5: number; ma10: number; ma20: number }
+  ma?: { ma5: number; ma10: number; ma20?: number; ma30?: number }
   support?: number
   resistance?: number
   externalTechnical?: ExternalTechnical
@@ -138,7 +138,7 @@ interface TechnicalIndicatorsProps {
   boll?: { upper: number; middle: number; lower: number }
   atr?: number
   rsi?: number
-  ma?: { ma5: number; ma10: number; ma20: number }
+  ma?: { ma5: number; ma10: number; ma20?: number; ma30?: number }
   support?: number
   resistance?: number
   externalTechnical?: ExternalTechnical
@@ -448,7 +448,8 @@ const TechnicalIndicators: React.FC<TechnicalIndicatorsProps> = (props) => {
             <div className="flex flex-wrap gap-1 text-xs">
               <span className="text-[#FAC858]">5:{indicators.ma?.ma5?.toFixed(1) || '--'}</span>
               <span className="text-[#00BFFF]">10:{indicators.ma?.ma10?.toFixed(1) || '--'}</span>
-              <span className="text-[#FF69B4]">20:{indicators.ma?.ma20?.toFixed(1) || '--'}</span>
+              {indicators.ma?.ma20 !== undefined && <span className="text-[#FF69B4]">20:{indicators.ma.ma20.toFixed(1)}</span>}
+              {indicators.ma?.ma30 !== undefined && <span className="text-[#fb7185]">30:{indicators.ma.ma30.toFixed(1)}</span>}
             </div>
           </div>
         </Col>

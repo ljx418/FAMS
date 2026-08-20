@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Card, Row, Col, Button, Statistic, Spin, message, Tag } from 'antd'
+import { Alert, Card, Row, Col, Button, Statistic, Spin, message, Tag } from 'antd'
 import { ArrowLeftOutlined, ReloadOutlined, RobotOutlined, AlertOutlined } from '@ant-design/icons'
 import KLinedChart from '../components/charts/KLinedChart'
 import MACDChart from '../components/stock/MACDChart'
@@ -9,7 +9,16 @@ import TechnicalIndicators from '../components/stock/TechnicalIndicators'
 import FinancialTable from '../components/stock/FinancialTable'
 import InvestmentAdvice from '../components/stock/InvestmentAdvice'
 import type { KLineData } from '../components/charts'
-import { getStockAnalysis, generateKLineDataFromAnalysis, generateMACDDataFromAnalysis, getLLMStockAdvice, type StockAnalysisResponse, type LLMStockAdvice } from '../services/stockService'
+import {
+  generateMACDDataFromAnalysis,
+  getLLMStockAdvice,
+  getStockAnalysis,
+  getStockMarketTrend,
+  mapStockTrendToKLineData,
+  type LLMStockAdvice,
+  type StockAnalysisResponse,
+  type StockMarketTrendResponse,
+} from '../services/stockService'
 
 const StockAnalysis: React.FC = () => {
   const { code } = useParams<{ code: string }>()
@@ -17,6 +26,8 @@ const StockAnalysis: React.FC = () => {
 
   const [loading, setLoading] = useState(true)
   const [analysis, setAnalysis] = useState<StockAnalysisResponse | null>(null)
+  const [marketTrend, setMarketTrend] = useState<StockMarketTrendResponse | null>(null)
+  const [marketTrendError, setMarketTrendError] = useState<string | null>(null)
   const [klineData, setKlineData] = useState<KLineData[]>([])
   const [macdData, setMacdData] = useState<ReturnType<typeof generateMACDDataFromAnalysis>>([])
   const [llmAdvice, setLlmAdvice] = useState<LLMStockAdvice | null>(null)
@@ -27,11 +38,21 @@ const StockAnalysis: React.FC = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const data = await getStockAnalysis(stockCode)
+      const [data, trendResult] = await Promise.all([
+        getStockAnalysis(stockCode),
+        getStockMarketTrend(stockCode, 30)
+          .then((trend) => ({ trend, error: null }))
+          .catch((error: unknown) => ({
+            trend: null,
+            error: error instanceof Error ? error.message : '真实行情走势获取失败',
+          })),
+      ])
       setAnalysis(data)
+      setMarketTrend(trendResult.trend)
+      setMarketTrendError(trendResult.error)
 
-      // Generate K-line data from analysis for chart display
-      const kData = generateKLineDataFromAnalysis(data, 90)
+      // Only provider-returned bars are allowed on the chart. Never synthesize price paths.
+      const kData = trendResult.trend ? mapStockTrendToKLineData(trendResult.trend) : []
       setKlineData(kData)
 
       // Generate MACD data
@@ -105,22 +126,29 @@ const StockAnalysis: React.FC = () => {
     )
   }
 
-  const latestPrice = analysis.current_price
-  const priceChange = analysis.price_change
-  const priceChangePercent = analysis.price_change_percent
+  const latestPrice = marketTrend?.quote.price ?? analysis.current_price
+  const priceChange = marketTrend?.quote.change ?? analysis.price_change
+  const priceChangePercent = marketTrend?.quote.changePercent ?? analysis.price_change_percent
   const isRising = priceChange >= 0
+  const pricePrecision = latestPrice < 1 ? 3 : 2
+  const sessionLabel = marketTrend?.quote.sessionStatus === 'intraday'
+    ? '盘中'
+    : marketTrend?.quote.sessionStatus === 'pre_open'
+      ? '盘前'
+      : '已收盘'
 
   // Determine market from stock code
   const market = stockCode.startsWith('6') ? '上证' : stockCode.startsWith('0') ? '深证' : '创业板'
 
-  // Mock financial data - in production, would call getFinancialData
-  const financialData = [
-    { quarter: '2024Q3', revenue: 892.56, netProfit: 125.34, grossMargin: 35.2, roe: 8.5, debtRatio: 45.2, operatingCashFlow: 98.5, researchExpense: 45.2 },
-    { quarter: '2024Q2', revenue: 876.23, netProfit: 118.45, grossMargin: 34.8, roe: 8.1, debtRatio: 44.8, operatingCashFlow: 105.3, researchExpense: 43.8 },
-    { quarter: '2024Q1', revenue: 845.67, netProfit: 108.92, grossMargin: 33.5, roe: 7.6, debtRatio: 46.2, operatingCashFlow: 88.7, researchExpense: 42.5 },
-    { quarter: '2023Q4', revenue: 912.34, netProfit: 132.56, grossMargin: 36.2, roe: 9.2, debtRatio: 43.5, operatingCashFlow: 115.2, researchExpense: 46.8 },
-    { quarter: '2023Q3', revenue: 865.45, netProfit: 115.78, grossMargin: 34.9, roe: 8.0, debtRatio: 44.2, operatingCashFlow: 95.6, researchExpense: 44.2 },
-  ]
+  const financialData = (analysis.fundamental_snapshot?.financialReports || []).map((report) => ({
+    quarter: report.reportName || report.reportDate.slice(0, 10),
+    revenue: report.operatingRevenue === undefined ? undefined : report.operatingRevenue / 100_000_000,
+    netProfit: report.parentNetProfit === undefined ? undefined : report.parentNetProfit / 100_000_000,
+    grossMargin: report.grossMargin,
+    roe: report.roeWeighted,
+    debtRatio: report.debtAssetRatio,
+    operatingCashFlow: report.operatingCashFlow === undefined ? undefined : report.operatingCashFlow / 100_000_000,
+  }))
 
   // Build technical observation from analysis. This page must not convert indicators into trade actions.
   const advice = {
@@ -186,7 +214,7 @@ const StockAnalysis: React.FC = () => {
           <Col xs={24} sm={12} md={8}>
             <Statistic
               title={<span className="text-gray-300">当前价格</span>}
-              value={latestPrice.toFixed(2)}
+              value={latestPrice.toFixed(pricePrecision)}
               prefix="¥"
               valueStyle={{
                 color: isRising ? 'danger' : 'success',
@@ -196,6 +224,13 @@ const StockAnalysis: React.FC = () => {
             <div className={`text-lg mt-1 ${isRising ? 'text-[danger]' : 'text-[success]'}`}>
               {isRising ? '+' : ''}{priceChange.toFixed(2)} ({priceChangePercent.toFixed(2)}%)
             </div>
+            {marketTrend && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                <Tag color={marketTrend.quote.sessionStatus === 'intraday' ? 'processing' : 'default'}>{sessionLabel}</Tag>
+                <span>来源 {marketTrend.quote.source}</span>
+                <span>截至 {new Date(marketTrend.quote.asOf).toLocaleString('zh-CN', { hour12: false })}</span>
+              </div>
+            )}
           </Col>
           <Col xs={12} sm={6} md={4}>
             <Statistic
@@ -221,7 +256,37 @@ const StockAnalysis: React.FC = () => {
             />
           </Col>
         </Row>
+        {marketTrend && (
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#2a2a40] pt-4 md:grid-cols-4">
+            {[
+              ['MA5', marketTrend.indicators.ma5, '#fbbf24'],
+              ['MA10', marketTrend.indicators.ma10, '#38bdf8'],
+              ['MA30', marketTrend.indicators.ma30, '#fb7185'],
+              ['最近完整收盘', marketTrend.latestClose.price, '#d1d5db'],
+            ].map(([label, value, color]) => (
+              <div key={String(label)} className="rounded-lg bg-[#0f0f23] px-3 py-2">
+                <div className="text-xs text-gray-400">{label}</div>
+                <div className="mt-1 font-mono text-base" style={{ color: String(color) }}>
+                  {Number(value).toFixed(Number(value) < 1 ? 3 : 2)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
+
+      {marketTrendError && (
+        <Alert
+          type="warning"
+          showIcon
+          message="真实行情走势暂不可用"
+          description={`${marketTrendError}。为避免误导，系统没有生成模拟走势图。`}
+        />
+      )}
+
+      {marketTrend?.warnings.map((warning) => (
+        <Alert key={warning} type="info" showIcon message={warning} />
+      ))}
 
       {/* 技术指标面板 */}
       <TechnicalIndicators
@@ -244,10 +309,11 @@ const StockAnalysis: React.FC = () => {
         rsi={analysis.rsi}
         support={analysis.support}
         resistance={analysis.resistance}
-        ma={analysis.ma5 !== undefined && analysis.ma10 !== undefined && analysis.ma20 !== undefined ? {
-          ma5: analysis.ma5,
-          ma10: analysis.ma10,
-          ma20: analysis.ma20
+        ma={marketTrend ? {
+          ma5: marketTrend.indicators.ma5,
+          ma10: marketTrend.indicators.ma10,
+          ma20: analysis.ma20,
+          ma30: marketTrend.indicators.ma30,
         } : undefined}
         externalTechnical={analysis.external_technical}
         technicalAdvice={analysis.technical_advice}
@@ -256,28 +322,52 @@ const StockAnalysis: React.FC = () => {
         cache={analysis.cache}
       />
 
-      {/* K线图 */}
-      <Card
-        title={<span className="text-white">K线走势</span>}
-        className="bg-[#1a1a2e] border-[surface-border]"
-      >
-        <KLinedChart
-          data={klineData}
-          symbol={`${stockCode}`}
-          period="日线"
-          showVolume
-          showMA
-          height={450}
-        />
-      </Card>
+      {/* 真实K线图；history 含 MA30 预热窗口，默认只显示最近30个完整交易日。 */}
+      {marketTrend && klineData.length > 0 && (
+        <Card
+          title={<span className="text-white">真实走势 · MA5 / MA10 / MA30</span>}
+          extra={<span className="text-xs text-gray-400">收盘截止 {marketTrend.latestClose.date} · {marketTrend.historySource}</span>}
+          className="bg-[#1a1a2e] border-[surface-border]"
+        >
+          <KLinedChart
+            data={klineData}
+            symbol={`${stockCode}`}
+            period="日线"
+            showVolume
+            showMA
+            maPeriods={[5, 10, 30]}
+            visibleTradingDays={30}
+            height={450}
+          />
+        </Card>
+      )}
+
+      {marketTrend && (
+        <Card
+          title={<span className="text-white">最近30个完整交易日收盘价</span>}
+          extra={<span className="text-xs text-gray-400">均线计算不含盘中未完成K线</span>}
+          className="bg-[#1a1a2e] border-[surface-border]"
+        >
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            {[...marketTrend.recentCloses].reverse().map((row) => (
+              <div key={row.date} className="flex items-center justify-between rounded border border-[#2a2a40] bg-[#0f0f23] px-3 py-2">
+                <span className="text-xs text-gray-400">{row.date.slice(5)}</span>
+                <span className="font-mono text-sm text-white">{row.close.toFixed(row.close < 1 ? 3 : 2)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* MACD图 */}
-      <Card
-        title={<span className="text-white">MACD指标</span>}
-        className="bg-[#1a1a2e] border-[surface-border]"
-      >
-        <MACDChart data={macdData} height={200} />
-      </Card>
+      {macdData.length > 0 && (
+        <Card
+          title={<span className="text-white">MACD指标</span>}
+          className="bg-[#1a1a2e] border-[surface-border]"
+        >
+          <MACDChart data={macdData} height={200} />
+        </Card>
+      )}
 
       {/* AI 事实观察 */}
       {llmAdvice && (

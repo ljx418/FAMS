@@ -243,6 +243,54 @@ export interface StockAnalysisResponse {
   }
 }
 
+export interface StockMarketTrendResponse {
+  schemaVersion: 'stock.market-trend.v1'
+  symbol: string
+  name: string
+  currency: 'CNY'
+  generatedAt: string
+  quote: {
+    price: number
+    change: number
+    changePercent: number
+    asOf: string
+    source: string
+    sessionStatus: 'pre_open' | 'intraday' | 'closed'
+    fallbackUsed: boolean
+  }
+  latestClose: {
+    date: string
+    price: number
+    source: string
+  }
+  indicators: {
+    ma5: number
+    ma10: number
+    ma30: number
+    asOf: string
+    sampleCount: number
+    trend: 'bullish' | 'bearish' | 'mixed'
+    calculationMethod: 'simple_moving_average_completed_daily_close'
+  }
+  requestedTradingDays: number
+  recentCloses: Array<{
+    date: string
+    close: number
+    source: string
+  }>
+  history: Array<{
+    date: string
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+    source: string
+  }>
+  historySource: string
+  warnings: string[]
+}
+
 export interface StockAnalysisSummarySection {
   status: 'available' | 'partial' | 'blocked'
   summary: string
@@ -338,6 +386,13 @@ export async function getStockAnalysis(stockCode: string, market: string = 'A股
   }
 }
 
+export async function getStockMarketTrend(stockCode: string, days = 30): Promise<StockMarketTrendResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/stocks/${stockCode}/trend?days=${days}`)
+  const data = await response.json()
+  if (!response.ok) throw new Error(data?.error || `HTTP error! status: ${response.status}`)
+  return data
+}
+
 // Commented out - currently unused but kept for future reference
 // function getMockStockAnalysis(stockCode: string): StockAnalysisResponse {
 //   const stockName = stockCode.startsWith('6') ? '贵州茅台' : stockCode.startsWith('0') ? '平安银行' : '比亚迪'
@@ -383,50 +438,23 @@ export async function getStockAnalysis(stockCode: string, market: string = 'A股
 // }
 
 export async function getFinancialData(stockCode: string): Promise<FinancialResponse> {
-  try {
-    const response = await fetch(`${API_BASE}/financial/${stockCode}`)
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-    return response.json()
-  } catch (error) {
-    console.warn('Financial API not available, using mock data:', error)
-    return {
-      stock_code: stockCode,
-      quarters: [
-        { quarter: '2024Q3', revenue: 892.56, netProfit: 125.34, grossMargin: 35.2, roe: 8.5, debtRatio: 45.2, operatingCashFlow: 98.5, researchExpense: 45.2 },
-        { quarter: '2024Q2', revenue: 876.23, netProfit: 118.45, grossMargin: 34.8, roe: 8.1, debtRatio: 44.8, operatingCashFlow: 105.3, researchExpense: 43.8 },
-        { quarter: '2024Q1', revenue: 845.67, netProfit: 108.92, grossMargin: 33.5, roe: 7.6, debtRatio: 46.2, operatingCashFlow: 88.7, researchExpense: 42.5 },
-        { quarter: '2023Q4', revenue: 912.34, netProfit: 132.56, grossMargin: 36.2, roe: 9.2, debtRatio: 43.5, operatingCashFlow: 115.2, researchExpense: 46.8 },
-        { quarter: '2023Q3', revenue: 865.45, netProfit: 115.78, grossMargin: 34.9, roe: 8.0, debtRatio: 44.2, operatingCashFlow: 95.6, researchExpense: 44.2 },
-      ]
-    }
-  }
+  const response = await fetch(`${API_BASE}/financial/${stockCode}`)
+  if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+  return response.json()
 }
 
-// Generate mock K-line data for chart display (from analysis response)
-export function generateKLineDataFromAnalysis(analysis: StockAnalysisResponse, days: number = 90): KLineData[] {
-  const data: KLineData[] = []
-  const basePrice = analysis.current_price
-
-  for (let i = 0; i < days; i++) {
-    const date = new Date()
-    date.setDate(date.getDate() - (days - i))
-    const dateStr = date.toISOString().split('T')[0]
-
-    const volatility = analysis.volatility || 0.03
-    const change = (Math.random() - 0.5) * 2 * volatility
-    const open = basePrice
-    const close = basePrice * (1 + change)
-    const high = Math.max(open, close) * (1 + Math.random() * 0.015)
-    const low = Math.min(open, close) * (1 - Math.random() * 0.015)
-    const volume = Math.floor(Math.random() * 80000) + 20000
-
-    data.push({ date: dateStr, open, high, low, close, volume })
-  }
-
-  return data
+export function mapStockTrendToKLineData(trend: StockMarketTrendResponse): KLineData[] {
+  return trend.history.map((bar) => ({
+    date: bar.date,
+    open: bar.open,
+    high: bar.high,
+    low: bar.low,
+    close: bar.close,
+    volume: bar.volume,
+  }))
 }
 
-// Generate mock MACD data from analysis (for chart display)
+// Calculate MACD display series from provider-returned K-line data.
 export interface MACDData {
   date: string
   dif: number

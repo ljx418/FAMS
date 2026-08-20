@@ -21,6 +21,7 @@
     "test:manual-buy-position": "node node_modules/tsx/dist/cli.mjs scripts/verify-manual-buy-position.ts",
     "test:fund-nav-sources": "node node_modules/tsx/dist/cli.mjs scripts/verify-fund-nav-sources.ts",
     "test:technical-indicators": "node node_modules/tsx/dist/cli.mjs scripts/verify-technical-indicator-service.ts",
+    "test:stock-market-trend": "node node_modules/tsx/dist/cli.mjs scripts/verify-stock-market-trend.ts",
     "test:external-technical": "node node_modules/tsx/dist/cli.mjs scripts/verify-external-technical-provider.ts",
     "test:technical-advice-model": "node node_modules/tsx/dist/cli.mjs scripts/verify-technical-advice-model.ts",
     "test:stock-analysis-factset": "node node_modules/tsx/dist/cli.mjs scripts/verify-stock-analysis-factset.ts",

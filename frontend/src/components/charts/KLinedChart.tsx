@@ -13,11 +13,14 @@ export interface KLineData {
 }
 
 export interface MAData {
-  ma5: number[]
-  ma10: number[]
-  ma20: number[]
-  ma60: number[]
+  ma5: Array<number | null>
+  ma10: Array<number | null>
+  ma20: Array<number | null>
+  ma30: Array<number | null>
+  ma60: Array<number | null>
 }
+
+export type MAPeriod = 5 | 10 | 20 | 30 | 60
 
 interface KLinedChartProps {
   data: KLineData[]
@@ -25,46 +28,25 @@ interface KLinedChartProps {
   period?: string
   showVolume?: boolean
   showMA?: boolean
+  maPeriods?: MAPeriod[]
+  visibleTradingDays?: number
   height?: number
 }
 
 // 计算移动平均线
 const calculateMA = (data: KLineData[]): MAData => {
-  const result: MAData = { ma5: [], ma10: [], ma20: [], ma60: [] }
+  const result: MAData = { ma5: [], ma10: [], ma20: [], ma30: [], ma60: [] }
 
   for (let i = 0; i < data.length; i++) {
-    // const close = data[i].close
-
-    // MA5
-    if (i >= 4) {
-      const ma5Sum = data.slice(i - 4, i + 1).reduce((sum, d) => sum + d.close, 0)
-      result.ma5.push(ma5Sum / 5)
-    } else {
-      result.ma5.push(0)
-    }
-
-    // MA10
-    if (i >= 9) {
-      const ma10Sum = data.slice(i - 9, i + 1).reduce((sum, d) => sum + d.close, 0)
-      result.ma10.push(ma10Sum / 10)
-    } else {
-      result.ma10.push(0)
-    }
-
-    // MA20
-    if (i >= 19) {
-      const ma20Sum = data.slice(i - 19, i + 1).reduce((sum, d) => sum + d.close, 0)
-      result.ma20.push(ma20Sum / 20)
-    } else {
-      result.ma20.push(0)
-    }
-
-    // MA60
-    if (i >= 59) {
-      const ma60Sum = data.slice(i - 59, i + 1).reduce((sum, d) => sum + d.close, 0)
-      result.ma60.push(ma60Sum / 60)
-    } else {
-      result.ma60.push(0)
+    for (const period of [5, 10, 20, 30, 60] as const) {
+      const key = `ma${period}` as keyof MAData
+      if (i >= period - 1) {
+        const sum = data.slice(i - period + 1, i + 1).reduce((total, row) => total + row.close, 0)
+        result[key].push(sum / period)
+      } else {
+        // null avoids distorting the price axis toward zero before a moving average has enough samples.
+        result[key].push(null)
+      }
     }
   }
 
@@ -77,6 +59,8 @@ const KLinedChart: React.FC<KLinedChartProps> = ({
   period = '1D',
   showVolume = true,
   showMA = true,
+  maPeriods = [5, 10, 20, 60],
+  visibleTradingDays,
   height = 400,
 }) => {
   const option: EChartsOption = useMemo(() => {
@@ -139,7 +123,7 @@ const KLinedChart: React.FC<KLinedChartProps> = ({
         show: showMA,
         top: 0,
         right: '10%',
-        data: ['MA5', 'MA10', 'MA20', 'MA60'],
+        data: maPeriods.map((period) => `MA${period}`),
         textStyle: { color: colors.textSecondary },
       },
       axisPointer: {
@@ -205,7 +189,9 @@ const KLinedChart: React.FC<KLinedChartProps> = ({
         {
           type: 'inside',
           xAxisIndex: [0, 1],
-          start: 70,
+          start: visibleTradingDays && data.length > visibleTradingDays
+            ? ((data.length - visibleTradingDays) / data.length) * 100
+            : 0,
           end: 100,
         },
         {
@@ -235,48 +221,17 @@ const KLinedChart: React.FC<KLinedChartProps> = ({
           },
         },
         ...(showMA
-          ? [
-              {
-                name: 'MA5',
-                type: 'line' as const,
-                data: maData.ma5,
-                xAxisIndex: 0,
-                yAxisIndex: 0,
-                smooth: true,
-                symbol: 'none',
-                lineStyle: { color: colors.ma5, width: 1 },
-              },
-              {
-                name: 'MA10',
-                type: 'line' as const,
-                data: maData.ma10,
-                xAxisIndex: 0,
-                yAxisIndex: 0,
-                smooth: true,
-                symbol: 'none',
-                lineStyle: { color: colors.ma10, width: 1 },
-              },
-              {
-                name: 'MA20',
-                type: 'line' as const,
-                data: maData.ma20,
-                xAxisIndex: 0,
-                yAxisIndex: 0,
-                smooth: true,
-                symbol: 'none',
-                lineStyle: { color: colors.ma20, width: 1 },
-              },
-              {
-                name: 'MA60',
-                type: 'line' as const,
-                data: maData.ma60,
-                xAxisIndex: 0,
-                yAxisIndex: 0,
-                smooth: true,
-                symbol: 'none',
-                lineStyle: { color: colors.ma60, width: 1 },
-              },
-            ]
+          ? maPeriods.map((period) => ({
+              name: `MA${period}`,
+              type: 'line' as const,
+              data: maData[`ma${period}` as keyof MAData],
+              xAxisIndex: 0,
+              yAxisIndex: 0,
+              smooth: true,
+              symbol: 'none',
+              connectNulls: false,
+              lineStyle: { color: colors[`ma${period}` as keyof typeof colors], width: period === 30 ? 1.5 : 1 },
+            }))
           : []),
         ...(showVolume
           ? [
@@ -291,7 +246,7 @@ const KLinedChart: React.FC<KLinedChartProps> = ({
           : []),
       ],
     } as EChartsOption
-  }, [data, symbol, period, showVolume, showMA])
+  }, [data, symbol, period, showVolume, showMA, maPeriods, visibleTradingDays])
 
   return (
     <ReactECharts

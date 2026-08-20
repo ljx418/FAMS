@@ -18,6 +18,7 @@ export const colors = {
   ma5: '#fbbf24',    // MA5 黄色
   ma10: '#38bdf8',   // MA10 天蓝
   ma20: '#f472b6',   // MA20 粉色
+  ma30: '#fb7185',   // MA30 玫红
   ma60: '#a78bfa',   // MA60 紫色
 
   // 背景和文字 - 优化对比度

@@ -17,16 +17,8 @@ interface FinancialTableProps {
   data?: FinancialQuarter[]
 }
 
-const defaultData: FinancialQuarter[] = [
-  { quarter: '2024Q3', revenue: 892.56, netProfit: 125.34, grossMargin: 35.2, roe: 8.5, debtRatio: 45.2, operatingCashFlow: 98.5, researchExpense: 45.2 },
-  { quarter: '2024Q2', revenue: 876.23, netProfit: 118.45, grossMargin: 34.8, roe: 8.1, debtRatio: 44.8, operatingCashFlow: 105.3, researchExpense: 43.8 },
-  { quarter: '2024Q1', revenue: 845.67, netProfit: 108.92, grossMargin: 33.5, roe: 7.6, debtRatio: 46.2, operatingCashFlow: 88.7, researchExpense: 42.5 },
-  { quarter: '2023Q4', revenue: 912.34, netProfit: 132.56, grossMargin: 36.2, roe: 9.2, debtRatio: 43.5, operatingCashFlow: 115.2, researchExpense: 46.8 },
-  { quarter: '2023Q3', revenue: 865.45, netProfit: 115.78, grossMargin: 34.9, roe: 8.0, debtRatio: 44.2, operatingCashFlow: 95.6, researchExpense: 44.2 },
-]
-
 const FinancialTable: React.FC<FinancialTableProps> = ({ data }) => {
-  const tableData = data || defaultData
+  const tableData = data || []
 
   const formatNumber = (value?: number, suffix?: string) => {
     if (value === undefined || value === null) return '--'
@@ -138,7 +130,7 @@ const FinancialTable: React.FC<FinancialTableProps> = ({ data }) => {
 
   return (
     <Card
-      title={<span className="text-white text-sm">财务数据</span>}
+      title={<span className="text-white text-sm">财务数据（已披露报告期）</span>}
       className="bg-[#1a1a2e] border-[surface-border]"
       size="small"
     >
@@ -148,6 +140,7 @@ const FinancialTable: React.FC<FinancialTableProps> = ({ data }) => {
         pagination={false}
         size="small"
         scroll={{ x: 800 }}
+        locale={{ emptyText: '暂无可核验财务数据' }}
         className="financial-table"
       />
       <style>{`
