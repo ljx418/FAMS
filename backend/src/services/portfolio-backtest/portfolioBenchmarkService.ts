@@ -3,6 +3,7 @@ import { getChinaIndexHistory } from '../../utils/stockUtils.js'
 import { PortfolioBacktestCurvePoint } from './portfolioBacktestTypes.js'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { formalBenchmarkService } from '../formal-release/formalBenchmarkService.js'
 
 type BenchmarkSeries = Map<string, { netValue: number; cumulativeReturnPercent: number }>
 type BenchmarkStatus = 'official_total_return' | 'trusted_total_return' | 'free_source_total_return' | 'price_index' | 'research_proxy' | 'unavailable'
@@ -104,8 +105,23 @@ export class PortfolioBenchmarkService {
 
     const unsupported = benchmarkIds.filter((id) => !['cash_cny', 'csi300_price_index', 'local_equal_weight_20', 'free_source_total_return'].includes(id))
     for (const id of unsupported) {
-      statusById[id] = 'unavailable'
-      warnings.push(`benchmark_unavailable_or_not_formal:${id}`)
+      try {
+        const imported = await formalBenchmarkService.buildSeries(id, dates)
+        if (imported.qualification.status === 'passed' && imported.series.size > 0) {
+          seriesById[id] = imported.series
+          statusById[id] = imported.artifact.benchmarkType
+          evidenceRefs.push(
+            `formal-benchmark:${imported.artifact.benchmarkId}@${imported.artifact.version}:${imported.artifact.contentHash}`,
+            ...imported.artifact.sourceRefs,
+          )
+        } else {
+          statusById[id] = 'unavailable'
+          warnings.push(...imported.qualification.blockers.map((blocker) => `formal_benchmark_blocked:${id}:${blocker}`))
+        }
+      } catch {
+        statusById[id] = 'unavailable'
+        warnings.push(`benchmark_unavailable_or_not_formal:${id}`)
+      }
     }
 
     const requestedSlots = Math.max(1, dates.length * Math.max(1, benchmarkIds.length))

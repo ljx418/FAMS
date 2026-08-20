@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-2-benchmark-qualification-audit.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schemaVersion", "benchmarkId", "benchmarkVersion", "benchmarkType", "status", "benchmarkQualificationPassed", "contentHashVerified", "blockers", "researchProxyCannotPass", "formalTradingUnlocked", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_benchmark.qualification_audit.v1"},
+    "benchmarkType": {"enum": ["official_total_return", "trusted_total_return", "free_source_total_return", "price_index", "research_proxy"]},
+    "status": {"enum": ["passed", "blocked"]},
+    "researchProxyCannotPass": {"const": true},
+    "freeSourceCannotPass": {"const": true},
+    "priceIndexCannotPass": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  }
+}
