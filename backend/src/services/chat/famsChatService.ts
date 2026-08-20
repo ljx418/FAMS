@@ -1042,11 +1042,30 @@ class FamsChatService {
 
   private async planIntent(message: string, context: Record<string, unknown>) {
     if (!chatLlmPlannerService.isAvailable()) return null
+    const deterministicIntent = this.detectIntent(normalizeMessage(message))
     try {
-      return await chatLlmPlannerService.plan(message, context)
+      const plan = await chatLlmPlannerService.plan(message, context)
+      if (!plan) return null
+      if (deterministicIntent === 'trade_action_blocked') {
+        return {
+          ...plan,
+          intent: deterministicIntent,
+          confidence: Math.max(plan.confidence, 0.99),
+          reason: `deterministic_safety_override:${plan.reason}`,
+        }
+      }
+      if (plan.intent === 'capability_help' && deterministicIntent !== 'capability_help') {
+        return {
+          ...plan,
+          intent: deterministicIntent,
+          confidence: Math.max(plan.confidence, 0.85),
+          reason: `deterministic_specific_intent_fallback:${plan.reason}`,
+        }
+      }
+      return plan
     } catch (error: any) {
       return {
-        intent: this.detectIntent(normalizeMessage(message)),
+        intent: deterministicIntent,
         confidence: 0.6,
         context: {},
         reason: `llm_planner_failed_fallback:${String(error?.message || error).slice(0, 120)}`,
@@ -1158,7 +1177,7 @@ class FamsChatService {
 
   private detectIntent(message: string): FamsChatIntent {
     if (/(shell|bash|powershell|cmd|rm -rf|文件系统|读文件|写文件|filesystem|curl|wget|任意网络|network tool)/i.test(message)) return 'trade_action_blocked'
-    if (/(下单|买入|卖出|加仓|减仓|自动交易|order|auto_trade|add|reduce)/i.test(message)) return 'trade_action_blocked'
+    if (/(下单|自动交易|order_create|auto_trade|\border\b|\badd\b|\breduce\b|(?:直接|立即|现在|马上|帮我|替我|执行|正式).{0,12}(?:买入|卖出|加仓|减仓)|(?:买入|卖出|加仓|减仓).{0,12}(?:下单|执行|交易))/i.test(message)) return 'trade_action_blocked'
     if (/(数据可信|数据质量|真实数据|数据来源|数据最新|最新数据|上个月|行情最新|行情日期|freshness|data trust|data quality)/i.test(message)) return 'data_trust_explain'
     if (/(审计|报告|验收|audit|acceptance)/i.test(message)) return 'audit_report_explain'
     if (/(草案|人工计划|人工计划|draft)/i.test(message)) return 'dividend_low_vol_plan_draft'
@@ -1169,7 +1188,7 @@ class FamsChatService {
     if (/(持久化回测|创建回测任务|回测任务|backtest operation)/i.test(message)) return 'portfolio_backtest_operation'
     if (/(回测|backtest|收益曲线|策略比较|永久组合|全天候|最大回撤|画图|绘图)/i.test(message)) return 'portfolio_backtest_compare'
     if (/(任务|operation|进度|状态)/i.test(message)) return 'operation_status'
-    if (/(组合|持仓|仓位|portfolio|position)/i.test(message)) return 'portfolio_summary'
+    if (/(组合|持仓|仓位|资产|分布|portfolio|position|asset distribution)/i.test(message)) return 'portfolio_summary'
     return 'capability_help'
   }
 
