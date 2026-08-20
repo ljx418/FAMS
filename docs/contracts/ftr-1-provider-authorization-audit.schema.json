@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-1-provider-authorization-audit.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schemaVersion", "providerId", "status", "chainValid", "recordCount", "credentialConfigured", "credentialPersisted", "blockers", "formalTradingUnlocked", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_provider.authorization_audit.v1"},
+    "status": {"enum": ["passed", "blocked"]},
+    "chainValid": {"type": "boolean"},
+    "credentialPersisted": {"const": false},
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "formalTradingUnlocked": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  }
+}

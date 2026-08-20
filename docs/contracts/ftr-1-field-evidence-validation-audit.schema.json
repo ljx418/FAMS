@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-1-field-evidence-validation-audit.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schemaVersion", "status", "items", "blockers", "researchFallbackPromotedToFormal", "formalTradingUnlocked", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_data.field_evidence_validation.v1"},
+    "status": {"enum": ["passed", "blocked"]},
+    "items": {"type": "array"},
+    "researchFallbackPromotedToFormal": {"const": false},
+    "formalTradingUnlocked": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  }
+}

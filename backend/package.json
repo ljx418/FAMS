@@ -103,7 +103,7 @@
     "test:ftr-manifest-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-ftr-manifest-contract.ts",
     "test:next-stage-documentation-baseline": "node node_modules/tsx/dist/cli.mjs scripts/verify-next-stage-documentation-baseline.ts",
     "test:portfolio-asset-sample-revalidation": "node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-asset-sample-revalidation.ts",
-    "test:fams-data-governance": "node node_modules/tsx/dist/cli.mjs scripts/verify-fams-data-governance.ts",
+    "test:fams-data-governance": "node node_modules/tsx/dist/cli.mjs scripts/verify-fams-data-governance.ts && node node_modules/tsx/dist/cli.mjs scripts/verify-ftr-formal-data-service.ts",
     "test:fams-benchmark-qualification": "node node_modules/tsx/dist/cli.mjs scripts/verify-fams-benchmark-qualification.ts",
     "test:fams-formal-validation": "node node_modules/tsx/dist/cli.mjs scripts/verify-fams-formal-validation.ts",
     "test:fams-manual-signoff": "node node_modules/tsx/dist/cli.mjs scripts/verify-fams-manual-signoff.ts",

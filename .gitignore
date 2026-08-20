@@ -39,6 +39,7 @@ docs/.$*.bkp
 __pycache__/
 
 backend/data/gpt-audit/
+backend/data/formal-release/
 backend/data/**/*.zip
 backend/data/**/*.tar
 backend/data/**/*.gz

@@ -887,6 +887,29 @@ model FivdRInterventionReview {
   @@index([recordHash])
 }
 
+model FormalProviderAuthorization {
+  id                  String   @id @default(uuid())
+  providerId          String
+  sequence            Int
+  providerClass       String
+  decision            String
+  authorizationRef    String
+  authorizedScopesJson String  @default("[]")
+  evidenceRefsJson    String   @default("[]")
+  reviewerUserId      String
+  reviewerEmail       String
+  effectiveFrom       DateTime
+  expiresAt           DateTime?
+  previousHash        String?
+  recordHash          String
+  createdAt           DateTime @default(now())
+
+  @@index([providerId, createdAt])
+  @@index([reviewerUserId, createdAt])
+  @@index([recordHash])
+  @@unique([providerId, sequence])
+}
+
 model StockFactSetCache {
   id                   String   @id @default(uuid())
   assetId              String?
