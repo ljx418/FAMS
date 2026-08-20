@@ -53,6 +53,14 @@ export class PortfolioBacktestInputBuilder {
       slippageRate: request.slippageRate ?? DEFAULT_REQUEST.slippageRate,
       benchmarkIds: request.benchmarkIds?.length ? request.benchmarkIds : DEFAULT_REQUEST.benchmarkIds,
       gradeMode: request.gradeMode === 'formal_review' ? 'formal_review' : 'research',
+      releaseCandidateStrategyIds: request.releaseCandidateStrategyIds?.length
+        ? Array.from(new Set(request.releaseCandidateStrategyIds))
+        : Array.from(new Set(request.portfolioStrategyIds?.length ? request.portfolioStrategyIds : ['permanent_portfolio', 'all_weather', 'current_holdings_buy_and_hold'])),
+      releaseCandidateStrategyVersions: { ...(request.releaseCandidateStrategyVersions || {}) },
+      excludedStrategies: (request.excludedStrategies || []).map((item) => ({
+        strategyId: String(item.strategyId || '').trim(),
+        reason: String(item.reason || '').trim(),
+      })),
       customStrategies: request.customStrategies || [],
     }
 
@@ -123,6 +131,11 @@ export class PortfolioBacktestInputBuilder {
     }
 
     const validStrategyCount = strategies.filter((strategy) => strategy.validation.status === 'valid').length
+    for (const strategy of strategies) {
+      if (!resolved.releaseCandidateStrategyVersions[strategy.strategyId]) {
+        resolved.releaseCandidateStrategyVersions[strategy.strategyId] = strategy.strategyVersion
+      }
+    }
     for (const strategy of strategies) {
       warnings.push(...strategy.validation.warnings.map((item) => `${strategy.strategyId}:${item}`))
       blockedReasons.push(...strategy.validation.blockedReasons.map((item) => `${strategy.strategyId}:${item}`))

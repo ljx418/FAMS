@@ -223,6 +223,18 @@ export interface PortfolioFormalValidationAudit {
   schemaVersion: 'portfolio.formal_validation_audit.v1'
   status: PortfolioModelEffectivenessStatus
   formalTradingEligible: boolean
+  formalValidationPassed: boolean
+  allReleaseCandidatesPassed: boolean
+  releaseCandidateSet: {
+    schemaVersion: 'fams.release_candidate_set.v1'
+    releaseCandidateStrategyIds: string[]
+    releaseCandidateStrategyVersions: Record<string, string>
+    excludedStrategies: Array<{ strategyId: string; reason: string }>
+    candidateSetHash: string
+    frozen: true
+  }
+  releaseEffectivePathCount: number
+  industryGroupCount: number
   strategyCount: number
   passedStrategies: number
   warningStrategies: number
@@ -431,6 +443,12 @@ export interface PortfolioBacktestRequest {
   slippageRate: number
   benchmarkIds: string[]
   gradeMode?: PortfolioBacktestGradeMode
+  releaseCandidateStrategyIds: string[]
+  releaseCandidateStrategyVersions: Record<string, string>
+  excludedStrategies: Array<{
+    strategyId: string
+    reason: string
+  }>
   customStrategies?: Array<{
     strategyId?: string
     displayName?: string

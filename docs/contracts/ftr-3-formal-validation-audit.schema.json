@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-formal-validation-audit.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schemaVersion", "status", "formalValidationPassed", "allReleaseCandidatesPassed", "releaseCandidateSet", "releaseEffectivePathCount", "industryGroupCount", "strategyCount", "checks", "blockers", "notTradingAdvice"],
+  "properties": {
+    "schemaVersion": {"const": "portfolio.formal_validation_audit.v1"},
+    "status": {"enum": ["passed", "warning", "insufficient", "failed"]},
+    "formalValidationPassed": {"type": "boolean"},
+    "allReleaseCandidatesPassed": {"type": "boolean"},
+    "releaseEffectivePathCount": {"type": "integer", "minimum": 0},
+    "industryGroupCount": {"type": "integer", "minimum": 0},
+    "checks": {"type": "array", "minItems": 1},
+    "notTradingAdvice": {"const": true}
+  }
+}

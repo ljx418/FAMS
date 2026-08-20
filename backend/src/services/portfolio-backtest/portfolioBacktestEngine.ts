@@ -29,6 +29,7 @@ import {
   PortfolioStrategyDefinition,
 } from './portfolioBacktestTypes.js'
 import { portfolioBenchmarkService } from './portfolioBenchmarkService.js'
+import { formalValidationService } from '../formal-release/formalValidationService.js'
 
 type PriceSeries = Map<string, number>
 type PriceSource = 'price_history' | 'market_bar_canonical'
@@ -91,7 +92,11 @@ export class PortfolioBacktestEngine {
     const executionIsolationAudit = this.buildExecutionIsolationAudit(runId, generatedAt, manualPlanDrafts)
     const dataGovernanceAudit = this.buildDataGovernanceAudit(generatedAt, dataGradeAudit)
     const benchmarkQualificationAudit = this.buildBenchmarkQualificationAudit(formalReviewReadiness)
-    const formalValidationAudit = this.buildFormalValidationAudit(strategies)
+    const formalValidationAudit = formalValidationService.evaluatePortfolioBacktest({
+      request: input.request,
+      strategies,
+      benchmarkQualificationAudit,
+    })
     const manualSignoffAudit = this.buildManualSignoffAudit()
     const multiPeriodBacktestResult = await this.buildMultiPeriodBacktestResult(input, strategies)
     const longHorizonDataCoverageAudit = this.buildLongHorizonDataCoverageAudit(multiPeriodBacktestResult)
@@ -1204,61 +1209,6 @@ export class PortfolioBacktestEngine {
         ...formalReviewReadiness.warnings.filter((warning) => warning.includes('benchmark') || warning.includes('total_return')),
       ],
       evidenceRefs: Object.entries(statuses).map(([id, status]) => `portfolio-benchmark-status:${id}:${status}`),
-      notTradingAdvice: true,
-    }
-  }
-
-  private buildFormalValidationAudit(strategies: PortfolioBacktestStrategyResult[]): PortfolioFormalValidationAudit {
-    const checks = strategies.map((strategy) => {
-      const model = strategy.modelEffectiveness
-      const blockers = model
-        ? Array.from(new Set([
-          ...(model.status === 'passed' ? [] : [`model_effectiveness_${model.status}`]),
-          ...(model.oos.status === 'passed' ? [] : [`oos_${model.oos.status}`]),
-          ...(model.walkForward.status === 'passed' ? [] : [`walk_forward_${model.walkForward.status}`]),
-          ...(model.parameterSensitivityStatus === 'passed' ? [] : [`parameter_sensitivity_${model.parameterSensitivityStatus}`]),
-          ...(model.groupStabilityStatus === 'passed' || model.groupStabilityStatus === 'not_applicable' ? [] : [`group_stability_${model.groupStabilityStatus}`]),
-          ...model.failureTaxonomy,
-        ]))
-        : ['model_effectiveness_missing']
-      return {
-        strategyId: strategy.definition.strategyId,
-        status: model?.status || 'insufficient' as const,
-        oosStatus: model?.oos.status || 'insufficient' as const,
-        walkForwardStatus: model?.walkForward.status || 'insufficient' as const,
-        parameterSensitivityStatus: model?.parameterSensitivityStatus || 'insufficient' as const,
-        groupStabilityStatus: model?.groupStabilityStatus || 'insufficient' as const,
-        blockers,
-        evidenceRefs: model?.evidenceRefs || strategy.evidenceRefs,
-      }
-    })
-    const failedStrategies = checks.filter((check) => check.status === 'failed').length
-    const insufficientStrategies = checks.filter((check) => check.status === 'insufficient').length
-    const warningStrategies = checks.filter((check) => check.status === 'warning').length
-    const passedStrategies = checks.filter((check) => check.status === 'passed').length
-    const status: PortfolioFormalValidationAudit['status'] = failedStrategies > 0
-      ? 'failed'
-      : insufficientStrategies > 0
-        ? 'insufficient'
-        : warningStrategies > 0
-          ? 'warning'
-          : 'passed'
-    const blockers = Array.from(new Set(checks.flatMap((check) => check.blockers)))
-    return {
-      schemaVersion: 'portfolio.formal_validation_audit.v1',
-      status,
-      formalTradingEligible: status === 'passed' && blockers.length === 0,
-      strategyCount: checks.length,
-      passedStrategies,
-      warningStrategies,
-      insufficientStrategies,
-      failedStrategies,
-      checks,
-      blockers,
-      warnings: [
-        ...(status === 'passed' ? [] : ['formal_validation_not_all_gates_passed']),
-        'research_backtest_curve_is_not_sufficient_for_formal_trading_release',
-      ],
       notTradingAdvice: true,
     }
   }

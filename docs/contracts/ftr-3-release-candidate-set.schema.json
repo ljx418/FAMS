@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-release-candidate-set.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "releaseCandidateStrategyIds", "releaseCandidateStrategyVersions", "excludedStrategies", "candidateSetHash", "frozen"],
+  "properties": {
+    "schemaVersion": {"const": "fams.release_candidate_set.v1"},
+    "releaseCandidateStrategyIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "releaseCandidateStrategyVersions": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
+    "excludedStrategies": {"type": "array", "items": {"type": "object", "required": ["strategyId", "reason"]}},
+    "candidateSetHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "frozen": {"const": true}
+  }
+}
