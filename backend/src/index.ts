@@ -27,6 +27,7 @@ import { templateRoutes } from './routes/template.js'
 import { operationRoutes } from './routes/operation.js'
 import { strategyRoutes } from './routes/strategy.js'
 import { formalReleaseRoutes } from './routes/formalRelease.js'
+import { relativeRotationRoutes } from './routes/relativeRotation.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { operationService } from './services/operation/operationService.js'
 import { factsetRefreshScheduler } from './services/operation/factsetRefreshScheduler.js'
@@ -37,6 +38,8 @@ import { dailyReviewScheduler } from './services/review/dailyReviewScheduler.js'
 import { dailyReviewService } from './services/review/dailyReviewService.js'
 
 const app = Fastify({ logger: true })
+const configuredPort = Number(process.env.PORT || 4000)
+const appPort = Number.isInteger(configuredPort) && configuredPort > 0 ? configuredPort : 4000
 
 // 初始化Fastify插件
 async function initPlugins() {
@@ -53,7 +56,7 @@ async function initPlugins() {
         description: 'Financial Asset Management System API',
         version: '1.0.0',
       },
-      servers: [{ url: 'http://localhost:4000' }],
+      servers: [{ url: `http://localhost:${appPort}` }],
       components: {
         securitySchemes: {
           bearerAuth: { type: 'http', scheme: 'bearer' },
@@ -139,6 +142,7 @@ async function registerRoutes() {
   await app.register(priceRoutes, { prefix: '/api/v1/prices' })
   await app.register(stockRoutes, { prefix: '/api/v1/stocks' })
   await app.register(strategyRoutes, { prefix: '/api/v1/strategy' })
+  await app.register(relativeRotationRoutes, { prefix: '/api/v1/relative-rotation' })
   await app.register(fundRoutes, { prefix: '/api/v1/fund' })
   await app.register(tagRoutes, { prefix: '/api/v1/tags' })
   await app.register(dailyReviewRoutes, { prefix: '/api/v1/daily-reviews' })
@@ -175,12 +179,12 @@ async function start() {
       app.log.info(recoveredReviews, 'Recovered interrupted daily portfolio reviews')
     }
 
-    await app.listen({ port: 4000, host: '0.0.0.0' })
+    await app.listen({ port: appPort, host: '0.0.0.0' })
     factsetRefreshScheduler.start(app.log)
     dailyReviewScheduler.start(app.log)
-    console.log('🚀 FAMS API Server running at http://localhost:4000')
-    console.log('📖 API Docs available at http://localhost:4000/api-docs')
-    console.log('🤖 MCP Router available at http://localhost:4000/api/v1/mcp')
+    console.log(`🚀 FAMS API Server running at http://localhost:${appPort}`)
+    console.log(`📖 API Docs available at http://localhost:${appPort}/api-docs`)
+    console.log(`🤖 MCP Router available at http://localhost:${appPort}/api/v1/mcp`)
   } catch (err) {
     app.log.error(err)
     process.exit(1)

@@ -659,6 +659,31 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     ),
   },
 
+  'relative_rotation.analyze_volatility_sleeves': {
+    name: 'relative_rotation.analyze_volatility_sleeves',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '运行当前持仓的相对轮动与每日波动仓分析，生成仅供人工确认的交易草稿',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string' },
+        refresh: { type: 'boolean' },
+      },
+      required: ['userId'],
+    },
+    outputSchema: operationOutputSchema,
+    permissions: asyncPermission(['analysis:write', 'operation:write']),
+    safety: asyncOperationSafety,
+    handler: async (params: { userId: string; refresh?: boolean }) => (
+      operationService.startVolatilitySleeveDailyAnalysisOperation({
+        ...params,
+        executionMode: 'inline',
+        createdBy: 'agent',
+      })
+    ),
+  },
+
   'backtest.run_from_advice': {
     name: 'backtest.run_from_advice',
     domain: 'backtest',

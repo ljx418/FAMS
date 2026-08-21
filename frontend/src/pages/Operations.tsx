@@ -329,6 +329,8 @@ const TYPE_META: Record<string, { label: string; color: string }> = {
   daily_review_run: { label: '持仓每日复盘', color: '#2563eb' },
   screenshot_capture_extract: { label: '截图识别', color: '#7c3aed' },
   dividend_low_vol_daily_scan: { label: '红利低波每日扫描', color: '#059669' },
+  relative_rotation_backtest: { label: '相对轮动回测', color: '#2563eb' },
+  volatility_sleeve_daily_analysis: { label: '波动仓每日分析', color: '#0f766e' },
 }
 
 const RELIABILITY_STATUS: Record<ReliabilityStatus, { color: string; label: string }> = {

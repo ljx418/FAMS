@@ -32,6 +32,10 @@ model User {
   gridPlans                 GridPlan[]
   screenshotCaptures        ScreenshotCapture[]
   externalOrderObservations ExternalOrderObservation[]
+  positionSleeveAllocations PositionSleeveAllocation[]
+  positionSleeveLedgerEntries PositionSleeveLedgerEntry[]
+  volatilityStrategyBacktests VolatilityStrategyBacktest[]
+  volatilityTradeDrafts VolatilityTradeDraft[]
 }
 
 // 资产主表
@@ -94,6 +98,10 @@ model Position {
 
   transactions Transaction[]
   snapshots    PositionSnapshot[]
+  sleeveAllocation PositionSleeveAllocation?
+  sleeveLedgerEntries PositionSleeveLedgerEntry[]
+  volatilityBacktests VolatilityStrategyBacktest[]
+  volatilityTradeDrafts VolatilityTradeDraft[]
 }
 
 // 交易记录
@@ -121,6 +129,10 @@ model Transaction {
   sourceImportKey    String?               @unique
   sourceCaptureRowId String?               @unique
   sourceCaptureRow   ScreenshotCaptureRow? @relation(fields: [sourceCaptureRowId], references: [id], onDelete: SetNull)
+  sleeveType     String?  // core, volatility; required for buy/sell after sleeve activation
+  volatilityTradeDraftId String? @unique
+  volatilityTradeDraft VolatilityTradeDraft? @relation(fields: [volatilityTradeDraftId], references: [id], onDelete: SetNull)
+  sleeveLedgerEntry PositionSleeveLedgerEntry?
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
@@ -622,6 +634,157 @@ model SchedulerLease {
   updatedAt      DateTime  @updatedAt
 
   @@index([leaseExpiresAt])
+}
+
+// 同一真实持仓内部的核心仓 / 波动仓当前状态。Position 仍是真实总仓位来源。
+model PositionSleeveAllocation {
+  id                     String   @id @default(uuid())
+  userId                 String
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId             String   @unique
+  position               Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  status                 String   @default("active") // proposed, active, paused, closed
+  coreQuantity           Float
+  volatilityQuantity     Float
+  volatilityCash         Float    @default(0)
+  volatilityCostBasis    Float    @default(0)
+  volatilityRealizedPnl  Float    @default(0)
+  recommendedRatio       Float?
+  confirmedRatio         Float
+  strategyProfile        String   @default("conservative") // conservative, strict
+  strategyVersion        String   @default("volatility_swing.v1")
+  sourceBacktestId       String?
+  version                Int      @default(1)
+  activatedAt            DateTime @default(now())
+  closedAt               DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  ledgerEntries PositionSleeveLedgerEntry[]
+  tradeDrafts   VolatilityTradeDraft[]
+
+  @@index([userId, status])
+  @@index([positionId, status])
+}
+
+// 分仓不可变台账；交易归属、跨仓划转和波动现金变化均写入这里。
+model PositionSleeveLedgerEntry {
+  id                String   @id @default(uuid())
+  allocationId      String
+  allocation        PositionSleeveAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId        String
+  position          Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  transactionId     String?  @unique
+  transaction       Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  entryType         String   // activate, buy, sell, security_transfer, cash_transfer, adjustment, close
+  sleeveType        String   // core, volatility
+  quantityDelta     Float    @default(0)
+  cashDelta         Float    @default(0)
+  costBasisDelta    Float    @default(0)
+  realizedPnlDelta  Float    @default(0)
+  price             Float?
+  fee               Float    @default(0)
+  notes             String?
+  metadataJson      String   @default("{}")
+  occurredAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  @@index([allocationId, occurredAt])
+  @@index([userId, positionId, occurredAt])
+}
+
+// 透明相对轮动坐标，不使用专有 JdK 字段命名。
+model RelativeRotationPoint {
+  id                    String   @id @default(uuid())
+  symbol                String
+  benchmarkId           String
+  frequency             String   @default("weekly")
+  tradeDate             DateTime
+  relativePrice         Float
+  relativeTrend         Float
+  relativeMomentum      Float
+  quadrant              String
+  deltaX                Float?
+  deltaY                Float?
+  speed                 Float?
+  adjustType            String   @default("qfq")
+  formulaVersion        String   @default("transparent_relative_rotation.v1")
+  dataVersion           String   @default("relative_rotation.v1")
+  dataStatus            String   @default("ready") // ready, partial, insufficient, stale
+  coveragePercent       Float    @default(0)
+  evidenceRefsJson      String   @default("[]")
+  computedAt            DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([symbol, benchmarkId, frequency, tradeDate, formulaVersion])
+  @@index([symbol, benchmarkId, frequency, tradeDate])
+  @@index([tradeDate, quadrant])
+}
+
+model VolatilityStrategyBacktest {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId            String
+  position              Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  status                String   @default("queued") // queued, running, passed, insufficient, failed
+  benchmarkId           String   @default("csi300_price_index")
+  formulaVersion        String   @default("transparent_relative_rotation.v1")
+  strategyVersion       String   @default("volatility_swing.v1")
+  historyStart          DateTime?
+  historyEnd            DateTime?
+  sampleDays            Int      @default(0)
+  recommendedRatio      Float    @default(0)
+  recommendedProfile    String   @default("conservative")
+  metricsJson           String   @default("{}")
+  candidatesJson        String   @default("[]")
+  blockersJson          String   @default("[]")
+  warningsJson          String   @default("[]")
+  operationId           String?
+  completedAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId, positionId, createdAt])
+  @@index([status, createdAt])
+}
+
+model VolatilityTradeDraft {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId            String
+  position              Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  allocationId          String
+  allocation            PositionSleeveAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  analysisDate          DateTime
+  side                  String   // buy, sell
+  status                String   @default("pending") // pending, confirmed, dismissed, expired, blocked
+  suggestedQuantity     Float
+  referencePriceLow     Float?
+  referencePriceHigh    Float?
+  rrgQuadrant           String?
+  rrgEntryFactor        Float?
+  timingJson            String   @default("{}")
+  rationaleJson         String   @default("[]")
+  strategyProfile       String
+  strategyVersion       String   @default("volatility_swing.v1")
+  formulaVersion        String   @default("transparent_relative_rotation.v1")
+  operationId           String?
+  expiresAt             DateTime
+  dismissedAt           DateTime?
+  confirmedAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  confirmedTransaction Transaction?
+
+  @@unique([positionId, analysisDate, side, strategyVersion])
+  @@index([userId, status, analysisDate])
+  @@index([allocationId, status])
 }
 
 model MarketBarRaw {

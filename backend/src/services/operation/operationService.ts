@@ -13,6 +13,9 @@ import { dividendLowVolStrategyService } from '../dividend-low-vol/dividendLowVo
 import { dividendLowVolInputBuilderService } from '../dividend-low-vol/dividendLowVolInputBuilderService.js'
 import { dividendLowVolUniverseService } from '../dividend-low-vol/dividendLowVolUniverseService.js'
 import { dividendLowVolDataReadinessService } from '../dividend-low-vol/dividendLowVolDataReadinessService.js'
+import { volatilityBacktestService } from '../volatility-sleeve/volatilityBacktestService.js'
+import { volatilitySleeveService } from '../volatility-sleeve/volatilitySleeveService.js'
+import { relativeRotationService } from '../relative-rotation/relativeRotationService.js'
 import { randomUUID } from 'crypto'
 import { execFile } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -23,7 +26,7 @@ const OPERATION_WORKER_ID = `fams-api:${process.pid}:${Math.random().toString(36
 const QUOTE_LIST_MARKET_CAP_UNAVAILABLE_WARNING = 'BaoStock 派生流通市值缺失'
 
 type OperationStatus = 'queued' | 'running' | 'completed' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'partial'
-type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'strategy_tournament_run' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'dividend_low_vol_daily_scan'
+type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'strategy_tournament_run' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'dividend_low_vol_daily_scan' | 'relative_rotation_backtest' | 'relative_rotation_history_refresh' | 'volatility_sleeve_daily_analysis'
 
 interface OperationAction {
   type: string
@@ -123,6 +126,33 @@ interface DividendLowVolDailyScanInput {
   symbols?: string[]
   limit?: number
   universe?: 'provided_symbols' | 'all_a'
+  parentOperationId?: string
+  executionMode?: 'inline' | 'queued'
+  createdBy?: string
+  idempotencyKey?: string
+}
+
+interface RelativeRotationBacktestInput {
+  userId: string
+  positionIds?: string[]
+  parentOperationId?: string
+  executionMode?: 'inline' | 'queued'
+  createdBy?: string
+  idempotencyKey?: string
+}
+
+interface VolatilitySleeveDailyAnalysisInput {
+  userId: string
+  refresh?: boolean
+  parentOperationId?: string
+  executionMode?: 'inline' | 'queued'
+  createdBy?: string
+  idempotencyKey?: string
+}
+
+interface RelativeRotationHistoryRefreshInput {
+  userId: string
+  years?: number
   parentOperationId?: string
   executionMode?: 'inline' | 'queued'
   createdBy?: string
@@ -260,6 +290,16 @@ class OperationService {
         return [
           { type: 'open_analysis', label: '查看红利低波策略', href: '/dividend-low-vol' },
           ...(artifactRefs.length > 0 ? [{ type: 'open_operation', label: '查看红利低波产物', href: `/operations?operationId=${operation.id}` }] : []),
+        ]
+      case 'relative_rotation_backtest':
+        return [
+          { type: 'open_relative_rotation', label: '查看相对轮动与拆仓建议', href: '/relative-rotation' },
+          ...(artifactRefs.length > 0 ? [{ type: 'open_operation', label: '查看回测产物', href: `/operations?operationId=${operation.id}` }] : []),
+        ]
+      case 'volatility_sleeve_daily_analysis':
+        return [
+          { type: 'open_relative_rotation', label: '查看波动仓建议', href: '/relative-rotation' },
+          ...(artifactRefs.length > 0 ? [{ type: 'open_operation', label: '查看分析产物', href: `/operations?operationId=${operation.id}` }] : []),
         ]
       default:
         return artifactRefs.length > 0 ? [{ type: 'open_operation', label: '查看任务产物', href: `/operations?operationId=${operation.id}` }] : []
@@ -1441,6 +1481,170 @@ class OperationService {
     }
   }
 
+  private async executeRelativeRotationBacktestOperation(
+    operationId: string,
+    input: RelativeRotationBacktestInput,
+    options: { resume?: boolean; recovery?: Record<string, unknown> } = {},
+  ) {
+    const leaseToken = await this.markOperationRunning(operationId, 5, {
+      allowResume: options.resume,
+      recovery: options.recovery,
+    })
+    if (!leaseToken) return
+    try {
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'relative_rotation.backtest',
+        taskType: 'relative_rotation.backtest',
+        status: 'running',
+        input: { positionIds: input.positionIds || [] },
+        provider: 'volatilityBacktestService',
+      })
+      await this.updateOperationProgress(operationId, leaseToken, 15, {
+        progressMessage: '正在补齐前复权行情并回测当前持仓',
+      })
+      const result = await volatilityBacktestService.runCurrentHoldings({
+        userId: input.userId,
+        positionIds: input.positionIds,
+        operationId,
+      })
+      const failedCount = result.results.filter((item: any) => item.status === 'failed').length
+      const passedCount = result.results.filter((item: any) => item.status === 'passed').length
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'relative_rotation.backtest',
+        taskType: 'relative_rotation.backtest',
+        status: failedCount > 0 ? (passedCount > 0 ? 'partial' : 'failed') : 'completed',
+        successCount: result.results.length - failedCount,
+        failureCount: failedCount,
+        provider: 'volatilityBacktestService',
+        metrics: { requested: result.requestedPositions, eligible: result.eligiblePositions, passedCount, failedCount },
+        output: result,
+      })
+      const artifacts = { 'relative_rotation_backtest_report.json': result }
+      const artifactRefs = [`operation_artifact:${operationId}:relative_rotation_backtest_report.json`]
+      await this.completeOperation(operationId, leaseToken, {
+        result: { ...result, artifacts, artifactRefs, partialSuccess: failedCount > 0 },
+        artifactRefs,
+      })
+    } catch (error) {
+      if (await this.isOperationCancelled(operationId, leaseToken)) {
+        await this.cancelOwnedOperation(operationId, leaseToken, error)
+        return
+      }
+      await this.failOperation(operationId, leaseToken, error)
+    }
+  }
+
+  private async executeVolatilitySleeveDailyAnalysisOperation(
+    operationId: string,
+    input: VolatilitySleeveDailyAnalysisInput,
+    options: { resume?: boolean; recovery?: Record<string, unknown> } = {},
+  ) {
+    const leaseToken = await this.markOperationRunning(operationId, 5, {
+      allowResume: options.resume,
+      recovery: options.recovery,
+    })
+    if (!leaseToken) return
+    try {
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'volatility_sleeve.daily_analysis',
+        taskType: 'volatility_sleeve.daily_analysis',
+        status: 'running',
+        input: { refresh: input.refresh !== false },
+        provider: 'volatilitySleeveService',
+      })
+      await this.updateOperationProgress(operationId, leaseToken, 15, {
+        progressMessage: '正在计算相对轮动并检查波动仓价格条件',
+      })
+      const result = await volatilitySleeveService.generateDailyAnalysis({
+        userId: input.userId,
+        operationId,
+        refresh: input.refresh,
+      })
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'volatility_sleeve.daily_analysis',
+        taskType: 'volatility_sleeve.daily_analysis',
+        status: result.blockedCount > 0 && result.analyzedAllocations > result.blockedCount ? 'partial' : 'completed',
+        successCount: Math.max(0, result.analyzedAllocations - result.blockedCount),
+        failureCount: result.blockedCount,
+        provider: 'volatilitySleeveService',
+        metrics: {
+          analyzedAllocations: result.analyzedAllocations,
+          draftCount: result.draftCount,
+          blockedCount: result.blockedCount,
+        },
+        output: result,
+      })
+      const artifacts = { 'volatility_sleeve_daily_analysis.json': result }
+      const artifactRefs = [`operation_artifact:${operationId}:volatility_sleeve_daily_analysis.json`]
+      await this.completeOperation(operationId, leaseToken, {
+        result: {
+          ...result,
+          artifacts,
+          artifactRefs,
+          partialSuccess: result.blockedCount > 0 && result.analyzedAllocations > 0,
+        },
+        artifactRefs,
+      })
+    } catch (error) {
+      if (await this.isOperationCancelled(operationId, leaseToken)) {
+        await this.cancelOwnedOperation(operationId, leaseToken, error)
+        return
+      }
+      await this.failOperation(operationId, leaseToken, error)
+    }
+  }
+
+  private async executeRelativeRotationHistoryRefreshOperation(
+    operationId: string,
+    input: RelativeRotationHistoryRefreshInput,
+    options: { resume?: boolean; recovery?: Record<string, unknown> } = {},
+  ) {
+    const leaseToken = await this.markOperationRunning(operationId, 5, {
+      allowResume: options.resume,
+      recovery: options.recovery,
+    })
+    if (!leaseToken) return
+    try {
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'relative_rotation.history_refresh',
+        taskType: 'relative_rotation.history_refresh',
+        status: 'running',
+        input: { years: input.years || 8 },
+        provider: 'smart_market_history',
+      })
+      await this.updateOperationProgress(operationId, leaseToken, 12, {
+        progressMessage: `正在智能换源并补齐 ${input.years || 8} 年相对轮动历史`,
+      })
+      const result = await relativeRotationService.refreshHoldingsTimeline(input.userId, { years: input.years })
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'relative_rotation.history_refresh',
+        taskType: 'relative_rotation.history_refresh',
+        status: 'completed',
+        successCount: result.readyPositions,
+        failureCount: Math.max(0, result.requestedPositions - result.readyPositions),
+        provider: 'smart_market_history',
+        metrics: {
+          requestedPositions: result.requestedPositions,
+          readyPositions: result.readyPositions,
+          requestedHistoryDays: result.requestedHistoryDays,
+        },
+        output: result,
+      })
+      const artifacts = { 'relative_rotation_timeline_refresh.json': result }
+      const artifactRefs = [`operation_artifact:${operationId}:relative_rotation_timeline_refresh.json`]
+      await this.completeOperation(operationId, leaseToken, {
+        result: { ...result, artifacts, artifactRefs },
+        artifactRefs,
+      })
+    } catch (error) {
+      if (await this.isOperationCancelled(operationId, leaseToken)) {
+        await this.cancelOwnedOperation(operationId, leaseToken, error)
+        return
+      }
+      await this.failOperation(operationId, leaseToken, error)
+    }
+  }
+
   private async executeDividendLowVolDailyScanOperation(operationId: string, input: DividendLowVolDailyScanInput) {
     const leaseToken = await this.markOperationRunning(operationId, 5)
     if (!leaseToken) return
@@ -2317,7 +2521,7 @@ class OperationService {
     workerId?: string
   } = {}) {
     const now = new Date()
-    const supportedTypes: OperationType[] = ['stock_screener_full_scan', 'strategy_tournament_run', 'batch_factset_refresh', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan']
+    const supportedTypes: OperationType[] = ['stock_screener_full_scan', 'strategy_tournament_run', 'batch_factset_refresh', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'volatility_sleeve_daily_analysis']
     const types = (params.types && params.types.length > 0 ? params.types : supportedTypes)
       .filter((type) => supportedTypes.includes(type))
     if (types.length === 0) {
@@ -2458,6 +2662,51 @@ class OperationService {
           limit: typeof input.limit === 'number' ? input.limit : undefined,
           parentOperationId: typeof input.parentOperationId === 'string' ? input.parentOperationId : undefined,
           executionMode: 'queued',
+        })
+        break
+      case 'relative_rotation_backtest':
+        await this.executeRelativeRotationBacktestOperation(operation.id, {
+          userId,
+          positionIds: Array.isArray(input.positionIds) ? input.positionIds.map(String) : [],
+          parentOperationId: typeof input.parentOperationId === 'string' ? input.parentOperationId : undefined,
+          executionMode: 'queued',
+        }, {
+          resume: operation.status === 'running',
+          recovery: {
+            recoveredAt: new Date().toISOString(),
+            resumePolicy: 'rerun_versioned_relative_rotation_backtest',
+            ...recovery,
+          },
+        })
+        break
+      case 'relative_rotation_history_refresh':
+        await this.executeRelativeRotationHistoryRefreshOperation(operation.id, {
+          userId,
+          years: typeof input.years === 'number' ? input.years : 8,
+          parentOperationId: typeof input.parentOperationId === 'string' ? input.parentOperationId : undefined,
+          executionMode: 'queued',
+        }, {
+          resume: operation.status === 'running',
+          recovery: {
+            recoveredAt: new Date().toISOString(),
+            resumePolicy: 'upsert_same_source_long_history_and_recompute_timelines',
+            ...recovery,
+          },
+        })
+        break
+      case 'volatility_sleeve_daily_analysis':
+        await this.executeVolatilitySleeveDailyAnalysisOperation(operation.id, {
+          userId,
+          refresh: input.refresh !== false,
+          parentOperationId: typeof input.parentOperationId === 'string' ? input.parentOperationId : undefined,
+          executionMode: 'queued',
+        }, {
+          resume: operation.status === 'running',
+          recovery: {
+            recoveredAt: new Date().toISOString(),
+            resumePolicy: 'upsert_daily_drafts_by_trade_date_and_strategy_version',
+            ...recovery,
+          },
         })
         break
       default:
@@ -2667,6 +2916,115 @@ class OperationService {
     return this.getOperation(operation.id)
   }
 
+  async startRelativeRotationBacktestOperation(input: RelativeRotationBacktestInput) {
+    await ensureUser(prisma, input.userId)
+    let operation
+    try {
+      operation = await prisma.operation.create({
+        data: {
+          parentOperationId: input.parentOperationId || null,
+          userId: input.userId,
+          type: 'relative_rotation_backtest',
+          status: 'queued',
+          createdBy: input.createdBy || 'user',
+          idempotencyKey: input.idempotencyKey || null,
+          inputJson: JSON.stringify({
+            userId: input.userId,
+            positionIds: input.positionIds || [],
+            parentOperationId: input.parentOperationId || null,
+            executionMode: input.executionMode || 'queued',
+            createdBy: input.createdBy || 'user',
+          }),
+        },
+      })
+    } catch (error) {
+      if (!input.idempotencyKey || !this.isUniqueConstraintError(error)) throw error
+      const existing = await prisma.operation.findFirst({
+        where: { type: 'relative_rotation_backtest', idempotencyKey: input.idempotencyKey },
+        orderBy: { requestedAt: 'desc' },
+      })
+      if (!existing) throw error
+      return this.getOperation(existing.id)
+    }
+    if (input.executionMode === 'inline') {
+      void this.executeRelativeRotationBacktestOperation(operation.id, input)
+    }
+    return this.getOperation(operation.id)
+  }
+
+  async startVolatilitySleeveDailyAnalysisOperation(input: VolatilitySleeveDailyAnalysisInput) {
+    await ensureUser(prisma, input.userId)
+    let operation
+    try {
+      operation = await prisma.operation.create({
+        data: {
+          parentOperationId: input.parentOperationId || null,
+          userId: input.userId,
+          type: 'volatility_sleeve_daily_analysis',
+          status: 'queued',
+          createdBy: input.createdBy || 'user',
+          idempotencyKey: input.idempotencyKey || null,
+          inputJson: JSON.stringify({
+            userId: input.userId,
+            refresh: input.refresh !== false,
+            parentOperationId: input.parentOperationId || null,
+            executionMode: input.executionMode || 'queued',
+            createdBy: input.createdBy || 'user',
+          }),
+        },
+      })
+    } catch (error) {
+      if (!input.idempotencyKey || !this.isUniqueConstraintError(error)) throw error
+      const existing = await prisma.operation.findFirst({
+        where: { type: 'volatility_sleeve_daily_analysis', idempotencyKey: input.idempotencyKey },
+        orderBy: { requestedAt: 'desc' },
+      })
+      if (!existing) throw error
+      return this.getOperation(existing.id)
+    }
+    if (input.executionMode === 'inline') {
+      void this.executeVolatilitySleeveDailyAnalysisOperation(operation.id, input)
+    }
+    return this.getOperation(operation.id)
+  }
+
+  async startRelativeRotationHistoryRefreshOperation(input: RelativeRotationHistoryRefreshInput) {
+    await ensureUser(prisma, input.userId)
+    const years = Math.max(1, Math.min(8, Math.floor(input.years || 8)))
+    let operation
+    try {
+      operation = await prisma.operation.create({
+        data: {
+          parentOperationId: input.parentOperationId || null,
+          userId: input.userId,
+          type: 'relative_rotation_history_refresh',
+          status: 'queued',
+          createdBy: input.createdBy || 'user',
+          idempotencyKey: input.idempotencyKey || null,
+          inputJson: JSON.stringify({
+            userId: input.userId,
+            years,
+            parentOperationId: input.parentOperationId || null,
+            executionMode: input.executionMode || 'queued',
+            createdBy: input.createdBy || 'user',
+          }),
+        },
+      })
+    } catch (error) {
+      if (!input.idempotencyKey || !this.isUniqueConstraintError(error)) throw error
+      const existing = await prisma.operation.findFirst({
+        where: { type: 'relative_rotation_history_refresh', idempotencyKey: input.idempotencyKey },
+        orderBy: { requestedAt: 'desc' },
+      })
+      if (!existing) throw error
+      return this.getOperation(existing.id)
+    }
+    if (input.executionMode === 'inline') {
+      void this.executeRelativeRotationHistoryRefreshOperation(operation.id, { ...input, years })
+    }
+    return this.getOperation(operation.id)
+  }
+
   async scheduleDueFactsetRefresh(input: DueFactsetRefreshInput) {
     await ensureUser(prisma, input.userId)
 
@@ -2847,7 +3205,7 @@ class OperationService {
     const now = new Date()
     const recoverable = await prisma.operation.findMany({
       where: {
-        type: { in: ['batch_factset_refresh', 'stock_screener_full_scan', 'strategy_tournament_run', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan'] },
+        type: { in: ['batch_factset_refresh', 'stock_screener_full_scan', 'strategy_tournament_run', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'volatility_sleeve_daily_analysis'] },
         status: { in: ['queued', 'running'] },
         cancelRequested: false,
         OR: [
@@ -2974,6 +3332,27 @@ class OperationService {
           limit: typeof input.limit === 'number' ? input.limit : undefined,
           parentOperationId: sourceOperation.id,
           executionMode: input.executionMode === 'queued' ? 'queued' : 'inline',
+        })
+      case 'relative_rotation_backtest':
+        return this.startRelativeRotationBacktestOperation({
+          userId,
+          positionIds: Array.isArray(input.positionIds) ? input.positionIds.map(String) : [],
+          parentOperationId: sourceOperation.id,
+          executionMode: 'queued',
+        })
+      case 'relative_rotation_history_refresh':
+        return this.startRelativeRotationHistoryRefreshOperation({
+          userId,
+          years: typeof input.years === 'number' ? input.years : 8,
+          parentOperationId: sourceOperation.id,
+          executionMode: 'queued',
+        })
+      case 'volatility_sleeve_daily_analysis':
+        return this.startVolatilitySleeveDailyAnalysisOperation({
+          userId,
+          refresh: input.refresh !== false,
+          parentOperationId: sourceOperation.id,
+          executionMode: 'queued',
         })
       default:
         throw new Error(`Operation type ${sourceOperation.type} does not support retry`)

@@ -36,6 +36,26 @@ export interface StockHistoryData {
   volume: number
   amount?: number
   source?: string
+  adjustType?: 'none' | 'qfq'
+}
+
+export type HistoryProviderAttemptStatus = 'success' | 'partial' | 'empty' | 'failed' | 'skipped'
+
+export interface HistoryProviderAttempt {
+  provider: string
+  status: HistoryProviderAttemptStatus
+  requestedDays: number
+  returnedDays: number
+  firstDate: string | null
+  lastDate: string | null
+  durationMs: number
+  reason?: string
+}
+
+export interface SmartHistoryResult {
+  history: StockHistoryData[]
+  selectedProvider: string | null
+  attempts: HistoryProviderAttempt[]
 }
 
 export interface AShareStockItem {
@@ -83,6 +103,125 @@ function getEastmoneySecid(stockCode: string) {
   if (exchange === 'SH') return `1.${stockCode}`
   if (exchange === 'BJ') return `0.${stockCode}`
   return `0.${stockCode}`
+}
+
+interface HistoryProviderCandidate {
+  provider: string
+  fetch: () => Promise<StockHistoryData[]>
+}
+
+const historyProviderCircuits = new Map<string, { consecutiveFailures: number; openUntil: number }>()
+const HISTORY_PROVIDER_FAILURE_THRESHOLD = 2
+const HISTORY_PROVIDER_COOLDOWN_MS = 5 * 60 * 1000
+
+function normalizeHistory(history: StockHistoryData[], adjustType: 'none' | 'qfq') {
+  const byDate = new Map<string, StockHistoryData>()
+  for (const row of history) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) continue
+    if (![row.open, row.high, row.low, row.close].every((value) => Number.isFinite(value) && value > 0)) continue
+    if (row.high < Math.max(row.open, row.close) || row.low > Math.min(row.open, row.close)) continue
+    byDate.set(row.date, {
+      ...row,
+      volume: Number.isFinite(row.volume) && row.volume >= 0 ? row.volume : 0,
+      adjustType,
+    })
+  }
+  return Array.from(byDate.values()).sort((left, right) => left.date.localeCompare(right.date))
+}
+
+function isHistoryFresh(history: StockHistoryData[]) {
+  const latest = history.at(-1)?.date
+  if (!latest) return false
+  const latestTime = new Date(`${latest}T00:00:00.000Z`).getTime()
+  return Number.isFinite(latestTime) && latestTime >= Date.now() - 14 * 24 * 60 * 60 * 1000
+}
+
+async function fetchSmartHistory(
+  candidates: HistoryProviderCandidate[],
+  requestedDays: number,
+  adjustType: 'none' | 'qfq',
+): Promise<SmartHistoryResult> {
+  const attempts: HistoryProviderAttempt[] = []
+  const requiredDays = requestedDays
+  let best: { provider: string; history: StockHistoryData[] } | null = null
+
+  for (const candidate of candidates) {
+    const circuit = historyProviderCircuits.get(candidate.provider)
+    if (circuit?.openUntil && circuit.openUntil > Date.now()) {
+      attempts.push({
+        provider: candidate.provider,
+        status: 'skipped',
+        requestedDays,
+        returnedDays: 0,
+        firstDate: null,
+        lastDate: null,
+        durationMs: 0,
+        reason: `circuit_open_until:${new Date(circuit.openUntil).toISOString()}`,
+      })
+      continue
+    }
+
+    const startedAt = Date.now()
+    try {
+      const history = normalizeHistory(await candidate.fetch(), adjustType)
+      const fresh = isHistoryFresh(history)
+      const sufficient = history.length >= requiredDays && fresh
+      attempts.push({
+        provider: candidate.provider,
+        status: history.length === 0 ? 'empty' : sufficient ? 'success' : 'partial',
+        requestedDays,
+        returnedDays: history.length,
+        firstDate: history[0]?.date || null,
+        lastDate: history.at(-1)?.date || null,
+        durationMs: Date.now() - startedAt,
+        ...(!fresh && history.length > 0 ? { reason: 'latest_bar_is_stale' } : {}),
+      })
+
+      if (history.length > (best?.history.length || 0)) best = { provider: candidate.provider, history }
+      if (sufficient) {
+        historyProviderCircuits.set(candidate.provider, { consecutiveFailures: 0, openUntil: 0 })
+        return { history, selectedProvider: candidate.provider, attempts }
+      }
+
+      // A newly listed asset can legitimately return fewer rows than requested.
+      // Fresh partial coverage is useful and must not trip the provider circuit.
+      if (history.length > 0 && fresh) {
+        historyProviderCircuits.set(candidate.provider, { consecutiveFailures: 0, openUntil: 0 })
+      } else {
+        const consecutiveFailures = (circuit?.consecutiveFailures || 0) + 1
+        historyProviderCircuits.set(candidate.provider, {
+          consecutiveFailures,
+          openUntil: consecutiveFailures >= HISTORY_PROVIDER_FAILURE_THRESHOLD
+            ? Date.now() + HISTORY_PROVIDER_COOLDOWN_MS
+            : 0,
+        })
+      }
+    } catch (error) {
+      const consecutiveFailures = (circuit?.consecutiveFailures || 0) + 1
+      historyProviderCircuits.set(candidate.provider, {
+        consecutiveFailures,
+        openUntil: consecutiveFailures >= HISTORY_PROVIDER_FAILURE_THRESHOLD
+          ? Date.now() + HISTORY_PROVIDER_COOLDOWN_MS
+          : 0,
+      })
+      attempts.push({
+        provider: candidate.provider,
+        status: 'failed',
+        requestedDays,
+        returnedDays: 0,
+        firstDate: null,
+        lastDate: null,
+        durationMs: Date.now() - startedAt,
+        reason: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  return {
+    history: best?.history || [],
+    selectedProvider: best?.provider || null,
+    attempts,
+  }
 }
 
 const CHINA_INDEX_MAP: Record<string, ChinaIndexIdentity> = {
@@ -246,11 +385,16 @@ async function getSinaStockRealtime(stockCode: string): Promise<StockRealtimeDat
  * 获取A股历史K线数据
  * 数据来源：东方财富
  */
-export async function getChinaStockHistory(
+/**
+ * 获取东方财富 A 股前复权日线。
+ *
+ * 与 getChinaStockHistory 不同，这个严格入口不会回退到不复权数据，适合
+ * 相对轮动、回测等必须保证复权口径一致的研究链路。
+ */
+export async function getEastmoneyQfqStockHistory(
   stockCode: string,
   days: number = 30
 ): Promise<StockHistoryData[]> {
-  let eastmoneyError: unknown = null
   try {
     const endDate = new Date()
     const startDate = new Date()
@@ -296,16 +440,139 @@ export async function getChinaStockHistory(
         low: parseFloat(low),
         volume: parseInt(volume),
         source: 'eastmoney',
+        adjustType: 'qfq',
       }
     })
   } catch (error) {
-    eastmoneyError = error
+    console.error(`Failed to fetch Eastmoney qfq history for ${stockCode}:`, compactHttpError(error))
+    return []
   }
+}
+
+interface TencentKlineResponse {
+  code?: number
+  msg?: string
+  data?: Record<string, {
+    qfqday?: Array<Array<string | number>>
+    day?: Array<Array<string | number>>
+  }>
+}
+
+function parseTencentKlineRows(
+  payload: TencentKlineResponse,
+  marketSymbol: string,
+  adjustType: 'none' | 'qfq',
+  provider: string,
+) {
+  if (payload.code !== undefined && payload.code !== 0) {
+    throw new Error(`Tencent history error ${payload.code}: ${payload.msg || 'unknown error'}`)
+  }
+  const data = payload.data?.[marketSymbol]
+  const rows = adjustType === 'qfq' ? data?.qfqday : data?.day
+  return (rows || []).map((row) => ({
+    date: String(row[0] || ''),
+    open: Number(row[1]),
+    close: Number(row[2]),
+    high: Number(row[3]),
+    low: Number(row[4]),
+    volume: Number(row[5]) || 0,
+    source: provider,
+    adjustType,
+  }))
+}
+
+const shiftIsoDate = (value: string, days: number) => {
+  const date = new Date(`${value}T00:00:00.000Z`)
+  if (Number.isNaN(date.getTime())) return ''
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+async function getTencentHistoryPages(params: {
+  marketSymbol: string
+  days: number
+  adjustType: 'none' | 'qfq'
+  provider: string
+}) {
+  const requestedDays = Math.max(120, Math.min(3000, Math.floor(params.days)))
+  const byDate = new Map<string, StockHistoryData>()
+  let endDate = ''
+  let previousOldest = ''
+
+  // Tencent returns at most 800 daily rows per request. Keep every page on the
+  // same provider/adjustment basis, paging backwards from the oldest row.
+  for (let page = 0; page < Math.ceil(requestedDays / 800) + 1; page += 1) {
+    const remaining = requestedDays - byDate.size
+    if (remaining <= 0) break
+    const count = Math.min(800, Math.max(120, remaining))
+    const response = await getJson<TencentKlineResponse>(
+      'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get',
+      {
+        params: {
+          param: `${params.marketSymbol},day,,${endDate},${count},qfq`,
+        },
+        headers: {
+          Referer: 'https://gu.qq.com/',
+          'User-Agent': 'Mozilla/5.0',
+        },
+        timeout: 10000,
+      },
+    )
+    const rows = parseTencentKlineRows(response, params.marketSymbol, params.adjustType, params.provider)
+    if (rows.length === 0) break
+    for (const row of rows) byDate.set(row.date, row)
+    const oldest = rows.reduce((value, row) => row.date < value ? row.date : value, rows[0].date)
+    if (!oldest || oldest === previousOldest) break
+    previousOldest = oldest
+    endDate = shiftIsoDate(oldest, -1)
+    if (!endDate || rows.length < count) break
+  }
+
+  return Array.from(byDate.values())
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .slice(-requestedDays)
+}
+
+export async function getTencentQfqStockHistory(
+  stockCode: string,
+  days: number = 756,
+): Promise<StockHistoryData[]> {
+  try {
+    const marketSymbol = `${getSinaMarketPrefix(stockCode)}${stockCode}`
+    return getTencentHistoryPages({
+      marketSymbol,
+      days,
+      adjustType: 'qfq',
+      provider: 'tencent_qfq',
+    })
+  } catch (error) {
+    console.error(`Failed to fetch Tencent qfq history for ${stockCode}:`, compactHttpError(error))
+    return []
+  }
+}
+
+export async function getSmartQfqStockHistory(
+  stockCode: string,
+  days: number = 756,
+): Promise<SmartHistoryResult> {
+  const requestedDays = Math.max(120, Math.min(3000, Math.floor(days)))
+  return fetchSmartHistory([
+    { provider: 'eastmoney_qfq', fetch: () => getEastmoneyQfqStockHistory(stockCode, requestedDays) },
+    { provider: 'tencent_qfq', fetch: () => getTencentQfqStockHistory(stockCode, requestedDays) },
+  ], requestedDays, 'qfq')
+}
+
+export async function getChinaStockHistory(
+  stockCode: string,
+  days: number = 30
+): Promise<StockHistoryData[]> {
+  const eastmoneyHistory = await getEastmoneyQfqStockHistory(stockCode, days)
+  if (eastmoneyHistory.length > 0) return eastmoneyHistory
 
   const sinaHistory = await getSinaStockHistory(stockCode, days)
   if (sinaHistory.length > 0) return sinaHistory
 
-  console.error(`Failed to fetch China stock history for ${stockCode}:`, compactHttpError(eastmoneyError))
+  console.error(`Failed to fetch China stock history for ${stockCode}`)
   return []
 }
 
@@ -394,6 +661,35 @@ export async function getSinaHistoryBySymbol(sinaSymbol: string, days: number): 
     console.error(`Failed to fetch Sina history for ${sinaSymbol}:`, compactHttpError(error))
     return []
   }
+}
+
+export async function getTencentIndexHistory(symbol: string, days: number = 756): Promise<StockHistoryData[]> {
+  const identity = resolveChinaIndexIdentity(symbol)
+  if (!identity) throw new Error(`Unsupported China index symbol: ${symbol}`)
+  try {
+    return getTencentHistoryPages({
+      marketSymbol: identity.sinaSymbol,
+      days,
+      adjustType: 'none',
+      provider: 'tencent_price_index',
+    })
+  } catch (error) {
+    console.error(`Failed to fetch Tencent index history for ${identity.sinaSymbol}:`, compactHttpError(error))
+    return []
+  }
+}
+
+export async function getSmartChinaIndexHistory(
+  symbol: string,
+  days: number = 756,
+): Promise<SmartHistoryResult> {
+  const identity = resolveChinaIndexIdentity(symbol)
+  if (!identity) throw new Error(`Unsupported China index symbol: ${symbol}`)
+  const requestedDays = Math.max(120, Math.min(3000, Math.floor(days)))
+  return fetchSmartHistory([
+    { provider: 'sina_price_index', fetch: () => getSinaHistoryBySymbol(identity.sinaSymbol, requestedDays) },
+    { provider: 'tencent_price_index', fetch: () => getTencentIndexHistory(identity.symbol, requestedDays) },
+  ], requestedDays, 'none')
 }
 
 export async function getChinaIndexHistory(symbol: string, days: number = 260): Promise<StockHistoryData[]> {

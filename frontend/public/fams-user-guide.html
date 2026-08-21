@@ -211,7 +211,7 @@
   </style>
 </head>
 <body>
-  <script id="route-manifest" type="application/json">["/","/dashboard","/assets","/positions","/daily-reviews","/daily-reviews/:reviewId","/fund/:code","/stock/:code","/transactions","/analysis","/dividend-low-vol","/alerts","/operations","/backtest","/portfolios"]</script>
+  <script id="route-manifest" type="application/json">["/","/dashboard","/assets","/positions","/daily-reviews","/daily-reviews/:reviewId","/fund/:code","/stock/:code","/transactions","/analysis","/dividend-low-vol","/relative-rotation","/alerts","/operations","/backtest","/portfolios"]</script>
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand"><span class="brand-mark">F</span><span>FAMS 使用指南</span></div>
@@ -247,7 +247,7 @@
       </div>
       <div class="summary-panel">
         <div class="stat-grid" id="stats"></div>
-        <div class="progress-track" role="progressbar" aria-label="学习完成度" aria-valuemin="0" aria-valuemax="16" aria-valuenow="0">
+        <div class="progress-track" role="progressbar" aria-label="学习完成度" aria-valuemin="0" aria-valuemax="17" aria-valuenow="0">
           <div class="progress-bar" id="progressBar"></div>
         </div>
         <div class="summary-actions">
@@ -401,7 +401,16 @@
         screenshot: "截取 Top 3、一个候选的观察区间和数据可信状态。"
       },
       {
-        id: "backtest", number: "12", tier: "advanced", route: "/backtest", openUrl: "/backtest",
+        id: "relative_rotation", number: "12", tier: "advanced", route: "/relative-rotation", openUrl: "/relative-rotation",
+        title: "查看相对轮动与波动仓", purpose: "用共同基准观察持仓的相对趋势，再单独管理标的内部波动仓。",
+        risk: "background-task", baseline: "verified", baselineNote: "导航、路由、四象限轨迹、回测、分仓台账、每日草稿和审计入口已通过编译与专项不变式测试；进入页面时若历史数据不足，可能自动创建补齐任务。",
+        steps: ["打开“相对轮动与波动仓”，先看数据与计算口径：当前持仓、沪深300共同基准、前复权价格和最长 8 年历史。", "用周频/日频、时间滑块和轨迹长度观察领先、弱化、落后、改善四个象限；不要把相对表现当成绝对收益。", "查看每个持仓的样本日、回测状态、推荐比例和数据阻断；没有至少 3 年合格回测时不确认拆仓。", "“确认拆仓”、“仓内划转”会写入本地台账；“确认成交”只能记录你已在券商完成的真实成交，不能当作下单按钮。"],
+        expected: ["轮动图明确显示共同截止日、样本数和四象限，缺数据时显示补齐任务而不伪造轨迹。", "核心仓+波动证券数量始终等于持仓总数量，差异时标记“需要对账”。", "回测不合格时不能建立正波动仓，所有草稿都需人工确认。", "页面明确说明不向券商发送订单，核心仓不会被每日分析自动修改。"],
+        problems: "轨迹没有日期/基准/复权口径、核心仓被每日草稿改动、数量不守恒，或“确认成交”会联网下单时立即停止使用。",
+        screenshot: "截取数据口径、轮动轨迹和一个持仓的回测/分仓区域；如未发生真实交易，不要练习“确认成交”。"
+      },
+      {
+        id: "backtest", number: "13", tier: "advanced", route: "/backtest", openUrl: "/backtest",
         title: "比较策略回测，而不是预测未来", purpose: "用收益、回撤和数据等级比较方案的历史表现。",
         risk: "background-task", baseline: "verified", baselineNote: "组合模板、快速对比、建议回测、报告、人工复核和任务跳转入口已只读核对；未运行新回测。",
         steps: ["先选择推荐 3 组或明确的组合模板，核对区间和初始资金。", "运行前确认是研究模式还是正式评审前置。", "结果先看累计收益、最大回撤、基准、数据等级，再看交易明细。", "需要保存或基于 Advice ID 回测时会创建后台任务，可从任务中心追踪。"],
@@ -410,7 +419,7 @@
         screenshot: "截取策略选择、收益/回撤曲线和指标对照。"
       },
       {
-        id: "alerts", number: "13", tier: "daily", route: "/alerts", openUrl: "/alerts",
+        id: "alerts", number: "14", tier: "daily", route: "/alerts", openUrl: "/alerts",
         title: "查看风险告警，区分确认与解决", purpose: "先理解当前风险，再决定是否更新告警状态。",
         risk: "local-write", baseline: "verified", baselineNote: "告警统计、列表、刷新、风险检查、宽基监控和状态操作入口已只读核对。",
         steps: ["先看活跃告警、危险级别和规则来源。", "阅读告警标的、触发条件、当前状态和时间。", "“确认”表示你已看见，“解决”表示问题已处理；不要混用。", "宽基规则新增、删除、保存和风险检查会修改配置或创建任务。"],
@@ -419,7 +428,7 @@
         screenshot: "截取告警统计和一条告警详情；如修改状态，再附修改后的状态。"
       },
       {
-        id: "operations", number: "14", tier: "advanced", route: "/operations", openUrl: "/operations",
+        id: "operations", number: "15", tier: "advanced", route: "/operations", openUrl: "/operations",
         title: "在任务中心追踪执行状态和失败原因", purpose: "任务中心是高级排错页，日常只在结果异常时进入。",
         risk: "background-task", baseline: "verified", baselineNote: "任务统计、筛选、最近任务、详情、失败、重试、取消、产物和维护任务入口已只读核对。",
         steps: ["先看最近价格刷新、告警检查、每日建议和回测任务。", "使用任务类型、状态和搜索筛选，再打开任务详情。", "先读普通话摘要、失败原因、数据可靠性和下一步，最后才展开原始 JSON。", "刷新价格、检查告警、生成建议、重试、取消和维护任务都会改变任务状态。"],
@@ -428,7 +437,7 @@
         screenshot: "截取任务统计、最近任务摘要和一条任务详情。"
       },
       {
-        id: "trade_boundary", number: "15", tier: "essential", route: "/dashboard", openUrl: "/dashboard",
+        id: "trade_boundary", number: "16", tier: "essential", route: "/dashboard", openUrl: "/dashboard",
         title: "确认系统不会替你自动交易", purpose: "这是使用任何建议和网格前必须理解的边界。",
         risk: "readonly", baseline: "verified", baselineNote: "总览、ChatBox、分析、回测和策略页的研究边界及交易阻断文案已核对。",
         steps: ["在总览工作台点击“确认交易边界”，或在 ChatBox 选择“解释为什么不能交易”。", "确认说明包含 ADD、REDUCE、ORDER_CREATE、AUTO_TRADE 的阻断原因。", "检查网格和观察区间是否明确标成人工计划草案。"],
@@ -437,7 +446,7 @@
         screenshot: "截取交易阻断说明和人工计划草案标识。"
       },
       {
-        id: "developer_checklists", number: "16", tier: "advanced", route: "独立验收页", openUrl: "/daily-portfolio-review-human-checklist.html",
+        id: "developer_checklists", number: "17", tier: "advanced", route: "独立验收页", openUrl: "/daily-portfolio-review-human-checklist.html",
         title: "按需使用开发验收附录", purpose: "这些页面用于功能验收，不是日常投资流程。",
         risk: "readonly", baseline: "verified", baselineNote: "每日复盘验收页和正式发布检查页文件存在；本指南不增加或分配任何评审人员角色。",
         steps: ["只有需要向 Codex 提交功能问题时才打开每日复盘验收页。", "逐项检查、备注并附截图，再导出 HTML 报告。", "正式发布检查页属于开发验收资料；普通用户无需完成角色、合规或发布职责。"],
