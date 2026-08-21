@@ -4,6 +4,8 @@ import { ensureUser } from '../../utils/user.js'
 import { assetTrendService } from '../market-data/assetTrendService.js'
 import { positionAdviceService, type PositionAdviceResult } from '../position/positionAdviceService.js'
 import { gridStrategyService, type GridStrategyConfig } from '../strategy/gridStrategyService.js'
+import { valueAssessmentService, type ValueAssessmentFactSet } from '../valuation/valueAssessmentService.js'
+import { dailyReviewSynthesisService } from './dailyReviewSynthesisService.js'
 
 export type DailyReviewSession = 'open' | 'pre_close' | 'manual'
 
@@ -31,16 +33,31 @@ const finite = (value: unknown): number | null => {
 
 const stableHash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 
-function classifyMaterialChange(current: PositionAdviceResult, previous: any) {
+function classifyMaterialChange(current: PositionAdviceResult, previous: any, valuation?: ValueAssessmentFactSet | null) {
   const news = current.factSet.news
   const fundamental = current.factSet.fundamental
   const evidenceStale = current.cache?.status === 'stale'
-  const evidenceUnavailable = (!news && !fundamental) || evidenceStale
+  const financialRiskScore = valuation?.valuation.financialRiskScore ?? fundamental?.financialRiskScore ?? null
+  const hasFundamentalScores = [
+    valuation?.valuation.valuationScore,
+    valuation?.valuation.qualityScore,
+    valuation?.valuation.growthScore,
+    financialRiskScore,
+    fundamental?.valuationScore,
+    fundamental?.qualityScore,
+    fundamental?.growthScore,
+  ].some((item) => typeof item === 'number' && Number.isFinite(item))
+  const evidenceUnavailable = (!news && !fundamental)
+    || evidenceStale
+    || (current.factSet.position.assetType === 'stock' && valuation?.valuation.status === 'insufficient' && !hasFundamentalScores)
   const currentFacts = {
-    valuationScore: fundamental?.valuationScore ?? null,
-    qualityScore: fundamental?.qualityScore ?? null,
-    growthScore: fundamental?.growthScore ?? null,
-    financialRiskScore: fundamental?.financialRiskScore ?? null,
+    valuationStatus: valuation?.valuation.status ?? 'unavailable',
+    valuationConclusion: valuation?.valuation.conclusion ?? 'insufficient',
+    valuationBand: valuation?.valuation.valuationBand ?? 'unknown',
+    valuationScore: valuation?.valuation.valuationScore ?? fundamental?.valuationScore ?? null,
+    qualityScore: valuation?.valuation.qualityScore ?? fundamental?.qualityScore ?? null,
+    growthScore: valuation?.valuation.growthScore ?? fundamental?.growthScore ?? null,
+    financialRiskScore,
     sentimentScore: news?.sentimentScore ?? null,
     eventRiskScore: news?.eventRiskScore ?? null,
     events: (news?.recentEvents || []).slice(0, 5).map((event) => ({
@@ -57,7 +74,9 @@ function classifyMaterialChange(current: PositionAdviceResult, previous: any) {
   if (evidenceUnavailable) {
     level = 'insufficient'
     reasons.push(evidenceStale ? '基本面与消息面缓存已过期，已安排后台刷新；本轮禁止据此提高仓位。' : '基本面与消息面证据不足，禁止据此提高仓位。')
-  } else if ((news?.eventRiskScore || 0) >= 50 || (typeof fundamental?.financialRiskScore === 'number' && fundamental.financialRiskScore < 35)) {
+  } else if ((news?.eventRiskScore || 0) >= 50
+    || (typeof financialRiskScore === 'number' && financialRiskScore < 35)
+    || valuation?.valuation.conclusion === 'risk_review') {
     level = 'material'
     reasons.push('事件风险或财务风险达到重大变化复核阈值。')
   } else if (previousFacts && stableHash(previousFacts) !== stableHash(currentFacts)) {
@@ -66,7 +85,46 @@ function classifyMaterialChange(current: PositionAdviceResult, previous: any) {
   } else {
     reasons.push(previousFacts ? '未识别出相较上一轮的重大事实变化。' : '本轮作为变化基线，后续将逐轮比较。')
   }
-  return { level, reasons, facts: currentFacts, evidenceRefs: current.factSet.evidenceRefs }
+  return {
+    level,
+    reasons,
+    facts: currentFacts,
+    evidenceRefs: [...new Set([...(current.factSet.evidenceRefs || []), ...(valuation?.evidenceRefs || [])])],
+  }
+}
+
+function valuationContext(assessment: ValueAssessmentFactSet | null, assetType: string) {
+  if (assetType !== 'stock') {
+    return {
+      applicability: 'not_applicable',
+      status: 'not_applicable',
+      conclusion: 'not_applicable',
+      valuationBand: 'unknown',
+      compositeScore: null,
+      confidence: 'insufficient',
+      method: 'stock_valuation_not_applicable',
+      reasons: ['ETF、基金及其他非个股资产不套用个股估值模型。'],
+      risks: [],
+      blockedReasons: [],
+      evidenceRefs: assessment?.evidenceRefs || [],
+      asOf: assessment?.generatedAt || null,
+    }
+  }
+  const value = assessment?.valuation
+  return {
+    applicability: 'stock_relative_valuation',
+    status: value?.status || 'insufficient',
+    conclusion: value?.conclusion || 'insufficient',
+    valuationBand: value?.valuationBand || 'unknown',
+    compositeScore: value?.compositeScore ?? null,
+    confidence: value?.confidence || 'insufficient',
+    method: value?.method || 'stock_relative_valuation_quality_growth_risk_v1',
+    reasons: value?.reasons || ['价值评估证据不足。'],
+    risks: value?.risks || [],
+    blockedReasons: value?.blockedReasons || ['value_assessment_evidence_insufficient'],
+    evidenceRefs: assessment?.evidenceRefs || [],
+    asOf: assessment?.generatedAt || null,
+  }
 }
 
 async function withTimeout<T>(work: Promise<T>, timeoutMs: number, code: string): Promise<T> {
@@ -104,6 +162,72 @@ function fallbackGridConfig(assetType: string) {
 
 function gridAssetType(assetType: string) {
   return assetType === 'bond_fund' ? 'bond' : assetType
+}
+
+function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
+  const assets = assetReviews.map((item) => {
+    const orders = Array.isArray(item.grid?.orders) ? item.grid.orders : []
+    const buyOrders = orders.filter((order: any) => order.side === 'buy')
+    const sellOrders = orders.filter((order: any) => order.side === 'sell')
+    const action = buyOrders.length > 0 && sellOrders.length > 0
+      ? 'manual_two_sided_grid'
+      : buyOrders.length > 0
+        ? 'manual_buy_grid'
+        : sellOrders.length > 0
+          ? 'manual_sell_grid'
+          : item.fundamentalAndNews?.level === 'material'
+            ? 'needs_review'
+            : 'observe'
+    const priority = item.fundamentalAndNews?.level === 'material'
+      || (item.position?.weightPct || 0) > 25
+      ? 'high'
+      : item.fundamentalAndNews?.level === 'watch'
+        || item.grid?.blockers?.length > 0
+        ? 'medium'
+        : 'normal'
+    return {
+      assetId: item.assetId,
+      symbol: item.symbol,
+      name: item.name,
+      action,
+      priority,
+      conclusion: item.grid?.summary || '本轮仅观察。',
+      currentPrice: item.trend?.quote?.price ?? null,
+      quoteAsOf: item.trend?.quote?.asOf ?? null,
+      valuationContext: item.valuationContext,
+      gridDerivation: item.grid?.derivation || null,
+      blockers: item.grid?.blockers || [],
+      orders: orders.map((order: any) => ({
+        id: order.id,
+        side: order.side,
+        level: order.level,
+        price: order.price,
+        quantity: order.quantity,
+        amount: order.amount,
+        validUntil: order.validUntil,
+        conflictStatus: order.conflictStatus,
+        rationale: order.rationale,
+      })),
+      evidenceRefs: [...new Set([
+        ...(item.fundamentalAndNews?.evidenceRefs || []),
+        ...(item.valuationContext?.evidenceRefs || []),
+      ])],
+    }
+  })
+  return {
+    schemaVersion: 'fams.daily-review-decision-summary.v1',
+    status: strategyAssessment.status,
+    headline: strategyAssessment.conclusion,
+    highPrioritySymbols: assets.filter((item) => item.priority === 'high').map((item) => item.symbol),
+    counts: {
+      assets: assets.length,
+      buyDrafts: assets.reduce((sum, item) => sum + item.orders.filter((order: any) => order.side === 'buy').length, 0),
+      sellDrafts: assets.reduce((sum, item) => sum + item.orders.filter((order: any) => order.side === 'sell').length, 0),
+      observeAssets: assets.filter((item) => item.orders.length === 0).length,
+    },
+    assets,
+    executionMode: 'manual_plan_draft_only',
+  }
 }
 
 class DailyReviewService {
@@ -197,10 +321,10 @@ class DailyReviewService {
       if (position.asset.type === 'cash') continue
       try {
         const assetTimeoutMs = Math.max(5_000, Number(process.env.FAMS_DAILY_REVIEW_ASSET_TIMEOUT_MS || 45_000))
-        const [trend, positionAdvice, externalOrders] = await withTimeout(Promise.all([
+        const [trend, positionAdvice, externalOrders, valueAssessment] = await withTimeout(Promise.all([
           assetTrendService.getSnapshot({ assetId: position.assetId, days: 30, persist: true }),
           positionAdviceService.getPositionAdvice(position.id, {
-            useCache: true,
+            useCache: false,
             externalAnalysisMode: process.env.FAMS_DAILY_REVIEW_EXTERNAL_ANALYSIS_MODE === 'live' ? 'live' : 'cached',
           }),
           prisma.externalOrderObservation.findMany({
@@ -208,9 +332,11 @@ class DailyReviewService {
             orderBy: { observedAt: 'desc' },
             take: 20,
           }),
+          valueAssessmentService.assessPosition(position).catch(() => null),
         ]), assetTimeoutMs, `daily_review_asset_timeout:${position.asset.symbol}`)
         const previousAsset = (previousReport.assets || []).find((item: any) => item.assetId === position.assetId)
-        const materialChange = classifyMaterialChange(positionAdvice, previousAsset)
+        const materialChange = classifyMaterialChange(positionAdvice, previousAsset, valueAssessment)
+        const valueContext = valuationContext(valueAssessment, position.asset.type)
         const applicable = activeConfigs.find((item) => item.config.applicableAssetTypes.includes(gridAssetType(position.asset.type) as any)) || null
         const config: GridStrategyConfig = applicable?.config || fallbackGridConfig(position.asset.type)
         const strategySource = applicable ? 'active_validated_strategy' : config.mode === 'observe_only' ? 'observe_only_fallback' : 'system_research_fallback'
@@ -233,6 +359,8 @@ class DailyReviewService {
           completedBars: trend.indicators.sampleCount,
           confidence: marketConfidence,
           materialChange: materialChange.level,
+          valuationStatus: valueContext.status,
+          valuationConclusion: valueContext.conclusion,
           ma5: trend.indicators.ma5,
           ma10: trend.indicators.ma10,
           ma30: trend.indicators.ma30,
@@ -258,7 +386,11 @@ class DailyReviewService {
             mode: gridDraft.mode,
             status: gridDraft.orders.length > 0 ? 'draft' : 'observe_only',
             summary: gridDraft.summary,
-            constraintsJson: JSON.stringify(gridDraft.constraints),
+            constraintsJson: JSON.stringify({
+              ...gridDraft.constraints,
+              derivation: gridDraft.derivation,
+              sideBlockers: gridDraft.sideBlockers,
+            }),
             changeReasonsJson: JSON.stringify(change.reasons),
             evidenceRefsJson: JSON.stringify(materialChange.evidenceRefs),
             validUntil,
@@ -320,6 +452,7 @@ class DailyReviewService {
           marketConfidence,
           recommendation: positionAdvice.advice,
           fundamentalAndNews: materialChange,
+          valuationContext: valueContext,
           grid: {
             id: gridPlan.id,
             strategyVersionId: applicable?.version.id || null,
@@ -330,6 +463,8 @@ class DailyReviewService {
             summary: gridPlan.summary,
             orders: gridPlan.orders,
             constraints: gridDraft.constraints,
+            derivation: gridDraft.derivation,
+            sideBlockers: gridDraft.sideBlockers,
             blockers: gridDraft.blockers,
             adjustment: change,
           },
@@ -406,10 +541,23 @@ class DailyReviewService {
             conclusion: '未识别出足以改变原策略的重大事实，继续按现有研究计划观察。',
             reasons: ['本轮事实变化未达到重大变化阈值。'],
           }
-    const completedAt = new Date()
     const status = errors.length === 0 ? 'completed' : assetReviews.length > 0 ? 'partial' : 'failed'
+    const decisionSummary = buildDecisionSummary(assetReviews, strategyAssessment)
+    if (review.operationId) {
+      await prisma.operation.update({
+        where: { id: review.operationId },
+        data: { progressPct: 90, progressMessage: '正在生成一次性证据汇总' },
+      })
+    }
+    const llmSynthesis = await dailyReviewSynthesisService.synthesize({
+      strategyAssessment,
+      decisionSummary,
+      attentionCandidates: candidates,
+      assets: assetReviews,
+    })
+    const completedAt = new Date()
     const report = {
-      schemaVersion: 'fams.daily-portfolio-review.v1',
+      schemaVersion: 'fams.daily-portfolio-review.v2',
       reviewId: review.id,
       generatedAt: startedAt.toISOString(),
       completedAt: completedAt.toISOString(),
@@ -423,6 +571,8 @@ class DailyReviewService {
       },
       assets: assetReviews,
       attentionCandidates: candidates,
+      decisionSummary,
+      llmSynthesis,
       errors,
       executionBoundary: {
         planDraftOnly: true,
@@ -441,7 +591,7 @@ class DailyReviewService {
         positionSnapshotJson: JSON.stringify(assetReviews.map((item) => item.position)),
         marketSnapshotJson: JSON.stringify(assetReviews.map((item) => ({ assetId: item.assetId, trend: item.trend }))),
         constraintsJson: JSON.stringify(report.executionBoundary),
-        promptVersion: 'daily-portfolio-review.v1',
+        promptVersion: 'daily-portfolio-review.v2',
       },
     })
     const advice = await prisma.advice.create({
@@ -449,7 +599,7 @@ class DailyReviewService {
         userId: review.userId,
         adviceInputSnapshotId: adviceInput.id,
         generatedAt: startedAt,
-        schemaVersion: 'daily-portfolio-review.v1',
+        schemaVersion: 'daily-portfolio-review.v2',
         summaryText: `${review.sessionType === 'open' ? '开盘后' : review.sessionType === 'pre_close' ? '收盘前' : '手动'}复盘：完成 ${assetReviews.length}/${positions.filter((item) => item.asset.type !== 'cash').length} 个资产分析。`,
         disclaimerText: report.disclaimer,
         inputSnapshotJson: JSON.stringify({ reviewId: review.id, previousRunId: review.previousRunId }),

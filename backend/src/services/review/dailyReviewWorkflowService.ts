@@ -13,12 +13,33 @@ export interface DailyReviewWorkflowNode {
   id: string
   sequence: number
   title: string
+  purpose: string
+  dependsOn: string[]
   status: DailyReviewWorkflowNodeStatus
   provenance: DailyReviewWorkflowProvenance
   inputs: DailyReviewWorkflowValue[]
   outputs: DailyReviewWorkflowValue[]
   evidenceRefs: string[]
   blockerCodes: string[]
+}
+
+export interface DailyReviewWorkflowEdge {
+  id: string
+  source: string
+  target: string
+}
+
+const NODE_GRAPH: Record<string, { purpose: string; dependsOn: string[] }> = {
+  trigger: { purpose: '建立本轮复盘的场次、触发来源和审计运行边界。', dependsOn: [] },
+  positions: { purpose: '固化本轮开放持仓与已确认截图台账，形成后续计算的组合基线。', dependsOn: ['trigger'] },
+  quotes: { purpose: '采集各资产的时点行情、完整日线和行情来源质量。', dependsOn: ['positions'] },
+  indicators: { purpose: '基于完整日线计算 MA5、MA10、MA30 等可复算技术指标。', dependsOn: ['quotes'] },
+  fundamentals: { purpose: '读取基本面、估值和消息证据，并与上一轮事实摘要比较。', dependsOn: ['positions'] },
+  strategy: { purpose: '汇总技术、基本面和风险门禁，形成组合级策略状态。', dependsOn: ['indicators', 'fundamentals'] },
+  attention: { purpose: '对持仓和候选池进行证据化排序，形成需要优先复核的标的列表。', dependsOn: ['strategy'] },
+  grid: { purpose: '应用技术锚、ATR 间距、资金、仓位和整手约束，生成人工计划网格草案。', dependsOn: ['positions', 'quotes', 'indicators', 'strategy'] },
+  history: { purpose: '把本轮策略和网格与上一轮已完成运行进行比较。', dependsOn: ['strategy', 'grid'] },
+  boundary: { purpose: '验证所有结果仍处于研究与人工计划边界，禁止创建或提交订单。', dependsOn: ['strategy', 'attention', 'grid', 'history'] },
 }
 
 const parseJson = <T>(value: string | null | undefined, fallback: T): T => {
@@ -151,7 +172,7 @@ class DailyReviewWorkflowService {
       latestCaptureRef: latestCapture ? `capture:${latestCapture.id}` : null,
     }
 
-    const nodes: DailyReviewWorkflowNode[] = [
+    const nodes: Array<Omit<DailyReviewWorkflowNode, 'purpose' | 'dependsOn'>> = [
       {
         id: 'trigger', sequence: 1, title: '触发评审', status: reviewNodeStatus(review.status), provenance: 'runtime_record',
         inputs: [value('场次', review.sessionType), value('触发来源', review.triggerSource), value('计划时间', review.scheduledFor?.toISOString() || '立即执行')],
@@ -247,8 +268,19 @@ class DailyReviewWorkflowService {
       },
     ]
 
+    const enrichedNodes: DailyReviewWorkflowNode[] = nodes.map((node) => ({
+      ...node,
+      purpose: NODE_GRAPH[node.id]?.purpose || '处理本轮复盘数据。',
+      dependsOn: NODE_GRAPH[node.id]?.dependsOn || [],
+    }))
+    const edges: DailyReviewWorkflowEdge[] = enrichedNodes.flatMap((node) => node.dependsOn.map((source) => ({
+      id: `${source}->${node.id}`,
+      source,
+      target: node.id,
+    })))
+
     return {
-      schemaVersion: 'fams.daily-review-audit-workflow.v1',
+      schemaVersion: 'fams.daily-review-audit-workflow.v2',
       generatedAt: new Date().toISOString(),
       reviewId: review.id,
       reviewStatus: review.status,
@@ -258,10 +290,10 @@ class DailyReviewWorkflowService {
       captureSummary,
       attentionCandidates: candidates,
       executionBoundary,
-      nodes,
+      nodes: enrichedNodes,
+      edges,
     }
   }
 }
 
 export const dailyReviewWorkflowService = new DailyReviewWorkflowService()
-

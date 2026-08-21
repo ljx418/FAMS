@@ -7,21 +7,13 @@ const reviewId = process.env.FAMS_REAL_E2E_REVIEW_ID?.trim()
 assert.ok(reviewId, 'FAMS_REAL_E2E_REVIEW_ID is required')
 const appBase = process.env.FAMS_FRONTEND_E2E_BASE || 'http://localhost:3000'
 const repoRoot = resolve(import.meta.dirname, '../..')
-const evidenceDir = resolve(repoRoot, '.verification/daily-review-v1/DRV1-4/frontend-runtime')
-const auditDir = resolve(repoRoot, 'backend/data/gpt-audit/daily-portfolio-review-v1/frontend-runtime')
+const evidenceDir = resolve(repoRoot, '.verification/daily-review-v1/DRV1-7/frontend-runtime')
+const auditDir = resolve(repoRoot, 'backend/data/gpt-audit/daily-portfolio-review-v1/DRV1-7/frontend-runtime')
 await Promise.all([mkdir(evidenceDir, { recursive: true }), mkdir(auditDir, { recursive: true })])
 
 const expectedNodes = [
-  ['01', '触发评审'],
-  ['02', '持仓快照'],
-  ['03', '行情采集'],
-  ['04', '均线计算'],
-  ['05', '基本面与消息'],
-  ['06', '策略评估'],
-  ['07', '关注标的'],
-  ['08', '系统网格'],
-  ['09', '历史比较'],
-  ['10', '执行边界'],
+  ['01', '触发评审'], ['02', '持仓快照'], ['03', '行情采集'], ['04', '均线计算'], ['05', '基本面与消息'],
+  ['06', '策略评估'], ['07', '关注标的'], ['08', '系统网格'], ['09', '历史比较'], ['10', '执行边界'],
 ]
 const viewports = [
   { name: 'desktop', width: 1440, height: 900 },
@@ -39,29 +31,58 @@ try {
     const consoleErrors = []
     const pageErrors = []
     const visionRequests = []
+    const llmRequests = []
     page.on('console', (entry) => { if (entry.type() === 'error') consoleErrors.push(entry.text()) })
     page.on('pageerror', (error) => pageErrors.push(error.message))
-    page.on('request', (request) => { if (request.url().includes('vision-extract')) visionRequests.push(request.url()) })
+    page.on('request', (request) => {
+      if (request.url().includes('vision-extract')) visionRequests.push(request.url())
+      if (/chat\/completions|chatcompletion_pro/i.test(request.url())) llmRequests.push(request.url())
+    })
     await page.goto(`${appBase}/daily-reviews/${encodeURIComponent(reviewId)}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
     await page.getByTestId('daily-review-workbench').waitFor({ timeout: 30_000 })
     assert.equal(page.url(), `${appBase}/daily-reviews/${reviewId}`)
     assert.equal(await page.getByRole('button', { name: /NODE \d{2}/ }).count(), 10)
+    assert.equal(await page.getByTestId('workflow-dag').locator('svg > path').count(), 17)
 
     for (const [sequence, title] of expectedNodes) {
       const button = page.getByRole('button', { name: new RegExp(`NODE ${sequence}`) })
-      await button.focus()
-      await page.keyboard.press('Enter')
-      await page.getByTestId('node-inspector').getByRole('heading', { name: title }).waitFor()
+      await button.dblclick()
+      const modal = page.getByTestId('node-detail-modal')
+      await modal.getByText(`NODE ${sequence} · ${title}`, { exact: true }).waitFor()
+      for (const allowedHeading of ['当前节点作用', '节点输入', '节点输出']) await modal.getByText(allowedHeading, { exact: true }).waitFor()
+      for (const auditOnlyText of ['原始证据', '阻断条件', '本地节点审阅']) assert.equal(await modal.getByText(auditOnlyText, { exact: true }).count(), 0)
+      await modal.getByRole('button', { name: '关闭', exact: true }).click()
+      await modal.waitFor({ state: 'hidden' })
     }
 
-    const marketButton = page.getByRole('button', { name: /NODE 03/ })
-    await marketButton.click()
-    const evidenceButton = page.getByTestId('node-inspector').getByRole('button', { name: /market-provider:/ }).first()
-    await evidenceButton.click()
-    const evidenceTitle = page.getByText('证据详情', { exact: true })
-    await evidenceTitle.waitFor()
+    const keyboardNode = page.getByRole('button', { name: /NODE 01/ })
+    await keyboardNode.focus()
+    await page.keyboard.press('Enter')
+    await page.getByTestId('node-detail-modal').waitFor()
+    await page.getByTestId('node-detail-modal').getByRole('button', { name: '关闭', exact: true }).click()
+
+    await page.getByRole('button', { name: /NODE 06/ }).click()
+    assert.ok(await page.getByTestId('workflow-dag').locator('svg > path[stroke="#2563eb"]').count() >= 4, '单击节点未高亮依赖路径')
+
+    await page.getByRole('button', { name: /NODE 03/ }).click()
+    await page.getByRole('button', { name: '高级审计', exact: true }).click()
+    const auditDrawer = page.getByTestId('daily-review-audit-drawer')
+    await auditDrawer.getByText('原始证据', { exact: true }).waitFor()
+    await auditDrawer.getByText('阻断条件', { exact: true }).waitFor()
     await page.keyboard.press('Escape')
-    await evidenceTitle.waitFor({ state: 'hidden' })
+    await auditDrawer.waitFor({ state: 'hidden' })
+
+    await page.getByTestId('daily-review-decision-summary').waitFor()
+    await page.getByTestId('manual-order-plan').waitFor()
+    const attentionPanel = page.getByTestId('attention-synthesis')
+    assert.doesNotMatch(await attentionPanel.innerText(), /market-provider:|financial-report:|quote-list-canonical:|stock-factset-cache:/, '关注正文泄漏原始证据标识')
+    await attentionPanel.getByRole('button', { name: /查看原始证据/ }).first().click()
+    await auditDrawer.getByText('当前证据筛选：').waitFor()
+    await page.keyboard.press('Escape')
+    await auditDrawer.waitFor({ state: 'hidden' })
+    await page.getByTestId('grid-derivation-traces').locator('.ant-collapse-header').first().click()
+    await page.getByText('一、价值评估基线', { exact: true }).first().waitFor()
+    await page.getByText('五、风险门禁与最终输出', { exact: true }).first().waitFor()
 
     const assetSelect = page.getByRole('combobox', { name: '选择行情资产' })
     await assetSelect.focus()
@@ -72,8 +93,7 @@ try {
     await options.last().click()
     assert.equal(await page.locator('.ant-select-selection-item').filter({ hasText: optionLabels.at(-1) }).count(), 1)
 
-    const historyButton = page.getByRole('button', { name: '历史复盘' })
-    await historyButton.click()
+    await page.getByRole('button', { name: '历史复盘' }).click()
     const historyTitle = page.getByText('历史持仓复盘', { exact: true })
     await historyTitle.waitFor()
     assert.equal(await page.getByRole('combobox', { name: '筛选复盘场次' }).count(), 1)
@@ -85,18 +105,22 @@ try {
     let annotationRestored = false
     if (viewport.name === 'desktop') {
       await page.getByRole('button', { name: /NODE 02/ }).click()
+      await page.getByRole('button', { name: '高级审计', exact: true }).click()
       const annotation = page.getByTestId('node-review-annotation')
       await annotation.getByText('通过', { exact: true }).click()
-      const note = `DRV1-4 ${reviewId} 浏览器本地审阅`
+      const note = `DRV1-7 ${reviewId} 浏览器本地审阅`
       await annotation.getByRole('textbox', { name: '节点审阅备注' }).fill(note)
       const storage = await page.evaluate((id) => JSON.parse(localStorage.getItem(`fams.dailyReview.nodeReviews.v1:${id}`) || '{}'), reviewId)
       assert.equal(storage.positions.status, 'pass')
       assert.equal(storage.positions.note, note)
+      await page.keyboard.press('Escape')
       await page.reload({ waitUntil: 'domcontentloaded' })
       await page.getByTestId('daily-review-workbench').waitFor({ timeout: 30_000 })
       await page.getByRole('button', { name: /NODE 02/ }).click()
+      await page.getByRole('button', { name: '高级审计', exact: true }).click()
       annotationRestored = (await page.getByRole('textbox', { name: '节点审阅备注' }).inputValue()) === note
       assert.equal(annotationRestored, true)
+      await page.keyboard.press('Escape')
 
       const downloadPromise = page.waitForEvent('download')
       await page.getByRole('button', { name: '导出审计 JSON' }).click()
@@ -105,14 +129,13 @@ try {
       assert.ok(downloadPath)
       const exported = JSON.parse(await readFile(downloadPath, 'utf8'))
       assert.equal(exported.workflow.reviewId, reviewId)
+      assert.equal(exported.workflow.schemaVersion, 'fams.daily-review-audit-workflow.v2')
       assert.equal(exported.localNodeReviews.positions.status, 'pass')
       assert.equal(exported.localNodeReviewsAreFormalSignoff, false)
       exportVerified = true
     }
 
-    for (const text of ['formalTradingUnlocked=false', 'autoTradeUnlocked=false', 'canCreateOrder=false', 'orderCreateAllowed=false']) {
-      await page.getByText(text, { exact: true }).waitFor()
-    }
+    for (const text of ['formalTradingUnlocked=false', 'autoTradeUnlocked=false', 'canCreateOrder=false', 'orderCreateAllowed=false']) await page.getByText(text, { exact: true }).waitFor()
     assert.equal(await page.getByTestId('screenshot-capture-panel').count(), 1)
     assert.equal(await page.locator('canvas').count(), 1)
     const measurements = await page.evaluate(() => ({
@@ -129,8 +152,9 @@ try {
     assert.deepEqual(consoleErrors, [], `${viewport.name} console errors`)
     assert.deepEqual(pageErrors, [], `${viewport.name} page errors`)
     assert.deepEqual(visionRequests, [], `${viewport.name} 不应调用视觉识别`)
+    assert.deepEqual(llmRequests, [], `${viewport.name} 页面重载不得再次调用 LLM`)
     await page.screenshot({ path: resolve(evidenceDir, `${viewport.name}.png`), fullPage: true, timeout: 30_000 })
-    results.push({ ...viewport, optionLabels, annotationRestored, exportVerified, measurements, consoleErrors, pageErrors, visionRequests })
+    results.push({ ...viewport, optionLabels, annotationRestored, exportVerified, measurements, consoleErrors, pageErrors, visionRequests, llmRequests })
     await context.close()
   }
 } finally {
@@ -138,21 +162,13 @@ try {
 }
 
 const audit = {
-  schemaVersion: 'fams.daily-review-frontend-runtime.v1',
-  status: 'passed',
-  reviewId,
-  checkedAt: new Date().toISOString(),
-  results,
+  schemaVersion: 'fams.daily-review-frontend-runtime.v2', status: 'passed', reviewId, checkedAt: new Date().toISOString(), results,
   assertions: {
-    allTenNodesKeyboardOperable: true,
-    assetSwitchSixRealPositions: true,
-    evidenceAndHistoryDrawers: true,
-    localAnnotationPersistence: true,
-    exportIncludesNonFormalAnnotations: true,
-    fourTradingLocksVisible: true,
-    screenshotPanelPresentWithoutVisionCall: true,
-    responsiveNoRootOverflow: true,
-    browserErrorsZero: true,
+    tenNodeDagAndSeventeenEdges: true, doubleClickModalOnlyPurposeInputsOutputs: true, keyboardNodeDetailOperable: true,
+    singleClickHighlightsDependencyPath: true, decisionSummaryAndReproducibleTrace: true, attentionNarrativeHidesRawEvidenceRefs: true,
+    advancedAuditContainsEvidenceAndAnnotations: true, assetSwitchSixRealPositions: true, localAnnotationPersistence: true,
+    exportIncludesNonFormalAnnotations: true, fourTradingLocksVisible: true, pageReloadDoesNotInvokeLlm: true,
+    screenshotPanelPresentWithoutVisionCall: true, responsiveNoRootOverflow: true, browserErrorsZero: true,
   },
 }
 await Promise.all([

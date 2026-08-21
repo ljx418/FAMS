@@ -25,6 +25,7 @@
     "test:stock-market-trend": "node node_modules/tsx/dist/cli.mjs scripts/verify-stock-market-trend.ts",
     "test:daily-review-workflow": "node node_modules/tsx/dist/cli.mjs scripts/verify-daily-review-workflow.ts",
     "test:daily-review-audit-workflow": "node node_modules/tsx/dist/cli.mjs scripts/verify-daily-review-audit-workflow.ts",
+    "test:daily-review-v2-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-daily-review-v2-contract.ts",
     "test:daily-review-frontend-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-daily-review-frontend-contract.ts",
     "test:daily-review-real-data-e2e": "node node_modules/tsx/dist/cli.mjs scripts/verify-daily-review-real-data-e2e.ts",
     "test:external-technical": "node node_modules/tsx/dist/cli.mjs scripts/verify-external-technical-provider.ts",

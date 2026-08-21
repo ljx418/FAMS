@@ -132,6 +132,8 @@ export interface GridBuildInput {
   completedBars: number
   confidence: number
   materialChange: 'none' | 'watch' | 'material' | 'insufficient'
+  valuationStatus?: string | null
+  valuationConclusion?: string | null
   ma5?: number | null
   ma10?: number | null
   ma30?: number | null
@@ -349,17 +351,25 @@ class GridStrategyService {
 
   buildGridDraft(input: GridBuildInput) {
     const config = input.config
-    const blockers: string[] = []
-    if (!config.applicableAssetTypes.includes(input.assetType as any)) blockers.push('asset_type_not_supported')
-    if (input.completedBars < config.factRequirements.minCompletedBars) blockers.push('completed_history_insufficient')
-    if (input.confidence < config.factRequirements.minConfidence) blockers.push('market_data_confidence_low')
-    if (input.materialChange === 'material' && config.factRequirements.blockBuyOnMaterialChange) blockers.push('material_change_requires_review')
-    if (input.materialChange === 'insufficient') blockers.push('fundamental_or_news_evidence_insufficient')
-    if (config.mode === 'trend_pullback' && !(input.ma5 && input.ma10 && input.ma30 && input.ma5 >= input.ma10 && input.ma10 >= input.ma30)) {
-      blockers.push('trend_alignment_not_met')
+    const globalBlockers: string[] = []
+    const buyBlockers: string[] = []
+    const sellBlockers: string[] = []
+    if (!config.applicableAssetTypes.includes(input.assetType as any)) globalBlockers.push('asset_type_not_supported')
+    if (input.completedBars < config.factRequirements.minCompletedBars) globalBlockers.push('completed_history_insufficient')
+    if (input.confidence < config.factRequirements.minConfidence) globalBlockers.push('market_data_confidence_low')
+    if (input.materialChange === 'material' && config.factRequirements.blockBuyOnMaterialChange) buyBlockers.push('material_change_requires_review')
+    if (input.materialChange === 'insufficient') globalBlockers.push('fundamental_or_news_evidence_insufficient')
+    if (input.assetType === 'stock' && ['insufficient', 'unavailable'].includes(input.valuationStatus || '')) {
+      buyBlockers.push('stock_valuation_evidence_insufficient')
     }
-    if (config.mode === 'observe_only') blockers.push('observe_only_strategy')
-    if (!Number.isFinite(input.currentPrice) || input.currentPrice <= 0) blockers.push('current_price_invalid')
+    if (input.assetType === 'stock' && ['risk_review', 'overvalued_watch'].includes(input.valuationConclusion || '')) {
+      buyBlockers.push(`stock_valuation_${input.valuationConclusion}`)
+    }
+    if (config.mode === 'trend_pullback' && !(input.ma5 && input.ma10 && input.ma30 && input.ma5 >= input.ma10 && input.ma10 >= input.ma30)) {
+      globalBlockers.push('trend_alignment_not_met')
+    }
+    if (config.mode === 'observe_only') globalBlockers.push('observe_only_strategy')
+    if (!Number.isFinite(input.currentPrice) || input.currentPrice <= 0) globalBlockers.push('current_price_invalid')
 
     const anchor = config.anchorPolicy.primary === 'ma10'
       ? input.ma10 || input.currentPrice
@@ -384,6 +394,8 @@ class GridStrategyService {
       : Number.POSITIVE_INFINITY
     const buyBudget = Math.max(0, Math.min(cashAfterFloor * maxAdjustment, weightCapacity))
     const sellQuantity = Math.max(0, input.quantity * maxAdjustment)
+    if (buyBudget <= 0 && config.levelPolicy.buyLevels > 0) buyBlockers.push('buy_budget_or_weight_capacity_exhausted')
+    if (sellQuantity < unit && config.levelPolicy.sellLevels > 0) sellBlockers.push('sell_quantity_below_minimum_lot')
     const buyWeightSum = weights.slice(0, config.levelPolicy.buyLevels).reduce((sum, value) => sum + value, 0) || 1
     const sellWeightSum = weights.slice(0, config.levelPolicy.sellLevels).reduce((sum, value) => sum + value, 0) || 1
     const now = input.now || new Date()
@@ -391,18 +403,72 @@ class GridStrategyService {
     const external = (input.externalOrders || []).filter((order) => ['pending', 'submitted', 'partial', 'open'].includes(order.status))
     const conflict = (side: 'buy' | 'sell', price: number) => external.some((order) => order.side === side && order.price && Math.abs(order.price - price) <= spacing * 0.35)
 
-    if (blockers.length > 0) {
+    const anchorSource = config.anchorPolicy.primary === 'ma10'
+      ? input.ma10 ? 'ma10' : 'current_price_fallback'
+      : config.anchorPolicy.primary === 'average_cost'
+        ? input.avgCost ? 'average_cost' : 'current_price_fallback'
+        : config.anchorPolicy.primary === 'support_resistance'
+          ? input.support || input.resistance ? 'support_resistance_midpoint' : 'current_price_fallback'
+          : 'current_price'
+    const derivation = {
+      schemaVersion: 'fams.grid-derivation.v1',
+      anchor: {
+        policy: config.anchorPolicy.primary,
+        source: anchorSource,
+        value: Number(anchor.toFixed(4)),
+        inputs: {
+          currentPrice: input.currentPrice,
+          averageCost: input.avgCost,
+          ma10: input.ma10 ?? null,
+          support: input.support ?? null,
+          resistance: input.resistance ?? null,
+        },
+      },
+      spacing: {
+        policy: config.spacingPolicy.type,
+        policyValue: config.spacingPolicy.value,
+        atr14: input.atr14 ?? null,
+        rawPercent: Number(rawSpacingPercent.toFixed(4)),
+        minPercent: config.spacingPolicy.minPercent,
+        maxPercent: config.spacingPolicy.maxPercent,
+        finalPercent: Number(spacingPercent.toFixed(4)),
+        absoluteAmount: Number(spacing.toFixed(4)),
+      },
+      sizing: {
+        cashBudget: input.cashBudget,
+        portfolioValue: input.portfolioValue ?? null,
+        currentMarketValue: input.currentMarketValue ?? input.quantity * input.currentPrice,
+        cashFloorPercent: config.riskPolicy.cashFloorPercent,
+        cashAfterFloor: Number(cashAfterFloor.toFixed(2)),
+        maxAssetWeightPercent: config.riskPolicy.maxAssetWeightPercent,
+        weightCapacity: Number.isFinite(weightCapacity) ? Number(weightCapacity.toFixed(2)) : null,
+        maxAdjustmentPercent: config.sizingPolicy.maxAdjustmentPercent,
+        buyBudget: Number(buyBudget.toFixed(2)),
+        sellQuantity: Number(sellQuantity.toFixed(4)),
+        lotSize: unit,
+        levelWeights: weights,
+      },
+      gates: {
+        global: [...new Set(globalBlockers)],
+        buy: [...new Set(buyBlockers)],
+        sell: [...new Set(sellBlockers)],
+      },
+    }
+
+    if (globalBlockers.length > 0) {
       return {
         mode: 'observe_only' as const,
         orders: [],
-        blockers,
-        summary: `观察模式：${blockers.join('、')}`,
+        blockers: [...new Set(globalBlockers)],
+        sideBlockers: derivation.gates,
+        summary: `观察模式：${[...new Set(globalBlockers)].join('、')}`,
         constraints: { anchor, spacingPercent, validUntil: validUntil.toISOString(), notTradingAdvice: true },
+        derivation,
       }
     }
 
     const orders: Array<Record<string, unknown>> = []
-    for (let level = 1; level <= config.levelPolicy.buyLevels; level += 1) {
+    for (let level = 1; buyBlockers.length === 0 && level <= config.levelPolicy.buyLevels; level += 1) {
       const base = config.mode === 'cost_support' ? Math.min(input.currentPrice, input.support || anchor, anchor) : Math.min(input.currentPrice, anchor)
       const price = Number(Math.max(0.0001, base - spacing * level).toFixed(4))
       const allocated = buyBudget * (weights[level - 1] / buyWeightSum)
@@ -416,7 +482,7 @@ class GridStrategyService {
         rationale: `以 ${anchor.toFixed(4)} 为锚，间距 ${spacingPercent.toFixed(2)}% 的第 ${level} 档买入草案`,
       })
     }
-    for (let level = 1; level <= config.levelPolicy.sellLevels; level += 1) {
+    for (let level = 1; sellBlockers.length === 0 && level <= config.levelPolicy.sellLevels; level += 1) {
       const base = config.mode === 'cost_support' ? Math.max(input.currentPrice, input.resistance || anchor, anchor) : Math.max(input.currentPrice, anchor)
       const price = Number((base + spacing * level).toFixed(4))
       const quantity = normalizeQuantity(sellQuantity * (weights[level - 1] / sellWeightSum))
@@ -430,10 +496,16 @@ class GridStrategyService {
       })
     }
     if (orders.length === 0) {
+      const blockers = [...new Set([
+        ...buyBlockers,
+        ...sellBlockers,
+        'order_size_below_minimum_lot_or_available_budget',
+      ])]
       return {
         mode: 'observe_only' as const,
         orders: [],
-        blockers: ['order_size_below_minimum_lot_or_available_budget'],
+        blockers,
+        sideBlockers: derivation.gates,
         summary: '观察模式：可用现金或允许调整数量不足以形成最小交易单位。',
         constraints: {
           anchor: Number(anchor.toFixed(4)), spacingPercent: Number(spacingPercent.toFixed(4)),
@@ -442,13 +514,19 @@ class GridStrategyService {
           maxAssetWeightPercent: config.riskPolicy.maxAssetWeightPercent,
           validUntil: validUntil.toISOString(), notTradingAdvice: true,
         },
+        derivation,
       }
     }
+    const sideSummary = [
+      orders.some((order) => order.side === 'buy') ? null : buyBlockers.length ? `买入受限：${[...new Set(buyBlockers)].join('、')}` : null,
+      orders.some((order) => order.side === 'sell') ? null : sellBlockers.length ? `卖出受限：${[...new Set(sellBlockers)].join('、')}` : null,
+    ].filter(Boolean)
     return {
       mode: config.mode,
       orders,
-      blockers: [],
-      summary: `生成 ${orders.filter((order) => order.side === 'buy').length} 档买入、${orders.filter((order) => order.side === 'sell').length} 档卖出人工计划草案。`,
+      blockers: [...new Set([...buyBlockers, ...sellBlockers])],
+      sideBlockers: derivation.gates,
+      summary: `生成 ${orders.filter((order) => order.side === 'buy').length} 档买入、${orders.filter((order) => order.side === 'sell').length} 档卖出人工计划草案。${sideSummary.length ? ` ${sideSummary.join('；')}。` : ''}`,
       constraints: {
         anchor: Number(anchor.toFixed(4)), spacingPercent: Number(spacingPercent.toFixed(4)),
         maxAdjustmentPercent: config.sizingPolicy.maxAdjustmentPercent,
@@ -456,6 +534,7 @@ class GridStrategyService {
         maxAssetWeightPercent: config.riskPolicy.maxAssetWeightPercent,
         validUntil: validUntil.toISOString(), notTradingAdvice: true,
       },
+      derivation,
     }
   }
 }

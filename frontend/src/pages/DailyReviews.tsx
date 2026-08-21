@@ -9,12 +9,10 @@ import {
   Descriptions,
   Drawer,
   Empty,
-  Input,
   Modal,
   Segmented,
   Select,
   Skeleton,
-  Space,
   Statistic,
   Table,
   Tag,
@@ -23,41 +21,27 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import {
   AuditOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
   CloudDownloadOutlined,
-  ExclamationCircleOutlined,
-  FileSearchOutlined,
   HistoryOutlined,
-  LockOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import { API_BASE } from '../config/api'
 import { ScreenshotCapturePanel } from '../components/capture/ScreenshotCapturePanel'
+import { DailyReviewWorkflowDag, type ReviewWorkflowEdge, type ReviewWorkflowNode } from '../components/review/DailyReviewWorkflowDag'
+import { DailyReviewAuditDrawer } from '../components/review/DailyReviewAuditDrawer'
+import { DailyReviewDecisionPanel } from '../components/review/DailyReviewDecisionPanel'
 import { colors } from '../styles/chartTheme'
 
 const USER_ID = 'default'
 const NODE_REVIEW_STORAGE_PREFIX = 'fams.dailyReview.nodeReviews.v1'
 
 type ReviewSession = 'open' | 'pre_close' | 'manual'
-type NodeStatus = 'complete' | 'partial' | 'blocked' | 'empty' | 'locked'
 type NodeReviewStatus = 'pending' | 'pass' | 'issue'
 type NodeReviewAnnotation = { status: NodeReviewStatus; note: string; updatedAt: string }
 
-type WorkflowValue = { label: string; value: string; evidenceRef?: string }
-type WorkflowNode = {
-  id: string
-  sequence: number
-  title: string
-  status: NodeStatus
-  provenance: 'runtime_record' | 'derived_view'
-  inputs: WorkflowValue[]
-  outputs: WorkflowValue[]
-  evidenceRefs: string[]
-  blockerCodes: string[]
-}
+type WorkflowNode = ReviewWorkflowNode
 
 type Workflow = {
   schemaVersion: string
@@ -88,6 +72,7 @@ type Workflow = {
     orderCreateAllowed: boolean
   }
   nodes: WorkflowNode[]
+  edges: ReviewWorkflowEdge[]
 }
 
 type ReviewListItem = {
@@ -126,6 +111,8 @@ type ReviewDetail = ReviewListItem & {
     }
     assets?: Array<Record<string, any>>
     attentionCandidates?: Array<Record<string, any>>
+    decisionSummary?: Record<string, any>
+    llmSynthesis?: Record<string, any>
     errors?: Array<{ symbol?: string; message?: string }>
     executionBoundary?: Record<string, boolean>
     disclaimer?: string
@@ -162,18 +149,6 @@ const formatNumber = (value?: number | null, digits = 2) => {
 const ensureSentenceEnding = (value: string) => /[。！？.!?]$/.test(value) ? value : `${value}。`
 
 const sessionLabel: Record<string, string> = { open: '开盘后', pre_close: '收盘前', manual: '手动' }
-const statusMeta: Record<NodeStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  complete: { label: '完整', color: 'success', icon: <CheckCircleOutlined /> },
-  partial: { label: '部分', color: 'warning', icon: <ExclamationCircleOutlined /> },
-  blocked: { label: '阻断', color: 'error', icon: <ExclamationCircleOutlined /> },
-  empty: { label: '空状态', color: 'default', icon: <ClockCircleOutlined /> },
-  locked: { label: '已锁定', color: 'processing', icon: <LockOutlined /> },
-}
-const nodeReviewMeta: Record<NodeReviewStatus, { label: string; color: string }> = {
-  pending: { label: '待审阅', color: 'default' },
-  pass: { label: '审阅通过', color: 'success' },
-  issue: { label: '有问题', color: 'warning' },
-}
 
 function downloadJson(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -195,11 +170,6 @@ function SectionHeading({ eyebrow, title, description }: { eyebrow: string; titl
   )
 }
 
-function StatusTag({ status }: { status: NodeStatus }) {
-  const meta = statusMeta[status]
-  return <Tag color={meta.color} icon={meta.icon}>{meta.label}</Tag>
-}
-
 export default function DailyReviews() {
   const { reviewId } = useParams<{ reviewId?: string }>()
   const navigate = useNavigate()
@@ -212,7 +182,8 @@ export default function DailyReviews() {
   const [historySession, setHistorySession] = useState<string>('all')
   const [historyStatus, setHistoryStatus] = useState<string>('all')
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [evidenceRef, setEvidenceRef] = useState<string>()
+  const [auditOpen, setAuditOpen] = useState(false)
+  const [auditFocus, setAuditFocus] = useState<{ symbol?: string; evidenceRefs?: string[] }>({})
   const [loading, setLoading] = useState(true)
   const [runLoading, setRunLoading] = useState(false)
   const [error, setError] = useState<string>()
@@ -324,6 +295,11 @@ export default function DailyReviews() {
   const assessment = detail?.report?.strategy?.assessment
   const attentionCandidates = workflow?.attentionCandidates || detail?.report?.attentionCandidates || []
   const errors = detail?.report?.errors || []
+  const openNodeAudit = (nodeId: string, focus?: { symbol?: string; evidenceRefs?: string[] }) => {
+    setSelectedNodeId(nodeId)
+    setAuditFocus(focus || {})
+    setAuditOpen(true)
+  }
 
   const chartOption = useMemo(() => {
     const points = selectedAsset?.trend?.chart || []
@@ -430,70 +406,23 @@ export default function DailyReviews() {
             description={`生成于 ${formatDateTime(detail.generatedAt)}；策略判断：${ensureSentenceEnding(assessment?.conclusion || '未生成')}${errors.length ? `有 ${errors.length} 个资产明确降级。` : '本轮资产处理完整。'}`}
           />
 
+          <DailyReviewDecisionPanel
+            decisionSummary={detail.report.decisionSummary}
+            llmSynthesis={detail.report.llmSynthesis}
+            attentionCandidates={attentionCandidates}
+            onOpenAttentionAudit={(symbol, evidenceRefs) => openNodeAudit('attention', { symbol, evidenceRefs })}
+          />
+
           <Card className="fams-card" styles={{ body: { padding: 20 } }}>
-            <SectionHeading eyebrow="WORKFLOW" title="十节点公开审计链" description="点击任一节点，分别查看它使用了什么、产出了什么、证据在哪里以及为什么被阻断。" />
-            <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1" role="list" aria-label="复盘工作流节点">
-                {workflow.nodes.map((node) => (
-                  <button
-                    key={node.id}
-                    type="button"
-                    aria-pressed={node.id === selectedNode?.id}
-                    onClick={() => setSelectedNodeId(node.id)}
-                    className={`rounded-xl border p-3 text-left transition ${node.id === selectedNode?.id ? 'border-blue-400 bg-blue-50 shadow-sm' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50'}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div><span className="text-xs font-bold text-blue-700">NODE {String(node.sequence).padStart(2, '0')}</span><div className="mt-1 font-semibold text-slate-900">{node.title}</div></div>
-                      <div className="flex flex-col items-end gap-1"><StatusTag status={node.status} /><Tag color={nodeReviewMeta[nodeReviews[node.id]?.status || 'pending'].color}>{nodeReviewMeta[nodeReviews[node.id]?.status || 'pending'].label}</Tag></div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              {selectedNode ? (
-                <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4 md:p-5" data-testid="node-inspector">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><div className="text-xs font-bold tracking-wider text-blue-700">NODE {String(selectedNode.sequence).padStart(2, '0')}</div><h3 className="mb-0 mt-1 text-xl font-semibold text-slate-950">{selectedNode.title}</h3></div>
-                    <Space wrap><StatusTag status={selectedNode.status} /><Tag color={selectedNode.provenance === 'runtime_record' ? 'blue' : 'purple'}>{selectedNode.provenance}</Tag></Space>
-                  </div>
-                  {selectedNodeReview ? (
-                    <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/70 p-4" data-testid="node-review-annotation">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div><div className="font-semibold text-slate-900">本地节点审阅</div><div className="mt-1 text-xs leading-5 text-slate-500">只保存在当前浏览器并进入导出文件，不是正式发布签核，也不会改变运行记录。</div></div>
-                        <Segmented
-                          aria-label="节点审阅状态"
-                          value={selectedNodeReview.status}
-                          onChange={(value) => updateNodeReview(selectedNode.id, { status: value as NodeReviewStatus })}
-                          options={[{ label: '待审阅', value: 'pending' }, { label: '通过', value: 'pass' }, { label: '有问题', value: 'issue' }]}
-                        />
-                      </div>
-                      <Input.TextArea
-                        className="mt-3"
-                        aria-label="节点审阅备注"
-                        value={selectedNodeReview.note}
-                        autoSize={{ minRows: 2, maxRows: 5 }}
-                        placeholder="记录需要复核的输入、输出或证据；留空也会保存状态。"
-                        onChange={(event) => updateNodeReview(selectedNode.id, { note: event.target.value })}
-                      />
-                      {selectedNodeReview.updatedAt ? <div className="mt-2 text-xs text-slate-400">浏览器本地更新：{formatDateTime(selectedNodeReview.updatedAt)}</div> : null}
-                    </div>
-                  ) : null}
-                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                    {([['节点输入', selectedNode.inputs], ['可核查输出', selectedNode.outputs]] as const).map(([title, values]) => (
-                      <div key={title} className="rounded-xl border border-slate-200 bg-white p-4">
-                        <h4 className="mb-3 text-sm font-semibold text-slate-800">{title}</h4>
-                        <dl className="space-y-3">
-                          {values.map((item) => <div key={`${item.label}:${item.value}`} className="flex items-start justify-between gap-4 border-b border-slate-100 pb-2 last:border-0 last:pb-0"><dt className="text-sm text-slate-500">{item.label}</dt><dd className="m-0 break-all text-right text-sm font-medium text-slate-900">{item.value}</dd></div>)}
-                        </dl>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                    <div className="rounded-xl border border-slate-200 bg-white p-4"><h4 className="mb-3 text-sm font-semibold text-slate-800">证据引用</h4><div className="flex flex-wrap gap-2">{selectedNode.evidenceRefs.length ? selectedNode.evidenceRefs.map((ref) => <Button key={ref} size="small" icon={<FileSearchOutlined />} onClick={() => setEvidenceRef(ref)}>{ref}</Button>) : <span className="text-sm text-slate-500">本节点没有额外证据引用</span>}</div></div>
-                    <div className="rounded-xl border border-slate-200 bg-white p-4"><h4 className="mb-3 text-sm font-semibold text-slate-800">阻断条件</h4><div className="flex flex-wrap gap-2">{selectedNode.blockerCodes.length ? selectedNode.blockerCodes.map((code) => <Tag key={code} color={selectedNode.status === 'locked' ? 'blue' : 'warning'}>{code}</Tag>) : <Tag color="success">无阻断</Tag>}</div></div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <SectionHeading eyebrow="WORKFLOW" title="十节点 DAG 审计链" description="节点之间的箭头表示真实数据依赖；双击节点仅查看作用、输入和输出。" />
+            <DailyReviewWorkflowDag
+              nodes={workflow.nodes}
+              edges={workflow.edges || []}
+              selectedNodeId={selectedNode?.id || 'trigger'}
+              nodeReviewStatuses={Object.fromEntries(Object.entries(nodeReviews).map(([key, value]) => [key, value.status]))}
+              onSelectNode={(nodeId) => { setSelectedNodeId(nodeId); setAuditFocus({}) }}
+              onOpenAudit={(nodeId) => openNodeAudit(nodeId)}
+            />
           </Card>
 
           <Card className="fams-card" styles={{ body: { padding: 20 } }}>
@@ -531,17 +460,11 @@ export default function DailyReviews() {
             ) : <Empty description="本轮没有成功资产" />}
           </Card>
 
-          <section className="grid gap-5 xl:grid-cols-2">
-            <Card className="fams-card">
-              <SectionHeading eyebrow="RESEARCH" title="策略与事实变化" />
-              <Alert type={assessment?.status === 'maintain' ? 'success' : assessment?.status === 'needs_review' ? 'warning' : 'info'} showIcon message={assessment?.status || '未生成总体判断'} description={assessment?.conclusion || '没有可展示的策略判断'} />
-              <div className="mt-4 space-y-3">{assets.map((asset: any) => <div key={asset.assetId} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong>{asset.symbol} · {asset.name}</strong><Tag color={asset.fundamentalAndNews?.level === 'material' ? 'error' : asset.fundamentalAndNews?.level === 'insufficient' ? 'warning' : 'success'}>{asset.fundamentalAndNews?.level || 'unknown'}</Tag></div><p className="mb-0 mt-2 text-sm leading-6 text-slate-600">{asset.fundamentalAndNews?.reasons?.join('；') || '未记录变化原因'}</p></div>)}</div>
-            </Card>
-            <Card className="fams-card">
-              <SectionHeading eyebrow="ATTENTION" title="需要关注的标的" description="关注项不是必买清单；来源、原因和证据状态必须同时可见。" />
-              <div className="space-y-3">{attentionCandidates.length ? attentionCandidates.map((candidate: any, index: number) => <div key={`${candidate.symbol}:${candidate.source}:${index}`} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong>{candidate.symbol} · {candidate.name}</strong><Space wrap><Tag>{candidate.source}</Tag><Tag color={candidate.evidenceStatus === 'available' ? 'success' : candidate.evidenceStatus === 'partial' ? 'warning' : 'error'}>{candidate.evidenceStatus}</Tag></Space></div><p className="mb-0 mt-2 text-sm leading-6 text-slate-600">{candidate.reason}</p><div className="mt-2 flex flex-wrap gap-1">{candidate.evidenceRefs?.slice(0, 4).map((ref: string) => <Button key={ref} type="link" size="small" onClick={() => setEvidenceRef(ref)} className="px-0">{ref}</Button>)}</div></div>) : <Empty description="没有关注项" />}</div>
-            </Card>
-          </section>
+          <Card className="fams-card">
+            <SectionHeading eyebrow="RESEARCH" title="策略与事实变化" description="这里只展示事实变化结论；可读关注摘要位于页面顶部，原始证据位于高级审计。" />
+            <Alert type={assessment?.status === 'maintain' ? 'success' : assessment?.status === 'needs_review' ? 'warning' : 'info'} showIcon message={assessment?.status || '未生成总体判断'} description={assessment?.conclusion || '没有可展示的策略判断'} />
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">{assets.map((asset: any) => <div key={asset.assetId} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong>{asset.symbol} · {asset.name}</strong><Tag color={asset.fundamentalAndNews?.level === 'material' ? 'error' : asset.fundamentalAndNews?.level === 'insufficient' ? 'warning' : 'success'}>{asset.fundamentalAndNews?.level || 'unknown'}</Tag></div><p className="mb-0 mt-2 text-sm leading-6 text-slate-600">{asset.fundamentalAndNews?.reasons?.join('；') || '未记录变化原因'}</p></div>)}</div>
+          </Card>
 
           <Card className="fams-card">
             <SectionHeading eyebrow="GRID PLAN" title="波动交易网格草案" description="仅展示实际保存的系统研究计划。买入和卖出均为人工计划草案，不会创建订单。" />
@@ -566,10 +489,15 @@ export default function DailyReviews() {
         <div className="space-y-3">{history.items.length ? history.items.map((item) => <button key={item.id} type="button" onClick={() => { navigate(`/daily-reviews/${item.id}`); setHistoryOpen(false) }} className={`w-full rounded-xl border p-4 text-left ${item.id === detail?.id ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}><div className="flex items-center justify-between gap-3"><div className="font-semibold text-slate-900">{sessionLabel[item.sessionType] || item.sessionType}复盘</div><Badge status={item.status === 'completed' ? 'success' : item.status === 'partial' ? 'warning' : 'error'} text={item.status} /></div><div className="mt-2 text-sm text-slate-500">{formatDateTime(item.generatedAt)}</div><div className="mt-2 text-sm text-slate-600">复盘资产 {item.portfolio?.reviewedAssets ?? 0} · 网格 {item.counts?.gridPlans ?? 0}</div></button>) : <Empty description="当前筛选没有历史复盘" />}</div>
       </Drawer>
 
-      <Drawer title="证据详情" width={480} open={Boolean(evidenceRef)} onClose={() => setEvidenceRef(undefined)}>
-        <Alert type="info" showIcon message="公开审计引用" description="这里只展示脱敏证据标识和它所属的真实运行，不展示账户密钥、截图存储路径或模型私密推理。" />
-        <Card className="mt-4" size="small"><div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Evidence reference</div><div className="mt-2 break-all font-mono text-sm text-slate-900">{evidenceRef}</div><div className="mt-4 text-sm text-slate-500">复盘：{workflow?.reviewId}<br />生成：{formatDateTime(workflow?.reviewGeneratedAt)}</div></Card>
-      </Drawer>
+      <DailyReviewAuditDrawer
+        open={auditOpen}
+        node={selectedNode}
+        annotation={selectedNodeReview}
+        focusSymbol={auditFocus.symbol}
+        focusEvidenceRefs={auditFocus.evidenceRefs}
+        onClose={() => { setAuditOpen(false); setAuditFocus({}) }}
+        onChangeAnnotation={(patch) => selectedNode && updateNodeReview(selectedNode.id, patch)}
+      />
     </div>
   )
 }

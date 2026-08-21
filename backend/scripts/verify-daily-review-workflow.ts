@@ -6,10 +6,13 @@ import { screenshotCaptureService } from '../src/services/capture/screenshotCapt
 import { dailyReviewService } from '../src/services/review/dailyReviewService.js'
 import { assetTrendService } from '../src/services/market-data/assetTrendService.js'
 import { positionAdviceService } from '../src/services/position/positionAdviceService.js'
+import { valueAssessmentService } from '../src/services/valuation/valueAssessmentService.js'
 import { famsChatService } from '../src/services/chat/famsChatService.js'
 import { callMcpTool } from '../src/mcp/registry.js'
 import { resolveDailyReviewScheduleSlot } from '../src/services/review/dailyReviewScheduler.js'
 import { getVisionCaptureStatus } from '../src/services/capture/visionCaptureService.js'
+
+process.env.FAMS_DAILY_REVIEW_LLM_ENABLED = '0'
 
 const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`
 const userId = `daily-review-test-${suffix}`
@@ -19,6 +22,7 @@ let capturePath: string | undefined
 let strategyId: string | undefined
 const originalTrend = assetTrendService.getSnapshot.bind(assetTrendService)
 const originalAdvice = positionAdviceService.getPositionAdvice.bind(positionAdviceService)
+const originalValueAssessment = valueAssessmentService.assessPosition.bind(valueAssessmentService)
 
 try {
   assert.equal(resolveDailyReviewScheduleSlot(new Date('2026-08-20T01:30:00.000Z')).sessionType, 'open')
@@ -96,7 +100,9 @@ try {
     atr14: 0.3,
   })
   assert.equal(subLotGrid.mode, 'observe_only')
-  assert.deepEqual(subLotGrid.blockers, ['order_size_below_minimum_lot_or_available_budget'])
+  assert.ok(subLotGrid.blockers.includes('order_size_below_minimum_lot_or_available_budget'))
+  assert.ok(subLotGrid.sideBlockers.buy.includes('buy_budget_or_weight_capacity_exhausted'))
+  assert.ok(subLotGrid.sideBlockers.sell.includes('sell_quantity_below_minimum_lot'))
   const strategyDraft = await gridStrategyService.createDraft({ userId, templateId: 'mean_reversion_atr_v1', name: '工作流验证网格' })
   assert.equal(strategyDraft.status, 'draft')
   strategyId = strategyDraft.strategy?.id
@@ -146,6 +152,44 @@ try {
     },
     advice: { action: 'HOLD', currentWeight: 0.51, targetWeightRange: [0.45, 0.55], confidence: 'medium', reasons: ['workflow test'], risks: [], triggerConditions: [], invalidationConditions: [], evidenceRefs: ['workflow-test:evidence'], blockedReasons: [] },
   })) as typeof positionAdviceService.getPositionAdvice
+  valueAssessmentService.assessPosition = (async (reviewPosition) => ({
+    schemaVersion: 'value.assessment.factset.v1',
+    generatedAt: new Date().toISOString(),
+    asset: {
+      assetId: reviewPosition.asset.id,
+      symbol: reviewPosition.asset.symbol,
+      name: reviewPosition.asset.name,
+      assetType: reviewPosition.asset.type,
+      market: reviewPosition.asset.exchange || 'SH',
+    },
+    market: {
+      currentPrice: Number(reviewPosition.currentPrice || reviewPosition.asset.lastPrice || 11),
+      marketValue: Number(reviewPosition.marketValue || 0),
+      costBasis: Number(reviewPosition.costBasis || 0),
+      provider: 'workflow_test',
+      asOf: new Date().toISOString(),
+    },
+    valuation: {
+      status: 'available',
+      conclusion: 'risk_review',
+      valuationScore: 60,
+      qualityScore: 70,
+      growthScore: 55,
+      financialRiskScore: 20,
+      compositeScore: 55,
+      confidence: 'medium',
+      targetWeightMultiplier: 0.8,
+      valuationBand: 'fair',
+      method: 'workflow_test',
+      reasons: ['workflow test valuation'],
+      risks: ['workflow test financial risk'],
+      blockedReasons: [],
+      warnings: [],
+    },
+    facts: [],
+    evidenceRefs: [`workflow-test:valuation:${reviewPosition.asset.symbol}`],
+    providerTrace: { provider: 'workflow_test' },
+  })) as typeof valueAssessmentService.assessPosition
 
   const reviewResult = await dailyReviewService.startReview({ userId, sessionType: 'manual', triggerSource: 'user', executionMode: 'inline', idempotencyKey: `${userId}:manual:test` })
   assert.equal(reviewResult.review?.status, 'completed')
@@ -154,11 +198,15 @@ try {
   assert.equal(reusedReview.review?.id, reviewResult.review?.id)
   const review = await dailyReviewService.getReview(reviewResult.review!.id, userId)
   const report = review.report as any
-  assert.equal(report.schemaVersion, 'fams.daily-portfolio-review.v1')
+  assert.equal(report.schemaVersion, 'fams.daily-portfolio-review.v2')
   assert.equal(report.assets.length, 2)
   assert.equal(report.assets.find((item: any) => item.assetId === primaryAsset.id).trend.chart.length, 30)
   assert.equal(report.assets.find((item: any) => item.assetId === primaryAsset.id).grid.strategySource, 'system_research_fallback')
   assert.equal(report.strategy.assessment.status, 'needs_review')
+  assert.equal(report.decisionSummary.schemaVersion, 'fams.daily-review-decision-summary.v1')
+  assert.equal(report.llmSynthesis.source, 'deterministic')
+  assert.equal(report.llmSynthesis.attemptCount, 0)
+  assert.equal(report.assets.find((item: any) => item.assetId === primaryAsset.id).grid.derivation.schemaVersion, 'fams.grid-derivation.v1')
   assert.equal(report.executionBoundary.canCreateOrder, false)
   assert.equal(report.executionBoundary.autoTradeUnlocked, false)
   const history = await dailyReviewService.listReviews({ userId, limit: 1 })
@@ -233,6 +281,7 @@ try {
 } finally {
   assetTrendService.getSnapshot = originalTrend
   positionAdviceService.getPositionAdvice = originalAdvice
+  valueAssessmentService.assessPosition = originalValueAssessment
   if (strategyId) await prisma.strategy.delete({ where: { id: strategyId } }).catch(() => undefined)
   await prisma.user.delete({ where: { id: userId } }).catch(() => undefined)
   await prisma.asset.deleteMany({ where: { symbol: { in: [primarySymbol, missingSymbol] } } }).catch(() => undefined)

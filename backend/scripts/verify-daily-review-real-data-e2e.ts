@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { execFileSync } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { PrismaClient } from '@prisma/client'
@@ -9,8 +8,8 @@ import { databaseConfig, prisma } from '../src/db/prisma.js'
 const USER_ID = 'default'
 const API_BASE = process.env.FAMS_REAL_E2E_API_BASE || 'http://127.0.0.1:4000'
 const repoRoot = resolve(import.meta.dirname, '../..')
-const evidenceRoot = resolve(repoRoot, '.verification/daily-review-v1/DRV1-4')
-const auditRoot = resolve(repoRoot, 'backend/data/gpt-audit/daily-portfolio-review-v1')
+const evidenceRoot = resolve(repoRoot, '.verification/daily-review-v1/DRV1-7')
+const auditRoot = resolve(repoRoot, 'backend/data/gpt-audit/daily-portfolio-review-v1/DRV1-7')
 
 function normalize(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString()
@@ -85,14 +84,12 @@ let backupClient: PrismaClient | null = null
 
 try {
   await Promise.all([mkdir(evidenceDir, { recursive: true }), mkdir(auditDir, { recursive: true })])
-  assert.equal(databaseConfig.kind, 'sqlite', '真实 E2E 当前只支持可在线备份的 SQLite')
+  assert.equal(databaseConfig.kind, 'sqlite', '真实 E2E 当前只支持 SQLite')
   assert.ok(databaseConfig.sqlitePath, 'SQLite 路径缺失')
-  const backupPath = resumeBackupPath || resolve(evidenceDir, 'pre-run.db')
+  const backupPath = resumeBackupPath || null
   if (resumeReviewId) {
     assert.ok(resumeBackupPath, '只读续验必须提供 FAMS_REAL_E2E_PRE_RUN_DB')
-    backupClient = new PrismaClient({ datasources: { db: { url: `file:${backupPath}?connection_limit=1` } } })
-  } else {
-    execFileSync('sqlite3', [databaseConfig.sqlitePath, `.backup '${backupPath.replaceAll("'", "''")}'`], { stdio: 'pipe' })
+    backupClient = new PrismaClient({ datasources: { db: { url: `file:${backupPath!}?connection_limit=1` } } })
   }
 
   const baselineClient = backupClient || prisma
@@ -108,8 +105,9 @@ try {
     baselineClient.dailyReviewRun.findFirst({ where: { userId: USER_ID }, orderBy: { generatedAt: 'desc' }, select: { id: true } }),
   ])
   assert.equal(nonCashPositions.length, 6, `预期 6 个非现金持仓，实际 ${nonCashPositions.length}`)
+  await writeFile(resolve(evidenceDir, 'pre-run-protected-snapshot.json'), `${JSON.stringify({ capturedAt: new Date().toISOString(), protectedBefore, countsBefore }, null, 2)}\n`, 'utf8')
 
-  const idempotencyKey = resumeReviewId ? 'read-only-resume-existing-review' : `drv1-4-real-e2e:${startedAt.toISOString()}`
+  const idempotencyKey = resumeReviewId ? 'read-only-resume-existing-review' : `drv1-7-real-e2e:${startedAt.toISOString()}`
   let reviewId = resumeReviewId || ''
   if (!resumeReviewId) {
     const runResult = await apiJson<any>('/api/v1/daily-reviews/run', {
@@ -117,7 +115,7 @@ try {
       body: JSON.stringify({
         userId: USER_ID,
         sessionType: 'manual',
-        triggerSource: 'drv1_4_real_e2e',
+        triggerSource: 'drv1_7_real_e2e',
         executionMode: 'inline',
         idempotencyKey,
       }),
@@ -138,6 +136,13 @@ try {
   assert.ok(['completed', 'partial'].includes(detail.status), `真实复盘状态不可验收：${detail.status}`)
   assert.equal(assets.length + errors.length, nonCashPositions.length, '成功与失败资产没有覆盖全部非现金持仓')
   assert.ok(assets.length >= 1, '真实复盘没有任何成功资产')
+  assert.equal(report.schemaVersion, 'fams.daily-portfolio-review.v2')
+  assert.equal(report.decisionSummary?.schemaVersion, 'fams.daily-review-decision-summary.v1')
+  assert.equal(report.decisionSummary?.assets?.length, assets.length, '结论摘要没有覆盖成功资产')
+  assert.equal(report.llmSynthesis?.schemaVersion, 'fams.daily-review-llm-synthesis.v1')
+  assert.ok(['available', 'fallback'].includes(report.llmSynthesis?.status), '一次性汇总缺少可审计状态')
+  assert.ok([0, 1].includes(report.llmSynthesis?.attemptCount), '一次性汇总请求次数越界')
+  assert.equal(report.llmSynthesis?.attempted, report.llmSynthesis?.attemptCount === 1)
   const accountedSymbols = [...assets.map((asset: any) => asset.symbol), ...errors.map((error: any) => error.symbol)].sort()
   assert.deepEqual(accountedSymbols, nonCashPositions.map((position) => position.asset.symbol).sort(), '持仓资产覆盖不一致')
   for (const error of errors) assert.ok(String(error.message || '').trim(), `${error.symbol || error.assetId} 缺少明确错误`)
@@ -167,11 +172,26 @@ try {
     closeTo(finalPoint.ma10, expected.ma10, `${asset.symbol} chart.ma10`)
     closeTo(finalPoint.ma30, expected.ma30, `${asset.symbol} chart.ma30`)
     assert.ok(asset.grid?.id, `${asset.symbol} 缺少已保存 GridPlan`)
+    assert.equal(asset.grid?.derivation?.schemaVersion, 'fams.grid-derivation.v1', `${asset.symbol} 缺少可复算网格推导`)
+    assert.ok(Number.isFinite(Number(asset.grid?.derivation?.anchor?.value)), `${asset.symbol} 网格锚点无效`)
+    assert.ok(Number.isFinite(Number(asset.grid?.derivation?.spacing?.finalPercent)), `${asset.symbol} 网格间距无效`)
+    assert.ok(asset.valuationContext?.applicability, `${asset.symbol} 缺少价值评估上下文`)
+    const decisionAsset = report.decisionSummary.assets.find((item: any) => item.symbol === asset.symbol)
+    assert.ok(decisionAsset, `${asset.symbol} 缺少结论摘要`)
+    assert.deepEqual(
+      (decisionAsset.orders || []).map((order: any) => [order.id, order.side, order.level, order.price, order.quantity]),
+      (asset.grid?.orders || []).map((order: any) => [order.id, order.side, order.level, order.price, order.quantity]),
+      `${asset.symbol} 页面订单清单不是已保存 GridOrderDraft 的准确投影`,
+    )
     return { symbol: asset.symbol, source, dates: { first: dates[0], last: dates.at(-1) }, expected, gridOrders: asset.grid?.orders?.length || 0 }
   })
 
-  assert.equal(workflow.schemaVersion, 'fams.daily-review-audit-workflow.v1')
+  assert.equal(workflow.schemaVersion, 'fams.daily-review-audit-workflow.v2')
   assert.equal(workflow.nodes?.length, 10)
+  assert.equal(workflow.edges?.length, 17)
+  assert.ok(workflow.nodes.every((node: any) => node.purpose && Array.isArray(node.dependsOn)), 'DAG 节点缺少作用或依赖')
+  const nodeIds = new Set(workflow.nodes.map((node: any) => node.id))
+  assert.ok(workflow.edges.every((edge: any) => nodeIds.has(edge.source) && nodeIds.has(edge.target)), 'DAG 连线引用未知节点')
   assert.deepEqual(workflow.executionBoundary, {
     planDraftOnly: true,
     formalTradingUnlocked: false,
@@ -202,12 +222,14 @@ try {
     idempotencyKey,
     validationMode: resumeReviewId ? 'read_only_resume_after_acceptance_precision_fix' : 'single_real_api_run',
     backupPath,
+    backupMode: resumeReviewId ? 'read_only_resume_backup' : 'protected_table_hashes_without_live_full_database_copy',
     nonCashPositions: nonCashPositions.map((position) => ({ symbol: position.asset.symbol, assetId: position.assetId, positionId: position.id })),
     reviewedAssets: assets.length,
     failedAssets: errors,
     assetEvidence,
     workflow: {
       nodes: workflow.nodes.length,
+      edges: workflow.edges.length,
       snapshotCounts: workflow.snapshotCounts,
       captureSummary: workflow.captureSummary,
       attentionCandidates: workflow.attentionCandidates.length,
@@ -219,6 +241,10 @@ try {
       realProviderOnly: true,
       thirtyUniqueAscendingCloses: true,
       movingAveragesRecomputed: true,
+      decisionSummaryMatchesPersistedDrafts: true,
+      valuationAndGridDerivationPersisted: true,
+      llmSynthesisAtMostOneRequest: true,
+      dagContractV2: true,
       allNonCashPositionsAccountedFor: true,
       oneNewReviewOnly: true,
       protectedTablesUnchanged: true,
@@ -227,7 +253,7 @@ try {
   }
   await Promise.all([
     writeFile(resolve(evidenceDir, 'real-data-e2e.json'), `${JSON.stringify(audit, null, 2)}\n`, 'utf8'),
-    writeFile(resolve(auditDir, 'real-data-e2e.json'), `${JSON.stringify({ ...audit, backupPath: '[redacted-local-verification-path]' }, null, 2)}\n`, 'utf8'),
+    writeFile(resolve(auditDir, 'real-data-e2e.json'), `${JSON.stringify({ ...audit, backupPath: backupPath ? '[redacted-local-verification-path]' : null }, null, 2)}\n`, 'utf8'),
   ])
   console.log(JSON.stringify(audit, null, 2))
 } finally {
