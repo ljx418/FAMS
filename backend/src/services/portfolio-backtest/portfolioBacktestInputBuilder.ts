@@ -39,6 +39,7 @@ function normalizeAssetClass(type?: string | null): PortfolioStrategyComponent['
 
 export class PortfolioBacktestInputBuilder {
   async build(request: Partial<PortfolioBacktestRequest> & { userId: string }): Promise<PortfolioBacktestInputBuildResult> {
+    const hasExplicitReleaseCandidateSet = Boolean(request.releaseCandidateStrategyIds?.length)
     const resolved: PortfolioBacktestRequest = {
       userId: request.userId,
       portfolioStrategyIds: request.portfolioStrategyIds?.length
@@ -131,6 +132,14 @@ export class PortfolioBacktestInputBuilder {
     }
 
     const validStrategyCount = strategies.filter((strategy) => strategy.validation.status === 'valid').length
+    // A template such as custom_weight_portfolio expands into one or more concrete
+    // strategy definitions. Formal-validation evidence must freeze those concrete
+    // identities, not the UI-only template placeholder.
+    if (!hasExplicitReleaseCandidateSet) {
+      resolved.releaseCandidateStrategyIds = Array.from(new Set(
+        strategies.map((strategy) => strategy.strategyId),
+      ))
+    }
     for (const strategy of strategies) {
       if (!resolved.releaseCandidateStrategyVersions[strategy.strategyId]) {
         resolved.releaseCandidateStrategyVersions[strategy.strategyId] = strategy.strategyVersion

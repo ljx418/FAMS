@@ -5,6 +5,7 @@ import { readdir, stat } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { prisma as defaultPrisma } from '../../db/prisma.js'
+import { resolveDatabaseUrl } from '../../db/databaseUrl.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -18,22 +19,13 @@ type RuntimeHealthOptions = {
   lightweight?: boolean
 }
 
-function backendRoot() {
-  return process.cwd().endsWith('/backend') ? process.cwd() : resolve(process.cwd(), 'backend')
-}
-
 function resolveSqlitePath() {
-  const url = process.env.DATABASE_URL || 'file:./prisma/dev.db'
-  if (!url.startsWith('file:')) {
-    return { databaseUrlKind: url.startsWith('postgres') ? 'postgresql' : 'unknown', path: null as string | null, raw: url }
+  const resolved = resolveDatabaseUrl()
+  return {
+    databaseUrlKind: resolved.kind,
+    path: resolved.sqlitePath,
+    raw: resolved.kind === 'sqlite' ? 'file:***REDACTED***' : resolved.raw,
   }
-  const filePath = url.slice('file:'.length)
-  const absolute = filePath.startsWith('/')
-    ? filePath
-    : filePath === './dev.db' || filePath === 'dev.db'
-      ? resolve(backendRoot(), 'prisma/dev.db')
-      : resolve(backendRoot(), filePath)
-  return { databaseUrlKind: 'sqlite', path: absolute, raw: 'file:***REDACTED***' }
 }
 
 async function hasCommand(command: string, args: string[] = ['--version']) {

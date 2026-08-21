@@ -2351,6 +2351,7 @@ class AnalysisService {
     for (const holding of holdings) {
       for (const reason of holding.positionAdvice?.blockedReasons || []) blockerSet.add(reason)
       for (const reason of holding.valueAssessment?.valuation?.blockedReasons || []) blockerSet.add(reason)
+      for (const warning of holding.runtimeWarnings || []) blockerSet.add(warning.code || 'holding_runtime_unavailable')
     }
     if (latestValidation?.validationDecision?.usableForTradingAdvice !== true) blockerSet.add('validation_evidence')
     for (const warning of refreshWarnings) blockerSet.add(warning)
@@ -2369,6 +2370,7 @@ class AnalysisService {
         blockedReasons: [
           ...(holding.positionAdvice?.blockedReasons || holding.positionAdvice?.advice?.blockedReasons || []),
           ...(holding.valueAssessment?.valuation?.blockedReasons || []),
+          ...(holding.runtimeWarnings || []).map((warning: any) => warning.code || 'holding_runtime_unavailable'),
         ],
         assetId: holding.assetId,
         symbol: holding.symbol,
@@ -4377,8 +4379,21 @@ class AnalysisService {
         .map((position) => position.asset.symbol),
       { market: 'CN' }
     )
-    const valueAssessments = await Promise.all(positions.map((position) => valueAssessmentService.assessPosition(position)))
-    const valueAssessmentByPositionId = new Map(positions.map((position, index) => [position.id, valueAssessments[index]]))
+    const valueAssessmentResults = await Promise.all(positions.map(async (position) => {
+      try {
+        return { positionId: position.id, value: await valueAssessmentService.assessPosition(position), error: null as string | null }
+      } catch (error) {
+        return {
+          positionId: position.id,
+          value: undefined,
+          error: error instanceof Error ? error.message : String(error),
+        }
+      }
+    }))
+    const valueAssessmentByPositionId = new Map(valueAssessmentResults.map((result) => [result.positionId, result.value]))
+    const valueAssessmentErrorByPositionId = new Map(valueAssessmentResults
+      .filter((result) => result.error)
+      .map((result) => [result.positionId, result.error!]))
 
     return positions.map((position) => {
       const positionAdvice = this.augmentAdviceWithMarketFeatureForDisplay(
@@ -4460,6 +4475,7 @@ class AnalysisService {
         ? `${this.positionAdviceActionLabel(positionAdvice.advice.action)}，可信度 ${this.positionAdviceConfidenceLabel(positionAdvice.advice.confidence)}；${positionAdvice.advice.reasons[0] || '按仓位、趋势、风险和策略证据综合评估。'}`
         : `${trend}，${positionRisk}；当前仅展示持仓事实摘要。`
       const valueAssessment = valueAssessmentByPositionId.get(position.id)
+      const valueAssessmentError = valueAssessmentErrorByPositionId.get(position.id) || null
       const keyEvidence = [
         `市值 ${this.formatCurrency(position.marketValue || 0)}`,
         `收益率 ${pnlPercent.toFixed(2)}%`,
@@ -4485,6 +4501,7 @@ class AnalysisService {
       const holdingBlockedReasons = Array.from(new Set([
         ...(valueAssessment?.valuation?.blockedReasons || []),
         ...(positionAdvice?.advice?.blockedReasons || []),
+        ...(valueAssessmentError ? ['valuation_runtime_unavailable'] : []),
       ])).filter((reason) => this.shouldKeepHoldingBlockedReason(reason, valueAssessment))
       const dataGapSummary = dataGapSummaryService.build({
         blockedReasons: holdingBlockedReasons,
@@ -4561,6 +4578,7 @@ class AnalysisService {
           events: newsEvents,
         },
         valueAssessment,
+        runtimeWarnings: valueAssessmentError ? [{ code: 'valuation_runtime_unavailable', message: valueAssessmentError }] : [],
         positionAdvice: positionAdvice && !isCash ? {
           schemaVersion: positionAdvice.factSet.schemaVersion,
           generatedAt: positionAdvice.factSet.generatedAt,

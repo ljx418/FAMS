@@ -295,6 +295,7 @@ async function latestManualTradeDraftReadiness() {
       readyForManualTradeDraft: false,
       formalTradeActionAllowed: false,
       autoTradeAllowed: false,
+      allowedActions: ALLOWED_ACTIONS,
       prohibitedActions: PROHIBITED_ACTIONS,
       primaryBlocker: 'strategy_evidence_missing',
       latestEvidence: null,

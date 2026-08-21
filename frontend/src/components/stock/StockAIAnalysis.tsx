@@ -73,14 +73,14 @@ const StockAIAnalysis: React.FC<StockAIAnalysisProps> = ({ defaultCode = '601888
           onChange={(e) => setCode(e.target.value)}
           onPressEnter={handleAnalyze}
           className="flex-1 bg-[#0f0f23] border-[surface-border] text-white"
-          style={{ color: '#fff' }}
+          style={{ color: '#0f172a' }}
         />
         <Button
           type="primary"
           icon={<SearchOutlined />}
           onClick={handleAnalyze}
           loading={loading}
-          style={{ backgroundColor: '#818cf8', borderColor: '#818cf8' }}
+          style={{ backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' }}
         >
           分析
         </Button>

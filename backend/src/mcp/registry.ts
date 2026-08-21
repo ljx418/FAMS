@@ -11,6 +11,11 @@ import { backtestService } from '../services/backtest/backtestService.js'
 import { transactionService } from '../services/transaction/transactionService.js'
 import { alertService } from '../services/alert/alertService.js'
 import { operationService } from '../services/operation/operationService.js'
+import { assetTrendService } from '../services/market-data/assetTrendService.js'
+import { dailyReviewService } from '../services/review/dailyReviewService.js'
+import { gridStrategyService } from '../services/strategy/gridStrategyService.js'
+import { screenshotCaptureService } from '../services/capture/screenshotCaptureService.js'
+import { getVisionCaptureStatus } from '../services/capture/visionCaptureService.js'
 
 export type PermissionMetadata = {
   userContext: 'required' | 'optional' | 'none'
@@ -20,7 +25,7 @@ export type PermissionMetadata = {
 }
 
 export type SafetyMetadata = {
-  execution: 'read_only' | 'async_operation' | 'write_requires_confirmation'
+  execution: 'read_only' | 'write_direct' | 'async_operation' | 'write_requires_confirmation'
   returnsOperationId: boolean
   returnsArtifactRefs: boolean
   returnsNextActions: boolean
@@ -151,6 +156,13 @@ const asyncOperationSafety: SafetyMetadata = {
   returnsOperationId: true,
   returnsArtifactRefs: true,
   returnsNextActions: true,
+}
+
+const directWriteSafety: SafetyMetadata = {
+  execution: 'write_direct',
+  returnsOperationId: false,
+  returnsArtifactRefs: false,
+  returnsNextActions: false,
 }
 
 const confirmedWriteSafety: SafetyMetadata = {
@@ -675,6 +687,279 @@ export const mcpTools: Record<string, McpToolDefinition> = {
       initialCapital?: number
       parentOperationId?: string
     }) => operationService.startRunBacktestOperation(params),
+  },
+
+  'market_data.get_asset_trend': {
+    name: 'market_data.get_asset_trend',
+    domain: 'market_data',
+    version: 'v1',
+    aliases: ['asset.get_trend'],
+    description: '获取并保存资产最新价、最近30个完整交易日收盘价和 MA5/MA10/MA30 走势图数据',
+    inputSchema: {
+      type: 'object',
+      properties: { userId: { type: 'string' }, assetId: { type: 'string' }, symbol: { type: 'string' }, days: { type: 'number', minimum: 30, maximum: 120 } },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['market_data:read', 'market_data:write']),
+    safety: directWriteSafety,
+    handler: async (params: { assetId?: string; symbol?: string; days?: number }) => assetTrendService.getSnapshot({ ...params, persist: true }),
+  },
+
+  'daily_review.run': {
+    name: 'daily_review.run',
+    domain: 'daily_review',
+    version: 'v1',
+    description: '启动开盘后、收盘前或手动持仓复盘；只生成研究报告和人工计划草案，不创建券商订单',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string' },
+        sessionType: { type: 'string', enum: ['open', 'pre_close', 'manual'] },
+        idempotencyKey: { type: 'string' },
+      },
+      required: ['userId'],
+    },
+    outputSchema: operationOutputSchema,
+    permissions: asyncPermission(['daily_review:write', 'operation:write']),
+    safety: asyncOperationSafety,
+    handler: async (params: { userId: string; sessionType?: 'open' | 'pre_close' | 'manual'; idempotencyKey?: string }) => {
+      const started = await dailyReviewService.startReview({ ...params, triggerSource: 'agent', executionMode: 'queued' })
+      return {
+        id: started.operation?.id,
+        operationId: started.operation?.id,
+        operation_id: started.operation?.id,
+        status: started.operation?.status,
+        progressPct: started.operation?.progressPct,
+        reviewId: started.review?.id,
+        artifactRefs: started.review?.id ? [`daily-review:${started.review.id}`] : [],
+        nextActions: [{ tool: 'operation.get', operation_id: started.operation?.id }, { tool: 'daily_review.get', reviewId: started.review?.id }],
+        reused: started.reused,
+      }
+    },
+  },
+
+  'daily_review.get_latest': {
+    name: 'daily_review.get_latest',
+    domain: 'daily_review',
+    version: 'v1',
+    description: '查询最新持仓复盘，包括走势图、基本面/消息变化、关注标的及人工计划网格',
+    inputSchema: {
+      type: 'object',
+      properties: { userId: { type: 'string' }, sessionType: { type: 'string', enum: ['open', 'pre_close', 'manual'] } },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['daily_review:read']),
+    safety: readSafety,
+    handler: async (params: { userId: string; sessionType?: 'open' | 'pre_close' | 'manual' }) => dailyReviewService.getLatest(params.userId, params.sessionType),
+  },
+
+  'daily_review.get': {
+    name: 'daily_review.get',
+    domain: 'daily_review',
+    version: 'v1',
+    description: '按复盘 ID 查询可追溯报告和网格草案',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, reviewId: { type: 'string' } }, required: ['userId', 'reviewId'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['daily_review:read']),
+    safety: readSafety,
+    handler: async (params: { userId: string; reviewId: string }) => dailyReviewService.getReview(params.reviewId, params.userId),
+  },
+
+  'daily_review.list': {
+    name: 'daily_review.list',
+    domain: 'daily_review',
+    version: 'v1',
+    description: '分页查询历史持仓复盘、快照计数和策略总体结论',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string' },
+        sessionType: { type: 'string', enum: ['open', 'pre_close', 'manual'] },
+        status: { type: 'string' },
+        cursor: { type: 'string' },
+        limit: { type: 'number', minimum: 1, maximum: 50 },
+      },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['daily_review:read']),
+    safety: readSafety,
+    handler: async (params: any) => dailyReviewService.listReviews(params),
+  },
+
+  'grid_strategy.list_templates': {
+    name: 'grid_strategy.list_templates',
+    domain: 'strategy',
+    version: 'v1',
+    description: '列出声明式网格策略模板',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' } }, required: ['userId'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['strategy:read']),
+    safety: readSafety,
+    handler: async () => ({ templates: gridStrategyService.listTemplates(), notTradingAdvice: true }),
+  },
+
+  'grid_strategy.create_draft': {
+    name: 'grid_strategy.create_draft',
+    domain: 'strategy',
+    version: 'v1',
+    description: '将自然语言已转换出的声明式参数保存为未激活策略草案',
+    inputSchema: {
+      type: 'object',
+      properties: { userId: { type: 'string' }, templateId: { type: 'string' }, name: { type: 'string' }, description: { type: 'string' }, overrides: { type: 'object' } },
+      required: ['userId', 'templateId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['strategy:write']),
+    safety: directWriteSafety,
+    handler: async (params: any) => gridStrategyService.createDraft(params),
+  },
+
+  'grid_strategy.validate_draft': {
+    name: 'grid_strategy.validate_draft',
+    domain: 'strategy',
+    version: 'v1',
+    description: '校验策略配置并检查当前持仓的历史数据覆盖',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, versionId: { type: 'string' } }, required: ['userId', 'versionId'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['strategy:write']),
+    safety: directWriteSafety,
+    handler: async (params: { userId: string; versionId: string }) => gridStrategyService.validateDraft(params.versionId, params.userId),
+  },
+
+  'grid_strategy.activate': {
+    name: 'grid_strategy.activate',
+    domain: 'strategy',
+    version: 'v1',
+    description: '人工确认后激活已经验证的策略版本；不会解锁自动交易',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, versionId: { type: 'string' }, confirmation: humanConfirmationSchema }, required: ['userId', 'versionId', 'confirmation'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: tradeWritePermission(['strategy:activate']),
+    safety: confirmedWriteSafety,
+    handler: async (params: { userId: string; versionId: string; confirmation?: HumanConfirmation }) => {
+      if (!hasHumanConfirmation(params.confirmation)) {
+        return { blocked: true, code: 'HUMAN_CONFIRMATION_REQUIRED', message: '策略激活需要明确人工确认。', nextActions: ['验证策略后携带 confirmation.confirmed=true 重试'] }
+      }
+      return gridStrategyService.activate(params.versionId, {
+        confirmed: params.confirmation?.confirmed,
+        confirmedBy: params.confirmation?.confirmedBy,
+      }, params.userId)
+    },
+  },
+
+  'capture.upload_screenshot': {
+    name: 'capture.upload_screenshot',
+    domain: 'capture',
+    version: 'v1',
+    description: '将用户提供的 PNG/JPEG/WebP 截图私有保存；仅上传不会识别或改写持仓',
+    inputSchema: {
+      type: 'object',
+      properties: { userId: { type: 'string' }, base64: { type: 'string' }, mimeType: { type: 'string' }, originalFilename: { type: 'string' }, conversationId: { type: 'string' } },
+      required: ['userId', 'base64'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['capture:write']),
+    safety: directWriteSafety,
+    handler: async (params: any) => screenshotCaptureService.uploadBase64(params),
+  },
+
+  'capture.apply_extraction': {
+    name: 'capture.apply_extraction',
+    domain: 'capture',
+    version: 'v1',
+    description: '保存 Codex 从截图得到的结构化识别结果并生成逐行差异预览，不写入台账',
+    inputSchema: {
+      type: 'object',
+      properties: { userId: { type: 'string' }, captureId: { type: 'string' }, documentType: { type: 'string', enum: ['holding', 'trade', 'order', 'mixed'] }, rows: { type: 'array', items: { type: 'object' } }, rawText: { type: 'string' } },
+      required: ['userId', 'captureId', 'documentType', 'rows'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['capture:write']),
+    safety: directWriteSafety,
+    handler: async (params: any) => screenshotCaptureService.applyExtraction({ ...params, visionProvider: 'codex_mcp', consentGranted: false }),
+  },
+
+  'capture.get_preview': {
+    name: 'capture.get_preview',
+    domain: 'capture',
+    version: 'v1',
+    description: '查询截图逐行识别、置信度和台账差异预览',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, captureId: { type: 'string' } }, required: ['userId', 'captureId'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['capture:read']),
+    safety: readSafety,
+    handler: async (params: { userId: string; captureId: string }) => screenshotCaptureService.getPreview(params.captureId, params.userId),
+  },
+
+  'capture.vision_status': {
+    name: 'capture.vision_status',
+    domain: 'capture',
+    version: 'v1',
+    description: '读取截图视觉识别配置状态，不返回密钥',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' } }, required: ['userId'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['capture:read']),
+    safety: readSafety,
+    handler: async () => getVisionCaptureStatus(),
+  },
+
+  'capture.update_row': {
+    name: 'capture.update_row',
+    domain: 'capture',
+    version: 'v1',
+    description: '在确认前修正或忽略截图识别行，并重新执行资产匹配和差异校验',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string' }, captureId: { type: 'string' }, rowId: { type: 'string' }, fields: { type: 'object' },
+        fieldConfidence: { type: 'object' }, confidence: { type: 'number' }, ignored: { type: 'boolean' }, correctedBy: { type: 'string' },
+      },
+      required: ['userId', 'captureId', 'rowId', 'correctedBy'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['capture:write']),
+    safety: directWriteSafety,
+    handler: async (params: any) => screenshotCaptureService.updateRow({
+      captureId: params.captureId,
+      rowId: params.rowId,
+      userId: params.userId,
+      update: {
+        fields: params.fields,
+        fieldConfidence: params.fieldConfidence,
+        confidence: params.confidence,
+        ignored: params.ignored,
+        correctedBy: params.correctedBy,
+      },
+    }),
+  },
+
+  'capture.confirm_rows': {
+    name: 'capture.confirm_rows',
+    domain: 'capture',
+    version: 'v1',
+    description: '人工确认选定截图行后写入持仓、成交记录或外部委托观察；缺失持仓绝不自动关闭',
+    inputSchema: {
+      type: 'object',
+      properties: { userId: { type: 'string' }, captureId: { type: 'string' }, rowIds: { type: 'array', items: { type: 'string' } }, confirmation: humanConfirmationSchema },
+      required: ['userId', 'captureId', 'confirmation'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: tradeWritePermission(['capture:confirm']),
+    safety: confirmedWriteSafety,
+    handler: async (params: { userId: string; captureId: string; rowIds?: string[]; confirmation?: HumanConfirmation }) => {
+      if (!hasHumanConfirmation(params.confirmation)) {
+        return { blocked: true, code: 'HUMAN_CONFIRMATION_REQUIRED', message: '截图行写入台账需要明确人工确认。', nextActions: ['检查预览后携带 confirmation.confirmed=true 和确认人重试'] }
+      }
+      return screenshotCaptureService.confirm({
+        captureId: params.captureId,
+        userId: params.userId,
+        rowIds: params.rowIds,
+        confirmed: true,
+        confirmedBy: params.confirmation!.confirmedBy!,
+      })
+    },
   },
 }
 

@@ -2,10 +2,21 @@ import { FastifyInstance } from 'fastify'
 import { priceService } from '../services/price/priceService.js'
 import { marketDataService } from '../services/market-data/marketDataService.js'
 import { assetIdentityResolver } from '../services/asset/assetIdentityResolver.js'
+import { assetTrendService } from '../services/market-data/assetTrendService.js'
 
 export async function priceRoutes(app: FastifyInstance) {
   app.get('/providers', async () => {
     return marketDataService.listProviders()
+  })
+
+  app.get('/trend', async (request) => {
+    const query = request.query as any
+    return assetTrendService.getSnapshot({
+      assetId: query.assetId,
+      symbol: query.symbol,
+      days: query.days ? Number(query.days) : 30,
+      persist: query.persist !== 'false',
+    })
   })
 
   // 获取实时价格

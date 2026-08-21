@@ -33,13 +33,18 @@ async function main() {
 
   const plannerStatus = chatLlmPlannerService.publicStatus()
   assert(plannerStatus.plannerAvailable === true, 'LLM planner should be available when key and FAMS_CHAT_LLM_ENABLED=1 are configured')
+  assert(plannerStatus.summaryAvailable === true, 'LLM result summarizer should be available when planner is configured')
 
   const portfolioResponse = await famsChatService.sendMessage({
     userId: 'default',
     message: '能不能看看我的资产现在大概分布怎么样，并告诉我下一步去哪看明细',
   })
   assert(portfolioResponse.intent === 'portfolio_summary', `LLM planner should map natural asset-distribution wording to portfolio_summary, got ${portfolioResponse.intent}`)
-  assert(portfolioResponse.agentCore.mode === 'llm_assisted_planner_pending', 'Chat response should expose LLM-assisted planner mode')
+  assert(portfolioResponse.agentCore.mode === 'pi_agent_loop', 'Chat response should expose active LLM-assisted agent loop mode')
+  assert(
+    ['llm', 'deterministic'].includes(portfolioResponse.agentCore.summarySynthesis?.source || ''),
+    'Structured tool result should expose LLM synthesis or an explicit deterministic fallback',
+  )
   assert(JSON.stringify(portfolioResponse).includes(config.apiKey) === false, 'Chat response must not leak the API key')
 
   const blockedResponse = await famsChatService.sendMessage({
@@ -69,6 +74,7 @@ async function main() {
     evidence: {
       conversationId: portfolioResponse.conversationId,
       portfolioIntent: portfolioResponse.intent,
+      summarySynthesis: portfolioResponse.agentCore.summarySynthesis,
       blockedIntent: blockedResponse.intent,
       auditedMessageCount: snapshot.messages?.length || 0,
     },
@@ -76,6 +82,8 @@ async function main() {
       'dotenv_llm_key_detected_without_secret_leak',
       'llm_maps_natural_language_to_portfolio_summary',
       'llm_planner_metadata_persisted',
+      'llm_structured_result_summary_generated',
+      'llm_summary_provider_failure_falls_back_without_losing_tool_result',
       'trade_action_still_blocked',
     ],
     allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'ALERT', 'PLAN_DRAFT', 'MANUAL_TRADE_DRAFT'],

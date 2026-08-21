@@ -29,6 +29,9 @@ export interface CreateTransactionParams {
   executedAt?: Date
   notes?: string
   adviceActionId?: string
+  source?: string
+  sourceImportKey?: string
+  sourceCaptureRowId?: string
 }
 
 export interface TransactionFilters {
@@ -112,6 +115,9 @@ class TransactionService {
           executedAt: params.executedAt || new Date(),
           notes: params.notes,
           adviceActionId: params.adviceActionId,
+          source: params.source,
+          sourceImportKey: params.sourceImportKey,
+          sourceCaptureRowId: params.sourceCaptureRowId,
         },
         include: { asset: true },
       })

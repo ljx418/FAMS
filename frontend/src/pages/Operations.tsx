@@ -40,7 +40,7 @@ const askChatBox = (messageText: string) => {
 }
 
 type OperationStatus = 'queued' | 'running' | 'completed' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'partial'
-type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'portfolio_backtest_run'
+type OperationType = string
 type ReliabilityStatus = 'healthy' | 'degraded' | 'failing' | 'unknown'
 type AdviceScope = 'all' | 'asset' | 'sector'
 
@@ -313,7 +313,7 @@ const STATUS_META: Record<OperationStatus, { color: string; label: string }> = {
   cancelled: { color: 'default', label: '已取消' },
 }
 
-const TYPE_META: Record<OperationType, { label: string; color: string }> = {
+const TYPE_META: Record<string, { label: string; color: string }> = {
   refresh_prices: { label: '刷新价格', color: '#38bdf8' },
   generate_daily_advice: { label: '生成每日建议', color: '#818cf8' },
   check_alerts: { label: '检查告警', color: '#fbbf24' },
@@ -325,6 +325,10 @@ const TYPE_META: Record<OperationType, { label: string; color: string }> = {
   market_bar_cache_preheat: { label: 'K线预热', color: '#f59e0b' },
   fivd_r_portfolio_refresh: { label: 'FIVD-R刷新', color: '#38bdf8' },
   portfolio_backtest_run: { label: '组合回测', color: '#22d3ee' },
+  daily_portfolio_review: { label: '持仓每日复盘', color: '#2563eb' },
+  daily_review_run: { label: '持仓每日复盘', color: '#2563eb' },
+  screenshot_capture_extract: { label: '截图识别', color: '#7c3aed' },
+  dividend_low_vol_daily_scan: { label: '红利低波每日扫描', color: '#059669' },
 }
 
 const RELIABILITY_STATUS: Record<ReliabilityStatus, { color: string; label: string }> = {
@@ -2363,9 +2367,9 @@ const Operations: React.FC = () => {
     if (stats.failed > 0) {
       return {
         mode: 'failed' as const,
-        color: '#f87171',
-        bg: 'rgba(248,113,113,0.10)',
-        border: 'rgba(248,113,113,0.25)',
+        color: '#b91c1c',
+        bg: '#fef2f2',
+        border: '#fecaca',
         text: `当前有 ${stats.failed} 个失败任务，任务历史已自动置顶显示。`,
         actionLabel: '只看失败任务',
       }
@@ -2374,18 +2378,18 @@ const Operations: React.FC = () => {
       const activeCount = stats.running + stats.queued
       return {
         mode: 'active' as const,
-        color: '#818cf8',
-        bg: 'rgba(129,140,248,0.10)',
-        border: 'rgba(129,140,248,0.25)',
+        color: '#1d4ed8',
+        bg: '#eff6ff',
+        border: '#bfdbfe',
         text: `当前有 ${activeCount} 个进行中任务，页面会自动轮询更新状态。`,
         actionLabel: '只看进行中',
       }
     }
     return {
       mode: 'idle' as const,
-      color: '#34d399',
-      bg: 'rgba(52,211,153,0.10)',
-      border: 'rgba(52,211,153,0.22)',
+      color: '#047857',
+      bg: '#ecfdf5',
+      border: '#a7f3d0',
       text: `当前没有失败或进行中任务，最近完成 ${stats.completed} 个任务。`,
       actionLabel: null,
     }
@@ -2770,12 +2774,12 @@ const Operations: React.FC = () => {
       title: '请求时间',
       dataIndex: 'requestedAt',
       key: 'requestedAt',
-      render: (value: string) => <span className="text-gray-200">{formatDateTime(value)}</span>,
+      render: (value: string) => <span className="text-slate-700">{formatDateTime(value)}</span>,
     },
     {
       title: '耗时',
       key: 'duration',
-      render: (_, record) => <span className="text-gray-300">{formatDuration(record.startedAt, record.completedAt)}</span>,
+      render: (_, record) => <span className="text-slate-600">{formatDuration(record.startedAt, record.completedAt)}</span>,
     },
     {
       title: '结果摘要',
@@ -2935,8 +2939,9 @@ const Operations: React.FC = () => {
     <div className="operations-page min-w-0 space-y-6" data-fams-artifact-ref={pendingArtifactRef || ''}>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-2">任务中心</h1>
-          <p className="text-gray-300 mb-0">统一查看价格刷新、每日建议等异步任务状态、失败原因和数据源健康度。</p>
+          <div className="fams-eyebrow mb-2">运行与审计</div>
+          <h1 className="fams-page-title mb-2">任务中心</h1>
+          <p className="fams-muted mb-0">先看异常和进行中任务；需要排查时再展开技术详情。</p>
         </div>
         <Space wrap className="operations-action-bar max-w-full">
           <Button icon={<RobotOutlined />} onClick={() => askChatBox('请用普通话解释任务中心当前应该先看哪些任务、失败原因和审计证据')}>
@@ -2991,8 +2996,6 @@ const Operations: React.FC = () => {
         </div>
       </Card>
 
-      <FormalReleaseReviewPanel operationId={selectedOperation?.type === 'portfolio_backtest_run' ? selectedOperation.id : null} />
-
       <div
         className="rounded-lg border px-4 py-3 text-sm flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
         style={{
@@ -3021,6 +3024,14 @@ const Operations: React.FC = () => {
           </Button>
         )}
       </div>
+
+      <details className="operations-advanced rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
+          高级技术与正式发布（通常不用看）
+          <span className="ml-2 text-xs font-normal text-slate-500">后台调度、数据租约和发布审计</span>
+        </summary>
+        <div className="space-y-4 border-t border-slate-100 p-4">
+          <FormalReleaseReviewPanel operationId={selectedOperation?.type === 'portfolio_backtest_run' ? selectedOperation.id : null} />
 
       <Card
         size="small"
@@ -3105,6 +3116,8 @@ const Operations: React.FC = () => {
           <Empty description="暂无调度状态" />
         )}
       </Card>
+        </div>
+      </details>
 
       <Row gutter={[16, 16]}>
         <Col xs={12} lg={4}>
@@ -3276,7 +3289,7 @@ const Operations: React.FC = () => {
         </Card>
       </div>
 
-      <Card title={<span className="text-white"><HistoryOutlined /> 任务历史</span>} className="bg-[#1a1a2e] border-surface-border">
+      <Card title={<span><HistoryOutlined /> 任务历史</span>} className="operations-history-card">
         <Table
           rowKey="id"
           loading={loading}
@@ -3296,12 +3309,13 @@ const Operations: React.FC = () => {
       </Card>
 
       <Modal
-        title={<span className="text-white">任务详情</span>}
+        title="任务详情"
         open={detailVisible}
         onCancel={() => setDetailVisible(false)}
-        width="min(960px, calc(100vw - 24px))"
+        width="min(1160px, calc(100vw - 24px))"
+        rootClassName="operations-detail-modal"
         forceRender
-        styles={{ body: { maxHeight: 'calc(100vh - 190px)', overflowY: 'auto', background: '#0f0f23' } }}
+        styles={{ body: { maxHeight: 'calc(100vh - 180px)', overflowY: 'auto', background: '#ffffff' } }}
         footer={[
           ...(selectedOperation && (selectedOperation.status === 'failed' || selectedOperation.status === 'cancelled' || selectedOperation.status === 'partial')
             ? [
@@ -4036,24 +4050,35 @@ const Operations: React.FC = () => {
               </Card>
             )}
 
-            <Row gutter={[16, 16]}>
-              <Col xs={24} lg={12}>
-                <Card size="small" title="输入参数" className="bg-[#161629] border-white/10">
-                  <pre className="text-xs text-gray-200 whitespace-pre-wrap break-all mb-0">
-                    {JSON.stringify(selectedOperation.input || {}, null, 2)}
-                  </pre>
-                </Card>
-              </Col>
-              <Col xs={24} lg={12}>
-                <Card size="small" title="执行结果" className="bg-[#161629] border-white/10">
-                  <pre className="text-xs text-gray-200 whitespace-pre-wrap break-all mb-0">
-                    {JSON.stringify(selectedOperation.error && Object.keys(selectedOperation.error).length > 0
-                      ? selectedOperation.error
-                      : selectedOperation.result || {}, null, 2)}
-                  </pre>
-                </Card>
-              </Col>
-            </Row>
+            <Collapse
+              size="small"
+              items={[
+                {
+                  key: 'raw-operation-data',
+                  label: '技术详情：输入参数与原始执行结果',
+                  children: (
+                    <Row gutter={[16, 16]}>
+                      <Col xs={24} lg={12}>
+                        <Card size="small" title="输入参数">
+                          <pre className="mb-0 whitespace-pre-wrap break-all text-xs text-slate-700">
+                            {JSON.stringify(selectedOperation.input || {}, null, 2)}
+                          </pre>
+                        </Card>
+                      </Col>
+                      <Col xs={24} lg={12}>
+                        <Card size="small" title="原始执行结果">
+                          <pre className="mb-0 whitespace-pre-wrap break-all text-xs text-slate-700">
+                            {JSON.stringify(selectedOperation.error && Object.keys(selectedOperation.error).length > 0
+                              ? selectedOperation.error
+                              : selectedOperation.result || {}, null, 2)}
+                          </pre>
+                        </Card>
+                      </Col>
+                    </Row>
+                  ),
+                },
+              ]}
+            />
           </div>
         )}
       </Modal>

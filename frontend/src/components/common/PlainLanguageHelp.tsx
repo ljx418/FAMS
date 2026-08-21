@@ -9,9 +9,9 @@ type PlainLanguageHelpProps = {
 export function PlainLanguageHelp({ term, explanation }: PlainLanguageHelpProps) {
   return (
     <Tooltip title={explanation}>
-      <span className="inline-flex items-center gap-1 text-sky-200">
+      <span className="inline-flex items-center gap-1 font-medium text-blue-700">
         {term}
-        <QuestionCircleOutlined aria-hidden="true" className="text-xs text-sky-300" />
+        <QuestionCircleOutlined aria-hidden="true" className="text-xs text-blue-600" />
       </span>
     </Tooltip>
   )

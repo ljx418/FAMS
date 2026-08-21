@@ -1,6 +1,6 @@
 {
   "schemaVersion": "fams.current_stage_state.v1",
-  "effectiveAt": "2026-08-20T14:00:00+08:00",
+  "effectiveAt": "2026-08-21T01:10:00+08:00",
   "stage": "formal_release_readiness_engineering_complete_business_gates_blocked",
   "statusSourcePolicy": "automation_must_read_this_file_before_markdown_status_text",
   "substageManifestSource": "docs/S0_S8_SUBSTAGE_ACCEPTANCE_MANIFESTS.json",
@@ -17,6 +17,22 @@
   "implementationApprovalRequired": false,
   "implementationEntry": "after_human_approval_and_ftr_0_gate",
   "reviewStatus": "PASS_FOR_CONTROLLED_DEVELOPMENT_ACCEPTANCE_NOT_FORMAL_TRADING_RELEASE",
+  "featureTracks": {
+    "dailyPortfolioReview": {
+      "prd": "docs/DAILY_PORTFOLIO_REVIEW_PRD.md",
+      "traceabilityMatrix": "docs/DAILY_PORTFOLIO_REVIEW_TRACEABILITY_MATRIX.md",
+      "implementationStatus": "productized_workflow_implemented_automated_acceptance_passed",
+      "requirementCoverage": "10/10",
+      "prototypeDesignApprovalStatus": "approved_for_implementation",
+      "productizedWorkflowUiStatus": "implemented",
+      "automatedFunctionalAcceptanceStatus": "passed",
+      "humanAcceptanceStatus": "not_performed",
+      "formalTradingUnlocked": false,
+      "autoTradeUnlocked": false,
+      "canCreateOrder": false,
+      "orderCreateAllowed": false
+    }
+  },
   "documentationSupportsControlledNextStageDevelopment": true,
   "documentationSupportsSubstageAcceptance": true,
   "documentationSupportsUnattendedEndToEndAutomation": false,
@@ -50,6 +66,12 @@
     "chatBoxExperienceOptimized": true,
     "chatBoxPlainLanguageReady": true,
     "chatBoxDataHealthUxReady": true,
+    "fivdRPortfolioRuntimeStable": true,
+    "dailyPortfolioReviewImplemented": true,
+    "dailyPortfolioReviewReadyForHumanAcceptance": true,
+    "dailyPortfolioReviewProductizedWorkflowUiImplemented": true,
+    "dailyPortfolioReviewAutomatedFunctionalAcceptancePassed": true,
+    "dailyPortfolioReviewHumanAcceptancePassed": false,
     "assetExcelImportExportReady": true,
     "expertModuleTabsPreserved": true,
     "formalDataGovernancePassed": false,
@@ -93,6 +115,7 @@
     "Deprecated benchmark aliases must not be persisted as new artifacts.",
     "S8 is limited to controlled intent-router and multi-turn safety enhancement, not unrestricted multi-step tool-calling.",
     "Each real user workbook requires fresh account-level revalidation before being used as evidence.",
-    "Automated FTR completion may prepare a release review package but must not enable the production adapter or change any trading permission to true."
+    "Automated FTR completion may prepare a release review package but must not enable the production adapter or change any trading permission to true.",
+    "2026-08-21 FTR-0 documentation freeze passed; FTR-1 entry audit stopped at formal_provider_authorization because provider authorization records=0 and the formal provider credential is missing."
   ]
 }

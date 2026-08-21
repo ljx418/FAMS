@@ -1,0 +1,148 @@
+# V2-PX External Brain Productization 审计基线
+
+更新时间：2026-07-15
+
+## 1. 当前结论
+
+```text
+px0GithubReviewGate=FAIL
+routeAFatalArchitectureBlocker=none_found
+fatalDocumentationBaselineIssueCount=1
+majorIssueCount>=8
+routeAStatus=PROPOSED
+routeAConceptualFeasibility=PASS
+routeAImplementationReadiness=FAIL
+prototypePrdAlignment=NOT_TESTABLE
+prototypeGate=FAIL
+schemaMetaValidation=PASS_5_OF_5
+intentSchemaStructuralDefense=PARTIAL_PASS
+realChromeEvidenceStructuralDefense=FAIL
+lifecycleSchemaStructuralDefense=FAIL
+acceptanceManifestStructuralDefense=FAIL
+acceptanceReportStructuralDefense=FAIL
+semanticValidatorImplemented=false
+px1PlanningAllowed=true
+px1Allowed=false
+px1CodeSpikeAllowed=false
+px2PlusAllowed=false
+v2PxComplete=NO_GO
+pxCoreDomainPolicy=UNRESOLVED
+famsTradingGateFieldsExcludedFromPxCoreSchema=true
+```
+
+当前 GitHub `main` 尚未包含 V2-PX External Brain Productization 的完整文档、ADR、schemas 和原型增量，因此 PX-0 GitHub 可复核门禁为 **FAIL**。本文档只记录审计基线和下一步门禁，不代表 PX-0 已通过。
+
+## 2. Fatal 问题
+
+当前未发现使 Route A 本质不可实现的架构障碍，但发现 1 个文档权威基线 Fatal：
+
+```text
+fatalIssueCount=0
+routeAArchitecturallyFeasible=true
+fatalDocumentationBaselineIssueCount=1
+```
+
+说明：Route A 可以作为后续候选技术路线继续文档化和 spike 验证，但不能因为“可实现”直接进入生产开发。
+
+## 2.1 Fatal 文档基线问题
+
+| 编号 | 问题 | 影响 | 处置 |
+| --- | --- | --- | --- |
+| F-DOC-1 | 产品与代码仓权威基线未冻结 | 无法判断 V2-PX 属于 FAMS 还是 Navia/mercury，也无法判断 FAMS namespace、投资建议和交易权限字段是否属于 PX 核心合同 | 必须通过 `docs/V2_PX_AUTHORITY_BASELINE.md` 冻结 `productId / repository / branch / commitSha / hostApplication / extensionPackage` |
+
+## 3. Major 问题
+
+| 编号 | 问题 | 当前影响 | PX-0 处置 |
+| --- | --- | --- | --- |
+| M1 | PX 审计对象未提交、无法按 commit 复核 | GitHub main 无法作为审计基线 | 必须提交 PX 文档、ADR、schemas、原型增量到可复核分支 |
+| M2 | active V2 文档存在 pending / passed 状态漂移 | 人类无法判断哪些能力真实完成 | 必须建立状态词典和状态漂移 grep 合同 |
+| M3 | 旧 V2 evidence 为静态 mock HTML 截图 | 不能作为真实 Chrome 证据 | 必须标记 legacy mock，不得计入 PX Chrome 验收 |
+| M4 | 当前 WXT / background / sidepanel 尚无独立 Workspace Page 宿主与复用路由 | Route A 的双容器宿主未验证 | 必须先做受限 feasibility spike |
+| M5 | 当前 GitHub 原型未覆盖 PX 三入口、路由 intent 和双容器生命周期 | 无法证明目标体验可达 | 必须补三入口、intent、生命周期的原型与验收合同 |
+| M6 | Intent schema 的字段、枚举和 payload shape 已修复，但仍缺 action-intent-permission 白名单、navigation/operation 分离和跨入口语义 validator | 纯 schema 仍不能证明三入口语义等价或幂等安全 | 必须补 `dispatchId / correlationId / canonicalRouteKey / scenarioId` 和 semantic validator |
+| M7 | Lifecycle schema 已要求两容器事件存在，但仍缺事件顺序、跨对象 ID 一致、原生 Side Panel 证明、reload/update 事件和文件真实性 validator | 报告仍可能在纯 schema 层 false-green | 必须补真实 Chrome evidence 字段、semantic validator 和 lifecycle 扩展事件 |
+| M8 | PX-2..PX-6 与 G1..G7 只有文档草案，尚未形成可执行 validator 和真实 Chrome 证据 | 不能据此声明生产实现可开始或 V2-PX 可完成 | 必须在 PX-1 之后逐阶段补目标文件、命令、fixture、证据、阈值和回滚规则的可执行验证 |
+| M9 | 缺少权威 V2-PX PRD 与 requirement traceability | 原型是否符合 PRD 当前不可验 | 必须补 `V2_PX_PRD.md` 和 `V2_PX_PRD_TRACEABILITY_MATRIX.md` |
+
+## 4. PX-1 进入条件
+
+只有以下条件全部满足，才允许进入受限 feasibility spike：
+
+```text
+pxDocsCommittedToReviewableBranch=true
+authorityBaselineStatus=FROZEN
+activeV2StatusDriftCount=0
+routeAAdrStatus=ACCEPTED_FOR_SPIKE
+routeAImplementationDetailsFrozen=true
+antiFalseGreenAcceptanceContractPassed=true
+legacyMockEvidenceExcluded=true
+intentSchemaFalseGreenDefense=PASS
+lifecycleSchemaFalseGreenDefense=PASS
+operationCommandContractReady=true
+semanticValidatorImplemented=true
+prototypePrdTraceabilityPassed=true
+humanReviewForPx1Start=true
+```
+
+PX-1 只允许做 feasibility spike，不允许进入生产实现。PX-1 输出必须能回答 Route A 是否能在真实浏览器环境里建立三入口、intent route、双容器生命周期和 Workspace Page 宿主。
+
+## 5. PX-2+ 禁止提前进入
+
+```text
+px2PlusParallelImplementationAllowed=false
+```
+
+PX-2+ 必须等待 PX-1 六项 spike 全部通过。不得在 PX-1 之前并行实现生产能力、不得把静态原型截图当作真实 Chrome 双容器证据。
+
+## 6. V2-PX 完成条件
+
+当前 V2-PX 为 **No-Go**。以下字段是未来完成条件，不是当前状态：
+
+```text
+px6Completed=true
+realDualContainerChromeAcceptancePassed=true
+g1ToG7AllGreen=true
+manualExperienceReviewPassed=true
+falseGreenRiskClosed=true
+```
+
+## 7. 审计口径
+
+废止旧结论：
+
+```text
+previousPx0PassConclusion=deprecated
+previousMajorIssueCountZeroConclusion=deprecated
+previousRouteAFrozenConclusion=deprecated
+previousPrototypePrdAlignmentPassedConclusion=deprecated
+```
+
+允许声明：
+
+```text
+routeADocumentationCanProceed=true
+px0AuditBaselineRecorded=true
+px1FeasibilitySpikeMayBePlanned=true
+px1PlanningAllowed=true
+```
+
+禁止声明：
+
+```text
+px0GithubReviewGatePassed 不得为 true
+px1SpikePassed 不得为 true
+px2ProductionImplementationReady 不得为 true
+v2PxComplete 不得为 true
+realChromeEvidencePassed 不得为 true
+```
+
+## 8. 下一步
+
+1. 将本审计基线与 PX 开发验收计划提交到可复核分支。
+2. 冻结 `docs/V2_PX_AUTHORITY_BASELINE.md` 中的产品、仓库、分支、commit 和宿主信息。
+3. 将 Route A ADR 从 `proposed` 升级为 `accepted` 前，补齐 WXT entrypoint、canonical URL、manifest/CSP、message envelope、tab reuse/focus、状态所有权、幂等键和 reload/update 恢复规则。
+4. 重写 PX intent route、dual-container lifecycle 和 real Chrome evidence schema。
+5. 补齐 acceptance manifest / acceptance report schema，确保 PX-6 不是自由文本报告。
+6. 增加 semantic validator，阻断 mock evidence、静态截图、状态漂移、文件不存在、哈希不一致和事件顺序错误。
+7. 将 PX-2..PX-6 与 G1..G7 从文档草案逐步升级为可执行验证合同。
+8. 等 PX-0 内容充分性门禁通过后，再申请 PX-1 受限 feasibility spike。

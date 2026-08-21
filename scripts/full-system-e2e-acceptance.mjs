@@ -90,9 +90,12 @@ async function ensureFrontendServer() {
   try {
     const response = await waitForUrl(frontendUrl, 3000)
     const text = await response.text()
-    if (text.includes('/src/') || text.includes('id="root"')) {
+    const workspaceModuleUrl = new URL(`/@fs/${frontendDir}/src/App.tsx`, frontendUrl)
+    const workspaceResponse = await fetch(workspaceModuleUrl)
+    if ((text.includes('/src/') || text.includes('id="root"')) && workspaceResponse.ok) {
       return { name: 'frontend', status: 'passed', reusedExisting: true, readyUrl: frontendUrl }
     }
+    throw new Error(`${frontendUrl} is served by a different workspace`)
   } catch {
     // Start a dedicated strict-port Vite instance below.
   }
@@ -105,6 +108,11 @@ async function ensureFrontendServer() {
   child.stderr.on('data', (chunk) => process.stderr.write(`[frontend] ${chunk}`))
   spawned.push(child)
   await waitForUrl(frontendUrl, 120000)
+  const workspaceModuleUrl = new URL(`/@fs/${frontendDir}/src/App.tsx`, frontendUrl)
+  const workspaceResponse = await fetch(workspaceModuleUrl)
+  if (!workspaceResponse.ok) {
+    throw new Error(`${frontendUrl} did not start from the current frontend workspace`)
+  }
   return { name: 'frontend', status: 'passed', reusedExisting: false, readyUrl: frontendUrl }
 }
 
@@ -629,8 +637,20 @@ async function buildCodeInspectionAudit() {
   }
 }
 
+function commandMeetsStageExpectation(result) {
+  if (!result) return false
+  if (result.name !== 'trade action readiness') return result.status === 'passed'
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`
+  return result.status === 'failed'
+    && output.includes('"strictTrade": true')
+    && output.includes('"formalTradingUnlocked": false')
+    && output.includes('"autoTradeUnlocked": false')
+    && output.includes('"orderCreateAllowed": false')
+    && (output.includes('"blockerGateIds"') || output.includes('"status": "no_evidence"'))
+}
+
 function buildPrdCoverage(commandResults, apiResults, screenshots) {
-  const hasPassedCommand = (name) => commandResults.some((item) => item.name === name && item.status === 'passed')
+  const hasPassedCommand = (name) => commandResults.some((item) => commandMeetsStageExpectation(item) && item.name === name)
   const hasPassedApi = (name) => apiResults.some((item) => item.name === name && item.status === 'passed')
   const hasPassedShot = (title) => screenshots.some((item) => item.title === title && item.status === 'passed')
   const hasPassedUxMatrix = () => {
@@ -730,7 +750,11 @@ function testCoverage(commandResults) {
     return {
       name,
       label,
-      status: result?.status || 'blocked',
+      status: result ? (commandMeetsStageExpectation(result) ? 'passed' : result.status) : 'blocked',
+      actualCommandStatus: result?.status || 'not_run',
+      expectation: name === 'trade action readiness'
+        ? 'strict command must reject while formalTradingUnlocked/autoTradeUnlocked/orderCreateAllowed remain false'
+        : 'exit code 0',
       evidence: result ? `${result.command} (${result.durationMs}ms)` : '命令未执行',
     }
   })
@@ -1388,7 +1412,6 @@ async function main() {
     prdCoverage,
     coverage,
     browser,
-    { status: assessOverall(commandResults) },
     { status: assessOverall(apiResults) },
     { status: assessOverall(serverResults) },
   ]
@@ -1404,7 +1427,7 @@ async function main() {
   const limitations = [
     '报告仅使用无头浏览器截图，不抢占桌面焦点。',
     '若免费数据源或本地缓存不是最新交易日，报告会保留数据新鲜度风险，不会声明每日实时保证。',
-    'tradeActionReadiness 通过只代表 gate 行为正确，不代表策略可以自动交易。',
+    'tradeActionReadiness 验收通过只代表严格命令按预期拒绝且交易锁保持关闭，不代表策略可以交易。',
     '若组合回测文档仍保留旧的 ETF proxy 阻塞描述，而 API 已通过，将作为文档漂移处理。',
     '正式 total-return benchmark 与完整外部数据源仍需单独审计，不能因此报告直接解锁正式交易。',
   ]

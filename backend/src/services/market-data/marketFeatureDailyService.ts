@@ -119,6 +119,7 @@ class MarketFeatureDailyService {
       const ma5 = this.average(closes.slice(-5))
       const ma10 = this.average(closes.slice(-10))
       const ma20 = this.average(closes.slice(-20))
+      const ma30 = closes.length >= 30 ? this.average(closes.slice(-30)) : null
       const ma60 = closes.length >= 60 ? this.average(closes.slice(-60)) : null
       const ma120 = closes.length >= 120 ? this.average(closes.slice(-120)) : null
       const ma250 = closes.length >= 250 ? this.average(closes.slice(-250)) : null
@@ -163,6 +164,7 @@ class MarketFeatureDailyService {
         return60d,
         ma5,
         ma10,
+        ma30,
         ma20,
         ma60,
         ma120,

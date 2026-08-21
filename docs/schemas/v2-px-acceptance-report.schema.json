@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-acceptance-report.schema.json",
+  "title": "V2-PX Acceptance Report",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "manifestRef",
+    "overallStatus",
+    "scope",
+    "humanReview",
+    "knownBlockers",
+    "mustNotClaim"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "v2-px-acceptance-report/1"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "manifestRef": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "overallStatus": {
+      "type": "string",
+      "enum": ["passed", "failed", "blocked"]
+    },
+    "scope": {
+      "type": "object",
+      "required": ["pxStage", "productionImplementationAllowed", "codeSpikeAllowed"],
+      "additionalProperties": false,
+      "properties": {
+        "pxStage": {
+          "type": "string",
+          "enum": ["PX-0", "PX-1", "PX-2", "PX-3", "PX-4", "PX-5", "PX-6"]
+        },
+        "productionImplementationAllowed": {
+          "type": "boolean"
+        },
+        "codeSpikeAllowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "humanReview": {
+      "type": "object",
+      "required": ["required", "completed", "reviewer", "reviewedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "const": true
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "reviewer": {
+          "type": ["string", "null"]
+        },
+        "reviewedAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+    "knownBlockers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "mustNotClaim": {
+      "type": "array",
+      "contains": {
+        "enum": [
+          "PX-0 PASS without committed review branch",
+          "PX-1 code spike allowed before gate",
+          "PX-2+ production ready",
+          "ADR proposed state must not be described as frozen",
+          "prototype PRD aligned without real evidence",
+          "real Chrome evidence passed without semantic validator",
+          "V2-PX complete"
+        ]
+      },
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

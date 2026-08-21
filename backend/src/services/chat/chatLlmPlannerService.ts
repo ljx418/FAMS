@@ -11,6 +11,19 @@ type PlannerDecision = {
   reason: string
 }
 
+export type SummarySynthesis = {
+  reply: string
+  source: 'llm'
+  model: string
+}
+
+type SummaryInput = {
+  intent: FamsChatIntent
+  userMessage: string
+  deterministicReply: string
+  structuredResult: Record<string, any>
+}
+
 const VALID_INTENTS: FamsChatIntent[] = [
   'dividend_low_vol_top_candidates',
   'dividend_low_vol_trading_zone',
@@ -18,6 +31,8 @@ const VALID_INTENTS: FamsChatIntent[] = [
   'dividend_low_vol_plan_draft',
   'refresh_data',
   'portfolio_summary',
+  'daily_review_latest',
+  'daily_review_run',
   'portfolio_risk_explain',
   'portfolio_backtest_compare',
   'portfolio_backtest_operation',
@@ -72,6 +87,70 @@ function sanitizeDecision(parsed: Record<string, unknown>): PlannerDecision | nu
     context,
     reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 240) : 'llm_planner_decision',
   }
+}
+
+function cleanSummaryText(value: unknown, maxLength = 260) {
+  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, maxLength) : ''
+}
+
+function cleanSummaryList(value: unknown, limit = 4) {
+  return Array.isArray(value)
+    ? value.map((item) => cleanSummaryText(item, 180)).filter(Boolean).slice(0, limit)
+    : []
+}
+
+function buildSummaryEvidence(result: Record<string, any>) {
+  const dailyReview = result.dailyReview
+  return {
+    resultType: result.resultType,
+    existingSummary: result.summary,
+    keyNumbers: (result.keyNumbers || result.metricCards || []).slice(0, 10),
+    nextActions: (result.nextActions || []).slice(0, 6),
+    blockedReasons: (result.blockedReasons || []).slice(0, 12),
+    dataHealth: result.dataHealth || result.dataQualitySummary || null,
+    comparison: result.comparisonTable ? {
+      columns: (result.comparisonTable.columns || []).slice(0, 12),
+      rows: (result.comparisonTable.rows || []).slice(0, 15),
+      insufficientReason: result.comparisonTable.insufficientReason,
+    } : null,
+    chartTitles: (result.charts || []).slice(0, 8).map((chart: any) => chart?.title).filter(Boolean),
+    dailyReview: dailyReview ? {
+      reviewId: dailyReview.reviewId,
+      sessionType: dailyReview.sessionType,
+      strategyAssessment: dailyReview.strategyAssessment,
+      assets: (dailyReview.assets || []).slice(0, 12).map((asset: any) => ({
+        symbol: asset.symbol,
+        name: asset.name,
+        quote: asset.quote,
+        materialChange: asset.materialChange,
+        recommendation: asset.recommendation,
+        grid: {
+          status: asset.grid?.status,
+          summary: asset.grid?.summary,
+          blockers: asset.grid?.blockers,
+          adjustment: asset.grid?.adjustment,
+          orders: (asset.grid?.orders || []).slice(0, 6),
+        },
+      })),
+      attentionCandidates: (dailyReview.attentionCandidates || []).slice(0, 12),
+      executionBoundary: dailyReview.executionBoundary,
+    } : null,
+  }
+}
+
+function sanitizeSummary(parsed: Record<string, unknown>, model: string): SummarySynthesis | null {
+  const headline = cleanSummaryText(parsed.headline, 180)
+  const overview = cleanSummaryText(parsed.overview, 320)
+  const keyPoints = cleanSummaryList(parsed.keyPoints, 4)
+  const nextSteps = cleanSummaryList(parsed.nextSteps, 3)
+  const risks = cleanSummaryList(parsed.risks, 3)
+  if (!headline && !overview) return null
+  const lines = [headline || overview]
+  if (headline && overview && overview !== headline) lines.push(`重点：${overview}`)
+  if (keyPoints.length) lines.push(...keyPoints.map((item) => `重点：${item}`))
+  if (nextSteps.length) lines.push(`建议关注：${nextSteps.join('；')}`)
+  if (risks.length) lines.push(`风险边界：${risks.join('；')}`)
+  return { reply: lines.slice(0, 7).join('\n'), source: 'llm', model }
 }
 
 function buildModel(config: ReturnType<typeof getFamsLlmConfig>): Model<'openai-completions'> {
@@ -141,11 +220,63 @@ class ChatLlmPlannerService {
     return parsed ? sanitizeDecision(parsed) : null
   }
 
+  async summarizeResult(input: SummaryInput): Promise<SummarySynthesis | null> {
+    const config = getFamsLlmConfig()
+    if (!config.configured || !config.chatAgentEnabled || !config.apiKey || !SUPPORTED_CHAT_LLM_PROVIDERS.has(config.provider)) {
+      return null
+    }
+    const context: Context = {
+      systemPrompt: [
+        '你是 FAMS ChatBox 的结果摘要器。白名单工具已经完成计算，你只能压缩和解释给定证据。',
+        '不得编造价格、均线、基本面、消息、标的、数量或风险；不得引入证据外的新结论。',
+        '可以复述原结果中的观察建议和人工计划网格，但不得把研究草案升级为买卖、下单或自动交易指令。',
+        '优先回答：总体结论、发生了什么、用户现在应关注什么、有哪些数据或交易边界。',
+        '使用简体中文，短句，不使用 Markdown 表格。只输出 JSON。',
+        'JSON 字段：headline, overview, keyPoints, nextSteps, risks。数组最多 4 项；全文尽量控制在 450 个汉字内。',
+      ].join('\n'),
+      messages: [{
+        role: 'user',
+        timestamp: Date.now(),
+        content: [
+          `用户原问题：${input.userMessage.slice(0, 800)}`,
+          `业务意图：${input.intent}`,
+          `原规则摘要：${input.deterministicReply.slice(0, 1400)}`,
+          '结构化证据：',
+          JSON.stringify(buildSummaryEvidence(input.structuredResult)),
+        ].join('\n'),
+      }],
+    }
+    const response = await complete(buildModel(config), context, {
+      apiKey: config.apiKey,
+      maxTokens: 700,
+      temperature: 0.1,
+      signal: AbortSignal.timeout(config.timeoutMs),
+    })
+    if ((response as any)?.stopReason === 'error') {
+      throw new Error(cleanSummaryText((response as any)?.errorMessage, 240) || 'llm_summary_provider_error')
+    }
+    const rawText = extractText(response)
+    const parsed = parseJsonObject(rawText)
+    if (parsed) {
+      const summary = sanitizeSummary(parsed, config.model)
+      if (summary) return summary
+    }
+    const plainText = cleanSummaryText(rawText.replace(/```(?:json)?|```/gi, ''), 700)
+    if (plainText && !plainText.startsWith('{')) return { reply: plainText, source: 'llm', model: config.model }
+    console.warn('ChatBox LLM returned an unusable summary payload', {
+      textLength: rawText.length,
+      parsedKeys: parsed ? Object.keys(parsed).slice(0, 12) : [],
+    })
+    return null
+  }
+
   publicStatus() {
     return {
       ...getFamsLlmPublicStatus(),
       plannerAvailable: this.isAvailable(),
       plannerMode: this.isAvailable() ? 'pi_ai_llm_intent_router' : 'deterministic_planner_fallback',
+      summaryAvailable: this.isAvailable(),
+      summaryMode: this.isAvailable() ? 'llm_structured_result_synthesis' : 'deterministic_summary_fallback',
       toolExecutionBoundary: 'fams_allowlisted_tools_only',
       formalTradingUnlocked: false,
       autoTradeUnlocked: false,

@@ -1,0 +1,81 @@
+# target-architecture-gap.drawio 摘要
+
+更新时间：2026-07-16
+
+## 1. 当前有效结论
+
+`docs/target-architecture-gap.drawio` 已重建为 FAMS 下一阶段 **Formal Release Readiness Closure** 架构、开发和验收地图，共 8 页，满足 `drawioPageCount=8`、`drawioPageLimit=8`。
+
+本图明确区分：
+
+- 已完成并验收：S0-S8 受控自动化开发、ChatBox 第一入口、普通用户工作台、专家页面、资产 Excel、长周期真实数据回测和 13-18 号审计合同。
+- 已实现但未达到正式 release：数据治理、benchmark、formal validation、人工签核、执行隔离和 release gate 合同。
+- 下一阶段待开发：FTR-0 至 FTR-6 的正式数据、benchmark、验证、签核、隔离和 release review 闭环。
+- 自动化阶段不可跨越：正式 provider/benchmark 资格、五角色人工签核、生产适配器审批和最终交易权限变更。
+
+当前不是正式交易 release，下一阶段自动化出门目标也只是：
+
+```text
+formalTradingReleaseReviewReady=true
+releaseApprovalStatus=pending_human_approval
+productionAdapterEnabled=false
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+```
+
+## 2. 八页结构
+
+1. **当前基线与下一阶段目标**：说明已完成能力、真实 blocker、FTR-0 至 FTR-6 和人类高风险门。
+2. **当前架构与目标架构差异**：按“当前实体 -> 缺口/内嵌实现 -> 目标实体 -> 审计证据 -> 用户结果”逐层映射体验、API、计算、数据和 release。
+3. **正式数据治理**：绑定 `formalProviderIngestionService` 等存量实体与待新增 `FormalDataProviderService`、字段级证据和用户恢复路径。
+4. **Benchmark 与总回报回测**：绑定现有 `portfolioBenchmarkService`、目标 adapter、资格服务、统一 replay 结果和降级边界。
+5. **Formal Validation**：冻结 release candidate 集合、验证输入、量化门槛、失败保留和 `17_formal_validation_audit.json`。
+6. **人工签核、执行隔离与 Release Gate**：五角色签核、paper/sandbox 隔离、生产 adapter 禁用和人类 review package。
+7. **开发计划、里程碑与用户路径**：给出 FTR-0 至 FTR-6 顺序，以及普通用户、研究用户、审核用户和交易阻断四条完整路径。
+8. **验收门槛、出门条件与硬边界**：列出自动化验收、人工门禁、允许声明、Hard Fail、失败打回和人工审查问题。
+
+## 3. 第 2 页架构可审计性
+
+第 2 页不是并列模块清单，而是固定五列的演进关系：
+
+该页显式表达当前架构与目标架构的架构关联关系，使审计者能够从存量代码实体追溯到目标实体、证据和用户结果。
+
+```text
+当前架构实体
+-> 当前缺口或内嵌实现
+-> 下一阶段目标实体
+-> 必须生成的审计证据
+-> 用户可见结果和出门判断
+```
+
+其中明确标注：
+
+- 绿色：已开发并验收；
+- 黄色：已实现但未达到 release，或存在 blocker；
+- 橙色：下一阶段待新增/拆分；
+- 蓝色：审计产物；
+- 红色：硬边界；
+- 灰色：已有基础。
+
+图中没有把 `FormalDataProviderService`、`BenchmarkQualificationService`、`FormalValidationService`、`ManualSignoffService`、`ExecutionIsolationService`、`ReleaseGateService` 冒充为现有独立实体。
+
+## 4. 用户体验验收
+
+图内必须能复核以下用户路径：
+
+- 真实资产 Excel -> Dashboard 数据健康 -> ChatBox 组合比较 -> 工作台 blocker -> Operations 证据。
+- release candidate -> 长周期总回报/OOS/walk-forward/参数/分组 -> 失败项保留 -> 16/17 审计。
+- 数据/模型/风控/合规/final release 五角色 -> 签核或打回 -> artifact hash -> HTML 总报告。
+- ChatBox/Backtest/API 请求交易动作 -> blocked -> 不创建订单/不修改持仓 -> 交易边界审计。
+
+## 5. 人工审查重点
+
+1. 第 2 页能否清楚判断每个目标实体从哪个存量实体演进，以及二者之间的缺口、证据和用户结果。
+2. 第 3 至 6 页是否把 provider、benchmark、validation、人工签核和执行隔离风险拆开，而非用单一 `ready` 状态掩盖。
+3. 第 7 页是否包含明确操作步骤、用户结果、量化门槛和失败归属。
+4. 第 8 页是否明确 review-ready 不等于 trading-ready，自动化不可自行解锁交易。
+5. 是否存在过度承诺、目标服务被误标为已实现或历史 S0-S8 状态被误当成新 FTR 状态。
+
+原始 XML 的可读解析证据见 `docs/read-drawio-output.txt`。

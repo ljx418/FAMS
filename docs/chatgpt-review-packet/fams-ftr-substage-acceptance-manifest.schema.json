@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/fams-ftr-substage-acceptance-manifest.schema.json",
+  "title": "FAMS FTR-0 to FTR-6 Substage Acceptance Manifest Set",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "stageId", "currentStateSource", "architectureDecision", "supportsControlledAutomation", "supportsUnattendedEndToEndAutomation", "supportsFormalTradingUnlock", "stageOrder", "stages"],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_release_readiness.substage_manifest_set.v1"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "stageId": {"const": "formal_release_readiness_closure"},
+    "currentStateSource": {"const": "docs/current-stage-state.json"},
+    "architectureDecision": {"type": "string", "minLength": 1},
+    "supportsControlledAutomation": {"const": true},
+    "supportsUnattendedEndToEndAutomation": {"const": false},
+    "supportsFormalTradingUnlock": {"const": false},
+    "stageOrder": {
+      "const": ["FTR-0", "FTR-1", "FTR-2", "FTR-3", "FTR-4", "FTR-5", "FTR-6"]
+    },
+    "stages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["FTR-0", "FTR-1", "FTR-2", "FTR-3", "FTR-4", "FTR-5", "FTR-6"],
+      "properties": {
+        "FTR-0": {"allOf": [{"$ref": "#/$defs/stage"}, {"properties": {"stageId": {"const": "FTR-0"}}}]},
+        "FTR-1": {"allOf": [{"$ref": "#/$defs/stage"}, {"properties": {"stageId": {"const": "FTR-1"}}}]},
+        "FTR-2": {"allOf": [{"$ref": "#/$defs/stage"}, {"properties": {"stageId": {"const": "FTR-2"}}}]},
+        "FTR-3": {"allOf": [{"$ref": "#/$defs/stage"}, {"properties": {"stageId": {"const": "FTR-3"}}}]},
+        "FTR-4": {"allOf": [{"$ref": "#/$defs/stage"}, {"properties": {"stageId": {"const": "FTR-4"}}}]},
+        "FTR-5": {"allOf": [{"$ref": "#/$defs/stage"}, {"properties": {"stageId": {"const": "FTR-5"}}}]},
+        "FTR-6": {"allOf": [{"$ref": "#/$defs/stage"}, {"properties": {"stageId": {"const": "FTR-6"}}}]}
+      }
+    }
+  },
+  "$defs": {
+    "stringList": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "command", "availability", "requiredBeforeExit"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "command": {"type": "string", "minLength": 1},
+        "availability": {"enum": ["existing", "existing_requires_ftr_extension", "planned"]},
+        "requiredBeforeExit": {"const": true}
+      }
+    },
+    "artifactSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact", "schemaPath", "availability"],
+      "properties": {
+        "artifact": {"type": "string", "minLength": 1},
+        "schemaPath": {"type": "string", "pattern": "^docs/.+\\.schema\\.json$"},
+        "availability": {"enum": ["existing", "planned_in_stage"]}
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stageId", "purpose", "currentImplementationState", "currentEntities", "targetEntities", "entryCriteria", "commands", "requiredArtifacts", "artifactSchemas", "automatedGates", "manualGates", "userAcceptanceScenarios", "exitClaims", "rollbackConditions", "exitCodePolicy"],
+      "properties": {
+        "stageId": {"type": "string"},
+        "purpose": {"type": "string", "minLength": 1},
+        "currentImplementationState": {"type": "string", "minLength": 1},
+        "currentEntities": {"$ref": "#/$defs/stringList"},
+        "targetEntities": {"$ref": "#/$defs/stringList"},
+        "entryCriteria": {"$ref": "#/$defs/stringList"},
+        "commands": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/command"}},
+        "requiredArtifacts": {"$ref": "#/$defs/stringList"},
+        "artifactSchemas": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/artifactSchema"}},
+        "automatedGates": {"$ref": "#/$defs/stringList"},
+        "manualGates": {"$ref": "#/$defs/stringList"},
+        "userAcceptanceScenarios": {"$ref": "#/$defs/stringList"},
+        "exitClaims": {"$ref": "#/$defs/stringList"},
+        "rollbackConditions": {"$ref": "#/$defs/stringList"},
+        "exitCodePolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["allCommandsMustExitZero", "blockedGateExitCode", "failedGateExitCode"],
+          "properties": {
+            "allCommandsMustExitZero": {"const": true},
+            "blockedGateExitCode": {"const": 2},
+            "failedGateExitCode": {"const": 1}
+          }
+        }
+      }
+    }
+  }
+}

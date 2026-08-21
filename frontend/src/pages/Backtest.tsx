@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Form, Input, InputNumber, Row, Select, Tag, message } from 'antd'
+import { Alert, App as AntApp, Button, Card, Checkbox, Col, DatePicker, Form, Input, InputNumber, Row, Select, Tag } from 'antd'
 import axios from 'axios'
 import { useLocation, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -62,27 +62,27 @@ const PortfolioCurveChart: React.FC<{ strategies: any[] }> = ({ strategies }) =>
     color: ['#38bdf8', '#34d399', '#fbbf24', '#a78bfa', '#fb7185', '#94a3b8', '#f97316'],
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#0f172a',
-      borderColor: '#334155',
-      textStyle: { color: '#e5e7eb' },
+      backgroundColor: '#ffffff',
+      borderColor: '#cbd5e1',
+      textStyle: { color: '#0f172a' },
       valueFormatter: (value) => `${Number(value).toFixed(2)}%`,
     },
     legend: {
       type: 'scroll',
       top: 0,
-      textStyle: { color: '#cbd5e1' },
+      textStyle: { color: '#475569' },
     },
     grid: [
       { left: 48, right: 24, top: 48, height: 210 },
       { left: 48, right: 24, top: 304, height: 78 },
     ],
     xAxis: [
-      { type: 'category', data: dates, boundaryGap: false, axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } } },
-      { type: 'category', data: dates, boundaryGap: false, gridIndex: 1, axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } } },
+      { type: 'category', data: dates, boundaryGap: false, axisLabel: { color: '#475569' }, axisLine: { lineStyle: { color: '#cbd5e1' } } },
+      { type: 'category', data: dates, boundaryGap: false, gridIndex: 1, axisLabel: { color: '#475569' }, axisLine: { lineStyle: { color: '#cbd5e1' } } },
     ],
     yAxis: [
-      { type: 'value', name: '累计收益', axisLabel: { color: '#94a3b8', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#1f2937' } } },
-      { type: 'value', name: '回撤', gridIndex: 1, axisLabel: { color: '#94a3b8', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#1f2937' } } },
+      { type: 'value', name: '累计收益', axisLabel: { color: '#475569', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+      { type: 'value', name: '回撤', gridIndex: 1, axisLabel: { color: '#475569', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
     ],
     series: [
       ...completed.map((strategy) => ({
@@ -121,6 +121,7 @@ const PortfolioCurveChart: React.FC<{ strategies: any[] }> = ({ strategies }) =>
 }
 
 const Backtest: React.FC = () => {
+  const { message } = AntApp.useApp()
   const location = useLocation()
   const navigate = useNavigate()
   const [form] = Form.useForm()

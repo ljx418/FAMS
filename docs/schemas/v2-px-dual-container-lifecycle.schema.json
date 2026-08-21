@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-dual-container-lifecycle.schema.json",
+  "title": "V2-PX Dual Container Lifecycle Audit",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "productId",
+    "repository",
+    "commitSha",
+    "correlationId",
+    "routeId",
+    "browserEvidence",
+    "containers",
+    "events",
+    "antiFalseGreen"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "v2-px-dual-container-lifecycle/2"
+    },
+    "productId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{2,63}$"
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[^/]+/[^/]+(\\.git)?$"
+    },
+    "commitSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "correlationId": {
+      "type": "string",
+      "pattern": "^px-corr-[a-z0-9][a-z0-9-]{7,80}$"
+    },
+    "routeId": {
+      "type": "string",
+      "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$"
+    },
+    "browserEvidence": {
+      "$ref": "v2-px-real-chrome-evidence.schema.json"
+    },
+    "containers": {
+      "type": "object",
+      "required": ["sidepanel", "workspacePage"],
+      "additionalProperties": false,
+      "properties": {
+        "sidepanel": { "$ref": "#/$defs/containerState" },
+        "workspacePage": { "$ref": "#/$defs/containerState" }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 9,
+      "items": { "$ref": "#/$defs/lifecycleEvent" },
+      "allOf": [
+        { "contains": { "properties": { "container": { "const": "sidepanel" }, "eventType": { "const": "start" } }, "required": ["container", "eventType"] }, "minContains": 1 },
+        { "contains": { "properties": { "container": { "const": "sidepanel" }, "eventType": { "const": "resume" } }, "required": ["container", "eventType"] }, "minContains": 1 },
+        { "contains": { "properties": { "container": { "const": "sidepanel" }, "eventType": { "const": "reconnect" } }, "required": ["container", "eventType"] }, "minContains": 1 },
+        { "contains": { "properties": { "container": { "const": "sidepanel" }, "eventType": { "const": "close" } }, "required": ["container", "eventType"] }, "minContains": 1 },
+        { "contains": { "properties": { "container": { "const": "workspace_page" }, "eventType": { "const": "start" } }, "required": ["container", "eventType"] }, "minContains": 1 },
+        { "contains": { "properties": { "container": { "const": "workspace_page" }, "eventType": { "const": "resume" } }, "required": ["container", "eventType"] }, "minContains": 1 },
+        { "contains": { "properties": { "container": { "const": "workspace_page" }, "eventType": { "const": "reconnect" } }, "required": ["container", "eventType"] }, "minContains": 1 },
+        { "contains": { "properties": { "container": { "const": "workspace_page" }, "eventType": { "const": "close" } }, "required": ["container", "eventType"] }, "minContains": 1 },
+        { "contains": { "properties": { "container": { "const": "background" }, "eventType": { "const": "route_intent" } }, "required": ["container", "eventType"] }, "minContains": 1 }
+      ]
+    },
+    "antiFalseGreen": {
+      "type": "object",
+      "required": [
+        "staticMockHtmlUsed",
+        "prototypeScreenshotOnly",
+        "realChromeTracePresent",
+        "semanticValidatorRequired"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "staticMockHtmlUsed": { "const": false },
+        "prototypeScreenshotOnly": { "const": false },
+        "realChromeTracePresent": { "const": true },
+        "semanticValidatorRequired": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "containerState": {
+      "type": "object",
+      "required": ["started", "resumed", "reconnected", "closed", "stateDerivedFromEvents"],
+      "additionalProperties": false,
+      "properties": {
+        "started": { "const": true },
+        "resumed": { "const": true },
+        "reconnected": { "const": true },
+        "closed": { "const": true },
+        "stateDerivedFromEvents": { "const": true }
+      }
+    },
+    "lifecycleEvent": {
+      "type": "object",
+      "required": ["at", "container", "eventType", "routeId", "correlationId"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string", "format": "date-time" },
+        "container": {
+          "type": "string",
+          "enum": ["sidepanel", "workspace_page", "background"]
+        },
+        "eventType": {
+          "type": "string",
+          "enum": ["start", "resume", "route_intent", "reconnect", "close", "blocked"]
+        },
+        "routeId": {
+          "type": "string",
+          "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$"
+        },
+        "correlationId": {
+          "type": "string",
+          "pattern": "^px-corr-[a-z0-9][a-z0-9-]{7,80}$"
+        }
+      }
+    }
+  }
+}
+

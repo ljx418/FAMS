@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-intent-route.schema.json",
+  "title": "V2-PX Intent Route Contract",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "productId",
+    "repository",
+    "commitSha",
+    "entryContainer",
+    "entryAction",
+    "routeIntent",
+    "targetContainer",
+    "routeId",
+    "correlationId",
+    "idempotencyKey",
+    "permissionType",
+    "routePayload",
+    "audit"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "v2-px-intent-route/2"
+    },
+    "productId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{2,63}$"
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[^/]+/[^/]+(\\.git)?$"
+    },
+    "commitSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "entryContainer": {
+      "type": "string",
+      "enum": ["sidepanel", "workspace_page", "host_app"]
+    },
+    "entryAction": {
+      "type": "string",
+      "enum": ["view_source", "open_workspace", "open_in_workspace"]
+    },
+    "routeIntent": {
+      "type": "string",
+      "enum": ["source_library", "source_detail", "ask", "trace", "graph"]
+    },
+    "targetContainer": {
+      "type": "string",
+      "enum": ["sidepanel", "workspace_page"]
+    },
+    "routeId": {
+      "type": "string",
+      "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$"
+    },
+    "correlationId": {
+      "type": "string",
+      "pattern": "^px-corr-[a-z0-9][a-z0-9-]{7,80}$"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "pattern": "^px-idem-[a-z0-9][a-z0-9-]{7,120}$"
+    },
+    "permissionType": {
+      "type": "string",
+      "enum": [
+        "read_only_direct",
+        "compute_quick_run",
+        "confirm_before_operation",
+        "permanently_blocked"
+      ]
+    },
+    "routePayload": {
+      "oneOf": [
+        { "$ref": "#/$defs/sourceLibraryPayload" },
+        { "$ref": "#/$defs/sourceDetailPayload" },
+        { "$ref": "#/$defs/askPayload" },
+        { "$ref": "#/$defs/tracePayload" },
+        { "$ref": "#/$defs/graphPayload" }
+      ]
+    },
+    "audit": {
+      "type": "object",
+      "required": ["createdAt", "sourceContainer", "schemaValidated", "semanticValidationRequired"],
+      "additionalProperties": false,
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sourceContainer": {
+          "type": "string",
+          "enum": ["sidepanel", "workspace_page", "host_app"]
+        },
+        "schemaValidated": {
+          "const": true
+        },
+        "semanticValidationRequired": {
+          "const": true
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "entryContainer": { "const": "sidepanel" } } },
+      "then": { "properties": { "audit": { "properties": { "sourceContainer": { "const": "sidepanel" } } } } }
+    },
+    {
+      "if": { "properties": { "entryContainer": { "const": "workspace_page" } } },
+      "then": { "properties": { "audit": { "properties": { "sourceContainer": { "const": "workspace_page" } } } } }
+    },
+    {
+      "if": { "properties": { "entryContainer": { "const": "host_app" } } },
+      "then": { "properties": { "audit": { "properties": { "sourceContainer": { "const": "host_app" } } } } }
+    },
+    {
+      "if": { "properties": { "entryAction": { "const": "view_source" } } },
+      "then": { "properties": { "targetContainer": { "const": "sidepanel" } } }
+    },
+    {
+      "if": { "properties": { "entryAction": { "enum": ["open_workspace", "open_in_workspace"] } } },
+      "then": { "properties": { "targetContainer": { "const": "workspace_page" } } }
+    },
+    {
+      "if": { "properties": { "routeIntent": { "const": "source_library" } } },
+      "then": { "properties": { "routePayload": { "$ref": "#/$defs/sourceLibraryPayload" } } }
+    },
+    {
+      "if": { "properties": { "routeIntent": { "const": "source_detail" } } },
+      "then": { "properties": { "routePayload": { "$ref": "#/$defs/sourceDetailPayload" } } }
+    },
+    {
+      "if": { "properties": { "routeIntent": { "const": "ask" } } },
+      "then": { "properties": { "routePayload": { "$ref": "#/$defs/askPayload" } } }
+    },
+    {
+      "if": { "properties": { "routeIntent": { "const": "trace" } } },
+      "then": { "properties": { "routePayload": { "$ref": "#/$defs/tracePayload" } } }
+    },
+    {
+      "if": { "properties": { "routeIntent": { "const": "graph" } } },
+      "then": { "properties": { "routePayload": { "$ref": "#/$defs/graphPayload" } } }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{2,80}$"
+    },
+    "sourceLibraryPayload": {
+      "type": "object",
+      "required": ["workspaceId"],
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": { "$ref": "#/$defs/id" },
+        "filter": { "type": "string", "maxLength": 120 }
+      }
+    },
+    "sourceDetailPayload": {
+      "type": "object",
+      "required": ["workspaceId", "sourceId"],
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": { "$ref": "#/$defs/id" },
+        "sourceId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "askPayload": {
+      "type": "object",
+      "required": ["workspaceId", "question"],
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": { "$ref": "#/$defs/id" },
+        "sourceId": { "$ref": "#/$defs/id" },
+        "question": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "tracePayload": {
+      "type": "object",
+      "required": ["workspaceId", "operationId"],
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": { "$ref": "#/$defs/id" },
+        "operationId": { "$ref": "#/$defs/id" },
+        "sourceId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "graphPayload": {
+      "type": "object",
+      "required": ["workspaceId", "graphId"],
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": { "$ref": "#/$defs/id" },
+        "graphId": { "$ref": "#/$defs/id" },
+        "focusNodeId": { "$ref": "#/$defs/id" }
+      }
+    }
+  }
+}
+

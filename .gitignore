@@ -40,6 +40,7 @@ __pycache__/
 
 backend/data/gpt-audit/
 backend/data/formal-release/
+backend/data/private-captures/
 backend/data/**/*.zip
 backend/data/**/*.tar
 backend/data/**/*.gz

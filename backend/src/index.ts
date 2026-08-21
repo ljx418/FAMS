@@ -4,7 +4,7 @@ import cors from '@fastify/cors'
 import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
 import multipart from '@fastify/multipart'
-import { prisma } from './db/prisma.js'
+import { initializePrisma, prisma } from './db/prisma.js'
 import { positionRoutes } from './routes/position.js'
 import { assetRoutes } from './routes/asset.js'
 import { transactionRoutes } from './routes/transaction.js'
@@ -31,6 +31,10 @@ import { errorHandler } from './middleware/errorHandler.js'
 import { operationService } from './services/operation/operationService.js'
 import { factsetRefreshScheduler } from './services/operation/factsetRefreshScheduler.js'
 import { runtimeHealthService } from './services/runtime/runtimeHealthService.js'
+import { dailyReviewRoutes } from './routes/dailyReview.js'
+import { captureRoutes } from './routes/capture.js'
+import { dailyReviewScheduler } from './services/review/dailyReviewScheduler.js'
+import { dailyReviewService } from './services/review/dailyReviewService.js'
 
 const app = Fastify({ logger: true })
 
@@ -115,6 +119,7 @@ async function registerRoutes() {
       operations: operationHealth,
       schedulers: {
         factsetRefresh: schedulerStatus,
+        dailyPortfolioReview: await dailyReviewScheduler.getStatus().catch(() => null),
       },
     }
   })
@@ -136,6 +141,8 @@ async function registerRoutes() {
   await app.register(strategyRoutes, { prefix: '/api/v1/strategy' })
   await app.register(fundRoutes, { prefix: '/api/v1/fund' })
   await app.register(tagRoutes, { prefix: '/api/v1/tags' })
+  await app.register(dailyReviewRoutes, { prefix: '/api/v1/daily-reviews' })
+  await app.register(captureRoutes, { prefix: '/api/v1/captures' })
 
   // AI Agent相关路由
   await app.register(mcpRouter, { prefix: '/api/v1/mcp' })
@@ -153,6 +160,7 @@ app.setErrorHandler(errorHandler)
 // 启动服务
 async function start() {
   try {
+    await initializePrisma()
     await initPlugins()
     await registerRoutes()
     const recoveredOperations = await operationService.recoverInterruptedOperations()
@@ -162,9 +170,14 @@ async function start() {
         operationIds: recoveredOperations.operationIds,
       }, 'Recovered interrupted operations')
     }
+    const recoveredReviews = await dailyReviewService.recoverInterruptedReviews()
+    if (recoveredReviews.recoveredCount > 0) {
+      app.log.info(recoveredReviews, 'Recovered interrupted daily portfolio reviews')
+    }
 
     await app.listen({ port: 4000, host: '0.0.0.0' })
     factsetRefreshScheduler.start(app.log)
+    dailyReviewScheduler.start(app.log)
     console.log('🚀 FAMS API Server running at http://localhost:4000')
     console.log('📖 API Docs available at http://localhost:4000/api-docs')
     console.log('🤖 MCP Router available at http://localhost:4000/api/v1/mcp')
@@ -177,6 +190,7 @@ async function start() {
 // 优雅关闭
 process.on('SIGTERM', async () => {
   factsetRefreshScheduler.stop()
+  dailyReviewScheduler.stop()
   await prisma.$disconnect()
   await app.close()
 })

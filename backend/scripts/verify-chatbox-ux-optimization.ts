@@ -26,13 +26,14 @@ function hasAll(source: string, tokens: string[]) {
 async function main() {
   const checkedAt = new Date().toISOString()
   await seedPortfolioBacktestAuditHoldings()
-  const [chatBox, dashboard, backtest, dividendLowVol, operations, layout] = await Promise.all([
+  const [chatBox, dashboard, backtest, dividendLowVol, operations, layout, llmPlanner] = await Promise.all([
     readRepoFile('frontend/src/components/chat/FamsChatBox.tsx'),
     readRepoFile('frontend/src/pages/Dashboard.tsx'),
     readRepoFile('frontend/src/pages/Backtest.tsx'),
     readRepoFile('frontend/src/pages/DividendLowVol.tsx'),
     readRepoFile('frontend/src/pages/Operations.tsx'),
     readRepoFile('frontend/src/components/layout/AppLayout.tsx'),
+    readRepoFile('backend/src/services/chat/chatLlmPlannerService.ts'),
   ])
 
   const uxChecks = {
@@ -95,6 +96,30 @@ async function main() {
       '数据或规则存在限制',
       '服务状态',
       '任务中心',
+    ]),
+    chatWorkspaceVisibilityReady: hasAll(chatBox, [
+      'min(1120px, calc(100vw - 24px))',
+      '展开工作区',
+      'min-h-[320px]',
+      'messagesEndRef',
+    ]),
+    summaryFirstDisclosureReady: hasAll(chatBox, [
+      '摘要结论',
+      'LLM 已重新整理',
+      '规则摘要',
+      '查看详细数据、走势图与审计证据',
+    ]),
+    llmSecondPassSummaryReady: hasAll(llmPlanner, [
+      'summarizeResult',
+      '结构化证据',
+      '不得编造价格',
+      'deterministic_summary_fallback',
+    ]),
+    operationsVisibilityReady: hasAll(operations, [
+      'fams-page-title',
+      '高级技术与正式发布（通常不用看）',
+      '技术详情：输入参数与原始执行结果',
+      'operations-detail-modal',
     ]),
   }
 

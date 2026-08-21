@@ -1,0 +1,18 @@
+# 自动化开发停止记录
+
+```text
+AUTOMATION_STOPPED
+stage=FTR-1
+reasonCode=FTR-1_ENTRY_BLOCKED/formal_provider_authorization
+failedCriteria=provider_authorization_owner_identified=false;authorization_record_count=0;formal_provider_credential_configured=false;critical_dividend_evidence_refs_present=false;critical_dividend_freshness_known=false;critical_dividend_coverage_passed=false
+completedStages=DRV1-0,DRV1-1,DRV1-2,DRV1-3,DRV1-4,FTR-0
+remainingStages=FTR-1,FTR-2,FTR-3,FTR-4,FTR-5,FTR-6
+tradeBoundaryUnchanged=true
+formalTradingUnlocked=false
+autoTradeUnlocked=false
+canCreateOrder=false
+orderCreateAllowed=false
+requiredHumanAction=identify_the_formal_provider_authorization_owner_and_supply_auditable_authorization_reference_scopes_validity_evidence_then_configure_the_provider_credential_through_the_secret_channel
+```
+
+记录时间：2026-08-21（Asia/Shanghai）。本停止属于 manifest 明确的人类/外部门禁，不是工程测试失败。自动化没有权限伪造授权、写入 approved 记录或配置密钥，因此未进入 FTR-2。

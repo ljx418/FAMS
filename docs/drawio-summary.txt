@@ -1,6 +1,6 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-07-16
+更新时间：2026-08-21
 
 ## 1. 当前有效结论
 
@@ -10,7 +10,7 @@
 
 - 已完成并验收：S0-S8 受控自动化开发、ChatBox 第一入口、普通用户工作台、专家页面、资产 Excel、长周期真实数据回测和 13-18 号审计合同。
 - 已实现但未达到正式 release：数据治理、benchmark、formal validation、人工签核、执行隔离和 release gate 合同。
-- 下一阶段待开发：FTR-0 至 FTR-6 的正式数据、benchmark、验证、签核、隔离和 release review 闭环。
+- 工程已实现、业务 gate 待闭环：FTR-0 至 FTR-6 的正式数据、benchmark、验证、签核、隔离和 release review 服务/合同已存在，但外部授权、合格数据和人工签核仍缺失。
 - 自动化阶段不可跨越：正式 provider/benchmark 资格、五角色人工签核、生产适配器审批和最终交易权限变更。
 
 当前不是正式交易 release，下一阶段自动化出门目标也只是：
@@ -27,7 +27,7 @@ orderCreateAllowed=false
 
 ## 2. 八页结构
 
-1. **当前基线与下一阶段目标**：说明已完成能力、真实 blocker、FTR-0 至 FTR-6 和人类高风险门。
+1. **当前基线与 FTR 业务闭环目标**：说明已完成能力、FTR 工程服务、真实 blocker、FTR-0 至 FTR-6 和人类高风险门。
 2. **当前架构与目标架构差异**：按“当前实体 -> 缺口/内嵌实现 -> 目标实体 -> 审计证据 -> 用户结果”逐层映射体验、API、计算、数据和 release。
 3. **正式数据治理**：绑定 `formalProviderIngestionService` 等存量实体与待新增 `FormalDataProviderService`、字段级证据和用户恢复路径。
 4. **Benchmark 与总回报回测**：绑定现有 `portfolioBenchmarkService`、目标 adapter、资格服务、统一 replay 结果和降级边界。
@@ -53,13 +53,13 @@ orderCreateAllowed=false
 其中明确标注：
 
 - 绿色：已开发并验收；
-- 黄色：已实现但未达到 release，或存在 blocker；
-- 橙色：下一阶段待新增/拆分；
+- 黄色：工程服务已实现，但业务 gate 未达到 release；
+- 橙色：外部授权、许可或人工闭环；
 - 蓝色：审计产物；
 - 红色：硬边界；
 - 灰色：已有基础。
 
-图中没有把 `FormalDataProviderService`、`BenchmarkQualificationService`、`FormalValidationService`、`ManualSignoffService`、`ExecutionIsolationService`、`ReleaseGateService` 冒充为现有独立实体。
+图中将已存在的模块化服务明确标为“工程已实现、业务 gate blocked”，并把正式 provider 授权、official/trusted benchmark 数据、五角色签核与生产适配器批准继续标为外部/人工门；没有把工程完成冒充成业务通过。
 
 ## 4. 用户体验验收
 
@@ -76,6 +76,6 @@ orderCreateAllowed=false
 2. 第 3 至 6 页是否把 provider、benchmark、validation、人工签核和执行隔离风险拆开，而非用单一 `ready` 状态掩盖。
 3. 第 7 页是否包含明确操作步骤、用户结果、量化门槛和失败归属。
 4. 第 8 页是否明确 review-ready 不等于 trading-ready，自动化不可自行解锁交易。
-5. 是否存在过度承诺、目标服务被误标为已实现或历史 S0-S8 状态被误当成新 FTR 状态。
+5. 是否存在过度承诺、工程服务被误标为业务通过，或历史 S0-S8/DRV1 状态被误当成 FTR 待办。
 
 原始 XML 的可读解析证据见 `docs/read-drawio-output.txt`。

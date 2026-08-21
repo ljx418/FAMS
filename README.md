@@ -38,6 +38,14 @@
 - 标签分析 (行业分布、风险敞口)
 - 多维度综合打分
 
+### 7. 每日持仓复盘与截图台账
+- ChatBox/Codex 手动触发是默认入口；可选择启用工作日 09:30、14:30（Asia/Shanghai）调度
+- 最新价、最近 30 个完整交易日收盘价、MA5/MA10/MA30 和走势图统一落库
+- 比较上一轮基本面/消息证据与网格草案，输出关注标的和人工计划买卖档位
+- 持仓、成交、委托截图先私有保存，再逐字段纠错、逐行预览和人工确认；截图缺失持仓绝不自动平仓
+- 已验证个人网格策略优先；没有个人策略时使用现有 ATR/成本支撑模板生成研究草案
+- 所有网格均为人工计划草案；系统不创建券商订单，不解锁自动交易
+
 ## 技术栈
 
 ### 前端
@@ -92,6 +100,14 @@ cd backend && npm run dev
 cd frontend && npm run dev
 ```
 
+### 使用指南
+
+前端启动后，从左侧导航点击“使用指南”，或直接访问：
+
+http://localhost:3000/fams-user-guide.html
+
+指南默认只展示约 15 分钟的必学路径；每项都可以勾选学习结果、填写问题、附上截图，并导出一份可直接交给 Codex 的 HTML 报告。
+
 ### Docker部署
 
 ```bash
@@ -112,6 +128,13 @@ docker-compose up -d
 - `get-portfolio-analysis` - 组合分析
 - `run-backtest` - 策略回测
 - `get-daily-snapshot` - 每日快照
+- `daily_review.run` / `daily_review.get_latest` - 生成或查询每日持仓复盘
+- `GET /api/v1/daily-reviews` - 分页查询历史复盘、快照和策略结论
+- `market_data.get_asset_trend` - 最新价、30 日收盘价与 MA 走势图
+- `grid_strategy.*` - 模板、草案、验证和人工确认激活
+- `capture.*` - 截图私有保存、视觉状态、逐字段纠错、结构化预览与确认写入
+
+仓库内可复用工作流见 `skills/fams-daily-portfolio-review`、`skills/fams-grid-strategy-authoring` 和 `skills/fams-screenshot-ledger-import`。
 
 ## 项目结构
 

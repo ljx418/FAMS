@@ -1,39 +1,38 @@
 import type { EChartsOption } from 'echarts'
 
-// 涨红跌绿颜色配置 - 优化对比度
+// 涨红跌绿颜色配置 - 浅色背景下优先保证可视度
 export const colors = {
-  rising: '#f87171',      // 上涨红色 - 调亮
-  falling: '#34d399',     // 下跌绿色 - 调亮
-  neutral: '#818cf8',     // 中性蓝色 - 靛蓝
+  rising: '#dc2626',
+  falling: '#047857',
+  neutral: '#1d4ed8',
 
   // 图表配色 - 提高对比度
-  primary: '#818cf8',     // 靛蓝 - 在深色背景更易读
-  secondary: '#a78bfa',   // 浅紫
-  accent: '#fbbf24',      // 琥珀
-  success: '#34d399',     // 翠绿
-  warning: '#fbbf24',     // 琥珀
-  danger: '#f87171',      // 浅红
+  primary: '#1d4ed8',
+  secondary: '#7c3aed',
+  accent: '#b45309',
+  success: '#047857',
+  warning: '#a16207',
+  danger: '#b91c1c',
 
   // 均线颜色
-  ma5: '#fbbf24',    // MA5 黄色
-  ma10: '#38bdf8',   // MA10 天蓝
-  ma20: '#f472b6',   // MA20 粉色
-  ma30: '#fb7185',   // MA30 玫红
-  ma60: '#a78bfa',   // MA60 紫色
+  ma5: '#a16207',
+  ma10: '#0369a1',
+  ma20: '#be185d',
+  ma30: '#e11d48',
+  ma60: '#7e22ce',
 
-  // 背景和文字 - 优化对比度
-  background: '#0f0f23',   // 主背景 - 深黑
-  card: '#1a1a2e',         // 卡片背景
-  text: '#ffffff',        // 主文字 - 纯白
-  textSecondary: '#d1d5db', // 次要文字 - 浅灰 (对比度 ~6:1)
-  border: '#374151',       // 边框 - 灰色
+  background: '#ffffff',
+  card: '#ffffff',
+  text: '#0f172a',
+  textSecondary: '#475569',
+  border: '#cbd5e1',
 
   // 网格
-  grid: '#374151',
-  gridLight: '#1f1f3a',
+  grid: '#cbd5e1',
+  gridLight: '#e2e8f0',
 
   // 基金图表颜色
-  fundColors: ['#818cf8', '#fbbf24', '#34d399', '#f472b6', '#38bdf8'],
+  fundColors: ['#1d4ed8', '#b45309', '#047857', '#be185d', '#0369a1'],
 }
 
 // 字体配置
@@ -67,7 +66,7 @@ export const gridBase: EChartsOption['grid'] = {
 // 动画配置
 export const animation = true
 
-// 暗色主题通用配置
+// 历史导出名保持不变，实际为浅色高对比图表主题
 export const darkTheme: EChartsOption = {
   backgroundColor: 'transparent',
   textStyle: {
@@ -120,23 +119,23 @@ export const getGradientColor = (color: string, alpha: number = 0.5): string => 
   return color.replace(')', `, ${alpha})`).replace('rgb', 'rgba')
 }
 
-// 预定义的渐变色 - 优化对比度
+// 预定义的渐变色
 export const gradients = {
   rising: [
-    [0, 'rgba(248, 113, 113, 0.8)'],
-    [1, 'rgba(248, 113, 113, 0.1)'],
+    [0, 'rgba(220, 38, 38, 0.28)'],
+    [1, 'rgba(220, 38, 38, 0.03)'],
   ],
   falling: [
-    [0, 'rgba(52, 211, 153, 0.8)'],
-    [1, 'rgba(52, 211, 153, 0.1)'],
+    [0, 'rgba(4, 120, 87, 0.28)'],
+    [1, 'rgba(4, 120, 87, 0.03)'],
   ],
   primary: [
-    [0, 'rgba(129, 140, 248, 0.8)'],
-    [1, 'rgba(129, 140, 248, 0.1)'],
+    [0, 'rgba(29, 78, 216, 0.28)'],
+    [1, 'rgba(29, 78, 216, 0.03)'],
   ],
   accent: [
-    [0, 'rgba(251, 191, 36, 0.8)'],
-    [1, 'rgba(251, 191, 36, 0.1)'],
+    [0, 'rgba(180, 83, 9, 0.28)'],
+    [1, 'rgba(180, 83, 9, 0.03)'],
   ],
 }
 

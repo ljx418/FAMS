@@ -1,26 +1,23 @@
-
 # docs/target-architecture-gap.drawio
-
-分页解析证据：以下内容由 `node docs/read-drawio.mjs docs/target-architecture-gap.drawio` 从当前原始 XML 生成；共 8 页。
 
 ## 1 当前基线与下一阶段目标
 Nodes: 9; Edges: 5
 
 Nodes
 - FAMS 下一阶段：Formal Release Readiness Closure
-- 绿=已开发并验收　黄=已实现但未达 release　橙=待新增/拆分　蓝=审计证据　红=硬边界　灰=现有基础
+- 绿=已开发并验收　黄=工程已实现但业务 gate 未通过　橙=外部授权/人工闭环　蓝=审计证据　红=硬边界　灰=现有基础
 - 当前已完成基线（已验收） / S0-S8 受控自动化开发 / ChatBox 第一入口 + 普通用户工作台 / Assets Excel 导入导出 / Backtest / DividendLowVol / Operations / Analysis 专家页 / 长周期真实数据 formal-review-ready / Operation 与 13-18 audit 合同
 - 当前证据（可复核） / current-stage-state.json / S0_S8_SUBSTAGE_ACCEPTANCE_MANIFESTS.json / 15_data_governance_audit.json / 16_benchmark_qualification_audit.json / 17_formal_validation_audit.json / 18_manual_signoff_audit.json / 14_release_gate_audit.json / Headless E2E HTML 报告
 - 当前真实阻断（不能伪绿） / Formal data governance = blocked / official/trusted total-return 未确认 / Formal validation = insufficient，0/7 passed / data/model/risk/compliance/final_release 全 missing / Production adapter = disabled / Release gate = blocked
-- 下一阶段 FTR-0 至 FTR-6（尚未开始代码开发） / FTR-0 文档/状态冻结 / FTR-1 正式数据治理 / FTR-2 官方/可信 total-return benchmark / FTR-3 Release candidate formal validation / FTR-4 五角色人工签核 / FTR-5 执行隔离回归 / FTR-6 Release review package
+- FTR-0 至 FTR-6（工程已实现，业务 gate 顺序闭环） / FTR-0 文档/状态冻结 / FTR-1 正式数据授权治理 / FTR-2 官方/可信 total-return benchmark / FTR-3 Release candidate formal validation / FTR-4 五角色人工签核 / FTR-5 执行隔离回归 / FTR-6 Release review package
 - 自动化阶段目标出门 / formalTradingReleaseReviewReady=true / releaseApprovalStatus=pending_human_approval / productionAdapterEnabled=false / 完整架构、用户路径、13-18 audit、HTML 报告可由人类复核
 - 硬边界（自动化阶段始终为 false） / formalTradingUnlocked=false / autoTradeUnlocked=false / canCreateOrder=false / orderCreateAllowed=false / ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 全部 blocked
 - 人类高风险门 / 正式 provider 采购/授权 / trusted benchmark 资格认可 / 模型/风控/合规/final release 签核 / 生产订单适配器启用 / 最终交易权限变更
 
 Edges
 - 当前已完成基线（已验收） / S0-S8 受控自动化开发 / ChatBox 第一入口 + 普通用户工作台 / Assets Excel 导入导出 / Backtest / DividendLowVol / Operations / Analysis 专家页 / 长周期真实数据 formal-review-ready / Operation 与 13-18 audit 合同 -> 当前真实阻断（不能伪绿） / Formal data governance = blocked / official/trusted total-return 未确认 / Formal validation = insufficient，0/7 passed / data/model/risk/compliance/final_release 全 missing / Production adapter = disabled / Release gate = blocked (当前事实)
-- 当前真实阻断（不能伪绿） / Formal data governance = blocked / official/trusted total-return 未确认 / Formal validation = insufficient，0/7 passed / data/model/risk/compliance/final_release 全 missing / Production adapter = disabled / Release gate = blocked -> 下一阶段 FTR-0 至 FTR-6（尚未开始代码开发） / FTR-0 文档/状态冻结 / FTR-1 正式数据治理 / FTR-2 官方/可信 total-return benchmark / FTR-3 Release candidate formal validation / FTR-4 五角色人工签核 / FTR-5 执行隔离回归 / FTR-6 Release review package (进入下一阶段)
-- 下一阶段 FTR-0 至 FTR-6（尚未开始代码开发） / FTR-0 文档/状态冻结 / FTR-1 正式数据治理 / FTR-2 官方/可信 total-return benchmark / FTR-3 Release candidate formal validation / FTR-4 五角色人工签核 / FTR-5 执行隔离回归 / FTR-6 Release review package -> 自动化阶段目标出门 / formalTradingReleaseReviewReady=true / releaseApprovalStatus=pending_human_approval / productionAdapterEnabled=false / 完整架构、用户路径、13-18 audit、HTML 报告可由人类复核 (完成后)
+- 当前真实阻断（不能伪绿） / Formal data governance = blocked / official/trusted total-return 未确认 / Formal validation = insufficient，0/7 passed / data/model/risk/compliance/final_release 全 missing / Production adapter = disabled / Release gate = blocked -> FTR-0 至 FTR-6（工程已实现，业务 gate 顺序闭环） / FTR-0 文档/状态冻结 / FTR-1 正式数据授权治理 / FTR-2 官方/可信 total-return benchmark / FTR-3 Release candidate formal validation / FTR-4 五角色人工签核 / FTR-5 执行隔离回归 / FTR-6 Release review package (进入下一阶段)
+- FTR-0 至 FTR-6（工程已实现，业务 gate 顺序闭环） / FTR-0 文档/状态冻结 / FTR-1 正式数据授权治理 / FTR-2 官方/可信 total-return benchmark / FTR-3 Release candidate formal validation / FTR-4 五角色人工签核 / FTR-5 执行隔离回归 / FTR-6 Release review package -> 自动化阶段目标出门 / formalTradingReleaseReviewReady=true / releaseApprovalStatus=pending_human_approval / productionAdapterEnabled=false / 完整架构、用户路径、13-18 audit、HTML 报告可由人类复核 (完成后)
 - 自动化阶段目标出门 / formalTradingReleaseReviewReady=true / releaseApprovalStatus=pending_human_approval / productionAdapterEnabled=false / 完整架构、用户路径、13-18 audit、HTML 报告可由人类复核 -> 人类高风险门 / 正式 provider 采购/授权 / trusted benchmark 资格认可 / 模型/风控/合规/final release 签核 / 生产订单适配器启用 / 最终交易权限变更 (仍需人工决定)
 - 自动化阶段目标出门 / formalTradingReleaseReviewReady=true / releaseApprovalStatus=pending_human_approval / productionAdapterEnabled=false / 完整架构、用户路径、13-18 audit、HTML 报告可由人类复核 -> 硬边界（自动化阶段始终为 false） / formalTradingUnlocked=false / autoTradeUnlocked=false / canCreateOrder=false / orderCreateAllowed=false / ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 全部 blocked (不可绕过)
 
@@ -31,7 +28,7 @@ Nodes
 - 当前架构 -> 当前缺口/内嵌实现 -> 目标实体 -> 审计证据 -> 用户结果
 - 分层 / 已实现实体
 - 当前风险或内嵌实现
-- 下一阶段目标实体（待新增/拆分）
+- 目标实体（工程已拆分，业务 gate 待闭环）
 - 数据 / 审计证据
 - 用户结果 / 出门判断
 - 体验层（已验收） / FamsChatBox.tsx / Dashboard.tsx / Assets.tsx / Backtest.tsx / DividendLowVol.tsx / Operations.tsx / Analysis.tsx
@@ -89,9 +86,9 @@ Nodes
 - FTR-1 正式 provider 与字段级数据治理
 - 现有基础（已实现） / formalProviderIngestionService / marketDataFreshnessService / market_bar_canonical / market_tradeability_daily / DividendLowVolDaily
 - 当前缺口（真实 baseline） / 部分 candidate providerClass=unknown / freshnessStatus=unknown / coverageStatus=blocked / 分红 contribution 为研究估算 / 最新审计 asOfDate=2026-06-05 / 正式授权未确认
-- 待新增 FormalDataProviderService / 输入：candidate / 字段 / 日期 / 授权上下文 / 职责：provider adapter、授权状态、版本、secret 隔离 / 输出：FormalDataSnapshot
-- 待新增 FormalDataFreshnessPolicy / 最近已完成交易日 + provider SLA / price / benchmark / tradeability 按交易日判断 / dividend / fundamental 按公告周期判断
-- 待新增 FieldEvidenceValidator / 关键域：price / benchmark / dividend / tradeability / fundamental / industry / costModel / 逐 candidate 判定，不允许平均值掩盖失败项
+- 已实现 FormalDataProviderService（授权 gate blocked） / 输入：candidate / 字段 / 日期 / 授权上下文 / 职责：provider adapter、授权状态、版本、secret 隔离 / 输出：FormalDataSnapshot
+- 已实现 FormalDataFreshnessPolicy（业务证据待满足） / 最近已完成交易日 + provider SLA / price / benchmark / tradeability 按交易日判断 / dividend / fundamental 按公告周期判断
+- 已实现 FieldEvidenceValidator（关键缺口不得伪绿） / 关键域：price / benchmark / dividend / tradeability / fundamental / industry / costModel / 逐 candidate 判定，不允许平均值掩盖失败项
 - 审计产物（蓝） / 15_data_governance_audit.json / provider_authorization_audit.json / field_evidence_validation_audit.json / 字段必须含 provider / asOf / fetchedAt / freshness / coverage / crossCheck / evidenceRefs
 - 用户体验 / Backtest：按 candidate 查看字段可信状态和恢复动作 / ChatBox：普通话解释为什么不能正式交易 / Operations：打开同一 evidenceRefs / 缺口不隐藏、不只显示 HTTP 错误
 - FTR-1 出门 / providerAuthorizationVerified=true / criticalFieldsHaveEvidenceRefs=true / noCriticalProviderUnknown=true / noCriticalFreshnessUnknownOrStale=true / noCriticalCoverageBlocked=true / formalDataGovernancePassed=true
@@ -99,10 +96,10 @@ Nodes
 
 Edges
 - 现有基础（已实现） / formalProviderIngestionService / marketDataFreshnessService / market_bar_canonical / market_tradeability_daily / DividendLowVolDaily -> 当前缺口（真实 baseline） / 部分 candidate providerClass=unknown / freshnessStatus=unknown / coverageStatus=blocked / 分红 contribution 为研究估算 / 最新审计 asOfDate=2026-06-05 / 正式授权未确认
-- 当前缺口（真实 baseline） / 部分 candidate providerClass=unknown / freshnessStatus=unknown / coverageStatus=blocked / 分红 contribution 为研究估算 / 最新审计 asOfDate=2026-06-05 / 正式授权未确认 -> 待新增 FormalDataProviderService / 输入：candidate / 字段 / 日期 / 授权上下文 / 职责：provider adapter、授权状态、版本、secret 隔离 / 输出：FormalDataSnapshot
-- 待新增 FormalDataProviderService / 输入：candidate / 字段 / 日期 / 授权上下文 / 职责：provider adapter、授权状态、版本、secret 隔离 / 输出：FormalDataSnapshot -> 待新增 FormalDataFreshnessPolicy / 最近已完成交易日 + provider SLA / price / benchmark / tradeability 按交易日判断 / dividend / fundamental 按公告周期判断
-- 待新增 FormalDataFreshnessPolicy / 最近已完成交易日 + provider SLA / price / benchmark / tradeability 按交易日判断 / dividend / fundamental 按公告周期判断 -> 待新增 FieldEvidenceValidator / 关键域：price / benchmark / dividend / tradeability / fundamental / industry / costModel / 逐 candidate 判定，不允许平均值掩盖失败项
-- 待新增 FieldEvidenceValidator / 关键域：price / benchmark / dividend / tradeability / fundamental / industry / costModel / 逐 candidate 判定，不允许平均值掩盖失败项 -> 审计产物（蓝） / 15_data_governance_audit.json / provider_authorization_audit.json / field_evidence_validation_audit.json / 字段必须含 provider / asOf / fetchedAt / freshness / coverage / crossCheck / evidenceRefs
+- 当前缺口（真实 baseline） / 部分 candidate providerClass=unknown / freshnessStatus=unknown / coverageStatus=blocked / 分红 contribution 为研究估算 / 最新审计 asOfDate=2026-06-05 / 正式授权未确认 -> 已实现 FormalDataProviderService（授权 gate blocked） / 输入：candidate / 字段 / 日期 / 授权上下文 / 职责：provider adapter、授权状态、版本、secret 隔离 / 输出：FormalDataSnapshot
+- 已实现 FormalDataProviderService（授权 gate blocked） / 输入：candidate / 字段 / 日期 / 授权上下文 / 职责：provider adapter、授权状态、版本、secret 隔离 / 输出：FormalDataSnapshot -> 已实现 FormalDataFreshnessPolicy（业务证据待满足） / 最近已完成交易日 + provider SLA / price / benchmark / tradeability 按交易日判断 / dividend / fundamental 按公告周期判断
+- 已实现 FormalDataFreshnessPolicy（业务证据待满足） / 最近已完成交易日 + provider SLA / price / benchmark / tradeability 按交易日判断 / dividend / fundamental 按公告周期判断 -> 已实现 FieldEvidenceValidator（关键缺口不得伪绿） / 关键域：price / benchmark / dividend / tradeability / fundamental / industry / costModel / 逐 candidate 判定，不允许平均值掩盖失败项
+- 已实现 FieldEvidenceValidator（关键缺口不得伪绿） / 关键域：price / benchmark / dividend / tradeability / fundamental / industry / costModel / 逐 candidate 判定，不允许平均值掩盖失败项 -> 审计产物（蓝） / 15_data_governance_audit.json / provider_authorization_audit.json / field_evidence_validation_audit.json / 字段必须含 provider / asOf / fetchedAt / freshness / coverage / crossCheck / evidenceRefs
 - 审计产物（蓝） / 15_data_governance_audit.json / provider_authorization_audit.json / field_evidence_validation_audit.json / 字段必须含 provider / asOf / fetchedAt / freshness / coverage / crossCheck / evidenceRefs -> 用户体验 / Backtest：按 candidate 查看字段可信状态和恢复动作 / ChatBox：普通话解释为什么不能正式交易 / Operations：打开同一 evidenceRefs / 缺口不隐藏、不只显示 HTTP 错误
 
 ## 4 Benchmark 与总回报回测
@@ -111,8 +108,8 @@ Nodes: 9; Edges: 5
 Nodes
 - FTR-2 官方/可信 Total-Return Benchmark 与回测关联
 - 当前 portfolioBenchmarkService（已实现） / cash_cny = price_index / csi300_price_index = price_index / local_equal_weight_20 = research_proxy / free_source_total_return = free_source_total_return / 可支持 formal review，不能支持 formal trading
-- 待新增 Benchmark Adapters / OfficialTotalReturnBenchmarkAdapter / TrustedTotalReturnBenchmarkAdapter / 输入：指数、日期、授权上下文 / 输出：版本化 total-return curve + sourceRefs
-- 待新增 BenchmarkQualificationService / 规范枚举：official_total_return / trusted_total_return / free_source_total_return / price_index / research_proxy / unavailable / 校验授权、覆盖率、日期、证据和 alias
+- FormalBenchmarkService 已实现受控导入 / OfficialTotalReturnBenchmarkAdapter / TrustedTotalReturnBenchmarkAdapter / 授权数据/许可仍需人工外部输入 / 输出：版本化 total-return curve + sourceRefs
+- Benchmark qualification 工程合同已实现，业务资格 blocked / 规范枚举：official_total_return / trusted_total_return / free_source_total_return / price_index / research_proxy / unavailable / 校验授权、覆盖率、日期、证据和 alias
 - PortfolioBacktestEngine（保留计算） / 使用同一 benchmark curve 计算： / benchmarkReturn / excessReturn / dividendContribution / capitalGainContribution / costDrag / equityCurve / drawdownCurve
 - 审计证据 / 16_benchmark_qualification_audit.json / benchmark_license_review.json / benchmark_total_return_replay.json / 图表、指标和表格必须来自同一 replay 结果
 - 用户操作与体验 / 1. Backtest 选择 official/trusted benchmark / 2. 运行 1年/3年/5年/自定义区间 / 3. 查看总回报、回撤、分红和成本 / 4. 免费源/price index 显示降级原因 / 5. Operations 打开授权与 replay 证据
@@ -120,9 +117,9 @@ Nodes
 - Hard Fail / free source 冒充 official / price index 写成 total return / 无授权证据仍 passed / proxy 进入 formal pass
 
 Edges
-- 当前 portfolioBenchmarkService（已实现） / cash_cny = price_index / csi300_price_index = price_index / local_equal_weight_20 = research_proxy / free_source_total_return = free_source_total_return / 可支持 formal review，不能支持 formal trading -> 待新增 Benchmark Adapters / OfficialTotalReturnBenchmarkAdapter / TrustedTotalReturnBenchmarkAdapter / 输入：指数、日期、授权上下文 / 输出：版本化 total-return curve + sourceRefs
-- 待新增 Benchmark Adapters / OfficialTotalReturnBenchmarkAdapter / TrustedTotalReturnBenchmarkAdapter / 输入：指数、日期、授权上下文 / 输出：版本化 total-return curve + sourceRefs -> 待新增 BenchmarkQualificationService / 规范枚举：official_total_return / trusted_total_return / free_source_total_return / price_index / research_proxy / unavailable / 校验授权、覆盖率、日期、证据和 alias
-- 待新增 BenchmarkQualificationService / 规范枚举：official_total_return / trusted_total_return / free_source_total_return / price_index / research_proxy / unavailable / 校验授权、覆盖率、日期、证据和 alias -> PortfolioBacktestEngine（保留计算） / 使用同一 benchmark curve 计算： / benchmarkReturn / excessReturn / dividendContribution / capitalGainContribution / costDrag / equityCurve / drawdownCurve
+- 当前 portfolioBenchmarkService（已实现） / cash_cny = price_index / csi300_price_index = price_index / local_equal_weight_20 = research_proxy / free_source_total_return = free_source_total_return / 可支持 formal review，不能支持 formal trading -> FormalBenchmarkService 已实现受控导入 / OfficialTotalReturnBenchmarkAdapter / TrustedTotalReturnBenchmarkAdapter / 授权数据/许可仍需人工外部输入 / 输出：版本化 total-return curve + sourceRefs
+- FormalBenchmarkService 已实现受控导入 / OfficialTotalReturnBenchmarkAdapter / TrustedTotalReturnBenchmarkAdapter / 授权数据/许可仍需人工外部输入 / 输出：版本化 total-return curve + sourceRefs -> Benchmark qualification 工程合同已实现，业务资格 blocked / 规范枚举：official_total_return / trusted_total_return / free_source_total_return / price_index / research_proxy / unavailable / 校验授权、覆盖率、日期、证据和 alias
+- Benchmark qualification 工程合同已实现，业务资格 blocked / 规范枚举：official_total_return / trusted_total_return / free_source_total_return / price_index / research_proxy / unavailable / 校验授权、覆盖率、日期、证据和 alias -> PortfolioBacktestEngine（保留计算） / 使用同一 benchmark curve 计算： / benchmarkReturn / excessReturn / dividendContribution / capitalGainContribution / costDrag / equityCurve / drawdownCurve
 - PortfolioBacktestEngine（保留计算） / 使用同一 benchmark curve 计算： / benchmarkReturn / excessReturn / dividendContribution / capitalGainContribution / costDrag / equityCurve / drawdownCurve -> 审计证据 / 16_benchmark_qualification_audit.json / benchmark_license_review.json / benchmark_total_return_replay.json / 图表、指标和表格必须来自同一 replay 结果
 - 审计证据 / 16_benchmark_qualification_audit.json / benchmark_license_review.json / benchmark_total_return_replay.json / 图表、指标和表格必须来自同一 replay 结果 -> FTR-2 出门门槛 / benchmarkType=official_total_return 或 trusted_total_return / benchmarkAuthorizationReviewed=true / benchmarkSourceRefsPresent=true / deprecatedAliasesPersisted=false / researchProxyCannotPassFormalValidation=true / benchmarkQualificationPassed=true
 
@@ -132,19 +129,19 @@ Nodes: 9; Edges: 5
 Nodes
 - FTR-3 Release Candidate Formal Validation
 - 当前基线（合同实现，业务不足） / PortfolioBacktestEngine.buildFormalValidationAudit / 17_formal_validation_audit.json / strategyCount=7 / passed=0 / warning=6 / insufficient=1 / overall=insufficient
-- 待新增 ReleaseCandidateSet / releaseCandidateStrategyIds / strategyVersions / excludedStrategyIds + reasons / candidate 集合在验证前冻结 / 失败策略不得静默移除
+- ReleaseCandidateSet 工程合同已实现 / releaseCandidateStrategyIds / strategyVersions / excludedStrategyIds + reasons / candidate 集合在验证前冻结 / 失败策略不得静默移除
 - 验证输入 / FTR-1 FormalDataSnapshot / FTR-2 qualified benchmark / PortfolioBacktestEngine curves / cost / rebalance / tradeability constraints / immutable parameter snapshot
-- 待新增 FormalValidationService / OOS validation / Walk-forward windows / Parameter sensitivity / Industry / market regime / liquidity groups / ValidationFailureTaxonomy
+- FormalValidationService 已实现，真实指标 gate insufficient / OOS validation / Walk-forward windows / Parameter sensitivity / Industry / market regime / liquidity groups / ValidationFailureTaxonomy
 - FTR-3 硬指标 / releaseEffectivePathCount >= 30 / benchmark 仅 official/trusted / industryGroupCount >= 3 / walkForwardWindows >= 6 / walkForwardPassedRatio >= 0.6 / parameterSensitivityStatus != insufficient / groupStabilityStatus != insufficient / tradeConstraintsComplete=true
 - 用户操作与体验 / 1. 选择 candidate 和版本 / 2. 运行验证并查看进度 / 3. 逐策略查看 OOS / walk-forward / 参数 / 分组 / 4. 查看失败窗口和 insufficientWindowCount / 5. 从 Operations 打开 17 audit
 - FTR-3 出门 / allReleaseCandidatesPassed=true / formalValidationStatus=passed / formalValidationPassed=true / 失败/排除原因完整 / 仍然不改变交易权限
 - Hard Fail / 打回 FTR-3 / 失败 candidate 被移除 / 无效窗口不计 insufficient / research proxy 用于 formal pass / 降低阈值只为判绿 / formalValidationPassed 被解释为可下单
 
 Edges
-- 当前基线（合同实现，业务不足） / PortfolioBacktestEngine.buildFormalValidationAudit / 17_formal_validation_audit.json / strategyCount=7 / passed=0 / warning=6 / insufficient=1 / overall=insufficient -> 待新增 ReleaseCandidateSet / releaseCandidateStrategyIds / strategyVersions / excludedStrategyIds + reasons / candidate 集合在验证前冻结 / 失败策略不得静默移除
-- 待新增 ReleaseCandidateSet / releaseCandidateStrategyIds / strategyVersions / excludedStrategyIds + reasons / candidate 集合在验证前冻结 / 失败策略不得静默移除 -> 验证输入 / FTR-1 FormalDataSnapshot / FTR-2 qualified benchmark / PortfolioBacktestEngine curves / cost / rebalance / tradeability constraints / immutable parameter snapshot
-- 验证输入 / FTR-1 FormalDataSnapshot / FTR-2 qualified benchmark / PortfolioBacktestEngine curves / cost / rebalance / tradeability constraints / immutable parameter snapshot -> 待新增 FormalValidationService / OOS validation / Walk-forward windows / Parameter sensitivity / Industry / market regime / liquidity groups / ValidationFailureTaxonomy
-- 待新增 FormalValidationService / OOS validation / Walk-forward windows / Parameter sensitivity / Industry / market regime / liquidity groups / ValidationFailureTaxonomy -> FTR-3 硬指标 / releaseEffectivePathCount >= 30 / benchmark 仅 official/trusted / industryGroupCount >= 3 / walkForwardWindows >= 6 / walkForwardPassedRatio >= 0.6 / parameterSensitivityStatus != insufficient / groupStabilityStatus != insufficient / tradeConstraintsComplete=true
+- 当前基线（合同实现，业务不足） / PortfolioBacktestEngine.buildFormalValidationAudit / 17_formal_validation_audit.json / strategyCount=7 / passed=0 / warning=6 / insufficient=1 / overall=insufficient -> ReleaseCandidateSet 工程合同已实现 / releaseCandidateStrategyIds / strategyVersions / excludedStrategyIds + reasons / candidate 集合在验证前冻结 / 失败策略不得静默移除
+- ReleaseCandidateSet 工程合同已实现 / releaseCandidateStrategyIds / strategyVersions / excludedStrategyIds + reasons / candidate 集合在验证前冻结 / 失败策略不得静默移除 -> 验证输入 / FTR-1 FormalDataSnapshot / FTR-2 qualified benchmark / PortfolioBacktestEngine curves / cost / rebalance / tradeability constraints / immutable parameter snapshot
+- 验证输入 / FTR-1 FormalDataSnapshot / FTR-2 qualified benchmark / PortfolioBacktestEngine curves / cost / rebalance / tradeability constraints / immutable parameter snapshot -> FormalValidationService 已实现，真实指标 gate insufficient / OOS validation / Walk-forward windows / Parameter sensitivity / Industry / market regime / liquidity groups / ValidationFailureTaxonomy
+- FormalValidationService 已实现，真实指标 gate insufficient / OOS validation / Walk-forward windows / Parameter sensitivity / Industry / market regime / liquidity groups / ValidationFailureTaxonomy -> FTR-3 硬指标 / releaseEffectivePathCount >= 30 / benchmark 仅 official/trusted / industryGroupCount >= 3 / walkForwardWindows >= 6 / walkForwardPassedRatio >= 0.6 / parameterSensitivityStatus != insufficient / groupStabilityStatus != insufficient / tradeConstraintsComplete=true
 - FTR-3 硬指标 / releaseEffectivePathCount >= 30 / benchmark 仅 official/trusted / industryGroupCount >= 3 / walkForwardWindows >= 6 / walkForwardPassedRatio >= 0.6 / parameterSensitivityStatus != insufficient / groupStabilityStatus != insufficient / tradeConstraintsComplete=true -> FTR-3 出门 / allReleaseCandidatesPassed=true / formalValidationStatus=passed / formalValidationPassed=true / 失败/排除原因完整 / 仍然不改变交易权限
 
 ## 6 人工签核执行隔离与 Release Gate
@@ -153,23 +150,23 @@ Nodes: 10; Edges: 7
 Nodes
 - FTR-4 至 FTR-6：人工签核、执行隔离与 Release Review
 - 当前签核合同 / portfolioBacktestReviewService / buildManualSignoffAudit / 五角色记录均 missing
-- 待新增 ManualSignoffService / data / model / risk / compliance / final_release / reviewer + reviewedAt + artifact hash + decision / 自动化不得自签核
+- ManualSignoffService 已实现，五角色签核 missing / data / model / risk / compliance / final_release / reviewer + reviewedAt + artifact hash + decision / 自动化不得自签核
 - FTR-4 证据 / 18_manual_signoff_audit.json / manual_signoff_records.json / manual_trade_plan_draft_review.json / signedArtifactHashesMatch=true
 - 当前隔离合同 / buildExecutionIsolationAudit / portfolioBacktest.ts / famsChatService.ts 内嵌阻断 / paperTradingReady=true / productionAdapterEnabled=false
-- 待拆分 ExecutionIsolationService / paper/sandbox runtime contract / 真实持仓 mutation 防线 / 生产适配器审批记录 / ChatBox / 专家页 / API 同一阻断合同
+- ExecutionIsolationService 已实现并通过隔离回归 / paper/sandbox runtime contract / 真实持仓 mutation 防线 / 生产适配器审批记录 missing / ChatBox / 专家页 / API 同一阻断合同
 - FTR-5 证据 / 13_execution_isolation_audit.json / trade_boundary_wording_audit.json / production_adapter_approval_record.json / 自动化出门时 production 仍 disabled
-- 待新增 ReleaseGateService / 只消费 FTR-1 至 FTR-5 结果 / 不重新计算、不覆盖 blocker / 输出 FormalReleaseReviewPackage / releaseApprovalStatus=pending_human_approval
+- ReleaseGateService 已实现，release 业务 gate blocked / 只消费 FTR-1 至 FTR-5 结果 / 不重新计算、不覆盖 blocker / 输出 FormalReleaseReviewPackage / releaseApprovalStatus=pending_human_approval
 - FTR-6 人类审计入口 / 14_release_gate_audit.json / formal_release_review_manifest.json / acceptance-report.html / SUMMARY_FOR_GPT.md / 状态/责任人/失败归属/原始证据可跳转
 - 自动化硬边界 / formalTradingReleaseReviewReady 可为 true / productionAdapterEnabled=false / formalTradingUnlocked=false / autoTradeUnlocked=false / canCreateOrder=false / orderCreateAllowed=false
 
 Edges
-- 当前签核合同 / portfolioBacktestReviewService / buildManualSignoffAudit / 五角色记录均 missing -> 待新增 ManualSignoffService / data / model / risk / compliance / final_release / reviewer + reviewedAt + artifact hash + decision / 自动化不得自签核
-- 待新增 ManualSignoffService / data / model / risk / compliance / final_release / reviewer + reviewedAt + artifact hash + decision / 自动化不得自签核 -> FTR-4 证据 / 18_manual_signoff_audit.json / manual_signoff_records.json / manual_trade_plan_draft_review.json / signedArtifactHashesMatch=true
-- 当前隔离合同 / buildExecutionIsolationAudit / portfolioBacktest.ts / famsChatService.ts 内嵌阻断 / paperTradingReady=true / productionAdapterEnabled=false -> 待拆分 ExecutionIsolationService / paper/sandbox runtime contract / 真实持仓 mutation 防线 / 生产适配器审批记录 / ChatBox / 专家页 / API 同一阻断合同
-- 待拆分 ExecutionIsolationService / paper/sandbox runtime contract / 真实持仓 mutation 防线 / 生产适配器审批记录 / ChatBox / 专家页 / API 同一阻断合同 -> FTR-5 证据 / 13_execution_isolation_audit.json / trade_boundary_wording_audit.json / production_adapter_approval_record.json / 自动化出门时 production 仍 disabled
-- FTR-4 证据 / 18_manual_signoff_audit.json / manual_signoff_records.json / manual_trade_plan_draft_review.json / signedArtifactHashesMatch=true -> 待新增 ReleaseGateService / 只消费 FTR-1 至 FTR-5 结果 / 不重新计算、不覆盖 blocker / 输出 FormalReleaseReviewPackage / releaseApprovalStatus=pending_human_approval
-- FTR-5 证据 / 13_execution_isolation_audit.json / trade_boundary_wording_audit.json / production_adapter_approval_record.json / 自动化出门时 production 仍 disabled -> 待新增 ReleaseGateService / 只消费 FTR-1 至 FTR-5 结果 / 不重新计算、不覆盖 blocker / 输出 FormalReleaseReviewPackage / releaseApprovalStatus=pending_human_approval
-- 待新增 ReleaseGateService / 只消费 FTR-1 至 FTR-5 结果 / 不重新计算、不覆盖 blocker / 输出 FormalReleaseReviewPackage / releaseApprovalStatus=pending_human_approval -> FTR-6 人类审计入口 / 14_release_gate_audit.json / formal_release_review_manifest.json / acceptance-report.html / SUMMARY_FOR_GPT.md / 状态/责任人/失败归属/原始证据可跳转
+- 当前签核合同 / portfolioBacktestReviewService / buildManualSignoffAudit / 五角色记录均 missing -> ManualSignoffService 已实现，五角色签核 missing / data / model / risk / compliance / final_release / reviewer + reviewedAt + artifact hash + decision / 自动化不得自签核
+- ManualSignoffService 已实现，五角色签核 missing / data / model / risk / compliance / final_release / reviewer + reviewedAt + artifact hash + decision / 自动化不得自签核 -> FTR-4 证据 / 18_manual_signoff_audit.json / manual_signoff_records.json / manual_trade_plan_draft_review.json / signedArtifactHashesMatch=true
+- 当前隔离合同 / buildExecutionIsolationAudit / portfolioBacktest.ts / famsChatService.ts 内嵌阻断 / paperTradingReady=true / productionAdapterEnabled=false -> ExecutionIsolationService 已实现并通过隔离回归 / paper/sandbox runtime contract / 真实持仓 mutation 防线 / 生产适配器审批记录 missing / ChatBox / 专家页 / API 同一阻断合同
+- ExecutionIsolationService 已实现并通过隔离回归 / paper/sandbox runtime contract / 真实持仓 mutation 防线 / 生产适配器审批记录 missing / ChatBox / 专家页 / API 同一阻断合同 -> FTR-5 证据 / 13_execution_isolation_audit.json / trade_boundary_wording_audit.json / production_adapter_approval_record.json / 自动化出门时 production 仍 disabled
+- FTR-4 证据 / 18_manual_signoff_audit.json / manual_signoff_records.json / manual_trade_plan_draft_review.json / signedArtifactHashesMatch=true -> ReleaseGateService 已实现，release 业务 gate blocked / 只消费 FTR-1 至 FTR-5 结果 / 不重新计算、不覆盖 blocker / 输出 FormalReleaseReviewPackage / releaseApprovalStatus=pending_human_approval
+- FTR-5 证据 / 13_execution_isolation_audit.json / trade_boundary_wording_audit.json / production_adapter_approval_record.json / 自动化出门时 production 仍 disabled -> ReleaseGateService 已实现，release 业务 gate blocked / 只消费 FTR-1 至 FTR-5 结果 / 不重新计算、不覆盖 blocker / 输出 FormalReleaseReviewPackage / releaseApprovalStatus=pending_human_approval
+- ReleaseGateService 已实现，release 业务 gate blocked / 只消费 FTR-1 至 FTR-5 结果 / 不重新计算、不覆盖 blocker / 输出 FormalReleaseReviewPackage / releaseApprovalStatus=pending_human_approval -> FTR-6 人类审计入口 / 14_release_gate_audit.json / formal_release_review_manifest.json / acceptance-report.html / SUMMARY_FOR_GPT.md / 状态/责任人/失败归属/原始证据可跳转
 
 ## 7 开发计划里程碑与用户路径
 Nodes: 13; Edges: 6

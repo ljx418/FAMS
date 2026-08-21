@@ -1,6 +1,6 @@
 # FAMS 当前阶段与下一阶段文档一致性审计
 
-更新时间：2026-07-16
+更新时间：2026-08-21
 
 ## 1. 审计结论
 
@@ -8,16 +8,17 @@
 documentationConsistencyReady=true
 drawioCurrentTargetRelationReady=true
 expertModuleTabsPreserved=true
+formalReleaseReadinessDocumentationReady=true
 ```
 
-以上三个状态仅表示当前文档、架构映射和既有专家入口一致；不表示 FTR-1 至 FTR-6 已实现，也不表示正式交易 release 已通过。
+以上三个状态表示当前文档、架构映射和既有专家入口一致。FTR-1 至 FTR-6 的模块化工程服务与合同已经实现，但业务 gate 仍 blocked；这不表示正式交易 release 已通过。
 
 ```text
 currentControlledAutomationScopeAccepted=true
 nextStageGoalDocumented=true
 nextStageId=formal_release_readiness_closure
-nextStageDocumentationStatus=ready_for_human_review
-nextStageImplementationStatus=not_started
+nextStageDocumentationStatus=accepted
+nextStageImplementationStatus=engineering_complete_business_gates_blocked
 documentationSupportsControlledFtrDevelopment=true
 documentationSupportsFtrSubstageAcceptance=true
 documentationSupportsUnattendedRelease=false
@@ -26,7 +27,7 @@ fatalSpecificationGap=none_found
 majorOverpromiseRisk=controlled_by_state_source_manifest_and_trade_boundary
 ```
 
-当前文档已把 S0-S8 已完成基线与 FTR-0 至 FTR-6 下一阶段计划分开。人类批准实现前，任何 FTR 代码状态仍必须为 `not_started`。
+当前文档已把 S0-S8 与 DRV1-0～DRV1-4 已完成基线、FTR 工程实现、FTR 业务 gate 和外部/人工高风险门分开。自动化只能继续核查和闭环文档已支撑的低风险工程项，不能伪造外部授权或人工签核。
 
 ## 2. 权威来源优先级
 
@@ -41,7 +42,7 @@ majorOverpromiseRisk=controlled_by_state_source_manifest_and_trade_boundary
 
 | 检查项 | 最新证据 | 当前结论 |
 | --- | --- | --- |
-| S0-S8 | 2026-07-16 stage audit、commit `3d150c2`、drawio 状态图 | 已完成受控开发，不是下一阶段待办 |
+| S0-S8 / DRV1 | 历史 stage audit、DRV1-0～4 验收审计、drawio 状态图 | 已完成受控开发，不是 FTR 待办 |
 | 数据治理 | `15_data_governance_audit.json` | 合同存在；业务 gate blocked |
 | Benchmark | `16_benchmark_qualification_audit.json` | formal review 可用；official/trusted 资格未通过 |
 | Formal validation | `17_formal_validation_audit.json` | `insufficient`，`0/7 passed` |
@@ -60,22 +61,19 @@ majorOverpromiseRisk=controlled_by_state_source_manifest_and_trade_boundary
 外部/人工 gate
 ```
 
-当前 `FormalDataProviderService`、`BenchmarkQualificationService`、`FormalValidationService`、`ManualSignoffService`、`ExecutionIsolationService`、`ReleaseGateService` 是下一阶段目标实体，不是当前已存在的独立 Service。当前实际实现主要位于：
+当前代码已经在模块化单体内提供独立的 `FormalDataProviderService`、`FormalDataFreshnessPolicy`、`FieldEvidenceValidator`、`FormalBenchmarkService`、`FormalValidationService`、`ManualSignoffService`、`ExecutionIsolationService`、`ReleaseGateService` 和 formal release package service。历史内嵌方法仍作为计算/兼容路径存在；工程实现与业务 gate 必须分开描述：
 
 ```text
-formalProviderIngestionService
-marketDataFreshnessService
-portfolioBenchmarkService
-portfolioBacktestReviewService
-PortfolioBacktestEngine.buildDataGovernanceAudit
-PortfolioBacktestEngine.buildBenchmarkQualificationAudit
-PortfolioBacktestEngine.buildFormalValidationAudit
-PortfolioBacktestEngine.buildManualSignoffAudit
-PortfolioBacktestEngine.buildExecutionIsolationAudit
-PortfolioBacktestEngine.buildReleaseGateAudit
+backend/src/services/formal-release/formalDataProviderService.ts
+backend/src/services/formal-release/formalBenchmarkService.ts
+backend/src/services/formal-release/formalValidationService.ts
+backend/src/services/formal-release/manualSignoffService.ts
+backend/src/services/formal-release/executionIsolationService.ts
+backend/src/services/formal-release/releaseGateService.ts
+backend/src/services/formal-release/formalReleasePackageService.ts
 ```
 
-若 drawio 或 Markdown 把目标 Service 标成绿色“已开发”，架构审计 hard fail。
+若 drawio 或 Markdown 把“工程服务已实现”写成“业务 gate 已通过”，或者把 free source、missing signoff、disabled production adapter 写成 release ready，架构审计 hard fail。
 
 ## 5. PRD 与用户体验审计
 
@@ -140,13 +138,13 @@ RESEARCH / OBSERVE / COMPARE / ALERT / PLAN_DRAFT / MANUAL_TRADE_DRAFT
 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
 ```
 
-## 9. 待人工确认
+## 9. 人工与外部门禁
 
-文档开发完成后，需要人类确认：
+模块化单体实现方向已记录为 accepted。继续阻断业务出门的人工/外部事项为：
 
-1. 模块化单体内增量拆分路线是否符合预期。
-2. FTR-0 至 FTR-6 是否覆盖全部剩余 blocker。
-3. 自动化止于 release review ready、生产适配器继续 disabled 是否符合风险边界。
-4. drawio 是否足以判断架构风险、PRD 偏移风险和出门验收风险。
+1. 正式 provider 授权及数据 owner 复核。
+2. official/trusted total-return benchmark 许可或可信资格复核。
+3. 模型统计证据、数据/模型/风控/合规/final release 五角色签核。
+4. 生产适配器与任何交易权限变更的独立高风险批准。
 
-人工确认前不得进入代码开发。
+这些门禁不能由自动化代签或生成虚假证据；在它们缺失时必须停止在对应 FTR 阶段，交易边界保持全 false。

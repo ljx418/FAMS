@@ -13,6 +13,8 @@ import {
   HistoryOutlined,
   BellOutlined,
   MenuOutlined,
+  AuditOutlined,
+  ReadOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { FamsChatBox } from '../chat/FamsChatBox'
@@ -21,6 +23,7 @@ const { Sider, Content } = AntLayout
 
 const menuItems = [
   { key: 'dashboard', icon: <DashboardOutlined />, label: '总览' },
+  { key: 'fams-user-guide', icon: <ReadOutlined />, label: '使用指南' },
   {
     key: 'portfolio-management',
     type: 'group' as const,
@@ -28,6 +31,7 @@ const menuItems = [
     children: [
       { key: 'assets', icon: <BankOutlined />, label: '资产管理' },
       { key: 'positions', icon: <WalletOutlined />, label: '仓位管理' },
+      { key: 'daily-reviews', icon: <AuditOutlined />, label: '每日复盘' },
       { key: 'transactions', icon: <SwapOutlined />, label: '交易记录' },
       { key: 'portfolios', icon: <PieChartOutlined />, label: '投资组合' },
     ],
@@ -67,18 +71,25 @@ export function Layout() {
     .flatMap((item: any) => item.children || [item])
     .find((item: any) => item.key === selectedKey)?.label || 'FAMS'
   const handleNavigate = (key: string) => {
+    if (key === 'fams-user-guide') {
+      setMobileNavOpen(false)
+      window.open('/fams-user-guide.html', '_blank', 'noopener,noreferrer')
+      return
+    }
     navigate(`/${key}`)
     setMobileNavOpen(false)
   }
   const navigationMenu = (
-    <Menu
-      mode="inline"
-      selectedKeys={[selectedKey]}
-      items={menuItems}
-      onClick={({ key }) => handleNavigate(String(key))}
-      className="bg-transparent border-0 mt-2"
-      theme="light"
-    />
+    <nav aria-label="FAMS 主导航">
+      <Menu
+        mode="inline"
+        selectedKeys={[selectedKey]}
+        items={menuItems}
+        onClick={({ key }) => handleNavigate(String(key))}
+        className="bg-transparent border-0 mt-2"
+        theme="light"
+      />
+    </nav>
   )
 
   return (
@@ -87,6 +98,7 @@ export function Layout() {
         width={200}
         breakpoint="md"
         collapsedWidth={0}
+        trigger={null}
         className="border-r border-slate-200 bg-white"
         theme="light"
       >
@@ -120,7 +132,7 @@ export function Layout() {
         >
           {navigationMenu}
         </Drawer>
-        <Content className="min-w-0 overflow-x-hidden p-4 md:p-6">
+        <Content className="fams-content min-w-0 overflow-x-hidden p-4 md:p-6">
           <Outlet />
         </Content>
         <FamsChatBox />

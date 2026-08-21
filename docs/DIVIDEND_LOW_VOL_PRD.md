@@ -727,16 +727,15 @@ orderCreateAllowed=false
 出现 formalTradingUnlocked 不得为 true / autoTradeUnlocked 不得为 true / canCreateOrder 不得为 true / orderCreateAllowed 不得为 true
 ```
 
-### 下一阶段开发仍未完成的明确范围
+### 历史规划说明（已被当前阶段状态替代）
 
-当前阶段完成后只能说明文档可以支撑下一阶段开发，不能说明正式交易可用。仍未完成：
+下列 S2-S8 是 2026-07-14 时的历史规划；当前已作为受控工程基线完成，不得继续写成待开发代码。正式交易仍由 `docs/current-stage-state.json` 中的六项外部门禁阻断：
 
 ```text
-S2 正式 provider 与字段级数据治理
-S3 官方或可信 total-return benchmark
-S4 formal validation 与模型有效性验证
-S5 人工签核与 release blocker
-S6 执行隔离与订单防线
-S7 release gate 总验收
-S8 完整多轮 tool-calling Agent loop 增强
+S2-S8 engineering baseline = accepted
+formal provider authorization = blocked_external_gate
+official or trusted benchmark = blocked_external_gate
+formal validation statistical review = blocked_external_gate
+manual/release signoff = blocked_external_gate
+production order adapter = locked
 ```

@@ -13,6 +13,8 @@ const EXPECTED_INTENTS = [
   'dividend_low_vol_plan_draft',
   'refresh_data',
   'portfolio_summary',
+  'daily_review_latest',
+  'daily_review_run',
   'portfolio_backtest_compare',
   'portfolio_backtest_operation',
   'portfolio_backtest_explain',

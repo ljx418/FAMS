@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Card, Collapse, Empty, InputNumber, Select, Slider, Spin, Table, Tag, Tooltip, message } from 'antd'
+import { Alert, App as AntApp, Button, Card, Collapse, Empty, InputNumber, Select, Slider, Spin, Table, Tag, Tooltip } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { FilterOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons'
 import { ExperienceModeToggle, type ExperienceMode } from '../components/common/ExperienceModeToggle'
@@ -322,6 +322,7 @@ const shortIssueLabel = (issue: string) => (
 )
 
 const DividendLowVol: React.FC = () => {
+  const { message } = AntApp.useApp()
   const [pool, setPool] = useState<DividendLowVolCandidatePool | null>(null)
   const [marketBarFreshness, setMarketBarFreshness] = useState<MarketBarFreshnessReport | null>(null)
   const [alerts, setAlerts] = useState<DividendLowVolAlertCheckResult | null>(null)

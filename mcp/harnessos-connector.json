@@ -84,7 +84,22 @@
     "operation.list",
     "operation.get",
     "operation.get_artifact",
-    "transaction.create_manual_record"
+    "transaction.create_manual_record",
+    "market_data.get_asset_trend",
+    "daily_review.run",
+    "daily_review.get_latest",
+    "daily_review.get",
+    "daily_review.list",
+    "grid_strategy.list_templates",
+    "grid_strategy.create_draft",
+    "grid_strategy.validate_draft",
+    "grid_strategy.activate",
+    "capture.upload_screenshot",
+    "capture.apply_extraction",
+    "capture.get_preview",
+    "capture.vision_status",
+    "capture.update_row",
+    "capture.confirm_rows"
   ],
   "validation": {
     "httpSmoke": {

@@ -11,9 +11,9 @@ import { portfolioBacktestInputBuilder } from '../portfolio-backtest/portfolioBa
 import { portfolioStrategyRegistry } from '../portfolio-backtest/portfolioStrategyRegistry.js'
 import { marketDataFreshnessService } from '../market-data/marketDataFreshnessService.js'
 import { piAgentCoreAdapter } from './piAgentCoreAdapter.js'
-import { getFamsLlmPublicStatus } from '../../config/llmConfig.js'
-import { chatLlmPlannerService } from './chatLlmPlannerService.js'
+import { chatLlmPlannerService, type SummarySynthesis } from './chatLlmPlannerService.js'
 import { ensureUser } from '../../utils/user.js'
+import { dailyReviewService } from '../review/dailyReviewService.js'
 import type {
   FamsChatActionCard,
   FamsChatConfirmationInput,
@@ -132,6 +132,108 @@ class FamsChatService {
               href: '/positions',
               status: 'ready',
             }),
+          ],
+        }
+      },
+    },
+    {
+      name: 'dailyReview.latest.read',
+      intent: 'daily_review_latest',
+      label: '读取最新持仓复盘',
+      description: '读取最新一轮持仓复盘、MA 走势图、基本面/消息变化、关注标的和人工计划网格。',
+      risk: 'read',
+      permissionType: 'read_only_direct',
+      confirmationPolicy: 'none',
+      auditFields: ['reviewId', 'sessionType', 'assetCount', 'gridPlanCount', 'notTradingAdvice'],
+      execute: async (args) => {
+        const userId = String(args.userId || DEFAULT_USER_ID)
+        const review = await dailyReviewService.getLatest(userId, args.sessionType as any)
+        if (!review) {
+          return {
+            reply: '还没有可读取的持仓复盘。你可以让我“现在生成一次持仓复盘”。',
+            structuredResult: this.buildPlainStructuredResult('持仓复盘', '暂无历史复盘'),
+            dataQualitySummary: { status: 'missing', source: 'daily_review_run' },
+            blockedReasons: ['daily_review_missing'],
+            toolAudit: { toolName: 'dailyReview.latest.read', permissionType: 'read_only_direct' },
+          }
+        }
+        const report = review.report as any
+        const structuredResult = this.buildDailyReviewStructuredResult(report)
+        const material = (report.assets || []).filter((asset: any) => asset.fundamentalAndNews?.level === 'material')
+        return {
+          reply: [
+            `最新${report.sessionType === 'open' ? '开盘后' : report.sessionType === 'pre_close' ? '收盘前' : '手动'}复盘已完成 ${report.portfolio?.reviewedAssets || 0} 个资产。`,
+            material.length > 0 ? `${material.length} 个资产触发重大变化复核，相关买入网格已转观察。` : '未识别出达到重大变化阈值的新事实；证据不足的资产仍保持观察。',
+            `关注标的：${(report.attentionCandidates || []).map((item: any) => `${item.symbol} ${item.name || ''}`).join('、') || '暂无'}。`,
+            '网格内容是人工计划草案，不会创建或提交券商订单。',
+          ].join('\n'),
+          structuredResult,
+          dataQualitySummary: structuredResult.dataQualitySummary,
+          blockedReasons: structuredResult.blockedReasons,
+          toolAudit: {
+            toolName: 'dailyReview.latest.read',
+            permissionType: 'read_only_direct',
+            reviewId: review.id,
+            formalTradingUnlocked: false,
+            autoTradeUnlocked: false,
+            canCreateOrder: false,
+          },
+          actionCards: [
+            makeCard({ type: 'navigation', title: '打开复盘工作台', description: '逐节点核对本轮输入、输出、证据、均线和网格草案。', href: `/daily-reviews/${review.id}`, status: 'ready' }),
+            makeCard({ type: 'navigation', title: '打开仓位管理', description: '对照当前仓位和截图导入结果。', href: '/positions', status: 'ready' }),
+          ],
+        }
+      },
+    },
+    {
+      name: 'dailyReview.run.start',
+      intent: 'daily_review_run',
+      label: '生成当前持仓复盘',
+      description: '确认后启动持仓、行情、基本面/消息证据和人工网格的完整复盘任务。',
+      risk: 'confirm_required',
+      permissionType: 'confirm_before_operation',
+      confirmationPolicy: 'required',
+      auditFields: ['operationId', 'reviewId', 'sessionType', 'notTradingAdvice'],
+      execute: async (args) => {
+        const result = await dailyReviewService.startReview({
+          userId: String(args.userId || DEFAULT_USER_ID),
+          sessionType: (args.sessionType as any) || 'manual',
+          triggerSource: 'user',
+          executionMode: 'inline',
+        })
+        const completedReview = result.review?.id
+          ? await dailyReviewService.getReview(result.review.id, String(args.userId || DEFAULT_USER_ID))
+          : null
+        const report = completedReview?.report as any
+        const structuredResult = report
+          ? this.buildDailyReviewStructuredResult(report)
+          : this.buildPlainStructuredResult('持仓复盘任务', `Operation ${result.operation?.id || 'unknown'} 已完成，但暂未读取到复盘报告。`)
+        const material = (report?.assets || []).filter((asset: any) => asset.fundamentalAndNews?.level === 'material')
+        return {
+          reply: report ? [
+            `本次${report.sessionType === 'open' ? '开盘后' : report.sessionType === 'pre_close' ? '收盘前' : '手动'}持仓复盘已完成，共分析 ${report.portfolio?.reviewedAssets || 0} 个资产。`,
+            report.strategy?.assessment?.conclusion || '已生成策略总体判断。',
+            material.length ? `${material.length} 个资产触发重大变化复核。` : '未发现达到重大变化阈值的新事实。',
+            `关注标的：${(report.attentionCandidates || []).map((item: any) => `${item.symbol} ${item.name || ''}`).join('、') || '暂无'}。`,
+            '网格为人工复核草案，不会创建或提交券商订单。',
+          ].join('\n') : `持仓复盘任务 ${result.operation?.id} 已完成，但报告仍在落库，请稍后读取最新复盘。`,
+          operationId: result.operation?.id,
+          artifactRefs: result.review?.id ? [`daily-review:${result.review.id}`] : [],
+          structuredResult,
+          dataQualitySummary: structuredResult.dataQualitySummary,
+          blockedReasons: structuredResult.blockedReasons,
+          toolAudit: {
+            toolName: 'dailyReview.run.start',
+            permissionType: 'confirm_before_operation',
+            reviewId: result.review?.id,
+            operationId: result.operation?.id,
+            formalTradingUnlocked: false,
+            autoTradeUnlocked: false,
+            canCreateOrder: false,
+          },
+          actionCards: [
+            ...(result.review?.id ? [makeCard({ type: 'navigation', title: '审查本轮复盘', description: '在工作台逐节点核对本轮证据和网格草案。', href: `/daily-reviews/${result.review.id}`, status: 'completed' })] : []),
+            makeCard({ type: 'navigation', title: '核对当前仓位', description: '对照当前仓位、截图导入与本轮复盘结果。', href: '/positions', status: 'completed' }),
           ],
         }
       },
@@ -948,11 +1050,17 @@ class FamsChatService {
         metadata: llmPlan ? { planner: llmPlan } : undefined,
       })
     }
+    const synthesized = await this.synthesizeResult({
+      intent,
+      userMessage: input.message || '',
+      deterministicReply: result.reply,
+      structuredResult: result.structuredResult,
+    })
     return this.auditedResponse(userId, {
       conversationId,
       intent,
       confidence: llmPlan?.confidence || 0.9,
-      reply: result.reply,
+      reply: synthesized.reply,
       actionCards: result.actionCards || [],
       operationId: result.operationId,
       artifactRefs: result.artifactRefs || [],
@@ -962,7 +1070,11 @@ class FamsChatService {
       toolAudit: result.toolAudit,
       requiresConfirmation: false,
       runtimeAvailable: runtime.runtimeAvailable,
-      metadata: llmPlan ? { planner: llmPlan } : undefined,
+      summarySynthesis: synthesized.summarySynthesis,
+      metadata: {
+        ...(llmPlan ? { planner: llmPlan } : {}),
+        summarySynthesis: synthesized.summarySynthesis,
+      },
     })
   }
 
@@ -1052,6 +1164,14 @@ class FamsChatService {
           intent: deterministicIntent,
           confidence: Math.max(plan.confidence, 0.99),
           reason: `deterministic_safety_override:${plan.reason}`,
+        }
+      }
+      if (deterministicIntent === 'daily_review_latest' || deterministicIntent === 'daily_review_run') {
+        return {
+          ...plan,
+          intent: deterministicIntent,
+          confidence: Math.max(plan.confidence, 0.95),
+          reason: `deterministic_daily_review_override:${plan.reason}`,
         }
       }
       if (plan.intent === 'capability_help' && deterministicIntent !== 'capability_help') {
@@ -1157,11 +1277,18 @@ class FamsChatService {
       formalTradingUnlocked: false,
       autoTradeUnlocked: false,
     })
+    const intent = this.intentByToolName(tool.name)
+    const synthesized = await this.synthesizeResult({
+      intent,
+      userMessage: `确认执行：${tool.label}`,
+      deterministicReply: result.reply,
+      structuredResult: result.structuredResult,
+    })
     return this.auditedResponse(input.userId || pending.userId, {
       conversationId: pending.conversationId,
-      intent: this.intentByToolName(tool.name),
+      intent,
       confidence: 0.9,
-      reply: result.reply,
+      reply: synthesized.reply,
       actionCards: result.actionCards || [],
       operationId: result.operationId,
       artifactRefs: result.artifactRefs || [],
@@ -1169,7 +1296,11 @@ class FamsChatService {
       structuredResult: result.structuredResult,
       dataQualitySummary: result.dataQualitySummary,
       toolAudit: result.toolAudit,
-      metadata: afterTool.details as Record<string, unknown>,
+      summarySynthesis: synthesized.summarySynthesis,
+      metadata: {
+        ...(afterTool.details as Record<string, unknown>),
+        summarySynthesis: synthesized.summarySynthesis,
+      },
       requiresConfirmation: false,
       runtimeAvailable: runtime.runtimeAvailable,
     })
@@ -1177,9 +1308,14 @@ class FamsChatService {
 
   private detectIntent(message: string): FamsChatIntent {
     if (/(shell|bash|powershell|cmd|rm -rf|文件系统|读文件|写文件|filesystem|curl|wget|任意网络|network tool)/i.test(message)) return 'trade_action_blocked'
-    if (/(下单|自动交易|order_create|auto_trade|\border\b|\badd\b|\breduce\b|(?:直接|立即|现在|马上|帮我|替我|执行|正式).{0,12}(?:买入|卖出|加仓|减仓)|(?:买入|卖出|加仓|减仓).{0,12}(?:下单|执行|交易))/i.test(message)) return 'trade_action_blocked'
+    if (/(下单|自动交易|可交易|交易解锁|tradeactionreadiness|manualdraftready|order_create|auto_trade|\border\b|\badd\b|\breduce\b|(?:直接|立即|现在|马上|帮我|替我|执行|正式).{0,12}(?:买入|卖出|加仓|减仓)|(?:买入|卖出|加仓|减仓).{0,12}(?:下单|执行|交易))/i.test(message)) return 'trade_action_blocked'
     if (/(数据可信|数据质量|真实数据|数据来源|数据最新|最新数据|上个月|行情最新|行情日期|freshness|data trust|data quality)/i.test(message)) return 'data_trust_explain'
     if (/(审计|报告|验收|audit|acceptance)/i.test(message)) return 'audit_report_explain'
+    if (/(复盘|盘后分析|盘前分析|收盘前分析|开盘后分析|daily review)/i.test(message)) {
+      return /(生成|运行|开始|现在|立即|做一次|来一次|分析一下|复盘一下|run|start)/i.test(message)
+        ? 'daily_review_run'
+        : 'daily_review_latest'
+    }
     if (/(草案|人工计划|人工计划|draft)/i.test(message)) return 'dividend_low_vol_plan_draft'
     if (/(刷新数据|数据刷新|refresh data)/i.test(message)) return 'refresh_data'
     if (/(红利|低波|股息|dividend)/i.test(message) && /(扫描|刷新|更新|scan)/i.test(message)) return 'dividend_low_vol_scan'
@@ -1195,6 +1331,8 @@ class FamsChatService {
   private selectTool(intent: FamsChatIntent) {
     const toolNameByIntent: Partial<Record<FamsChatIntent, string>> = {
       portfolio_summary: 'portfolio.summary.read',
+      daily_review_latest: 'dailyReview.latest.read',
+      daily_review_run: 'dailyReview.run.start',
       portfolio_risk_explain: 'portfolio.summary.read',
       dividend_low_vol_top_candidates: 'dividendLowVol.candidates.read',
       dividend_low_vol_trading_zone: 'dividendLowVol.tradingZone.read',
@@ -1215,6 +1353,7 @@ class FamsChatService {
   }
 
   private intentByToolName(toolName: string): FamsChatIntent {
+    if (toolName === 'dailyReview.run.start') return 'daily_review_run'
     if (toolName === 'dividendLowVol.scan.start') return 'dividend_low_vol_scan'
     if (toolName === 'data.refresh.start') return 'refresh_data'
     if (toolName === 'manualDraft.create') return 'dividend_low_vol_plan_draft'
@@ -1237,6 +1376,13 @@ class FamsChatService {
         ? this.normalizePortfolioStrategyIds(context.portfolioStrategyIds)
         : ['permanent_portfolio', 'all_weather']
       args.period = context.period || '3y'
+    }
+    if (intent === 'daily_review_run' || intent === 'daily_review_latest') {
+      args.sessionType = /收盘前|尾盘|pre.?close/i.test(message)
+        ? 'pre_close'
+        : /开盘后|开盘|open/i.test(message)
+          ? 'open'
+          : context.sessionType || 'manual'
     }
     return args
   }
@@ -1344,6 +1490,135 @@ class FamsChatService {
       },
       evidenceRefs: ['chatbox:tool_failure_guard'],
       blockedReasons: ['chatbox_tool_execution_failed', 'data_health_attention_required'],
+      notTradingAdvice: true,
+    }
+  }
+
+  private buildDailyReviewStructuredResult(report: any): FamsChatStructuredResult {
+    const assets = Array.isArray(report?.assets) ? report.assets : []
+    const gridRows = assets.flatMap((asset: any) => {
+      const orders = Array.isArray(asset.grid?.orders) ? asset.grid.orders : []
+      if (orders.length === 0) {
+        return [{ symbol: asset.symbol, name: asset.name, side: '-', level: '-', price: null, quantity: null, status: asset.grid?.status || 'observe_only' }]
+      }
+      return orders.map((order: any) => ({
+        symbol: asset.symbol,
+        name: asset.name,
+        side: order.side,
+        level: order.level,
+        price: order.price,
+        quantity: order.quantity,
+        status: order.conflictStatus === 'none' ? 'manual_draft' : order.conflictStatus,
+      }))
+    })
+    const blockedReasons = Array.from(new Set(assets.flatMap((asset: any) => asset.grid?.blockers || []))) as string[]
+    return {
+      resultType: 'daily_review',
+      summary: `${report?.portfolio?.reviewedAssets || 0} 个资产完成复盘，${gridRows.filter((row: any) => row.side !== '-').length} 条人工网格草案。`,
+      metricCards: [
+        { label: '复盘资产', value: report?.portfolio?.reviewedAssets || 0, status: assets.length > 0 ? 'good' : 'warning' },
+        { label: '组合市值', value: this.formatNumber(report?.portfolio?.totalValue), status: 'neutral' },
+        { label: '人工网格草案', value: gridRows.filter((row: any) => row.side !== '-').length, status: 'neutral' },
+        { label: '正式交易', value: '未解锁', status: 'blocked' },
+      ],
+      comparisonTable: {
+        columns: [
+          { key: 'symbol', label: '代码' },
+          { key: 'name', label: '名称' },
+          { key: 'side', label: '方向' },
+          { key: 'level', label: '档位' },
+          { key: 'price', label: '价格' },
+          { key: 'quantity', label: '数量' },
+          { key: 'status', label: '状态' },
+        ],
+        rows: gridRows,
+        insufficientReason: assets.length === 0 ? 'daily_review_has_no_reviewed_asset' : undefined,
+      },
+      charts: assets.slice(0, 10).map((asset: any) => ({
+        type: 'line_chart' as const,
+        title: `${asset.symbol} ${asset.name || ''}｜收盘价与均线`,
+        xAxisType: 'time' as const,
+        yAxisLabel: '价格',
+        series: [
+          { name: '收盘价', data: (asset.trend?.chart || []).map((point: any) => [point.date, point.close]) },
+          { name: 'MA5', data: (asset.trend?.chart || []).map((point: any) => [point.date, point.ma5]) },
+          { name: 'MA10', data: (asset.trend?.chart || []).map((point: any) => [point.date, point.ma10]) },
+          { name: 'MA30', data: (asset.trend?.chart || []).map((point: any) => [point.date, point.ma30]) },
+        ],
+      })),
+      dataQualitySummary: {
+        ...(report?.portfolio || {}),
+        status: report?.errors?.length > 0 ? 'partial' : 'completed',
+        errors: report?.errors || [],
+        source: 'dailyReviewService',
+        formalTradingUnlocked: false,
+        autoTradeUnlocked: false,
+        canCreateOrder: false,
+      },
+      dailyReview: {
+        reviewId: String(report?.reviewId || ''),
+        generatedAt: String(report?.generatedAt || ''),
+        completedAt: report?.completedAt ? String(report.completedAt) : undefined,
+        sessionType: String(report?.sessionType || 'manual'),
+        strategyAssessment: report?.strategy?.assessment || null,
+        assets: assets.map((asset: any) => ({
+          assetId: String(asset.assetId || ''),
+          symbol: String(asset.symbol || ''),
+          name: String(asset.name || ''),
+          quote: {
+            price: asset.trend?.quote?.price ?? null,
+            asOf: asset.trend?.quote?.asOf ?? null,
+            source: asset.trend?.quote?.source ?? null,
+            currency: asset.trend?.currency ?? null,
+            latestClose: asset.trend?.latestClose?.price ?? null,
+            latestCloseDate: asset.trend?.latestClose?.date ?? null,
+            ma5: asset.trend?.indicators?.ma5 ?? null,
+            ma10: asset.trend?.indicators?.ma10 ?? null,
+            ma30: asset.trend?.indicators?.ma30 ?? null,
+            dataQualityStatus: asset.trend?.dataQuality?.status ?? null,
+          },
+          materialChange: {
+            level: String(asset.fundamentalAndNews?.level || 'insufficient'),
+            reasons: asset.fundamentalAndNews?.reasons || [],
+            evidenceRefs: asset.fundamentalAndNews?.evidenceRefs || [],
+          },
+          recommendation: {
+            action: String(asset.recommendation?.action || 'OBSERVE'),
+            confidence: String(asset.recommendation?.confidence || 'insufficient'),
+            reasons: asset.recommendation?.reasons || [],
+            risks: asset.recommendation?.risks || [],
+          },
+          grid: {
+            strategySource: String(asset.grid?.strategySource || 'observe_only_fallback'),
+            templateId: String(asset.grid?.templateId || 'observe_only_v1'),
+            mode: String(asset.grid?.mode || 'observe_only'),
+            status: String(asset.grid?.status || 'observe_only'),
+            summary: String(asset.grid?.summary || ''),
+            validUntil: asset.grid?.constraints?.validUntil || null,
+            blockers: asset.grid?.blockers || [],
+            adjustment: asset.grid?.adjustment || { changed: false, reasons: [] },
+            orders: (asset.grid?.orders || []).map((order: any) => ({
+              side: order.side,
+              level: order.level,
+              price: order.price,
+              quantity: order.quantity,
+              amount: order.amount,
+              validUntil: order.validUntil,
+              conflictStatus: order.conflictStatus,
+              rationale: order.rationale,
+            })),
+          },
+        })),
+        attentionCandidates: report?.attentionCandidates || [],
+        executionBoundary: report?.executionBoundary || {
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          canCreateOrder: false,
+          orderCreateAllowed: false,
+        },
+      },
+      evidenceRefs: Array.from(new Set(assets.flatMap((asset: any) => asset.fundamentalAndNews?.evidenceRefs || []))).slice(0, 40) as string[],
+      blockedReasons,
       notTradingAdvice: true,
     }
   }
@@ -1669,6 +1944,42 @@ class FamsChatService {
     }
   }
 
+  private async synthesizeResult(input: {
+    intent: FamsChatIntent
+    userMessage: string
+    deterministicReply: string
+    structuredResult?: FamsChatStructuredResult
+  }): Promise<{
+    reply: string
+    summarySynthesis?: { source: 'llm' | 'deterministic'; model?: string }
+  }> {
+    if (!input.structuredResult) return { reply: input.deterministicReply }
+    try {
+      const summary: SummarySynthesis | null = await chatLlmPlannerService.summarizeResult({
+        intent: input.intent,
+        userMessage: input.userMessage,
+        deterministicReply: input.deterministicReply,
+        structuredResult: input.structuredResult as unknown as Record<string, any>,
+      })
+      if (summary) {
+        return {
+          reply: summary.reply,
+          summarySynthesis: { source: summary.source, model: summary.model },
+        }
+      }
+    } catch (error) {
+      // 摘要是可降级的展示增强，不能让它阻断白名单工具的业务结果。
+      console.warn('ChatBox LLM summary fallback', {
+        intent: input.intent,
+        reason: String((error as any)?.message || error).slice(0, 180),
+      })
+    }
+    return {
+      reply: input.deterministicReply,
+      summarySynthesis: { source: 'deterministic' },
+    }
+  }
+
   private async auditedResponse(userId: string, input: {
     conversationId: string
     intent: FamsChatIntent
@@ -1683,6 +1994,7 @@ class FamsChatService {
     structuredResult?: FamsChatStructuredResult
     dataQualitySummary?: Record<string, unknown>
     toolAudit?: Record<string, unknown>
+    summarySynthesis?: { source: 'llm' | 'deterministic'; model?: string }
     metadata?: Record<string, unknown>
   }): Promise<FamsChatResponse> {
     const response = this.response(input)
@@ -1704,6 +2016,7 @@ class FamsChatService {
     structuredResult?: FamsChatStructuredResult
     dataQualitySummary?: Record<string, unknown>
     toolAudit?: Record<string, unknown>
+    summarySynthesis?: { source: 'llm' | 'deterministic'; model?: string }
   }): FamsChatResponse {
     const structuredResult = this.enrichStructuredResult({
       structuredResult: input.structuredResult,
@@ -1732,12 +2045,13 @@ class FamsChatService {
       prohibitedActions: PROHIBITED_ACTIONS,
       agentCore: {
         provider: 'pi-agent-core',
-        mode: getFamsLlmPublicStatus().chatAgentEnabled ? 'llm_assisted_planner_pending' : 'deterministic_planner',
+        mode: chatLlmPlannerService.isAvailable() ? 'pi_agent_loop' : 'deterministic_planner',
         runtimeAvailable: input.runtimeAvailable,
         nodeVersion: process.version,
         llm: chatLlmPlannerService.publicStatus(),
-        note: getFamsLlmPublicStatus().chatAgentEnabled
-          ? 'LLM key is configured for explanation/planning readiness, but FAMS still routes all executable actions through allowlisted tools and confirmations.'
+        summarySynthesis: input.summarySynthesis,
+        note: chatLlmPlannerService.isAvailable()
+          ? 'LLM routes intent and summarizes completed structured results. All executable actions still pass through allowlisted tools and confirmations.'
           : 'PI AgentCore is integrated as the controlled tool/runtime adapter. Deterministic planner is used until FAMS_CHAT_LLM_ENABLED=1 is configured.',
       },
       notTradingAdvice: true,

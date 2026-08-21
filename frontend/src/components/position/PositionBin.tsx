@@ -227,7 +227,7 @@ const PositionBin: React.FC<PositionBinProps> = ({
           className="relative rounded-lg overflow-hidden mb-3"
           style={{
             height: 120,
-            backgroundColor: '#1a1a2e',
+            backgroundColor: '#f8fafc',
             border: `1px solid ${color}30`,
           }}
         >

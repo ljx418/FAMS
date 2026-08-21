@@ -4,11 +4,12 @@
 
 :root {
   /* UX-F7 light-first 设计系统 */
-  --primary-color: #2563eb;
-  --success-color: #059669;
-  --danger-color: #dc2626;
-  --warning-color: #d97706;
-  --info-color: #0891b2;
+  --primary-color: #1d4ed8;
+  --primary-hover: #1e40af;
+  --success-color: #047857;
+  --danger-color: #b91c1c;
+  --warning-color: #a16207;
+  --info-color: #0369a1;
 
   --text-primary: #0f172a;
   --text-secondary: #334155;
@@ -49,6 +50,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg-primary);
   color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.55;
 }
 
 #root {
@@ -112,7 +115,7 @@ a {
 }
 
 a:hover {
-  color: #a5b4fc;
+  color: var(--primary-hover);
 }
 
 /* 按钮增强 */
@@ -122,8 +125,8 @@ a:hover {
 }
 
 .ant-btn-primary:hover {
-  background-color: #6366f1 !important;
-  border-color: #6366f1 !important;
+  background-color: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
 }
 
 /* 输入框 */
@@ -248,7 +251,210 @@ a:hover {
 }
 
 .ant-card {
+  background: var(--bg-card) !important;
   color: var(--text-primary);
+}
+
+/*
+ * 全站可视度修正：旧版页面仍带有深色主题工具类。
+ * 仅在主内容区和弹窗中将这些历史色转为浅色高对比表面。
+ */
+.fams-content,
+.ant-modal-root {
+  color: var(--text-primary);
+}
+
+.fams-content :is(
+  [class*="bg-[#0f0f23]"],
+  [class*="bg-[#0f172a]"],
+  [class*="bg-[#0f172a66]"],
+  [class*="bg-[#0f172a99]"],
+  [class*="bg-[#111122]"],
+  [class*="bg-[#111126]"],
+  [class*="bg-[#111827]"],
+  [class*="bg-[#11182799]"],
+  [class*="bg-[#15152a]"],
+  [class*="bg-[#161629]"],
+  [class*="bg-[#1a1a2e]"],
+  [class*="bg-[#1f1f3a]"],
+  [class*="bg-black/10"],
+  [class*="bg-black/20"],
+  [class*="bg-white/5"]
+),
+.ant-modal-root :is(
+  [class*="bg-[#0f0f23]"],
+  [class*="bg-[#0f172a]"],
+  [class*="bg-[#111827]"],
+  [class*="bg-[#161629]"],
+  [class*="bg-[#1a1a2e]"],
+  [class*="bg-black/10"],
+  [class*="bg-black/20"],
+  [class*="bg-white/5"]
+) {
+  background: #f8fafc !important;
+}
+
+.fams-content .ant-card,
+.fams-content .ant-card[class*="bg-[#"] {
+  background: #ffffff !important;
+  border-color: var(--border-color) !important;
+}
+
+.fams-content :is([class*="border-white/10"], [class*="border-white/5"]),
+.ant-modal-root :is([class*="border-white/10"], [class*="border-white/5"]) {
+  border-color: var(--border-color) !important;
+}
+
+.fams-content :is(.text-white, .text-gray-100, .text-gray-200, .text-slate-100, .text-slate-200),
+.ant-modal-root :is(.text-white, .text-gray-100, .text-gray-200, .text-slate-100, .text-slate-200) {
+  color: var(--text-primary) !important;
+}
+
+.fams-content :is(.text-gray-300, .text-gray-400, .text-slate-300, .text-slate-400),
+.ant-modal-root :is(.text-gray-300, .text-gray-400, .text-slate-300, .text-slate-400) {
+  color: var(--text-secondary) !important;
+}
+
+.fams-content :is(.text-gray-500, .text-slate-500),
+.ant-modal-root :is(.text-gray-500, .text-slate-500) {
+  color: var(--text-muted) !important;
+}
+
+.fams-content [class*="text-[#34d399]"],
+.ant-modal-root [class*="text-[#34d399]"] {
+  color: var(--success-color) !important;
+}
+
+.fams-content [class*="text-[#f87171]"],
+.ant-modal-root [class*="text-[#f87171]"] {
+  color: var(--danger-color) !important;
+}
+
+.fams-content :is(
+  [class*="text-[#00BFFF]"],
+  [class*="text-[#38bdf8]"],
+  .text-sky-100,
+  .text-sky-200,
+  .text-sky-300,
+  .text-blue-100,
+  .text-blue-200
+),
+.ant-modal-root :is(
+  [class*="text-[#00BFFF]"],
+  [class*="text-[#38bdf8]"],
+  .text-sky-100,
+  .text-sky-200,
+  .text-sky-300,
+  .text-blue-100,
+  .text-blue-200
+) {
+  color: var(--info-color) !important;
+}
+
+.fams-content :is([class*="text-[#818cf8]"], .text-indigo-100),
+.ant-modal-root :is([class*="text-[#818cf8]"], .text-indigo-100) {
+  color: var(--primary-color) !important;
+}
+
+.fams-content :is(.text-emerald-100, .text-emerald-200, .text-emerald-300),
+.ant-modal-root :is(.text-emerald-100, .text-emerald-200, .text-emerald-300) {
+  color: var(--success-color) !important;
+}
+
+.fams-content :is(.text-red-100, .text-red-200, .text-red-300, .text-rose-100),
+.ant-modal-root :is(.text-red-100, .text-red-200, .text-red-300, .text-rose-100) {
+  color: var(--danger-color) !important;
+}
+
+.fams-content :is(
+  [class*="text-[#FAC858]"],
+  [class*="text-[#FBBF24]"],
+  .text-amber-100,
+  .text-amber-200,
+  .text-amber-300,
+  .text-yellow-200,
+  .text-yellow-300,
+  .text-yellow-400
+),
+.ant-modal-root :is(
+  [class*="text-[#FAC858]"],
+  [class*="text-[#FBBF24]"],
+  .text-amber-100,
+  .text-amber-200,
+  .text-amber-300,
+  .text-yellow-200,
+  .text-yellow-300,
+  .text-yellow-400
+) {
+  color: var(--warning-color) !important;
+}
+
+.fams-content .ant-card-head,
+.fams-content .ant-card-head-title,
+.ant-modal-root .ant-card-head,
+.ant-modal-root .ant-card-head-title {
+  color: var(--text-primary) !important;
+  border-bottom-color: var(--border-light) !important;
+}
+
+.fams-content .ant-statistic-title,
+.ant-modal-root .ant-statistic-title {
+  color: var(--text-secondary) !important;
+  font-weight: 600;
+}
+
+.fams-content .ant-statistic-content,
+.fams-content .ant-statistic-content-value,
+.ant-modal-root .ant-statistic-content,
+.ant-modal-root .ant-statistic-content-value {
+  color: var(--text-primary) !important;
+}
+
+.fams-content .ant-tag,
+.ant-modal-root .ant-tag {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px #cbd5e1;
+}
+
+.fams-content :is(.ant-collapse, .ant-collapse-content, .ant-descriptions-view),
+.ant-modal-root :is(.ant-collapse, .ant-collapse-content, .ant-descriptions-view) {
+  background: #ffffff !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.fams-content .ant-collapse-header,
+.fams-content .ant-collapse-content-box,
+.fams-content .ant-descriptions-item-content,
+.ant-modal-root .ant-collapse-header,
+.ant-modal-root .ant-collapse-content-box,
+.ant-modal-root .ant-descriptions-item-content {
+  color: var(--text-primary) !important;
+}
+
+.fams-content .ant-descriptions-item-label,
+.ant-modal-root .ant-descriptions-item-label {
+  background: #f8fafc !important;
+  color: var(--text-secondary) !important;
+}
+
+.fams-content :is(button, a, input, textarea, [role="button"]),
+.ant-modal-root :is(button, a, input, textarea, [role="button"]) {
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.fams-content :is(button, a, input, textarea, [role="button"]):focus-visible,
+.ant-modal-root :is(button, a, input, textarea, [role="button"]):focus-visible {
+  outline: 3px solid rgb(29 78 216 / 28%);
+  outline-offset: 2px;
+}
+
+/* 主色实心元素仍保持白字，避免全局文字修正误伤。 */
+.fams-content :is([class*="bg-[#5a6bff]"], [class*="bg-[#2563eb]"]):is(.text-white),
+.fams-content :is([class*="bg-[#5a6bff]"], [class*="bg-[#2563eb]"]) .text-white {
+  color: #ffffff !important;
 }
 
 .operations-page,
@@ -415,6 +621,11 @@ a:hover {
   background: var(--bg-primary) !important;
 }
 
+/* 窄屏已由顶部汉堡菜单控制导航，隐藏 Sider 的重复悬浮触发器。 */
+.ant-layout-sider-zero-width-trigger {
+  display: none !important;
+}
+
 .ant-card {
   color: var(--text-primary);
   border-radius: 10px;
@@ -517,5 +728,164 @@ a:hover {
   .fams-pressable:hover,
   .fams-pressable:active {
     transform: none;
+  }
+}
+
+/* 任务中心：light-first、摘要优先，技术内容按需展开 */
+.operations-page {
+  color: #0f172a;
+}
+
+.operations-page .ant-card,
+.operations-detail-modal .ant-card {
+  background: #ffffff !important;
+  border-color: #dbe3ee !important;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+
+.operations-page .ant-card-head,
+.operations-detail-modal .ant-card-head {
+  color: #0f172a !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+.operations-page .text-white,
+.operations-page .text-gray-200,
+.operations-detail-modal .text-white,
+.operations-detail-modal .text-gray-200 {
+  color: #0f172a !important;
+}
+
+.operations-page .text-gray-300,
+.operations-page .text-gray-400,
+.operations-detail-modal .text-gray-300,
+.operations-detail-modal .text-gray-400 {
+  color: #64748b !important;
+}
+
+.operations-page .text-red-100,
+.operations-detail-modal .text-red-100 {
+  color: #991b1b !important;
+}
+
+.operations-page .ant-card-body > .grid > div,
+.operations-detail-modal [class*="bg-[#"],
+.operations-page [class*="bg-[#"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.operations-page .ant-statistic-title {
+  color: #64748b !important;
+  font-weight: 600;
+}
+
+.operations-page .ant-statistic-content,
+.operations-page .ant-statistic-content-value {
+  color: #0f172a !important;
+}
+
+.operations-page .ant-table-wrapper {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.operations-page .ant-table-thead > tr > th {
+  background: #f8fafc !important;
+  color: #334155 !important;
+}
+
+.operations-advanced > summary {
+  list-style: none;
+}
+
+.operations-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.operations-advanced > summary::before {
+  display: inline-block;
+  margin-right: 8px;
+  color: #64748b;
+  content: '›';
+  transition: transform 180ms ease;
+}
+
+.operations-advanced[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.operations-detail-modal .ant-modal-content {
+  overflow: hidden;
+  border: 1px solid #dbe3ee;
+  box-shadow: 0 24px 80px rgb(15 23 42 / 18%);
+}
+
+.operations-detail-modal .ant-descriptions-bordered .ant-descriptions-item-label {
+  background: #f8fafc !important;
+  color: #475569 !important;
+}
+
+.operations-detail-modal pre {
+  max-height: 360px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+@media (max-width: 768px) {
+  .operations-advanced > summary span {
+    display: block;
+    margin: 4px 0 0 22px;
+  }
+}
+
+/* ChatBox：大工作区、摘要优先、细节折叠 */
+.fams-chat-drawer .ant-drawer-content-wrapper {
+  max-width: 100vw;
+  transition: width 180ms ease !important;
+}
+
+.fams-chat-drawer .ant-drawer-header-title {
+  min-width: 0;
+}
+
+.fams-chat-drawer .ant-drawer-body {
+  overflow: hidden;
+}
+
+.fams-chat-drawer details > summary {
+  list-style: none;
+}
+
+.fams-chat-drawer details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fams-chat-drawer details > summary::before {
+  display: inline-block;
+  margin-right: 7px;
+  color: #64748b;
+  content: '›';
+  transition: transform 180ms ease;
+}
+
+.fams-chat-drawer details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+@media (max-width: 768px) {
+  .fams-chat-drawer .ant-drawer-content-wrapper {
+    width: 100vw !important;
+  }
+
+  .fams-chat-drawer .ant-drawer-body {
+    padding: 12px !important;
+  }
+
+  .fams-chat-drawer .ant-drawer-extra .ant-btn > span:last-child {
+    display: none;
   }
 }

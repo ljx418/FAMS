@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>FAMS 每日持仓复盘功能验收</title>
+  <style>
+    :root {
+      --primary: #1d4ed8;
+      --primary-soft: #eaf1ff;
+      --success: #047857;
+      --success-soft: #e8f8f1;
+      --warning: #b45309;
+      --warning-soft: #fff6e5;
+      --danger: #b42318;
+      --danger-soft: #fff0ee;
+      --ink: #132238;
+      --text: #334155;
+      --muted: #64748b;
+      --line: #dbe4f0;
+      --canvas: #f3f6fb;
+      --surface: #ffffff;
+      --radius: 16px;
+      --shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: var(--canvas); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(29, 78, 216, 0.09), transparent 30%),
+        var(--canvas);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    button, input, textarea { font: inherit; }
+    button, .link-button { min-height: 44px; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
+      outline: 3px solid rgba(29, 78, 216, 0.25);
+      outline-offset: 2px;
+    }
+
+    .shell { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding: 26px 0 64px; }
+    .hero, .panel, .check-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .hero { padding: clamp(22px, 4vw, 38px); }
+    .eyebrow { color: var(--primary); font-size: 13px; font-weight: 800; letter-spacing: 0.08em; }
+    h1 { margin: 8px 0 12px; font-size: clamp(28px, 5vw, 44px); line-height: 1.18; }
+    h2, h3 { line-height: 1.32; }
+    .lead { max-width: 850px; margin: 0; color: var(--text); font-size: 18px; }
+    .scope-note {
+      margin-top: 20px;
+      padding: 15px 17px;
+      border: 1px solid #bcd0f5;
+      border-radius: 12px;
+      background: var(--primary-soft);
+      color: #173d86;
+    }
+    .scope-note strong { display: block; margin-bottom: 4px; }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+    button, .link-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 15px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      background: #fff;
+      cursor: pointer;
+      text-decoration: none;
+      transition: 160ms ease;
+    }
+    button:hover, .link-button:hover { transform: translateY(-1px); border-color: #9db2d3; }
+    .primary { color: #fff; background: var(--primary); border-color: var(--primary); }
+    .ghost-active { color: var(--primary); background: var(--primary-soft); border-color: #a9c2f4; }
+
+    .status-panel { margin-top: 18px; padding: 18px; }
+    .status-row { display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: 18px; align-items: center; }
+    .progress-track { height: 12px; overflow: hidden; border-radius: 999px; background: #e8edf5; }
+    .progress-bar { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2563eb, #047857); transition: width 220ms ease; }
+    .counts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; color: var(--muted); font-size: 14px; }
+    .pill { padding: 3px 9px; border-radius: 999px; background: #edf2f7; }
+    .pill.good { color: var(--success); background: var(--success-soft); }
+    .pill.bad { color: var(--danger); background: var(--danger-soft); }
+    .pill.warn { color: var(--warning); background: var(--warning-soft); }
+
+    .content { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 18px; margin-top: 18px; align-items: start; }
+    .checks { min-width: 0; }
+    .check-card { padding: clamp(18px, 3vw, 28px); margin-bottom: 16px; }
+    .check-card[hidden] { display: none; }
+    .check-head { display: flex; gap: 14px; align-items: flex-start; }
+    .number {
+      flex: 0 0 auto;
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border-radius: 13px;
+      color: var(--primary);
+      background: var(--primary-soft);
+      font-weight: 900;
+    }
+    .check-head h2 { margin: 0; font-size: 23px; }
+    .purpose { margin: 5px 0 0; color: var(--muted); }
+    .instruction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+    .instruction {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fafcff;
+    }
+    .instruction h3 { margin: 0 0 8px; font-size: 16px; }
+    .instruction ol, .instruction ul { margin: 0; padding-left: 22px; color: var(--text); }
+    .instruction li + li { margin-top: 6px; }
+    .shot-tip { margin-top: 14px; padding: 12px 14px; border-left: 4px solid #7c3aed; border-radius: 8px; background: #f5f1ff; color: #563198; }
+
+    .answer-area { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .answer-title { margin: 0 0 9px; font-weight: 800; }
+    .status-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .status-button[data-value="pass"].selected { color: var(--success); background: var(--success-soft); border-color: #75c5a7; }
+    .status-button[data-value="issue"].selected { color: var(--danger); background: var(--danger-soft); border-color: #e5a39c; }
+    .status-button[data-value="unknown"].selected { color: var(--warning); background: var(--warning-soft); border-color: #e6bd72; }
+    .note-label { display: block; margin-top: 14px; color: var(--text); font-weight: 700; }
+    textarea {
+      width: 100%;
+      min-height: 92px;
+      margin-top: 7px;
+      padding: 11px 12px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    .evidence { margin-top: 14px; padding: 14px; border: 1px dashed #aab8cc; border-radius: 12px; background: #fbfcfe; }
+    .evidence-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .evidence input { max-width: 100%; }
+    .evidence-help { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+    .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 12px; }
+    .thumb { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+    .thumb img { display: block; width: 100%; height: 96px; object-fit: cover; background: #eef2f7; }
+    .thumb-meta { padding: 7px 8px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+    .remove-shot { position: absolute; top: 5px; right: 5px; min-height: 30px; padding: 2px 8px; color: #fff; border: 0; background: rgba(15, 23, 42, 0.82); }
+
+    .pager { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; }
+    .pager small { align-self: center; color: var(--muted); }
+
+    .summary { position: sticky; top: 16px; padding: 19px; }
+    .summary h2 { margin: 0 0 8px; font-size: 20px; }
+    .summary-state { margin: 0 0 14px; color: var(--text); }
+    .summary textarea { min-height: 280px; font-size: 13px; line-height: 1.5; }
+    .summary-actions { display: grid; gap: 8px; margin-top: 10px; }
+    .feedback { min-height: 22px; margin: 8px 0 0; color: var(--success); font-size: 13px; }
+    .safety { margin-top: 14px; padding: 12px; border-radius: 10px; color: #7c2d12; background: #fff7ed; font-size: 13px; }
+
+    .footer { margin-top: 18px; color: var(--muted); text-align: center; font-size: 13px; }
+
+    @media (max-width: 880px) {
+      .content { grid-template-columns: 1fr; }
+      .summary { position: static; }
+      .summary textarea { min-height: 220px; }
+    }
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 18px, 1120px); padding-top: 10px; }
+      .instruction-grid, .status-buttons, .status-row { grid-template-columns: 1fr; }
+      .check-head h2 { font-size: 20px; }
+      .toolbar > *, .pager button { flex: 1 1 auto; }
+    }
+    @media print {
+      body { background: #fff; }
+      .shell { width: 100%; padding: 0; }
+      .hero, .panel, .check-card { box-shadow: none; }
+      .toolbar, .pager, .summary-actions, .remove-shot, .evidence input { display: none !important; }
+      .content { display: block; }
+      .check-card[hidden] { display: block; }
+      .summary { position: static; margin-top: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero" aria-labelledby="pageTitle">
+      <div class="eyebrow">FAMS · 每日持仓复盘功能</div>
+      <h1 id="pageTitle">你只需要实际操作、选择结果、附上截图</h1>
+      <p class="lead">本页只验收你要求的功能：持仓截图识别、最新价格和最近 30 个交易日收盘价、MA5/MA10/MA30 走势图、消息与策略变化、关注标的、人工交易网格，以及历史记录。</p>
+      <div class="scope-note">
+        <strong>这次不需要你找评审人员，也不需要邮箱、数据合同或发布会议。</strong>
+        不要输入 Token，不要修改数据库，不要运行命令，更不要测试真实下单。系统能力不足时选择“发现问题”，后续由 Codex 修复。
+      </div>
+      <div class="toolbar" aria-label="页面操作">
+        <a class="link-button primary" href="/" target="_blank" rel="noopener">打开 FAMS 系统</a>
+        <button id="guideMode" class="ghost-active" type="button">逐项检查</button>
+        <button id="allMode" type="button">全部展开</button>
+        <button id="printPage" type="button">打印当前结果</button>
+      </div>
+    </section>
+
+    <section class="panel status-panel" aria-label="验收进度">
+      <div class="status-row">
+        <div>
+          <strong id="progressText">0 / 8 已回答</strong>
+          <div class="progress-track" role="progressbar" aria-label="验收进度" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="counts" id="counts"></div>
+        </div>
+        <div id="currentLabel">当前：第 1 项</div>
+      </div>
+    </section>
+
+    <div class="content">
+      <section class="checks" id="checkList" aria-label="功能验收事项"></section>
+
+      <aside class="panel summary" aria-labelledby="summaryTitle">
+        <h2 id="summaryTitle">交给 Codex 的结果</h2>
+        <p class="summary-state" id="summaryState">还有 8 项未回答。</p>
+        <textarea id="resultText" readonly aria-label="可复制给 Codex 的验收结果"></textarea>
+        <div class="summary-actions">
+          <button class="primary" id="copyResult" type="button">复制文字结果</button>
+          <button id="downloadReport" type="button">下载带截图的 HTML 报告</button>
+          <button id="downloadJson" type="button">下载结果 JSON</button>
+          <button id="clearResult" type="button">清空并重新验收</button>
+        </div>
+        <p class="feedback" id="feedback" role="status"></p>
+        <div class="safety">截图只在当前页面内预览；点击“下载带截图的 HTML 报告”后，截图会嵌入下载文件。请把报告或原截图上传给 Codex，不要在说明中填写密码、Token、银行卡或证件信息。</div>
+      </aside>
+    </div>
+
+    <p class="footer">页面版本：daily-review-acceptance-2026.08.20-v2 · 本清单不是投资建议，也不授权创建或提交券商订单。</p>
+  </main>
+
+  <script>
+    const CHECKS = [
+      {
+        id: "entry",
+        title: "能找到每日持仓复盘入口",
+        purpose: "先确认普通用户不需要进技术页面就能开始。",
+        steps: [
+          "点击页面上方“打开 FAMS 系统”。",
+          "在系统右下角打开“FAMS 业务助手”。",
+          "查看欢迎任务卡和顶部安全提示。"
+        ],
+        expected: [
+          "能看到“生成当前持仓复盘”入口。",
+          "入口说明包含最新价、30 日收盘价和 MA5/MA10/MA30。",
+          "页面明确显示研究模式，且 ChatBox 不创建订单。"
+        ],
+        shot: "截取 ChatBox 打开后的完整画面，必须包含“生成当前持仓复盘”和“不创建订单”提示。"
+      },
+      {
+        id: "capture_upload",
+        title: "持仓截图可以安全上传并先看预览",
+        purpose: "确认截图不会在你不知情的情况下被识别或写入持仓。",
+        steps: [
+          "点击“选择持仓/成交/委托截图”，选择一张真实截图。",
+          "先查看视觉识别状态；绿色表示可用，橙色表示未配置但仍可私有保存。",
+          "先观察未勾选同意时的按钮状态。",
+          "如愿意进行本次测试，勾选一次性识别同意并点击“同意并识别，先看预览”。"
+        ],
+        expected: [
+          "支持 PNG、JPEG 或 WebP，且页面提示最大 10MB。",
+          "未明确同意时不能启动视觉识别。",
+          "未配置视觉模型时会明确提示，并允许只保存截图，不会假装识别成功。",
+          "识别后先出现预览窗口，不会立即改写持仓。"
+        ],
+        shot: "至少附一张选择截图后的界面；如已同意识别，再附一张识别预览窗口。请先遮挡账户号等敏感信息。"
+      },
+      {
+        id: "capture_confirm",
+        title: "识别结果可核对，确认后才保存",
+        purpose: "确认股票代码、数量、成本等信息不会静默误写。",
+        steps: [
+          "逐行核对代码、数量、平均成本、当前价和市值。",
+          "故意修改一个字段，点击“保存修改并重新校验”；不需要的行可以点“忽略此行”。",
+          "检查低置信度、字段错误或重复标的是否被标成不可直接确认。",
+          "只在内容正确时点击“确认写入可用行”，然后回到持仓页面核对。"
+        ],
+        expected: [
+          "预览显示可编辑字段、状态和置信度；保存修改后会重新校验。",
+          "忽略行不会写入台账，已确认行不能继续修改。",
+          "确认前持仓不变化；确认后只有已确认的可用行发生变化。",
+          "截图里没有出现的原有持仓不会被自动减仓、平仓或删除。"
+        ],
+        shot: "附识别预览和确认后的持仓对照图；重点保留代码、数量、成本和“不会自动关闭缺失持仓”的提示。"
+      },
+      {
+        id: "review_run",
+        title: "可以从聊天窗生成一次当前持仓复盘",
+        purpose: "确认每天开盘后或收盘前的核心操作能跑通。",
+        steps: [
+          "在 ChatBox 输入“现在生成一次当前持仓复盘”，或点击同名任务卡。",
+          "如果系统弹出确认，阅读内容后再确认执行。",
+          "等待结果完成，不要重复点击。"
+        ],
+        expected: [
+          "系统先确认再运行，不会把聊天文字当成真实订单。",
+          "结果显示完成、部分完成或失败，并给出已复盘资产数量。",
+          "数据不足的标的有明确错误原因，不会被伪装成完成。"
+        ],
+        shot: "截取确认操作和最终复盘结果顶部，需包含状态、资产数量和生成时间附近的信息。"
+      },
+      {
+        id: "price_ma_chart",
+        title: "最新价、30 日收盘价和均线图真实可读",
+        purpose: "确认最核心的行情计算和走势图没有缺项。",
+        steps: [
+          "逐个查看非现金持仓的走势图。",
+          "核对最新价格、行情时间和数据来源。",
+          "核对最近 30 个交易日收盘价，以及 MA5、MA10、MA30 的数值和曲线。"
+        ],
+        expected: [
+          "图表同时包含收盘价、MA5、MA10、MA30 四条序列。",
+          "30 日指交易日，不是简单的 30 个自然日；均线使用已完成日线计算。",
+          "行情过期、历史不足或某条均线无法计算时，页面明确提示，不能补假数据。"
+        ],
+        shot: "至少选择一个持仓，截取包含代码、最新价、数据时间、数据来源、MA 数值和完整图例的画面。"
+      },
+      {
+        id: "strategy_review",
+        title: "消息面、基本面和原策略变化说清楚",
+        purpose: "确认系统不是只画图，还会回答“原计划是否需要改变”。",
+        steps: [
+          "查看每个持仓的基本面与消息面结论。",
+          "查看系统是否和上一轮复盘、上一版投资策略进行比较。",
+          "检查调整或不调整的理由和证据引用。"
+        ],
+        expected: [
+          "结论明确区分：无实质变化、需要关注、重大变化或证据不足。",
+          "如果建议改变策略，说明变化事实、影响和失效条件；不改变也要说明理由。",
+          "消息或基本面证据不足时明确降级，不输出确定性买卖结论。"
+        ],
+        shot: "截取一个有代表性的持仓结论，必须包含变化等级、策略是否调整、理由和证据/数据不足提示。"
+      },
+      {
+        id: "targets_grid",
+        title: "关注标的与人工计划网格具体但不越权",
+        purpose: "确认建议可执行地供你参考，同时绝不替你向券商下单。",
+        steps: [
+          "查看需要重点关注的持仓或候选标的。",
+          "查看买入/卖出网格中的价格、数量、档位、有效期和理由。",
+          "对比上一轮网格，检查系统是否说明保留、上移、下移或暂停的原因。"
+        ],
+        expected: [
+          "关注标的注明来源和证据状态，不把候选池冒充必买清单。",
+          "网格是“人工计划草案”，会检查现金、持仓、最小交易单位、波动和已有委托冲突。",
+          "页面始终显示正式交易未解锁，不能创建、提交或自动执行订单。"
+        ],
+        shot: "截取关注标的和至少一组网格表，需包含买卖方向、价格、数量、调整原因及“正式交易未解锁”。"
+      },
+      {
+        id: "history_safety",
+        title: "历史记录能回看，异常情况不会胡编或下单",
+        purpose: "确认关闭页面后仍能找回结果，并验证失败时的安全表现。",
+        steps: [
+          "点击 ChatBox 中的“查看历史复盘”，确认刚完成的一轮出现在列表。",
+          "刷新系统或关闭再打开 ChatBox，再输入“查看最新持仓复盘”。",
+          "对比最新复盘中的持仓、行情快照和网格是否与刚才一致。",
+          "选择一个数据不足的标的或无效截图，观察错误提示。"
+        ],
+        expected: [
+          "最新复盘、持仓快照、行情快照、网格版本和截图确认记录可以回看。",
+          "错误输入不会覆盖正确历史；重复执行不会无提示地生成冲突数据。",
+          "缺数据时阻断或降级；任何情况下都不会创建真实券商订单。"
+        ],
+        shot: "附重新打开后的最新复盘，以及一次数据不足/无效输入的提示；画面中不要包含账户密码或 Token。"
+      }
+    ];
+
+    const STORAGE_KEY = "fams.daily-portfolio-review.human-checklist.v2";
+    const labels = { pass: "符合预期", issue: "发现问题", unknown: "看不懂/无法判断", pending: "未验收" };
+    const attachments = new Map(CHECKS.map(item => [item.id, []]));
+    let state = loadState();
+
+    function loadState() {
+      const fallback = { mode: "guide", current: 0, answers: {}, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+        if (!saved || typeof saved !== "object") return fallback;
+        return {
+          ...fallback,
+          ...saved,
+          current: Math.max(0, Math.min(CHECKS.length - 1, Number(saved.current) || 0)),
+          answers: saved.answers && typeof saved.answers === "object" ? saved.answers : {}
+        };
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveState() {
+      state.updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function answerFor(id) {
+      return state.answers[id] || { status: "", note: "" };
+    }
+
+    function counts() {
+      const values = CHECKS.map(item => answerFor(item.id).status);
+      return {
+        pass: values.filter(value => value === "pass").length,
+        issue: values.filter(value => value === "issue").length,
+        unknown: values.filter(value => value === "unknown").length,
+        answered: values.filter(Boolean).length,
+        pending: values.filter(value => !value).length,
+        screenshots: Array.from(attachments.values()).reduce((sum, list) => sum + list.length, 0)
+      };
+    }
+
+    function listMarkup(items, tag) {
+      return `<${tag}>${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</${tag}>`;
+    }
+
+    function renderCards() {
+      const root = document.getElementById("checkList");
+      root.innerHTML = CHECKS.map((item, index) => {
+        const answer = answerFor(item.id);
+        const hidden = state.mode === "guide" && index !== state.current ? " hidden" : "";
+        return `
+          <article class="check-card" data-check-id="${item.id}"${hidden}>
+            <div class="check-head">
+              <div class="number">${String(index + 1).padStart(2, "0")}</div>
+              <div>
+                <h2>${escapeHtml(item.title)}</h2>
+                <p class="purpose">${escapeHtml(item.purpose)}</p>
+              </div>
+            </div>
+            <div class="instruction-grid">
+              <section class="instruction">
+                <h3>你只需要这样做</h3>
+                ${listMarkup(item.steps, "ol")}
+              </section>
+              <section class="instruction">
+                <h3>看到这些才算通过</h3>
+                ${listMarkup(item.expected, "ul")}
+              </section>
+            </div>
+            <div class="shot-tip"><strong>截图要求：</strong>${escapeHtml(item.shot)}</div>
+            <div class="answer-area">
+              <p class="answer-title">你的检查结果</p>
+              <div class="status-buttons" role="group" aria-label="${escapeHtml(item.title)}的检查结果">
+                ${["pass", "issue", "unknown"].map(value => `
+                  <button type="button" class="status-button ${answer.status === value ? "selected" : ""}" data-status="${value}" aria-pressed="${answer.status === value}">${labels[value]}</button>
+                `).join("")}
+              </div>
+              <label class="note-label">补充说明（发现问题时请写清楚你点了什么、看到了什么）
+                <textarea data-note placeholder="例如：点击生成复盘后一直转圈；或 601127 的 MA30 没有显示。">${escapeHtml(answer.note || "")}</textarea>
+              </label>
+              <div class="evidence">
+                <div class="evidence-row">
+                  <strong>附上本项截图</strong>
+                  <input type="file" data-screenshot accept="image/png,image/jpeg,image/webp" multiple aria-label="为${escapeHtml(item.title)}附上截图">
+                </div>
+                <p class="evidence-help">每项最多 4 张、每张不超过 8MB。选择后只在本页预览；下载 HTML 报告时会一并嵌入。</p>
+                <div class="thumbs" data-thumbs></div>
+              </div>
+              <div class="pager">
+                <button type="button" data-prev ${index === 0 ? "disabled" : ""}>上一项</button>
+                <small>第 ${index + 1} 项，共 ${CHECKS.length} 项</small>
+                <button class="primary" type="button" data-next>${index === CHECKS.length - 1 ? "查看汇总" : "下一项"}</button>
+              </div>
+            </div>
+          </article>`;
+      }).join("");
+
+      root.querySelectorAll("[data-check-id]").forEach(card => {
+        const id = card.dataset.checkId;
+        card.querySelectorAll("[data-status]").forEach(button => {
+          button.addEventListener("click", () => {
+            const current = answerFor(id);
+            state.answers[id] = { ...current, status: button.dataset.status };
+            saveState();
+            render();
+          });
+        });
+        card.querySelector("[data-note]").addEventListener("input", event => {
+          const current = answerFor(id);
+          state.answers[id] = { ...current, note: event.target.value };
+          saveState();
+          updateSummary();
+        });
+        card.querySelector("[data-screenshot]").addEventListener("change", event => addScreenshots(id, event.target.files));
+        card.querySelector("[data-prev]").addEventListener("click", () => moveTo(Math.max(0, index - 1)));
+        card.querySelector("[data-next]").addEventListener("click", () => {
+          if (index < CHECKS.length - 1) moveTo(index + 1);
+          else document.querySelector(".summary").scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+        renderThumbs(id, card.querySelector("[data-thumbs]"));
+      });
+    }
+
+    function moveTo(index) {
+      state.current = Math.max(0, Math.min(CHECKS.length - 1, index));
+      state.mode = "guide";
+      saveState();
+      render();
+      document.querySelector(`[data-check-id="${CHECKS[state.current].id}"]`).scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function addScreenshots(id, fileList) {
+      const list = attachments.get(id) || [];
+      const candidates = Array.from(fileList || []).slice(0, Math.max(0, 4 - list.length));
+      for (const file of candidates) {
+        if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+          setFeedback(`${file.name} 不是支持的图片格式。`, true);
+          continue;
+        }
+        if (file.size > 8 * 1024 * 1024) {
+          setFeedback(`${file.name} 超过 8MB。`, true);
+          continue;
+        }
+        const dataUrl = await readFile(file);
+        list.push({ name: file.name, type: file.type, size: file.size, dataUrl });
+      }
+      attachments.set(id, list);
+      render();
+    }
+
+    function readFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderThumbs(id, root) {
+      const list = attachments.get(id) || [];
+      root.innerHTML = list.map((file, index) => `
+        <figure class="thumb">
+          <img src="${file.dataUrl}" alt="${escapeHtml(file.name)}的预览">
+          <button class="remove-shot" type="button" data-remove="${index}" aria-label="移除${escapeHtml(file.name)}">移除</button>
+          <figcaption class="thumb-meta">${escapeHtml(file.name)}<br>${(file.size / 1024).toFixed(0)} KB</figcaption>
+        </figure>
+      `).join("");
+      root.querySelectorAll("[data-remove]").forEach(button => {
+        button.addEventListener("click", () => {
+          list.splice(Number(button.dataset.remove), 1);
+          attachments.set(id, list);
+          render();
+        });
+      });
+    }
+
+    function resultText() {
+      const stats = counts();
+      const lines = [
+        "FAMS 每日持仓复盘功能人类验收结果",
+        "页面版本：daily-review-acceptance-2026.08.20-v2",
+        `更新时间：${new Date().toLocaleString("zh-CN", { hour12: false })}`,
+        `完成度：${stats.answered}/${CHECKS.length}；符合预期 ${stats.pass}；发现问题 ${stats.issue}；无法判断 ${stats.unknown}；未验收 ${stats.pending}`,
+        `已附截图：${stats.screenshots} 张`,
+        "",
+        "逐项结果："
+      ];
+      CHECKS.forEach((item, index) => {
+        const answer = answerFor(item.id);
+        const files = attachments.get(item.id) || [];
+        lines.push(`${index + 1}. ${item.title}：${labels[answer.status || "pending"]}`);
+        if (answer.note?.trim()) lines.push(`   说明：${answer.note.trim()}`);
+        if (files.length) lines.push(`   截图：${files.map(file => file.name).join("、")}`);
+      });
+      lines.push("", "请 Codex 接下来：");
+      if (stats.issue > 0) lines.push("- 优先复现并修复所有“发现问题”的项目，然后让我重测。 ");
+      if (stats.unknown > 0) lines.push("- 用普通中文解释“看不懂/无法判断”的项目，并简化页面。 ");
+      if (stats.pending > 0) lines.push("- 等我完成剩余项目，不要提前宣称验收通过。 ");
+      if (stats.answered === CHECKS.length && stats.issue === 0 && stats.unknown === 0) lines.push("- 结合截图和自动化测试做最终验收；若证据一致，再标记本功能验收通过。 ");
+      lines.push("", "固定安全边界：", "- 本结果不是投资建议或交易授权。", "- 不允许创建、提交或自动执行券商订单。", "- 截图未确认前不得改写持仓；截图缺失持仓不得自动关闭。 ");
+      return lines.join("\n");
+    }
+
+    function updateSummary() {
+      const stats = counts();
+      const progress = Math.round(stats.answered / CHECKS.length * 100);
+      document.getElementById("progressText").textContent = `${stats.answered} / ${CHECKS.length} 已回答`;
+      document.getElementById("progressBar").style.width = `${progress}%`;
+      const track = document.querySelector("[role=progressbar]");
+      track.setAttribute("aria-valuenow", String(stats.answered));
+      document.getElementById("counts").innerHTML = `
+        <span class="pill good">符合预期 ${stats.pass}</span>
+        <span class="pill bad">发现问题 ${stats.issue}</span>
+        <span class="pill warn">无法判断 ${stats.unknown}</span>
+        <span class="pill">截图 ${stats.screenshots}</span>`;
+      document.getElementById("currentLabel").textContent = state.mode === "guide" ? `当前：第 ${state.current + 1} 项` : "当前：全部展开";
+      document.getElementById("summaryState").textContent = stats.pending > 0
+        ? `还有 ${stats.pending} 项未回答。`
+        : stats.issue > 0
+          ? `已完成检查，发现 ${stats.issue} 项问题，需要 Codex 修复。`
+          : stats.unknown > 0
+            ? `已完成检查，有 ${stats.unknown} 项无法判断，需要 Codex 解释。`
+            : "8 项均符合预期，可以交给 Codex 做最终验收。";
+      document.getElementById("resultText").value = resultText();
+      document.getElementById("guideMode").classList.toggle("ghost-active", state.mode === "guide");
+      document.getElementById("allMode").classList.toggle("ghost-active", state.mode === "all");
+    }
+
+    function render() {
+      renderCards();
+      updateSummary();
+    }
+
+    function setFeedback(message, isError = false) {
+      const target = document.getElementById("feedback");
+      target.textContent = message;
+      target.style.color = isError ? "var(--danger)" : "var(--success)";
+      window.setTimeout(() => { if (target.textContent === message) target.textContent = ""; }, 5000);
+    }
+
+    async function copyResult() {
+      const text = resultText();
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const textarea = document.getElementById("resultText");
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+      }
+      setFeedback("验收文字已经复制，可以直接发给 Codex。");
+    }
+
+    function downloadBlob(filename, content, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function dateStamp() {
+      const now = new Date();
+      return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
+    }
+
+    function downloadJson() {
+      const payload = {
+        schemaVersion: "fams.daily-review-human-acceptance.v1",
+        generatedAt: new Date().toISOString(),
+        answers: CHECKS.map(item => ({
+          id: item.id,
+          title: item.title,
+          status: answerFor(item.id).status || "pending",
+          note: answerFor(item.id).note || "",
+          screenshots: (attachments.get(item.id) || []).map(file => ({ name: file.name, type: file.type, size: file.size }))
+        })),
+        safetyBoundary: { createsOrder: false, autoTrade: false, screenshotConfirmationRequired: true, missingHoldingAutoClose: false }
+      };
+      downloadBlob(`fams-daily-review-acceptance-${dateStamp()}.json`, JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+      setFeedback("JSON 结果已经下载。截图请使用 HTML 报告或单独上传。");
+    }
+
+    function reportHtml() {
+      const sections = CHECKS.map((item, index) => {
+        const answer = answerFor(item.id);
+        const files = attachments.get(item.id) || [];
+        return `
+          <section>
+            <h2>${index + 1}. ${escapeHtml(item.title)} — ${escapeHtml(labels[answer.status || "pending"])}</h2>
+            <p><strong>说明：</strong>${escapeHtml(answer.note || "无")}</p>
+            <div class="shots">${files.length ? files.map(file => `<figure><img src="${file.dataUrl}" alt="${escapeHtml(file.name)}"><figcaption>${escapeHtml(file.name)}</figcaption></figure>`).join("") : "<p>未附截图</p>"}</div>
+          </section>`;
+      }).join("");
+      return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>FAMS 每日持仓复盘验收报告</title><style>body{max-width:1100px;margin:30px auto;padding:0 18px;color:#132238;font:16px/1.6 "Microsoft YaHei",sans-serif;background:#f3f6fb}header,section{margin:14px 0;padding:20px;border:1px solid #dbe4f0;border-radius:14px;background:#fff}pre{white-space:pre-wrap;overflow-wrap:anywhere}.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.shots figure{margin:0}.shots img{width:100%;max-height:520px;object-fit:contain;border:1px solid #dbe4f0;background:#eef2f7}.shots figcaption{color:#64748b;font-size:13px}</style></head><body><header><h1>FAMS 每日持仓复盘功能人类验收报告</h1><pre>${escapeHtml(resultText())}</pre></header>${sections}<section><strong>安全边界：</strong>本报告不是投资建议或交易授权；系统不得创建、提交或自动执行券商订单。</section></body></html>`;
+    }
+
+    function downloadReport() {
+      downloadBlob(`fams-daily-review-acceptance-with-screenshots-${dateStamp()}.html`, reportHtml(), "text/html;charset=utf-8");
+      setFeedback("带截图的 HTML 报告已经下载，请把该文件上传给 Codex。");
+    }
+
+    document.getElementById("guideMode").addEventListener("click", () => { state.mode = "guide"; saveState(); render(); });
+    document.getElementById("allMode").addEventListener("click", () => { state.mode = "all"; saveState(); render(); });
+    document.getElementById("printPage").addEventListener("click", () => window.print());
+    document.getElementById("copyResult").addEventListener("click", copyResult);
+    document.getElementById("downloadJson").addEventListener("click", downloadJson);
+    document.getElementById("downloadReport").addEventListener("click", downloadReport);
+    document.getElementById("clearResult").addEventListener("click", () => {
+      if (!window.confirm("确定清空所有选择、说明和当前页面中的截图吗？")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      attachments.forEach((_, key) => attachments.set(key, []));
+      state = loadState();
+      render();
+      setFeedback("已清空，可以重新开始验收。");
+    });
+
+    render();
+  </script>
+</body>
+</html>

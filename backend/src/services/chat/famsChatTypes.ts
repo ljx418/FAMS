@@ -8,6 +8,8 @@ export type FamsChatIntent =
   | 'dividend_low_vol_plan_draft'
   | 'refresh_data'
   | 'portfolio_summary'
+  | 'daily_review_latest'
+  | 'daily_review_run'
   | 'portfolio_risk_explain'
   | 'portfolio_backtest_compare'
   | 'portfolio_backtest_operation'
@@ -60,6 +62,59 @@ export interface FamsChatChartPayload {
   series: FamsChatChartSeries[]
 }
 
+export interface FamsDailyReviewStructuredDetails {
+  reviewId: string
+  generatedAt: string
+  completedAt?: string
+  sessionType: string
+  strategyAssessment: {
+    status: string
+    conclusion: string
+    reasons: string[]
+  } | null
+  assets: Array<{
+    assetId: string
+    symbol: string
+    name: string
+    quote: {
+      price: number | null
+      asOf: string | null
+      source: string | null
+      currency: string | null
+      latestClose: number | null
+      latestCloseDate: string | null
+      ma5: number | null
+      ma10: number | null
+      ma30: number | null
+      dataQualityStatus: string | null
+    }
+    materialChange: {
+      level: string
+      reasons: string[]
+      evidenceRefs: string[]
+    }
+    recommendation: {
+      action: string
+      confidence: string
+      reasons: string[]
+      risks: string[]
+    }
+    grid: {
+      strategySource: string
+      templateId: string
+      mode: string
+      status: string
+      summary: string
+      validUntil: string | null
+      blockers: string[]
+      adjustment: { changed: boolean; reasons: string[]; previousPlanId?: string | null }
+      orders: Array<Record<string, string | number | null>>
+    }
+  }>
+  attentionCandidates: Array<Record<string, string | number | null>>
+  executionBoundary: Record<string, boolean>
+}
+
 export interface FamsChatStructuredResult {
   answerLevel?: 'plain_language'
   summary?: string
@@ -73,6 +128,7 @@ export interface FamsChatStructuredResult {
     | 'candidate_ranking'
     | 'trading_zone'
     | 'portfolio_summary'
+    | 'daily_review'
     | 'operation_status'
     | 'blocked_action'
     | 'plain_text'
@@ -84,6 +140,7 @@ export interface FamsChatStructuredResult {
   }
   charts: FamsChatChartPayload[]
   dataQualitySummary?: Record<string, unknown>
+  dailyReview?: FamsDailyReviewStructuredDetails
   evidenceRefs: string[]
   blockedReasons: string[]
   notTradingAdvice: true
@@ -113,6 +170,10 @@ export interface FamsChatResponse {
     runtimeAvailable: boolean
     nodeVersion: string
     llm?: Record<string, unknown>
+    summarySynthesis?: {
+      source: 'llm' | 'deterministic'
+      model?: string
+    }
     note: string
   }
   notTradingAdvice: true

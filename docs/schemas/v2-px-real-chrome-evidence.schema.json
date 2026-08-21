@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-real-chrome-evidence.schema.json",
+  "title": "V2-PX Real Chrome Evidence Contract",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "mode",
+    "chromeVersion",
+    "extensionId",
+    "commitSha",
+    "routeId",
+    "pageUrls",
+    "viewports",
+    "screenshots",
+    "traceRefs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "v2-px-real-chrome-evidence/1"
+    },
+    "mode": {
+      "const": "real_chrome"
+    },
+    "chromeVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "extensionId": {
+      "type": "string",
+      "pattern": "^[a-p]{32}$"
+    },
+    "commitSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "routeId": {
+      "type": "string",
+      "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$"
+    },
+    "pageUrls": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "string",
+        "pattern": "^chrome-extension://[a-p]{32}/.+"
+      }
+    },
+    "viewports": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["width", "height"],
+        "additionalProperties": false,
+        "properties": {
+          "width": { "type": "integer", "enum": [360, 420, 768, 1280] },
+          "height": { "type": "integer", "minimum": 480, "maximum": 1600 }
+        }
+      }
+    },
+    "screenshots": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "capturedAt", "container", "viewport", "routeId"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "pattern": "^.+\\.(png|jpg|jpeg)$" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "capturedAt": { "type": "string", "format": "date-time" },
+          "container": { "type": "string", "enum": ["sidepanel", "workspace_page"] },
+          "viewport": {
+            "type": "object",
+            "required": ["width", "height"],
+            "additionalProperties": false,
+            "properties": {
+              "width": { "type": "integer", "enum": [360, 420, 768, 1280] },
+              "height": { "type": "integer", "minimum": 480, "maximum": 1600 }
+            }
+          },
+          "routeId": { "type": "string", "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$" }
+        }
+      }
+    },
+    "traceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "startedAt", "endedAt"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "pattern": "^.+\\.(json|zip)$" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "endedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
+

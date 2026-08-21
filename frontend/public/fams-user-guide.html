@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>FAMS 使用指南与学习检查</title>
+  <style>
+    :root {
+      --page: #f3f6fb;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --ink: #102033;
+      --muted: #52657d;
+      --line: #d8e1ec;
+      --line-strong: #bac8d9;
+      --primary: #1d4ed8;
+      --primary-hover: #1e40af;
+      --primary-soft: #e8f0ff;
+      --success: #047857;
+      --success-soft: #e8f7f1;
+      --warning: #a14b05;
+      --warning-soft: #fff4df;
+      --danger: #b42318;
+      --danger-soft: #fff0ee;
+      --neutral-soft: #eef2f7;
+      --shadow: 0 10px 28px rgba(38, 56, 78, 0.08);
+      --radius: 14px;
+      --body-size: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--page); scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--page);
+      font: var(--body-size)/1.65 "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      text-wrap: pretty;
+    }
+    body.large-text { --body-size: 18px; }
+    button, input, textarea { font: inherit; }
+    button, a.action-link { min-height: 44px; }
+    button { cursor: pointer; }
+    button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible {
+      outline: 3px solid rgba(29, 78, 216, 0.28);
+      outline-offset: 2px;
+    }
+    a { color: var(--primary); }
+    .shell { width: min(1240px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 72px; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(186, 200, 217, 0.85);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(12px);
+    }
+    .topbar-inner {
+      width: min(1240px, calc(100% - 32px));
+      min-height: 64px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0.02em; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; color: #fff; background: var(--primary); }
+    .top-actions, .filter-row, .status-buttons, .card-actions, .summary-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .button, button, .action-link {
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      padding: 9px 14px;
+      color: var(--ink);
+      background: #fff;
+      text-decoration: none;
+      transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+    }
+    .button:hover, button:hover, .action-link:hover { border-color: var(--primary); background: var(--primary-soft); }
+    .button:active, button:active, .action-link:active { transform: translateY(1px); }
+    .primary { color: #fff !important; border-color: var(--primary) !important; background: var(--primary) !important; }
+    .primary:hover { border-color: var(--primary-hover) !important; background: var(--primary-hover) !important; }
+    .danger-button { color: var(--danger); border-color: #efb2ac; background: var(--danger-soft); }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
+      gap: 20px;
+      margin-top: 18px;
+    }
+    .hero-main, .safety-panel, .summary-panel, .baseline-panel, .issue-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .hero-main { padding: clamp(24px, 5vw, 48px); }
+    .eyebrow { margin: 0 0 10px; color: var(--primary); font-size: 14px; font-weight: 800; letter-spacing: 0.08em; }
+    h1 { max-width: 820px; margin: 0; font-size: clamp(32px, 5vw, 58px); line-height: 1.12; letter-spacing: -0.035em; }
+    .hero-copy { max-width: 780px; margin: 18px 0 0; color: var(--muted); font-size: clamp(17px, 2vw, 20px); }
+    .hero-note { margin: 24px 0 0; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); }
+    .safety-panel { padding: 24px; border-color: #efb2ac; background: var(--danger-soft); box-shadow: none; }
+    .safety-panel h2 { margin-top: 0; font-size: 20px; }
+    .safety-panel ul { margin: 0; padding-left: 22px; }
+    .safety-panel li + li { margin-top: 8px; }
+    .section { margin-top: 28px; }
+    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 14px; }
+    .section-head h2 { margin: 0; font-size: clamp(24px, 3vw, 32px); line-height: 1.25; }
+    .section-head p { margin: 5px 0 0; color: var(--muted); }
+    .summary-panel { padding: 20px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(7, minmax(100px, 1fr)); gap: 10px; }
+    .stat { min-height: 92px; padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
+    .stat-label { color: var(--muted); font-size: 13px; }
+    .stat-value { margin-top: 5px; font-size: 26px; font-weight: 800; line-height: 1.1; }
+    .progress-track { height: 12px; margin-top: 16px; overflow: hidden; border-radius: 999px; background: #e5eaf1; }
+    .progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--primary); transition: width 220ms ease; }
+    .summary-actions { justify-content: space-between; margin-top: 16px; }
+    .filter-row { padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+    .filter-button[aria-pressed="true"] { color: #fff; border-color: var(--primary); background: var(--primary); }
+    .baseline-panel { padding: 20px; }
+    .baseline-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .baseline-item { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
+    .baseline-item strong { display: block; font-size: 22px; }
+    .baseline-item span { color: var(--muted); font-size: 14px; }
+    .baseline-meta { margin: 14px 0 0; color: var(--muted); font-size: 14px; }
+    .journey-list { display: grid; gap: 14px; }
+    .journey-card { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+    .journey-card[open] { border-color: var(--line-strong); }
+    .journey-summary { list-style: none; padding: 20px; cursor: pointer; }
+    .journey-summary::-webkit-details-marker { display: none; }
+    .summary-grid { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 15px; align-items: center; }
+    .journey-number { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 11px; color: var(--primary); background: var(--primary-soft); font-weight: 800; }
+    .journey-title { margin: 0; font-size: 20px; line-height: 1.35; }
+    .journey-purpose { margin: 5px 0 0; color: var(--muted); }
+    .pill-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 390px; }
+    .pill { display: inline-flex; min-height: 28px; align-items: center; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .pill.verified, .pill.learned { color: var(--success); background: var(--success-soft); }
+    .pill.manual, .pill.skipped { color: var(--warning); background: var(--warning-soft); }
+    .pill.placeholder, .pill.pending { color: #475569; background: var(--neutral-soft); }
+    .pill.blocked, .pill.issue, .pill.danger { color: var(--danger); background: var(--danger-soft); }
+    .pill.readonly, .pill.local-write, .pill.background-task { color: var(--primary); background: var(--primary-soft); }
+    .journey-body { padding: 0 20px 22px; border-top: 1px solid var(--line); }
+    .baseline-note { margin: 16px 0; padding: 12px 14px; border-radius: 10px; color: var(--muted); background: var(--surface-soft); }
+    .instruction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .instruction { padding: 16px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
+    .instruction h3 { margin: 0 0 9px; font-size: 16px; }
+    .instruction ol, .instruction ul { margin: 0; padding-left: 22px; }
+    .instruction li + li { margin-top: 7px; }
+    .problem-box { margin-top: 14px; padding: 14px 16px; border-radius: 10px; color: var(--warning); background: var(--warning-soft); }
+    .problem-box strong { color: var(--ink); }
+    .check-area { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .check-area h3 { margin: 0 0 10px; }
+    .status-button[aria-pressed="true"] { color: #fff; border-color: var(--primary); background: var(--primary); }
+    .status-button[data-status="issue"][aria-pressed="true"] { border-color: var(--danger); background: var(--danger); }
+    .status-button[data-status="skipped"][aria-pressed="true"] { border-color: var(--warning); background: var(--warning); }
+    .note-label { display: block; margin-top: 13px; color: var(--muted); font-weight: 700; }
+    textarea { width: 100%; min-height: 96px; margin-top: 7px; resize: vertical; border: 1px solid var(--line-strong); border-radius: 9px; padding: 12px; color: var(--ink); background: #fff; }
+    .evidence { margin-top: 13px; padding: 14px; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--surface-soft); }
+    .evidence-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+    .evidence-help { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+    .thumbs { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
+    .thumb { position: relative; margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+    .thumb img { width: 100%; height: 130px; display: block; object-fit: contain; background: #eef2f7; }
+    .thumb figcaption { margin-top: 5px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+    .remove-shot { position: absolute; top: 12px; right: 12px; min-height: 34px; padding: 5px 9px; color: var(--danger); border-color: #efb2ac; background: rgba(255,255,255,0.96); }
+    .empty { padding: 34px; text-align: center; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: var(--radius); background: var(--surface); }
+    .issue-panel { padding: 20px; }
+    .issue-list { display: grid; gap: 10px; }
+    .issue-item { padding: 14px; border: 1px solid #efb2ac; border-radius: 10px; background: var(--danger-soft); }
+    .issue-item h3 { margin: 0 0 5px; font-size: 16px; }
+    .issue-item p { margin: 0; color: var(--muted); white-space: pre-wrap; }
+    .footer-note { margin: 28px 0 0; color: var(--muted); text-align: center; }
+    .feedback { min-height: 24px; margin-top: 8px; color: var(--success); font-weight: 700; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; }
+      .stat-grid { grid-template-columns: repeat(3, 1fr); }
+      .baseline-grid { grid-template-columns: repeat(2, 1fr); }
+      .summary-grid { grid-template-columns: 48px minmax(0, 1fr); }
+      .pill-row { grid-column: 1 / -1; justify-content: flex-start; max-width: none; }
+    }
+    @media (max-width: 680px) {
+      .shell, .topbar-inner { width: min(100% - 20px, 1240px); }
+      .topbar-inner { align-items: flex-start; padding: 10px 0; }
+      .top-actions { justify-content: flex-end; }
+      .top-actions .secondary-action { display: none; }
+      .hero-main, .safety-panel { padding: 20px; }
+      .stat-grid, .baseline-grid, .instruction-grid { grid-template-columns: 1fr; }
+      .stat { min-height: 78px; }
+      .summary-actions { align-items: stretch; }
+      .summary-actions > * { width: 100%; }
+      .filter-row > button { flex: 1 1 46%; }
+      .journey-summary { padding: 16px; }
+      .journey-body { padding: 0 16px 18px; }
+      .summary-grid { grid-template-columns: 42px minmax(0, 1fr); gap: 11px; }
+      .journey-number { width: 42px; height: 42px; }
+      .journey-title { font-size: 18px; }
+      .status-buttons button { flex: 1 1 44%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+    @media print {
+      .topbar, .filter-row, .summary-actions, .card-actions, .status-buttons, .evidence input, .remove-shot { display: none !important; }
+      body { background: #fff; }
+      .shell { width: 100%; padding: 0; }
+      .hero, .instruction-grid { grid-template-columns: 1fr; }
+      .journey-card { break-inside: avoid; box-shadow: none; }
+      .journey-card .journey-body { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <script id="route-manifest" type="application/json">["/","/dashboard","/assets","/positions","/daily-reviews","/daily-reviews/:reviewId","/fund/:code","/stock/:code","/transactions","/analysis","/dividend-low-vol","/alerts","/operations","/backtest","/portfolios"]</script>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">F</span><span>FAMS 使用指南</span></div>
+      <div class="top-actions">
+        <a class="action-link primary" href="/dashboard" target="_blank" rel="noreferrer">打开系统</a>
+        <button class="secondary-action" id="fontToggle" type="button">放大文字</button>
+        <button class="secondary-action" id="printGuide" type="button">打印</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero" aria-labelledby="pageTitle">
+      <div class="hero-main">
+        <p class="eyebrow">明天从这里重新认识系统</p>
+        <h1 id="pageTitle">不用一次学完。先掌握每天真正会用到的 6 条路径。</h1>
+        <p class="hero-copy">每一项都告诉你“点哪里、看什么、什么算正常”。你完成后选择结果、写备注并附截图，页面会自动整理成可以交给 Codex 的验收报告。</p>
+        <p class="hero-note">系统仍按“资产与组合、策略研究、执行治理”保留完整能力；你明天只按这条顺序学习：总览 → ChatBox 持仓复盘 → 截图导入 → 仓位核对 → 分析摘要 → 风险与交易边界。</p>
+      </div>
+      <aside class="safety-panel" aria-label="固定安全边界">
+        <h2>先记住三件事</h2>
+        <ul>
+          <li>系统只提供研究、观察和人工计划草案。</li>
+          <li>ADD、REDUCE、ORDER_CREATE、AUTO_TRADE 仍被阻断，不会自动下单。</li>
+          <li>截图确认前不改写台账；截图里缺少某项持仓，不会自动减仓或平仓。</li>
+        </ul>
+      </aside>
+    </section>
+
+    <section class="section" aria-labelledby="progressTitle">
+      <div class="section-head">
+        <div><h2 id="progressTitle">你的学习进度</h2><p>选择结果后立即保存，不需要额外提交。</p></div>
+      </div>
+      <div class="summary-panel">
+        <div class="stat-grid" id="stats"></div>
+        <div class="progress-track" role="progressbar" aria-label="学习完成度" aria-valuemin="0" aria-valuemax="16" aria-valuenow="0">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="summary-actions">
+          <div class="card-actions">
+            <button class="primary" id="nextPending" type="button">继续下一项</button>
+            <button id="copySummary" type="button">复制结果摘要</button>
+          </div>
+          <div class="card-actions">
+            <button id="downloadReport" type="button">下载带截图 HTML</button>
+            <button id="downloadJson" type="button">下载 JSON</button>
+            <button class="danger-button" id="resetGuide" type="button">清空进度</button>
+          </div>
+        </div>
+        <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="baselineTitle">
+      <div class="section-head">
+        <div><h2 id="baselineTitle">系统预检基线</h2><p>这是只读遍历结果，不代表后台任务或投资结论已经得到验证。</p></div>
+      </div>
+      <div class="baseline-panel">
+        <div class="baseline-grid" id="baselineStats"></div>
+        <p class="baseline-meta">检查环境：当前工作区 · http://localhost:3000 · 检查日期 2026-08-20。会写入业务数据或启动任务的按钮仅核对入口和安全提示。</p>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="journeyTitle">
+      <div class="section-head">
+        <div><h2 id="journeyTitle">逐项学习与检查</h2><p>默认只显示明天必学内容；需要时再展开全部功能。</p></div>
+      </div>
+      <nav class="filter-row" aria-label="学习路径筛选">
+        <button class="filter-button" type="button" data-filter="essential" aria-pressed="true">明天必学</button>
+        <button class="filter-button" type="button" data-filter="daily" aria-pressed="false">日常使用</button>
+        <button class="filter-button" type="button" data-filter="advanced" aria-pressed="false">高级功能</button>
+        <button class="filter-button" type="button" data-filter="issues" aria-pressed="false">只看问题</button>
+        <button class="filter-button" type="button" data-filter="all" aria-pressed="false">全部路径</button>
+      </nav>
+      <div class="journey-list" id="journeyList"></div>
+    </section>
+
+    <section class="section" aria-labelledby="issueTitle">
+      <div class="section-head">
+        <div><h2 id="issueTitle">问题汇总</h2><p>标记“遇到问题”的项目会自动集中到这里。</p></div>
+      </div>
+      <div class="issue-panel"><div class="issue-list" id="issueList"></div></div>
+    </section>
+
+    <p class="footer-note">本指南不是投资建议或交易授权。正式交易功能未解锁。</p>
+  </main>
+
+  <script>
+    const JOURNEYS = [
+      {
+        id: "start_dashboard", number: "01", tier: "essential", route: "/dashboard", openUrl: "/dashboard",
+        title: "先看总览，确认系统和持仓数据已经出现", purpose: "你先建立全局认识，不需要理解所有指标。",
+        risk: "readonly", baseline: "verified", baselineNote: "总览路由、核心统计、主要持仓、工作台按钮和 ChatBox 入口均已只读核对。",
+        steps: ["点击“打开页面”，进入总览。", "确认页面能看到总市值、总成本、浮动盈亏、现金仓位、持仓数量和告警状态。", "向下查看资产配置和主要持仓；先不要根据红绿数字做交易决定。"],
+        expected: ["页面标题为“总览”，没有整页空白或持续加载。", "主要持仓与资产/仓位页面使用同一套持仓口径。", "页面明确建议从 ChatBox 和工作台开始。"],
+        problems: "如果总市值为 0、主要持仓为空或一直加载，先记录截图，不要继续依赖后续分析。",
+        screenshot: "截取顶部统计和主要持仓区域，不要包含账户密码或 Token。"
+      },
+      {
+        id: "chatbox_daily_review", number: "02", tier: "essential", route: "/dashboard", openUrl: "/dashboard",
+        title: "用 ChatBox 生成当前持仓复盘", purpose: "这是开盘后、收盘前最常用的入口。",
+        risk: "background-task", baseline: "manual", baselineNote: "ChatBox、历史复盘和 6 个快捷问题入口已核对；生成复盘会调用模型和数据服务，需要你亲自确认结果。",
+        steps: ["点击页面右下角 ChatBox，并切换到大窗口。", "选择“生成当前持仓复盘”，或输入“现在生成一次当前持仓复盘”。", "先读最上方简明摘要，再依次看风险、关注标的、MA5/MA10/MA30、人工计划网格和数据可信度。", "需要追溯时点击“查看历史复盘”。"],
+        expected: ["快捷入口完整显示：生成当前持仓复盘、对比组合策略、看红利低波候选、解释为什么不能交易、查看任务和审计、解释单票观察区间。", "优先出现简短结论，不要求你从原始 JSON 中自己总结。", "行情、均线、消息/基本面变化和网格调整原因可以区分。", "技术细节默认折叠；缺数据时明确降级或阻断。"],
+        problems: "如果只出现大段技术结果、没有摘要，或价格时间/来源不清楚，请标记问题并截图。",
+        screenshot: "截取摘要、至少一个标的走势图和一组网格；画面应包含“正式交易未解锁”。"
+      },
+      {
+        id: "screenshot_ledger", number: "03", tier: "essential", route: "/dashboard", openUrl: "/dashboard",
+        title: "上传持仓、成交或委托截图并人工确认", purpose: "让系统从截图获取信息，但写入前始终由你核对。",
+        risk: "local-write", baseline: "manual", baselineNote: "文件类型、10MB 限制、私有保存、单次视觉授权、预览纠错和确认入口已核对；没有替你写入真实台账。",
+        steps: ["展开 ChatBox 的“导入截图（持仓 / 成交 / 委托）”。", "选择 PNG、JPEG 或 WebP 图片；不需要识别时选择“仅私有保存”。", "需要识别时，勾选仅本次视觉模型授权，再检查逐行预览。", "修改错误字段，只确认确实可用的行；确认前不要关闭预览。"],
+        expected: ["未授权时截图不会发送给视觉模型。", "识别结果先预览，确认前不写入台账。", "截图没有显示的现有持仓只提示差异，不会自动平仓。"],
+        problems: "识别字段错误但无法修改、未确认就写入、或缺失持仓被自动关闭，都属于严重问题。",
+        screenshot: "附原截图的脱敏版本和识别预览；遮住姓名、账号、手机号和券商流水号。"
+      },
+      {
+        id: "daily_reviews", number: "04", tier: "daily", route: "/daily-reviews · /daily-reviews/:reviewId", openUrl: "/daily-reviews",
+        title: "在每日复盘页面回看历史和单次详情", purpose: "把 ChatBox 生成的复盘按时间留存，并查看一轮复盘的完整证据。",
+        risk: "background-task", baseline: "verified", baselineNote: "历史复盘列表、详情路由、场次/状态筛选、资产趋势、工作流和启动新复盘入口已从当前页面实现核对；未替你启动新任务。",
+        steps: ["打开“每日复盘”，先阅读当前最新一轮的状态、生成时间和组合摘要。", "点击“历史复盘”，按开盘后、收盘前、手动场次和完成状态筛选。", "选择一条历史记录后，确认地址变为 /daily-reviews/复盘ID，并查看资产趋势、MA5/MA10/MA30、网格、风险和工作流。", "只有确实需要新结果时才选择场次并启动复盘；这会创建后台任务。"],
+        expected: ["历史列表与单次详情使用同一个复盘 ID，可回到当时的持仓、行情和策略快照。", "完整、部分、阻断、空状态和已锁定节点可以区分。", "缺失数据和失败节点明确说明，不用当前数据偷偷覆盖历史结果。", "复盘结果仍是研究与人工计划，不创建正式订单。"],
+        problems: "历史记录点开后内容错位、刷新后复盘 ID 丢失、均线没有样本/质量说明或历史结果被当前数据覆盖时标记问题。",
+        screenshot: "截取历史复盘列表、详情页地址和至少一个资产的 MA/数据质量区域。"
+      },
+      {
+        id: "assets_ledger", number: "05", tier: "daily", route: "/assets", openUrl: "/assets",
+        title: "维护资产列表和价格", purpose: "资产管理是导入、编辑、导出和快捷记账的统一入口。",
+        risk: "local-write", baseline: "verified", baselineNote: "资产列表、交易记录、导入三个页签及模板、导入、导出、刷新、编辑、标签、记账入口已只读核对。",
+        steps: ["先查看资产列表中的代码、现价、价格时间、来源、成本、市值和盈亏。", "需要导入时先下载模板，再选择 Excel，检查预览后才确认。", "需要更新时点击刷新价格，并留意失败明细和 Provider 健康度。", "编辑、标签、快捷记账会保存业务数据；删除和清空数据库只认识位置，不要练习执行。"],
+        expected: ["导入前有预览，导出可以生成文件。", "价格同时显示时间和来源，失败不会伪造价格。", "删除有确认；清空数据库要求输入 Delete。"],
+        problems: "价格没有时间/来源、Excel 未预览就写入、或危险操作没有明确确认都需要记录。",
+        screenshot: "截取资产列表的价格时间和来源；如测试导入，再附预览窗口。"
+      },
+      {
+        id: "positions", number: "06", tier: "essential", route: "/positions", openUrl: "/positions",
+        title: "用仓位管理核对仓位、目标比例和资产详情", purpose: "确认系统理解的持仓与真实账户一致。",
+        risk: "local-write", baseline: "verified", baselineNote: "仓位卡、目标设置、明细、手工新增、Excel 导入、刷新价格和详情入口已只读核对。",
+        steps: ["核对总仓位价值和仓位数量。", "打开每个仓位卡的资产明细，检查代码、数量、市值和盈亏。", "齿轮用于修改目标仓位；没有明确计划时不要改。", "点击股票代码查看详情；新增持仓或 Excel 导入会写入台账。"],
+        expected: ["仓位按标签分组，并显示当前市值占目标的比例。", "股票/ETF 手工买入会提示 100 股整数倍规则。", "无法自动识别资产类型或价格时要求人工补充，不会静默猜测。"],
+        problems: "总价值与总览不一致、数量异常、资产类型被错误识别或刷新失败无明细时标记问题。",
+        screenshot: "截取总仓位价值和一个展开后的仓位明细。"
+      },
+      {
+        id: "transactions", number: "07", tier: "daily", route: "/transactions", openUrl: "/transactions",
+        title: "查看和补记真实交易", purpose: "只有真实发生的交易才应该进入交易记录。",
+        risk: "local-write", baseline: "verified", baselineNote: "交易表格、刷新和新增交易表单已核对；未创建测试交易。",
+        steps: ["先查看已有交易的标的、类型、数量、价格、手续费和时间。", "只有需要补记真实交易时才点击“添加交易”。", "选择资产和交易类型，填写真实数量、价格、手续费与备注，再确认。"],
+        expected: ["必须先选择已有资产。", "股票和 ETF 数量遵循整手规则。", "新增记录后可刷新并在列表中找到。"],
+        problems: "不能选择资产、数量校验错误或新增后列表/持仓口径不同步时记录问题。",
+        screenshot: "截取交易列表；如补记真实交易，再附提交后的对应记录。"
+      },
+      {
+        id: "asset_details", number: "08", tier: "daily", route: "/fund/:code · /stock/:code", openUrl: "/stock/600276",
+        title: "读懂基金或股票详情", purpose: "详情页用来核对单一标的，不负责自动下单。",
+        risk: "readonly", baseline: "verified", baselineNote: "基金和股票动态路由、返回、刷新、行情图表和分析区域已从代码与当前样本入口核对。",
+        steps: ["从资产或仓位明细点击标的代码进入详情。", "股票先看当前价格、行情时间、来源和最近 30 日走势，再看 MA5、MA10、MA30。", "随后查看技术指标、估值、财务数据；AI 分析是单独触发的研究请求。", "基金详情查看净值、历史表现和持仓信息。"],
+        expected: ["详情页代码和名称与入口标的一致。", "图表只使用数据源返回的真实行情，不生成虚构价格路径。", "分析结果明确是技术/研究观察，不转化成正式交易动作。"],
+        problems: "代码错位、图表无时间、均线缺失却无解释或 AI 分析被描述成交易指令时标记问题。",
+        screenshot: "截取标的名称、当前价、数据来源、MA 指标和走势图。"
+      },
+      {
+        id: "portfolio_display", number: "09", tier: "advanced", route: "/portfolios", openUrl: "/portfolios",
+        title: "认识投资组合页面的当前边界", purpose: "这个页面目前主要展示永久组合和全天候组合模板。",
+        risk: "readonly", baseline: "placeholder", baselineNote: "路由和两类组合卡片可访问，但完整的组合创建、编辑、保存和再平衡流程尚未实现。",
+        steps: ["打开投资组合页，查看永久组合和全天候组合的说明。", "需要真实比较时改用 ChatBox“对比组合策略”或进入策略回测。", "不要把展示卡片理解成已创建或已执行的个人组合。"],
+        expected: ["可以看到两类组合模板。", "页面没有假装提供尚未实现的完整管理能力。"],
+        problems: "如果页面暗示组合已经执行、持仓已自动再平衡，或没有说明当前边界，请记录。",
+        screenshot: "截取两类组合卡片和页面可用操作。"
+      },
+      {
+        id: "analysis_fivdr", number: "10", tier: "essential", route: "/analysis", openUrl: "/analysis",
+        title: "从分析建议中先读结论，再看证据", purpose: "使用统一分析核对风险、变化和下一步，不从复杂细节自己拼结论。",
+        risk: "local-write", baseline: "verified", baselineNote: "建议摘要、计划、详细分析和 FIVD-R 快照/观察/风险/审计入口已只读核对。",
+        steps: ["先看建议摘要、优先级和风险等级。", "需要原因时展开基本面、技术面和消息面。", "FIVD-R 先看当前能力边界、主要阻断和下一步，再看评分与证据。", "保存快照、加入观察、风险提醒会保存研究产物；“记录交易”只用于真实已发生交易。"],
+        expected: ["页面首先说明研究是否可用和正式交易是否放行。", "数据不足、冲突和阻断原因可见。", "交易草案在验证证据不足时保持禁用。"],
+        problems: "结论与证据混在一起、缺数据仍给出确定买卖动作或草案绕过 Gate 时属于问题。",
+        screenshot: "截取简明结论、主要阻断、下一步和一段证据详情。"
+      },
+      {
+        id: "dividend_low_vol", number: "11", tier: "advanced", route: "/dividend-low-vol", openUrl: "/dividend-low-vol",
+        title: "使用红利低波策略研究候选", purpose: "筛选值得继续研究的候选，而不是生成正式买单。",
+        risk: "background-task", baseline: "verified", baselineNote: "候选表、普通话结论、筛选排序、Top 3、观察区间、提醒、回测和人工 Gate 已只读核对。",
+        steps: ["先看 Top 3 普通话结论、数据可信度和未纳入原因。", "使用等级、状态、行业、提醒和排序筛选候选。", "查看买入/卖出观察区间、价格来源和滚动回测。", "提醒检查、研究回测、验证复测和人工草案 Gate 会创建任务或审计产物，按需使用。"],
+        expected: ["候选同时显示入选原因、缺口和剔除原因。", "观察区间不被称为正式挂单。", "人工草案需通过数据和验证 Gate。"],
+        problems: "缺少价格来源、候选无法解释、剔除原因不透明或 Gate 可绕过时标记问题。",
+        screenshot: "截取 Top 3、一个候选的观察区间和数据可信状态。"
+      },
+      {
+        id: "backtest", number: "12", tier: "advanced", route: "/backtest", openUrl: "/backtest",
+        title: "比较策略回测，而不是预测未来", purpose: "用收益、回撤和数据等级比较方案的历史表现。",
+        risk: "background-task", baseline: "verified", baselineNote: "组合模板、快速对比、建议回测、报告、人工复核和任务跳转入口已只读核对；未运行新回测。",
+        steps: ["先选择推荐 3 组或明确的组合模板，核对区间和初始资金。", "运行前确认是研究模式还是正式评审前置。", "结果先看累计收益、最大回撤、基准、数据等级，再看交易明细。", "需要保存或基于 Advice ID 回测时会创建后台任务，可从任务中心追踪。"],
+        expected: ["策略、基准和回撤曲线可区分。", "结果说明样本区间、数据质量和局限。", "页面明确历史回测不是正式交易建议。"],
+        problems: "没有基准、回撤口径不明、数据等级缺失或把历史收益表述为未来承诺时记录问题。",
+        screenshot: "截取策略选择、收益/回撤曲线和指标对照。"
+      },
+      {
+        id: "alerts", number: "13", tier: "daily", route: "/alerts", openUrl: "/alerts",
+        title: "查看风险告警，区分确认与解决", purpose: "先理解当前风险，再决定是否更新告警状态。",
+        risk: "local-write", baseline: "verified", baselineNote: "告警统计、列表、刷新、风险检查、宽基监控和状态操作入口已只读核对。",
+        steps: ["先看活跃告警、危险级别和规则来源。", "阅读告警标的、触发条件、当前状态和时间。", "“确认”表示你已看见，“解决”表示问题已处理；不要混用。", "宽基规则新增、删除、保存和风险检查会修改配置或创建任务。"],
+        expected: ["活跃、已确认、已解决状态可以区分。", "告警说明触发规则和对象。", "宽基监控配置保存前由你明确确认。"],
+        problems: "告警没有标的/原因/时间、确认后直接变成已解决或规则修改未提示时标记问题。",
+        screenshot: "截取告警统计和一条告警详情；如修改状态，再附修改后的状态。"
+      },
+      {
+        id: "operations", number: "14", tier: "advanced", route: "/operations", openUrl: "/operations",
+        title: "在任务中心追踪执行状态和失败原因", purpose: "任务中心是高级排错页，日常只在结果异常时进入。",
+        risk: "background-task", baseline: "verified", baselineNote: "任务统计、筛选、最近任务、详情、失败、重试、取消、产物和维护任务入口已只读核对。",
+        steps: ["先看最近价格刷新、告警检查、每日建议和回测任务。", "使用任务类型、状态和搜索筛选，再打开任务详情。", "先读普通话摘要、失败原因、数据可靠性和下一步，最后才展开原始 JSON。", "刷新价格、检查告警、生成建议、重试、取消和维护任务都会改变任务状态。"],
+        expected: ["排队、执行中、完成、部分成功、失败和取消状态明确。", "失败任务提供失败分类、Provider 状态和可追溯产物。", "原始技术详情默认折叠。"],
+        problems: "任务长时间无状态、失败无原因、结果无法追溯或普通用户被迫阅读原始 JSON 时记录。",
+        screenshot: "截取任务统计、最近任务摘要和一条任务详情。"
+      },
+      {
+        id: "trade_boundary", number: "15", tier: "essential", route: "/dashboard", openUrl: "/dashboard",
+        title: "确认系统不会替你自动交易", purpose: "这是使用任何建议和网格前必须理解的边界。",
+        risk: "readonly", baseline: "verified", baselineNote: "总览、ChatBox、分析、回测和策略页的研究边界及交易阻断文案已核对。",
+        steps: ["在总览工作台点击“确认交易边界”，或在 ChatBox 选择“解释为什么不能交易”。", "确认说明包含 ADD、REDUCE、ORDER_CREATE、AUTO_TRADE 的阻断原因。", "检查网格和观察区间是否明确标成人工计划草案。"],
+        expected: ["系统不创建、提交或自动执行券商订单。", "任何可能写入台账或启动任务的动作都有预览、确认或明确说明。", "研究结果不会自动改变真实持仓。"],
+        problems: "任何页面出现“已替你下单”“已自动调仓”或没有人工确认的真实交易动作，都应立即停止使用并截图。",
+        screenshot: "截取交易阻断说明和人工计划草案标识。"
+      },
+      {
+        id: "developer_checklists", number: "16", tier: "advanced", route: "独立验收页", openUrl: "/daily-portfolio-review-human-checklist.html",
+        title: "按需使用开发验收附录", purpose: "这些页面用于功能验收，不是日常投资流程。",
+        risk: "readonly", baseline: "verified", baselineNote: "每日复盘验收页和正式发布检查页文件存在；本指南不增加或分配任何评审人员角色。",
+        steps: ["只有需要向 Codex 提交功能问题时才打开每日复盘验收页。", "逐项检查、备注并附截图，再导出 HTML 报告。", "正式发布检查页属于开发验收资料；普通用户无需完成角色、合规或发布职责。"],
+        expected: ["验收结果可本地保存并导出。", "验收附录与日常学习路径明确分开。", "页面不会要求你承担未约定的数据、模型、风险、合规或最终发布角色。"],
+        problems: "如果开发验收内容重新混入日常使用流程，或要求你确认未授权的人员职责，请记录问题。",
+        screenshot: "仅在提交开发问题时附相关验收项截图。"
+      }
+    ];
+
+    const STORAGE_KEY = "fams.user-guide.state.v1";
+    const DB_NAME = "fams-user-guide-evidence";
+    const DB_STORE = "screenshots";
+    const STATUS_LABELS = { pending: "未学习", learned: "已会用", issue: "遇到问题", skipped: "暂时跳过" };
+    const BASELINE_LABELS = { verified: "已只读验证", manual: "待人工操作", placeholder: "功能占位", blocked: "当前受阻" };
+    const RISK_LABELS = { readonly: "只读学习", "local-write": "会保存数据", "background-task": "会启动任务", danger: "危险操作" };
+    const attachments = new Map(JOURNEYS.map(item => [item.id, []]));
+    let state = loadState();
+    let database = null;
+
+    function loadState() {
+      const fallback = { filter: "essential", answers: {}, largeText: false, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+        return saved && typeof saved === "object" ? { ...fallback, ...saved, answers: saved.answers || {} } : fallback;
+      } catch { return fallback; }
+    }
+
+    function saveState() {
+      state.updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function openEvidenceDb() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) {
+            const store = db.createObjectStore(DB_STORE, { keyPath: "id" });
+            store.createIndex("journeyId", "journeyId", { unique: false });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function dbRequest(mode, action) {
+      if (!database) return Promise.resolve(null);
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction(DB_STORE, mode);
+        const request = action(transaction.objectStore(DB_STORE));
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function loadAttachments() {
+      const rows = await dbRequest("readonly", store => store.getAll()) || [];
+      rows.forEach(row => {
+        const list = attachments.get(row.journeyId);
+        if (list) list.push(row);
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+
+    function answerFor(id) { return state.answers[id] || { status: "pending", note: "" }; }
+    function attachmentCount() { return Array.from(attachments.values()).reduce((sum, list) => sum + list.length, 0); }
+
+    function counts() {
+      const statuses = JOURNEYS.map(item => answerFor(item.id).status || "pending");
+      return {
+        total: JOURNEYS.length,
+        learned: statuses.filter(value => value === "learned").length,
+        issue: statuses.filter(value => value === "issue").length,
+        skipped: statuses.filter(value => value === "skipped").length,
+        pending: statuses.filter(value => value === "pending").length,
+        answered: statuses.filter(value => value !== "pending").length,
+        screenshots: attachmentCount()
+      };
+    }
+
+    function baselineCounts() {
+      return Object.keys(BASELINE_LABELS).reduce((result, status) => {
+        result[status] = JOURNEYS.filter(item => item.baseline === status).length;
+        return result;
+      }, {});
+    }
+
+    function visibleJourneys() {
+      if (state.filter === "all") return JOURNEYS;
+      if (state.filter === "issues") return JOURNEYS.filter(item => answerFor(item.id).status === "issue");
+      if (state.filter === "daily") return JOURNEYS.filter(item => item.tier === "essential" || item.tier === "daily");
+      if (state.filter === "advanced") return JOURNEYS.filter(item => item.tier === "advanced");
+      return JOURNEYS.filter(item => item.tier === "essential");
+    }
+
+    function listMarkup(items, tag) { return `<${tag}>${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</${tag}>`; }
+
+    function renderStats() {
+      const result = counts();
+      const items = [
+        ["全部路径", result.total], ["已会用", result.learned], ["遇到问题", result.issue], ["暂时跳过", result.skipped],
+        ["未学习", result.pending], ["完成度", `${Math.round(result.answered / result.total * 100)}%`], ["截图", result.screenshots]
+      ];
+      document.getElementById("stats").innerHTML = items.map(([label, value]) => `<div class="stat"><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div>`).join("");
+      const progress = Math.round(result.answered / result.total * 100);
+      document.getElementById("progressBar").style.width = `${progress}%`;
+      const track = document.querySelector("[role=progressbar]");
+      track.setAttribute("aria-valuenow", String(result.answered));
+      track.setAttribute("aria-valuemax", String(result.total));
+    }
+
+    function renderBaseline() {
+      const result = baselineCounts();
+      document.getElementById("baselineStats").innerHTML = Object.entries(BASELINE_LABELS).map(([key, label]) => `
+        <div class="baseline-item"><strong>${result[key] || 0}</strong><span>${label}</span></div>`).join("");
+    }
+
+    function renderThumbs(id, root) {
+      const files = attachments.get(id) || [];
+      root.innerHTML = files.map(file => `<figure class="thumb"><img src="${file.dataUrl}" alt="${escapeHtml(file.name)}的预览"><button class="remove-shot" type="button" data-remove="${escapeHtml(file.id)}">移除</button><figcaption>${escapeHtml(file.name)} · ${Math.round(file.size / 1024)} KB</figcaption></figure>`).join("");
+      root.querySelectorAll("[data-remove]").forEach(button => button.addEventListener("click", async () => {
+        const fileId = button.dataset.remove;
+        await dbRequest("readwrite", store => store.delete(fileId));
+        attachments.set(id, files.filter(file => file.id !== fileId));
+        render();
+      }));
+    }
+
+    function renderJourneys() {
+      const root = document.getElementById("journeyList");
+      const openIds = new Set(Array.from(root.querySelectorAll("details[open]")).map(item => item.dataset.id));
+      const items = visibleJourneys();
+      if (!items.length) {
+        root.innerHTML = `<div class="empty">当前筛选下没有项目。你可以切换到“全部路径”，或先继续学习后再查看问题。</div>`;
+        return;
+      }
+      root.innerHTML = items.map(item => {
+        const answer = answerFor(item.id);
+        const open = openIds.has(item.id) ? " open" : "";
+        const routeLabel = item.route.startsWith("/") ? `路径 ${item.route}` : item.route;
+        return `<details class="journey-card" data-id="${item.id}"${open}>
+          <summary class="journey-summary">
+            <div class="summary-grid">
+              <div class="journey-number">${item.number}</div>
+              <div><h3 class="journey-title">${escapeHtml(item.title)}</h3><p class="journey-purpose">${escapeHtml(item.purpose)}</p></div>
+              <div class="pill-row">
+                <span class="pill ${item.baseline}">${BASELINE_LABELS[item.baseline]}</span>
+                <span class="pill ${item.risk}">${RISK_LABELS[item.risk]}</span>
+                <span class="pill ${answer.status || "pending"}">${STATUS_LABELS[answer.status || "pending"]}</span>
+              </div>
+            </div>
+          </summary>
+          <div class="journey-body">
+            <div class="baseline-note"><strong>${escapeHtml(routeLabel)}</strong><br>${escapeHtml(item.baselineNote)}</div>
+            <div class="card-actions"><a class="action-link primary" href="${escapeHtml(item.openUrl)}" target="_blank" rel="noreferrer">打开对应页面</a></div>
+            <div class="instruction-grid">
+              <section class="instruction"><h3>你只需要这样做</h3>${listMarkup(item.steps, "ol")}</section>
+              <section class="instruction"><h3>看到这些才算正常</h3>${listMarkup(item.expected, "ul")}</section>
+            </div>
+            <div class="problem-box"><strong>出现这些情况就截图：</strong>${escapeHtml(item.problems)}</div>
+            <div class="check-area">
+              <h3>你的检查结果</h3>
+              <div class="status-buttons" role="group" aria-label="${escapeHtml(item.title)}的学习结果">
+                ${Object.entries(STATUS_LABELS).map(([status, label]) => `<button class="status-button" type="button" data-status="${status}" aria-pressed="${(answer.status || "pending") === status}">${label}</button>`).join("")}
+              </div>
+              <label class="note-label">备注或问题说明
+                <textarea data-note placeholder="写清楚你点了什么、看到了什么，以及与预期哪里不同。">${escapeHtml(answer.note || "")}</textarea>
+              </label>
+              <div class="evidence">
+                <div class="evidence-row"><strong>附上本项截图</strong><input type="file" data-screenshot accept="image/png,image/jpeg,image/webp" multiple></div>
+                <p class="evidence-help">${escapeHtml(item.screenshot)} 每项最多 4 张、单张不超过 8MB；截图会保存在当前浏览器并写入导出的 HTML。</p>
+                <div class="thumbs" data-thumbs></div>
+              </div>
+            </div>
+          </div>
+        </details>`;
+      }).join("");
+
+      root.querySelectorAll("[data-id]").forEach(card => {
+        const id = card.dataset.id;
+        card.querySelectorAll("[data-status]").forEach(button => button.addEventListener("click", () => {
+          state.answers[id] = { ...answerFor(id), status: button.dataset.status };
+          saveState();
+          card.querySelectorAll("[data-status]").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+          card.querySelectorAll(".pill.pending,.pill.learned,.pill.issue,.pill.skipped").forEach(pill => {
+            pill.className = `pill ${button.dataset.status}`;
+            pill.textContent = STATUS_LABELS[button.dataset.status];
+          });
+          renderStats();
+          renderIssues();
+          if (state.filter === "issues" && button.dataset.status !== "issue") renderJourneys();
+        }));
+        card.querySelector("[data-note]").addEventListener("input", event => {
+          state.answers[id] = { ...answerFor(id), note: event.target.value };
+          saveState();
+          renderIssues();
+        });
+        card.querySelector("[data-screenshot]").addEventListener("change", event => addScreenshots(id, event.target.files));
+        renderThumbs(id, card.querySelector("[data-thumbs]"));
+      });
+    }
+
+    function renderIssues() {
+      const issues = JOURNEYS.filter(item => answerFor(item.id).status === "issue");
+      document.getElementById("issueList").innerHTML = issues.length ? issues.map(item => {
+        const answer = answerFor(item.id);
+        const files = attachments.get(item.id) || [];
+        return `<article class="issue-item"><h3>${item.number} ${escapeHtml(item.title)}</h3><p>${escapeHtml(answer.note || "尚未填写问题说明")}</p><span class="pill issue">截图 ${files.length} 张</span></article>`;
+      }).join("") : `<div class="empty">目前还没有标记“遇到问题”的项目。</div>`;
+    }
+
+    function renderFilters() {
+      document.querySelectorAll("[data-filter]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.filter === state.filter)));
+    }
+
+    function render() {
+      document.body.classList.toggle("large-text", Boolean(state.largeText));
+      document.getElementById("fontToggle").textContent = state.largeText ? "恢复字号" : "放大文字";
+      renderStats(); renderBaseline(); renderFilters(); renderJourneys(); renderIssues();
+    }
+
+    function setFeedback(message, error = false) {
+      const target = document.getElementById("feedback");
+      target.textContent = message;
+      target.style.color = error ? "var(--danger)" : "var(--success)";
+      window.setTimeout(() => { if (target.textContent === message) target.textContent = ""; }, 6000);
+    }
+
+    function readFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function addScreenshots(id, fileList) {
+      const current = attachments.get(id) || [];
+      const candidates = Array.from(fileList || []).slice(0, Math.max(0, 4 - current.length));
+      for (const file of candidates) {
+        if (!/^image\/(png|jpeg|webp)$/.test(file.type)) { setFeedback(`${file.name} 不是支持的图片格式。`, true); continue; }
+        if (file.size > 8 * 1024 * 1024) { setFeedback(`${file.name} 超过 8MB。`, true); continue; }
+        const row = { id: `${id}-${Date.now()}-${current.length}`, journeyId: id, name: file.name, type: file.type, size: file.size, dataUrl: await readFile(file), createdAt: new Date().toISOString() };
+        await dbRequest("readwrite", store => store.put(row));
+        current.push(row);
+      }
+      attachments.set(id, current);
+      render();
+      setFeedback("截图已保存在当前浏览器。完成后请下载带截图的 HTML 报告。 ");
+    }
+
+    function resultText() {
+      const result = counts();
+      const lines = [
+        "FAMS 系统使用指南学习与验收结果",
+        `更新时间：${new Date().toLocaleString("zh-CN", { hour12: false })}`,
+        `完成：${result.answered}/${result.total}；已会用 ${result.learned}；遇到问题 ${result.issue}；暂时跳过 ${result.skipped}；未学习 ${result.pending}；截图 ${result.screenshots} 张`,
+        "", "逐项结果："
+      ];
+      JOURNEYS.forEach(item => {
+        const answer = answerFor(item.id);
+        lines.push(`${item.number}. ${item.title}：${STATUS_LABELS[answer.status || "pending"]}`);
+        if (answer.note?.trim()) lines.push(`    说明：${answer.note.trim()}`);
+        const files = attachments.get(item.id) || [];
+        if (files.length) lines.push(`    截图：${files.map(file => file.name).join("、")}`);
+      });
+      lines.push("", "请 Codex 接下来：");
+      if (result.issue) lines.push("- 优先复现并修复所有“遇到问题”的项目，然后让我重测。");
+      if (result.pending) lines.push("- 等我完成剩余项目，不要提前宣称全部验收通过。");
+      if (!result.issue && !result.pending) lines.push("- 结合截图与自动化检查完成最终验收。");
+      lines.push("", "固定安全边界：系统不创建、提交或自动执行券商订单；截图确认前不改写台账；截图缺失持仓不自动关闭。");
+      return lines.join("\n");
+    }
+
+    async function copySummary() {
+      const text = resultText();
+      try { await navigator.clipboard.writeText(text); }
+      catch {
+        const field = document.createElement("textarea"); field.value = text; document.body.appendChild(field); field.select(); document.execCommand("copy"); field.remove();
+      }
+      setFeedback("结果摘要已复制，可以直接粘贴给 Codex。 ");
+    }
+
+    function dateStamp() {
+      const now = new Date();
+      return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
+    }
+
+    function downloadBlob(filename, content, type) {
+      const url = URL.createObjectURL(new Blob([content], { type }));
+      const link = document.createElement("a"); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    }
+
+    function downloadJson() {
+      const payload = {
+        schemaVersion: "fams.user-guide-results.v1", generatedAt: new Date().toISOString(), baselineCheckedAt: "2026-08-20",
+        answers: JOURNEYS.map(item => ({ id: item.id, title: item.title, route: item.route, baseline: item.baseline, status: answerFor(item.id).status || "pending", note: answerFor(item.id).note || "", screenshots: (attachments.get(item.id) || []).map(file => ({ name: file.name, type: file.type, size: file.size })) })),
+        safetyBoundary: { createsOrder: false, submitsOrder: false, autoTrade: false, screenshotConfirmationRequired: true, missingHoldingAutoClose: false }
+      };
+      downloadBlob(`fams-user-guide-results-${dateStamp()}.json`, JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+      setFeedback("JSON 结果已下载；截图请使用 HTML 报告。 ");
+    }
+
+    function reportHtml() {
+      const sections = JOURNEYS.map(item => {
+        const answer = answerFor(item.id);
+        const files = attachments.get(item.id) || [];
+        return `<section><h2>${item.number}. ${escapeHtml(item.title)} — ${STATUS_LABELS[answer.status || "pending"]}</h2><p><strong>路径：</strong>${escapeHtml(item.route)}</p><p><strong>系统预检：</strong>${BASELINE_LABELS[item.baseline]}。${escapeHtml(item.baselineNote)}</p><p><strong>说明：</strong>${escapeHtml(answer.note || "无")}</p><div class="shots">${files.length ? files.map(file => `<figure><img src="${file.dataUrl}" alt="${escapeHtml(file.name)}"><figcaption>${escapeHtml(file.name)}</figcaption></figure>`).join("") : "<p>未附截图</p>"}</div></section>`;
+      }).join("");
+      return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>FAMS 使用指南验收报告</title><style>body{max-width:1100px;margin:30px auto;padding:0 18px;color:#102033;font:16px/1.65 "Microsoft YaHei",sans-serif;background:#f3f6fb}header,section{margin:14px 0;padding:20px;border:1px solid #d8e1ec;border-radius:12px;background:#fff}pre{white-space:pre-wrap;overflow-wrap:anywhere}.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.shots figure{margin:0}.shots img{width:100%;max-height:540px;object-fit:contain;border:1px solid #d8e1ec;background:#eef2f7}.shots figcaption{color:#52657d;font-size:13px}</style></head><body><header><h1>FAMS 系统使用指南学习与验收报告</h1><pre>${escapeHtml(resultText())}</pre></header>${sections}<section><strong>安全边界：</strong>本报告不是投资建议或交易授权；系统不得创建、提交或自动执行券商订单。</section></body></html>`;
+    }
+
+    function downloadReport() {
+      downloadBlob(`fams-user-guide-with-screenshots-${dateStamp()}.html`, reportHtml(), "text/html;charset=utf-8");
+      setFeedback("带截图的 HTML 报告已下载，请把该文件上传给 Codex。 ");
+    }
+
+    function continueNext() {
+      const next = JOURNEYS.find(item => answerFor(item.id).status === "pending") || JOURNEYS.find(item => answerFor(item.id).status === "issue");
+      if (!next) { setFeedback("全部路径都已填写结果。 "); return; }
+      state.filter = next.tier === "advanced" ? "advanced" : next.tier === "daily" ? "daily" : "essential";
+      saveState(); render();
+      const card = document.querySelector(`[data-id="${next.id}"]`);
+      if (card) { card.open = true; window.scrollTo({ top: Math.max(0, card.offsetTop - 92), behavior: "smooth" }); }
+    }
+
+    async function resetGuide() {
+      if (!window.confirm("确定清空所有学习状态、备注和已保存截图吗？此操作无法撤销。")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      await dbRequest("readwrite", store => store.clear());
+      attachments.forEach((_, key) => attachments.set(key, []));
+      state = loadState(); render(); setFeedback("已清空，可以重新开始学习。 ");
+    }
+
+    document.querySelectorAll("[data-filter]").forEach(button => button.addEventListener("click", () => { state.filter = button.dataset.filter; saveState(); render(); }));
+    document.getElementById("fontToggle").addEventListener("click", () => { state.largeText = !state.largeText; saveState(); render(); });
+    document.getElementById("printGuide").addEventListener("click", () => window.print());
+    document.getElementById("nextPending").addEventListener("click", continueNext);
+    document.getElementById("copySummary").addEventListener("click", copySummary);
+    document.getElementById("downloadReport").addEventListener("click", downloadReport);
+    document.getElementById("downloadJson").addEventListener("click", downloadJson);
+    document.getElementById("resetGuide").addEventListener("click", resetGuide);
+
+    async function init() {
+      try { database = await openEvidenceDb(); await loadAttachments(); }
+      catch { setFeedback("截图持久化不可用；文字进度仍会保存，截图请及时导出 HTML。", true); }
+      render();
+    }
+    init();
+  </script>
+</body>
+</html>

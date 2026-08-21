@@ -1,21 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ElementRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Alert, Button, Card, Collapse, Drawer, FloatButton, Input, Space, Spin, Tag, Typography, message as antdMessage } from 'antd'
+import { Alert, Button, Card, Collapse, Drawer, FloatButton, Input, Modal, Space, Spin, Tag, Typography, message as antdMessage } from 'antd'
 import ReactECharts from 'echarts-for-react'
 import {
   BarChartOutlined,
   CheckCircleOutlined,
   CopyOutlined,
   DatabaseOutlined,
+  ExpandOutlined,
   FileSearchOutlined,
+  HistoryOutlined,
   LinkOutlined,
   QuestionCircleOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
   SendOutlined,
+  CompressOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { API_BASE } from '../../config/api'
+import { ScreenshotCapturePanel, type ScreenshotCaptureEvent } from '../capture/ScreenshotCapturePanel'
 
 const { Text, Paragraph } = Typography
 
@@ -35,6 +39,46 @@ type ChatMetricCard = {
   unit?: string
   status?: 'good' | 'warning' | 'blocked' | 'neutral'
   description?: string
+}
+
+type DailyReviewStructuredDetails = {
+  reviewId: string
+  generatedAt: string
+  completedAt?: string
+  sessionType: string
+  strategyAssessment: { status: string; conclusion: string; reasons: string[] } | null
+  assets: Array<{
+    assetId: string
+    symbol: string
+    name: string
+    quote: {
+      price: number | null
+      asOf: string | null
+      source: string | null
+      currency: string | null
+      latestClose: number | null
+      latestCloseDate: string | null
+      ma5: number | null
+      ma10: number | null
+      ma30: number | null
+      dataQualityStatus: string | null
+    }
+    materialChange: { level: string; reasons: string[]; evidenceRefs: string[] }
+    recommendation: { action: string; confidence: string; reasons: string[]; risks: string[] }
+    grid: {
+      strategySource: string
+      templateId: string
+      mode: string
+      status: string
+      summary: string
+      validUntil: string | null
+      blockers: string[]
+      adjustment: { changed: boolean; reasons: string[]; previousPlanId?: string | null }
+      orders: Array<Record<string, string | number | null>>
+    }
+  }>
+  attentionCandidates: Array<Record<string, string | number | null>>
+  executionBoundary: Record<string, boolean>
 }
 
 type ChatStructuredResult = {
@@ -60,6 +104,7 @@ type ChatStructuredResult = {
     series: Array<{ name: string; data: Array<[string, number | null]> }>
   }>
   dataQualitySummary?: Record<string, unknown>
+  dailyReview?: DailyReviewStructuredDetails
   evidenceRefs: string[]
   blockedReasons: string[]
   notTradingAdvice: true
@@ -94,6 +139,10 @@ type ChatResponse = {
       plannerAvailable?: boolean
       plannerMode?: string
       secretsRedacted?: boolean
+    }
+    summarySynthesis?: {
+      source: 'llm' | 'deterministic'
+      model?: string
     }
     note: string
   }
@@ -134,9 +183,35 @@ type DataHealthState = {
   recoveryActions: string[]
 }
 
+type DailyReviewHistory = {
+  schemaVersion: 'fams.daily-portfolio-review-list.v1'
+  items: Array<{
+    id: string
+    sessionType: string
+    triggerSource: string
+    status: string
+    generatedAt: string
+    completedAt: string | null
+    portfolio: { reviewedAssets?: number; totalValue?: number } | null
+    strategyAssessment: { status?: string; conclusion?: string } | null
+    dataQuality: Record<string, unknown>
+    counts: { gridPlans: number; marketSnapshots: number; positionSnapshots: number }
+  }>
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 const CHAT_SESSION_STORAGE_KEY = 'fams.chat.conversationId'
 
 const welcomeTaskCards = [
+  {
+    id: 'daily_review',
+    title: '生成当前持仓复盘',
+    description: '查询最新价与30日收盘价，绘制 MA5/MA10/MA30，并复核策略和人工网格。',
+    prompt: '现在生成一次当前持仓复盘',
+    icon: <FileSearchOutlined />,
+    tone: 'blue',
+  },
   {
     id: 'portfolio_compare',
     title: '对比组合策略',
@@ -272,6 +347,22 @@ function splitReply(reply: string) {
   }
 }
 
+const blockerLabels: Record<string, string> = {
+  material_change_requires_review: '基本面或消息变化需要人工复核',
+  order_size_below_minimum_lot_or_available_budget: '计划数量低于最小交易单位或可用预算不足',
+  daily_review_missing: '尚未生成持仓复盘',
+  data_health_attention_required: '数据健康状态需要关注',
+  chatbox_tool_execution_failed: '业务查询执行失败',
+  formal_trading_locked: '正式交易未解锁',
+  auto_trade_locked: '自动交易已锁定',
+  chatbox_order_creation_disabled: 'ChatBox 禁止创建订单',
+  manual_review_required: '需要人工复核',
+}
+
+function blockerLabel(reason: string) {
+  return blockerLabels[reason] || reason.replace(/[_:]+/g, ' ')
+}
+
 function chartOption(chart: ChatStructuredResult['charts'][number]) {
   return {
     backgroundColor: 'transparent',
@@ -382,7 +473,9 @@ function StructuredResultRenderer({ result }: { result: ChatStructuredResult }) 
         </div>
       ) : null}
 
-      {table?.rows?.length ? (
+      {result.dailyReview ? <DailyReviewDetails details={result.dailyReview} /> : null}
+
+      {!result.dailyReview && table?.rows?.length ? (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="min-w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600">
@@ -403,7 +496,7 @@ function StructuredResultRenderer({ result }: { result: ChatStructuredResult }) 
             </tbody>
           </table>
         </div>
-      ) : table?.insufficientReason ? (
+      ) : !result.dailyReview && table?.insufficientReason ? (
         <Alert type="warning" showIcon message="表格数据不足" description={table.insufficientReason} />
       ) : null}
 
@@ -413,6 +506,120 @@ function StructuredResultRenderer({ result }: { result: ChatStructuredResult }) 
           <ReactECharts option={chartOption(chart)} style={{ height: 220, width: '100%' }} notMerge lazyUpdate />
         </div>
       ))}
+    </div>
+  )
+}
+
+function displayNumber(value: unknown, digits = 2) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number.toFixed(digits) : '-'
+}
+
+function materialColor(level: string) {
+  if (level === 'material') return 'red'
+  if (level === 'watch') return 'orange'
+  if (level === 'none') return 'green'
+  return 'default'
+}
+
+function DailyReviewDetails({ details }: { details: DailyReviewStructuredDetails }) {
+  const assessment = details.strategyAssessment
+  return (
+    <div className="space-y-3">
+      <Alert
+        type={assessment?.status === 'needs_review' ? 'warning' : assessment?.status === 'maintain' ? 'success' : 'info'}
+        showIcon
+        message={assessment?.conclusion || '本轮没有可用的策略总体判断'}
+        description={assessment?.reasons?.length ? assessment.reasons.join('；') : `复盘编号：${details.reviewId}`}
+      />
+
+      <Collapse
+        size="small"
+        items={details.assets.map((asset) => ({
+          key: asset.assetId,
+          label: (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-slate-900">{asset.symbol} {asset.name}</span>
+              <Tag color={materialColor(asset.materialChange.level)}>{asset.materialChange.level}</Tag>
+              <Tag>{asset.recommendation.action} / {asset.recommendation.confidence}</Tag>
+              <Tag color={asset.grid.orders.length ? 'blue' : 'default'}>{asset.grid.orders.length ? `${asset.grid.orders.length} 档草案` : '观察'}</Tag>
+            </div>
+          ),
+          children: (
+            <div className="space-y-3 text-xs text-slate-700">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  ['最新价', `${displayNumber(asset.quote.price, 4)} ${asset.quote.currency || ''}`],
+                  ['最近收盘', `${displayNumber(asset.quote.latestClose, 4)} · ${asset.quote.latestCloseDate || '-'}`],
+                  ['MA5 / MA10', `${displayNumber(asset.quote.ma5, 4)} / ${displayNumber(asset.quote.ma10, 4)}`],
+                  ['MA30', displayNumber(asset.quote.ma30, 4)],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-2">
+                    <div className="text-[11px] text-slate-500">{label}</div>
+                    <div className="mt-1 font-medium text-slate-900">{value}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-md bg-slate-50 px-2 py-2 leading-5">
+                行情来源：{asset.quote.source || '未知'}｜时间：{asset.quote.asOf || '未知'}｜质量：{asset.quote.dataQualityStatus || '未知'}
+              </div>
+              <div>
+                <div className="font-medium text-slate-900">基本面 / 消息变化</div>
+                <div className="mt-1 leading-5">{asset.materialChange.reasons.join('；') || '没有可展示的变化原因。'}</div>
+              </div>
+              <div>
+                <div className="font-medium text-slate-900">策略建议</div>
+                <div className="mt-1 leading-5">{asset.recommendation.reasons.join('；') || '没有可展示的策略原因。'}</div>
+                {asset.recommendation.risks.length ? <div className="mt-1 text-amber-700">风险：{asset.recommendation.risks.join('；')}</div> : null}
+              </div>
+              <div className="rounded-md border border-blue-100 bg-blue-50 px-2 py-2">
+                <div className="font-medium text-blue-950">人工计划网格</div>
+                <div className="mt-1 leading-5 text-blue-900">
+                  {asset.grid.summary || '未生成网格。'}｜模板：{asset.grid.templateId}｜来源：{asset.grid.strategySource}
+                </div>
+                <div className="mt-1 text-blue-800">
+                  调整：{asset.grid.adjustment.reasons.join('；') || '无'}｜有效期：{asset.grid.validUntil || '-'}
+                </div>
+                {asset.grid.blockers.length ? <div className="mt-1 text-amber-700">阻断：{asset.grid.blockers.join('、')}</div> : null}
+                {asset.grid.orders.length ? (
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="min-w-full text-left text-[11px]">
+                      <thead><tr><th className="pr-3">方向</th><th className="pr-3">档位</th><th className="pr-3">价格</th><th className="pr-3">数量</th><th>冲突</th></tr></thead>
+                      <tbody>
+                        {asset.grid.orders.map((order, index) => (
+                          <tr key={`${String(order.side)}-${String(order.level)}-${index}`} className="border-t border-blue-100">
+                            <td className="py-1 pr-3">{String(order.side || '-')}</td>
+                            <td className="pr-3">{String(order.level ?? '-')}</td>
+                            <td className="pr-3">{displayNumber(order.price, 4)}</td>
+                            <td className="pr-3">{displayNumber(order.quantity, 2)}</td>
+                            <td>{String(order.conflictStatus || 'none')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ),
+        }))}
+      />
+
+      <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+        <div className="text-xs font-medium text-slate-900">需要关注的标的</div>
+        <div className="mt-2 space-y-1 text-xs text-slate-600">
+          {details.attentionCandidates.length
+            ? details.attentionCandidates.map((candidate, index) => (
+                <div key={`${String(candidate.symbol)}-${index}`}>
+                  <Tag color={candidate.source === 'holding' ? 'blue' : 'purple'}>{String(candidate.source || 'unknown')}</Tag>
+                  {String(candidate.symbol || '-')} {String(candidate.name || '')}：{String(candidate.reason || candidate.disposition || '-')}
+                </div>
+              ))
+            : <div>本轮没有新增关注标的。</div>}
+        </div>
+      </div>
+
+      <Alert type="info" showIcon message="全部网格都是人工计划草案" description="系统不会创建、提交或同步券商订单；请在有效期内自行复核。" />
     </div>
   )
 }
@@ -497,21 +704,39 @@ function AssistantMessage({
   const nextActions = item.response?.actionCards?.length
     ? item.response.actionCards.map((card) => card.title)
     : item.error?.recoveryActions || ['继续追问', '打开相关专家页复核']
+  const summarySynthesis = item.response?.agentCore.summarySynthesis
+  const detailItems = item.response?.structuredResult ? [{
+    key: 'structured-result',
+    label: '查看详细数据、走势图与审计证据',
+    children: (
+      <div>
+        <DataHealthNotice health={health} />
+        <StructuredResultRenderer result={item.response.structuredResult} />
+      </div>
+    ),
+  }] : []
 
   return (
-    <div className="max-w-[94%] rounded-xl border border-slate-200 bg-white px-3 py-3 text-slate-800 shadow-sm">
+    <div className="w-full max-w-full rounded-xl border border-slate-200 bg-white px-4 py-4 text-slate-800 shadow-sm">
       <div className="flex items-start gap-2">
         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
           <RobotOutlined />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-slate-500">结论</div>
-          <Paragraph className="!mb-0 mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-900">{conclusion}</Paragraph>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="text-xs font-medium text-slate-500">摘要结论</div>
+            {summarySynthesis ? (
+              <Tag color={summarySynthesis.source === 'llm' ? 'blue' : 'default'}>
+                {summarySynthesis.source === 'llm' ? 'LLM 已重新整理' : '规则摘要'}
+              </Tag>
+            ) : null}
+          </div>
+          <Paragraph className="!mb-0 mt-2 whitespace-pre-wrap text-[15px] font-medium leading-7 text-slate-950">{conclusion}</Paragraph>
           {details.length ? (
             <div className="mt-2 rounded-lg bg-slate-50 p-2">
               <div className="text-xs font-medium text-slate-500">关键数字 / 说明</div>
               <ul className="mb-0 mt-1 list-disc space-y-1 pl-4 text-xs leading-5 text-slate-600">
-                {details.slice(0, 6).map((line) => <li key={line}>{line}</li>)}
+                {details.slice(0, 5).map((line) => <li key={line}>{line.replace(/^(重点|建议关注|风险边界|下一步)[:：]\s*/, '')}</li>)}
               </ul>
             </div>
           ) : null}
@@ -523,15 +748,13 @@ function AssistantMessage({
           </div>
           {blockedReasons.length ? (
             <div className="mt-2 flex flex-wrap gap-1">
-              {blockedReasons.map((reason) => (
-                <Tag key={reason} color="red">{reason}</Tag>
+            {blockedReasons.map((reason) => (
+                <Tag key={reason} color="red">{blockerLabel(reason)}</Tag>
               ))}
             </div>
           ) : null}
-          <DataHealthNotice health={health} />
-          {item.response?.structuredResult ? (
-            <StructuredResultRenderer result={item.response.structuredResult} />
-          ) : null}
+          {item.error || (item.response && health.status !== 'ok') ? <DataHealthNotice health={health} /> : null}
+          {detailItems.length ? <Collapse className="mt-3" size="small" items={detailItems} /> : null}
           <ActionCardList cards={item.response?.actionCards || []} loading={loading} onCardClick={onCardClick} />
           <AgentStatusDetails response={item.response} />
           <div className="mt-2 flex flex-wrap gap-2">
@@ -557,22 +780,33 @@ function AssistantMessage({
 
 export function FamsChatBox() {
   const navigate = useNavigate()
+  const chatTriggerRef = useRef<ElementRef<typeof FloatButton>>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [input, setInput] = useState('')
   const [conversationId, setConversationId] = useState<string>()
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      text: '我是 FAMS 业务助手。你可以直接问组合回测、红利低波、任务状态和交易阻断；涉及扫描、刷新、草案会先让你确认。',
+      text: '我是 FAMS 业务助手。你可以生成开盘后/收盘前持仓复盘、查看 MA 走势图与人工计划网格，也可以上传持仓、成交或委托截图；所有写入都会先预览或确认。',
     },
   ])
   const [loading, setLoading] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [reviewHistory, setReviewHistory] = useState<DailyReviewHistory>()
 
   const latestAgentCore = useMemo(() => {
     const latest = [...messages].reverse().find((item) => item.response?.agentCore)
     return latest?.response?.agentCore
   }, [messages])
+
+  useEffect(() => {
+    if (!open) return
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [loading, messages, open])
 
   const sendMessage = useCallback(async (text?: string) => {
     const content = (text ?? input).trim()
@@ -713,9 +947,32 @@ export function FamsChatBox() {
     }
   }
 
+  const handleCaptureEvent = (event: ScreenshotCaptureEvent) => {
+    const text = event.type === 'saved'
+      ? `账户截图 ${event.filename || event.captureId} 已私有保存，尚未发送给视觉模型。`
+      : event.type === 'extracted'
+        ? `已明确同意本次视觉识别：${event.filename || event.captureId}，共 ${event.rowCount ?? 0} 行；确认前不会写入台账。`
+        : `截图台账已人工确认 ${event.rowCount ?? 0} 行；缺失持仓未被自动关闭。`
+    setMessages((current) => [...current, { id: `capture-${event.type}-${Date.now()}`, role: 'assistant', text }])
+  }
+
+  const loadReviewHistory = async () => {
+    if (historyLoading) return
+    setHistoryOpen(true)
+    setHistoryLoading(true)
+    try {
+      setReviewHistory(await getJson<DailyReviewHistory>('/api/v1/daily-reviews?userId=default&limit=20'))
+    } catch (error) {
+      antdMessage.error(error instanceof Error ? error.message : '读取历史复盘失败')
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   return (
     <>
       <FloatButton
+        ref={chatTriggerRef}
         type="primary"
         icon={<RobotOutlined />}
         tooltip="FAMS 业务助手"
@@ -731,10 +988,22 @@ export function FamsChatBox() {
           </Space>
         }
         placement="right"
-        width="min(760px, calc(100vw - 16px))"
+        width={expanded ? 'calc(100vw - 24px)' : 'min(1120px, calc(100vw - 24px))'}
+        rootClassName="fams-chat-drawer"
         open={open}
+        keyboard
         onClose={() => setOpen(false)}
-        styles={{ body: { padding: 16, background: '#f8fafc' }, header: { background: '#ffffff', borderBottomColor: '#e2e8f0' } }}
+        afterOpenChange={(visible) => { if (!visible) chatTriggerRef.current?.focus() }}
+        extra={(
+          <Button
+            type="text"
+            icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
+            onClick={() => setExpanded((current) => !current)}
+          >
+            {expanded ? '恢复宽度' : '展开工作区'}
+          </Button>
+        )}
+        styles={{ body: { padding: 18, background: '#f8fafc' }, header: { background: '#ffffff', borderBottomColor: '#e2e8f0' } }}
       >
         <div className="flex h-full min-h-0 flex-col gap-3 text-slate-900">
           <Alert
@@ -745,9 +1014,28 @@ export function FamsChatBox() {
             description="允许研究、观察、比较、提醒和人工计划草案；正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 始终受交易 gate 阻断。"
           />
 
-          <WelcomeTaskBoard onSelect={(prompt) => sendMessage(prompt)} disabled={loading} />
+          {messages.length <= 1 ? (
+            <div className="space-y-2">
+              <WelcomeTaskBoard onSelect={(prompt) => sendMessage(prompt)} disabled={loading} />
+              <Button size="small" icon={<HistoryOutlined />} onClick={loadReviewHistory} loading={historyLoading}>查看历史复盘</Button>
+            </div>
+          ) : (
+            <Collapse
+              size="small"
+              items={[{
+                key: 'quick-actions',
+                label: '快捷提问与历史复盘',
+                children: (
+                  <div className="space-y-2">
+                    <WelcomeTaskBoard onSelect={(prompt) => sendMessage(prompt)} disabled={loading} />
+                    <Button size="small" icon={<HistoryOutlined />} onClick={loadReviewHistory} loading={historyLoading}>查看历史复盘</Button>
+                  </div>
+                ),
+              }]}
+            />
+          )}
 
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div className="min-h-[320px] flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4">
             <Space direction="vertical" size={12} className="w-full">
               {messages.map((item) => (
                 <div key={item.id} className={`flex ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -771,13 +1059,14 @@ export function FamsChatBox() {
                   正在调用白名单工具并生成结构化结果...
                 </div>
               ) : null}
+              <div ref={messagesEndRef} />
             </Space>
           </div>
 
           <Space.Compact className="w-full">
             <Input.TextArea
               value={input}
-              autoSize={{ minRows: 1, maxRows: 3 }}
+              autoSize={{ minRows: 2, maxRows: 6 }}
               placeholder="例如：帮我对比永久组合和全天候组合最近三年"
               onChange={(event) => setInput(event.target.value)}
               onPressEnter={(event) => {
@@ -792,7 +1081,16 @@ export function FamsChatBox() {
             </Button>
           </Space.Compact>
 
-          <div className="rounded-lg bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+          <details className="rounded-lg border border-slate-200 bg-white text-xs text-slate-600">
+            <summary className="cursor-pointer px-3 py-2 font-medium text-slate-700">导入截图（持仓 / 成交 / 委托）</summary>
+            <div className="border-t border-slate-100 px-3 py-3">
+              <ScreenshotCapturePanel userId="default" conversationId={conversationId} compact onEvent={handleCaptureEvent} />
+            </div>
+          </details>
+
+          <details className="rounded-lg bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+            <summary className="cursor-pointer font-medium text-slate-600">Agent 与 LLM 技术状态</summary>
+            <div className="mt-2">
             AgentCore：{latestAgentCore?.provider || 'pi-agent-core'}｜
             模式：{latestAgentCore?.mode || 'deterministic_planner'}｜
             Runtime：{latestAgentCore?.runtimeAvailable === false ? '未确认' : '可用'}。
@@ -805,9 +1103,55 @@ export function FamsChatBox() {
               </>
             ) : null}
             技术细节会在每条回复下方折叠展示。
-          </div>
+            </div>
+          </details>
         </div>
       </Drawer>
+      <Modal
+        title="历史持仓复盘"
+        open={historyOpen}
+        width={760}
+        footer={<Button onClick={() => setHistoryOpen(false)}>关闭</Button>}
+        onCancel={() => setHistoryOpen(false)}
+      >
+        {historyLoading ? <div className="py-8 text-center"><Spin /></div> : (
+          <div className="max-h-[560px] space-y-2 overflow-y-auto">
+            {reviewHistory?.items.length ? reviewHistory.items.map((item) => (
+              <Card key={item.id} size="small">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="font-medium text-slate-900">{new Date(item.generatedAt).toLocaleString('zh-CN')}｜{item.sessionType}</div>
+                    <div className="mt-1 text-xs text-slate-500">复盘编号：{item.id}</div>
+                  </div>
+                  <Tag color={item.status === 'completed' ? 'green' : item.status === 'partial' ? 'orange' : 'red'}>{item.status}</Tag>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                  <div>复盘资产：{item.portfolio?.reviewedAssets ?? 0}</div>
+                  <div>组合市值：{displayNumber(item.portfolio?.totalValue)}</div>
+                  <div>网格方案：{item.counts.gridPlans}</div>
+                  <div>持仓快照：{item.counts.positionSnapshots}</div>
+                </div>
+                <div className="mt-2 rounded-md bg-slate-50 px-2 py-2 text-xs text-slate-600">
+                  {item.strategyAssessment?.conclusion || '该轮没有策略总体结论。'}
+                </div>
+                <Button
+                  className="mt-2"
+                  size="small"
+                  type="link"
+                  icon={<HistoryOutlined />}
+                  onClick={() => {
+                    setHistoryOpen(false)
+                    setOpen(false)
+                    navigate(`/daily-reviews/${item.id}`)
+                  }}
+                >
+                  打开十节点工作台
+                </Button>
+              </Card>
+            )) : <Alert type="info" showIcon message="还没有历史持仓复盘" />}
+          </div>
+        )}
+      </Modal>
     </>
   )
 }
