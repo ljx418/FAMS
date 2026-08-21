@@ -76,6 +76,13 @@ export const WorkflowTemplates: Record<string, Omit<Workflow, 'createdAt' | 'upd
         parameters: { userId: '{{userId}}' },
       },
       {
+        id: 'analyze_volatility_sleeves',
+        name: '分析相对轮动与波动仓',
+        type: 'mcp',
+        mcpTool: 'relative_rotation.analyze_volatility_sleeves',
+        parameters: { userId: '{{userId}}', refresh: true },
+      },
+      {
         id: 'check_risk',
         name: '检查风险',
         type: 'mcp',

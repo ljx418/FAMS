@@ -25,6 +25,8 @@ interface FactsetRefreshSchedulerConfig {
   marketBarDailyRefreshConcurrency: number
   marketBarDailyRefreshAfterMinutes: number
   marketBarDailyRefreshForce: boolean
+  volatilitySleeveDailyAnalysisEnabled: boolean
+  volatilitySleeveDailyAnalysisAfterMinutes: number
 }
 
 const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
@@ -201,6 +203,8 @@ class FactsetRefreshScheduler {
       marketBarDailyRefreshConcurrency: Math.max(1, parseNumberEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_CONCURRENCY, 4)),
       marketBarDailyRefreshAfterMinutes: Math.max(15 * 60 + 31, parseNumberEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_AFTER_MINUTES, 17 * 60)),
       marketBarDailyRefreshForce: parseBooleanEnv(process.env.FAMS_MARKET_BAR_DAILY_REFRESH_FORCE, true),
+      volatilitySleeveDailyAnalysisEnabled: parseBooleanEnv(process.env.FAMS_VOLATILITY_SLEEVE_DAILY_ENABLED, true),
+      volatilitySleeveDailyAnalysisAfterMinutes: Math.max(17 * 60, parseNumberEnv(process.env.FAMS_VOLATILITY_SLEEVE_DAILY_AFTER_MINUTES, 17 * 60 + 30)),
     }
   }
 
@@ -300,6 +304,7 @@ class FactsetRefreshScheduler {
         timezone: config.timezone,
       })
       const dividendLowVolDailyScan = await this.maybeScheduleDividendLowVolDailyScan(config, now, marketBarFreshness)
+      const volatilitySleeveDailyAnalysis = await this.maybeScheduleVolatilitySleeveDailyAnalysis(config, now, marketBarFreshness)
       tickResult = {
         ...tickResult,
         marketBarDailyRefresh,
@@ -311,8 +316,9 @@ class FactsetRefreshScheduler {
           blockers: marketBarFreshness.blockers,
         },
         dividendLowVolDailyScan,
+        volatilitySleeveDailyAnalysis,
       }
-      return { ...result, marketBarDailyRefresh, marketBarFreshness, dividendLowVolDailyScan, skipped: false, schedulerReason: reason, config }
+      return { ...result, marketBarDailyRefresh, marketBarFreshness, dividendLowVolDailyScan, volatilitySleeveDailyAnalysis, skipped: false, schedulerReason: reason, config }
     } catch (error) {
       tickResult = { reason: 'failed', error: error instanceof Error ? error.message : String(error) }
       logger.error({
@@ -441,6 +447,52 @@ class FactsetRefreshScheduler {
       operationId: operation?.id || operation?.operationId || null,
       idempotencyKey,
       limit: config.dividendLowVolDailyScanLimit,
+    }
+  }
+
+  private async maybeScheduleVolatilitySleeveDailyAnalysis(
+    config: FactsetRefreshSchedulerConfig,
+    now: Date,
+    marketBarFreshness?: Awaited<ReturnType<typeof marketDataFreshnessService.buildReport>>,
+  ) {
+    if (!config.volatilitySleeveDailyAnalysisEnabled) {
+      return { submitted: false, skipped: true, reason: 'disabled' }
+    }
+    if (!isAshareWeekday(now, config.timezone)) {
+      return { submitted: false, skipped: true, reason: 'non_trading_day' }
+    }
+    if (localMinutes(now, config.timezone) < config.volatilitySleeveDailyAnalysisAfterMinutes) {
+      return { submitted: false, skipped: true, reason: 'before_after_close_window' }
+    }
+    if (marketBarFreshness && !['fresh', 'delayed'].includes(marketBarFreshness.status)) {
+      return {
+        submitted: false,
+        skipped: true,
+        reason: 'market_bar_refresh_required',
+        marketBarFreshness: {
+          status: marketBarFreshness.status,
+          expectedLatestTradeDate: marketBarFreshness.expectedLatestTradeDate,
+          latestTradeDate: marketBarFreshness.latestTradeDate,
+          blockers: marketBarFreshness.blockers,
+        },
+      }
+    }
+    const tradeDate = localDateKey(now, config.timezone)
+    const idempotencyKey = `volatility-sleeve-daily-analysis:${config.userId}:${tradeDate}:current_holdings`
+    const operation = await operationService.startVolatilitySleeveDailyAnalysisOperation({
+      userId: config.userId,
+      refresh: true,
+      executionMode: 'queued',
+      createdBy: 'scheduler',
+      idempotencyKey,
+    })
+    return {
+      submitted: true,
+      skipped: false,
+      reason: 'submitted_or_existing',
+      tradeDate,
+      operationId: operation?.id || operation?.operationId || null,
+      idempotencyKey,
     }
   }
 }

@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { operationService } from '../services/operation/operationService.js'
 import { positionService } from '../services/position/positionService.js'
+import { volatilitySleeveService } from '../services/volatility-sleeve/volatilitySleeveService.js'
 
 const numericPositionFields = {
   quantity: { type: 'number', minimum: 0 },
@@ -87,6 +88,51 @@ export async function positionRoutes(app: FastifyInstance) {
   app.post('/manual-buy', { schema: manualBuyPositionSchema }, async (request) => {
     const { userId, ...data } = request.body as any
     return positionService.createManualBuyPosition(userId, data)
+  })
+
+  app.get('/:id/sleeves', async (request) => {
+    const { id } = request.params as { id: string }
+    const query = request.query as Record<string, string | undefined>
+    return volatilitySleeveService.getLedger(query.userId || 'default', id, 50)
+  })
+
+  app.post('/:id/sleeves/activate', async (request) => {
+    const { id } = request.params as { id: string }
+    const body = request.body as Record<string, unknown>
+    return volatilitySleeveService.activateAllocation({
+      userId: typeof body.userId === 'string' ? body.userId : 'default',
+      positionId: id,
+      backtestId: String(body.backtestId || ''),
+      confirmedRatio: typeof body.confirmedRatio === 'number' ? body.confirmedRatio : undefined,
+      strategyProfile: body.strategyProfile === 'strict' ? 'strict' : body.strategyProfile === 'conservative' ? 'conservative' : undefined,
+    })
+  })
+
+  app.post('/:id/sleeves/transfer', async (request) => {
+    const { id } = request.params as { id: string }
+    const body = request.body as Record<string, unknown>
+    const direction = String(body.direction || '')
+    if (!['core_to_volatility', 'volatility_to_core', 'cash_in', 'cash_out'].includes(direction)) {
+      throw new Error('Invalid sleeve transfer direction')
+    }
+    return volatilitySleeveService.transfer({
+      userId: typeof body.userId === 'string' ? body.userId : 'default',
+      positionId: id,
+      direction: direction as 'core_to_volatility' | 'volatility_to_core' | 'cash_in' | 'cash_out',
+      amount: Number(body.amount),
+      expectedVersion: typeof body.expectedVersion === 'number' ? body.expectedVersion : undefined,
+      notes: typeof body.notes === 'string' ? body.notes : undefined,
+    })
+  })
+
+  app.get('/:id/sleeves/ledger', async (request) => {
+    const { id } = request.params as { id: string }
+    const query = request.query as Record<string, string | undefined>
+    return volatilitySleeveService.getLedger(
+      query.userId || 'default',
+      id,
+      Math.max(1, Math.min(1000, Number(query.limit || 200))),
+    )
   })
 
   // 获取单个仓位

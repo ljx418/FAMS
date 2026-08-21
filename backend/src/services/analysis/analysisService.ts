@@ -1035,6 +1035,38 @@ class AnalysisService {
       ? allPositions
       : allPositions.filter((position) => this.matchesAnalysisQuery(position, query, scope))
     const nonCashPositions = positions.filter((position) => position.asset.type !== 'cash')
+    const volatilityDraftRows = await prisma.volatilityTradeDraft.findMany({
+      where: {
+        userId: normalizedUserId,
+        status: 'pending',
+        positionId: { in: positions.map((position) => position.id) },
+      },
+      include: { position: { include: { asset: true } }, allocation: true },
+      orderBy: { analysisDate: 'desc' },
+    })
+    const volatilitySleeve = {
+      schemaVersion: 'fams.volatility_sleeve.advice_summary.v1',
+      draftCount: volatilityDraftRows.length,
+      drafts: volatilityDraftRows.map((draft) => ({
+        draftId: draft.id,
+        positionId: draft.positionId,
+        symbol: draft.position.asset.symbol,
+        name: draft.position.asset.name,
+        side: draft.side,
+        suggestedQuantity: draft.suggestedQuantity,
+        referencePriceLow: draft.referencePriceLow,
+        referencePriceHigh: draft.referencePriceHigh,
+        rrgQuadrant: draft.rrgQuadrant,
+        rationale: this.parseJsonStringArray(draft.rationaleJson),
+        expiresAt: draft.expiresAt,
+        coreQuantity: draft.allocation.coreQuantity,
+        volatilityQuantity: draft.allocation.volatilityQuantity,
+        volatilityCash: draft.allocation.volatilityCash,
+      })),
+      changesPortfolioTargetWeight: false,
+      requiresUserConfirmation: true,
+      notTradingAdvice: true,
+    }
     const quoteResults = await Promise.all(nonCashPositions.map((position) => this.getQuoteForAdviceSnapshot(position)))
     const quoteByPositionId = new Map(nonCashPositions.map((position, index) => [position.id, quoteResults[index]]))
 
@@ -1279,6 +1311,7 @@ class AnalysisService {
         constraintsJson: JSON.stringify({
           requiresUserConfirmation: true,
           adviceScope: query ? (scope === 'asset' ? 'holding' : 'candidate') : 'portfolio',
+          volatilitySleeveDraftCount: volatilitySleeve.draftCount,
           disclaimer: this.adviceDisclaimer,
         }),
         promptVersion: 'rules-engine-v1',
@@ -1336,7 +1369,7 @@ class AnalysisService {
         summaryText: structuredAdvice.summary,
         disclaimerText: this.adviceDisclaimer,
         inputSnapshotJson: JSON.stringify(inputSnapshot),
-        recommendationJson: JSON.stringify({ structuredAdvice, suggestions: sortedSuggestions, dataReliability }),
+        recommendationJson: JSON.stringify({ structuredAdvice, suggestions: sortedSuggestions, dataReliability, volatilitySleeve }),
         rationaleText: '规则引擎基于止盈止损、技术信号、亏损定投和配置偏离生成建议。',
         riskLevel,
         status: 'proposed',
@@ -1374,7 +1407,7 @@ class AnalysisService {
 
     await prisma.advice.update({
       where: { id: advice.id },
-      data: { recommendationJson: JSON.stringify({ structuredAdvice: structuredAdviceWithActions, suggestions: suggestionsWithActions, dataReliability }) },
+      data: { recommendationJson: JSON.stringify({ structuredAdvice: structuredAdviceWithActions, suggestions: suggestionsWithActions, dataReliability, volatilitySleeve }) },
     })
 
     const snapshotIds = {
@@ -1402,6 +1435,7 @@ class AnalysisService {
       suggestions: suggestionsWithActions,
       marketDataTrace,
       dataReliability,
+      volatilitySleeve,
       riskLevel,
       overallScore: 100 - riskScore,
       marketOutlook: this.getMarketOutlook(positions),

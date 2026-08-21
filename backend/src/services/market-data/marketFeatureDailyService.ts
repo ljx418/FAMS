@@ -182,12 +182,14 @@ class MarketFeatureDailyService {
         volatility60,
         maxDrawdown20: this.maxDrawdown(closes.slice(-20)),
         maxDrawdown60: closes.length >= 60 ? this.maxDrawdown(closes.slice(-60)) : null,
-        relativeStrength20: return20d,
-        relativeStrength60: return60d,
+        // 相对强弱必须显式绑定共同基准。旧实现直接复制自身收益，语义错误；
+        // 新的相对轮动模块会在 benchmark-aware 表中保存该证据。
+        relativeStrength20: null,
+        relativeStrength60: null,
         liquidityScore,
         trendScore: trendScoreParts.reduce((sum, value) => sum + value, 0),
         momentumScore,
-        qualityFlagsJson: JSON.stringify(qualityFlags),
+        qualityFlagsJson: JSON.stringify([...qualityFlags, 'relative_strength_requires_explicit_benchmark']),
         computedAt: new Date(),
       })
     }

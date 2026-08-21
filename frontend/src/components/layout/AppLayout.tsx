@@ -13,6 +13,7 @@ import {
   HistoryOutlined,
   BellOutlined,
   MenuOutlined,
+  RadarChartOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { FamsChatBox } from '../chat/FamsChatBox'
@@ -39,6 +40,7 @@ const menuItems = [
     children: [
       { key: 'analysis', icon: <LineChartOutlined />, label: '分析建议' },
       { key: 'dividend-low-vol', icon: <RiseOutlined />, label: '红利低波策略' },
+      { key: 'relative-rotation', icon: <RadarChartOutlined />, label: '相对轮动与波动仓' },
       { key: 'backtest', icon: <ExperimentOutlined />, label: '策略回测' },
     ],
   },

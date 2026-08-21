@@ -661,10 +661,15 @@ class PositionService {
   }) {
     const position = await prisma.position.findUnique({
       where: { id: positionId },
-      include: { asset: true },
+      include: { asset: true, sleeveAllocation: true },
     })
     if (!position) {
       throw new Error('Position not found')
+    }
+    if (position.sleeveAllocation?.status === 'active' && data.quantity !== undefined && data.quantity !== position.quantity) {
+      const error = new Error('已启用核心仓/波动仓拆分，请通过交易或分仓划转更新数量') as Error & { statusCode?: number }
+      error.statusCode = 409
+      throw error
     }
 
     const asset = position.asset
@@ -774,11 +779,16 @@ class PositionService {
   async closePosition(positionId: string) {
     const position = await prisma.position.findUnique({
       where: { id: positionId },
-      include: { asset: true },
+      include: { asset: true, sleeveAllocation: true },
     })
 
     if (!position) {
       throw new Error('Position not found')
+    }
+    if (position.sleeveAllocation?.status === 'active') {
+      const error = new Error('已启用核心仓/波动仓拆分，请分别确认核心仓与波动仓卖出，不能直接平仓') as Error & { statusCode?: number }
+      error.statusCode = 409
+      throw error
     }
 
     if (position.status === 'closed') {

@@ -39,7 +39,7 @@ const askChatBox = (messageText: string) => {
 }
 
 type OperationStatus = 'queued' | 'running' | 'completed' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'partial'
-type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'portfolio_backtest_run'
+type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'portfolio_backtest_run' | 'relative_rotation_backtest' | 'volatility_sleeve_daily_analysis'
 type ReliabilityStatus = 'healthy' | 'degraded' | 'failing' | 'unknown'
 type AdviceScope = 'all' | 'asset' | 'sector'
 
@@ -324,6 +324,8 @@ const TYPE_META: Record<OperationType, { label: string; color: string }> = {
   market_bar_cache_preheat: { label: 'K线预热', color: '#f59e0b' },
   fivd_r_portfolio_refresh: { label: 'FIVD-R刷新', color: '#38bdf8' },
   portfolio_backtest_run: { label: '组合回测', color: '#22d3ee' },
+  relative_rotation_backtest: { label: '相对轮动回测', color: '#2563eb' },
+  volatility_sleeve_daily_analysis: { label: '波动仓每日分析', color: '#0f766e' },
 }
 
 const RELIABILITY_STATUS: Record<ReliabilityStatus, { color: string; label: string }> = {

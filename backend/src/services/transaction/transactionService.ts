@@ -29,6 +29,9 @@ export interface CreateTransactionParams {
   executedAt?: Date
   notes?: string
   adviceActionId?: string
+  source?: string
+  sleeveType?: 'core' | 'volatility'
+  volatilityTradeDraftId?: string
 }
 
 export interface TransactionFilters {
@@ -97,6 +100,23 @@ class TransactionService {
         throw error
       }
 
+      const openPositionBeforeTrade = params.type === 'buy' || params.type === 'sell'
+        ? await tx.position.findFirst({
+          where: { userId: params.userId, assetId: params.assetId, status: 'open' },
+          include: { sleeveAllocation: true },
+        })
+        : null
+      if (openPositionBeforeTrade?.sleeveAllocation?.status === 'active' && !params.sleeveType) {
+        const error = new Error('已启用核心仓/波动仓拆分，买卖必须指定 sleeveType') as Error & { statusCode?: number }
+        error.statusCode = 400
+        throw error
+      }
+      if (params.sleeveType && !['core', 'volatility'].includes(params.sleeveType)) {
+        const error = new Error('sleeveType must be core or volatility') as Error & { statusCode?: number }
+        error.statusCode = 400
+        throw error
+      }
+
       // 创建交易记录
       const transaction = await tx.transaction.create({
         data: {
@@ -111,6 +131,9 @@ class TransactionService {
           confirmationNo: params.confirmationNo,
           executedAt: params.executedAt || new Date(),
           notes: params.notes,
+          source: params.source,
+          sleeveType: params.sleeveType,
+          volatilityTradeDraftId: params.volatilityTradeDraftId,
           adviceActionId: params.adviceActionId,
         },
         include: { asset: true },
@@ -127,10 +150,124 @@ class TransactionService {
           data: { positionId: position.id },
         })
         transaction.positionId = position.id
+        if (params.type === 'buy' || params.type === 'sell') {
+          await this.updateSleeveFromTransaction(tx, {
+            id: transaction.id,
+            userId: params.userId,
+            positionId: position.id,
+            type: params.type,
+            quantity: params.quantity,
+            price: params.price,
+            fee,
+            sleeveType: params.sleeveType,
+            volatilityTradeDraftId: params.volatilityTradeDraftId,
+            executedAt: params.executedAt || new Date(),
+          })
+        }
       }
 
       return transaction
     })
+  }
+
+  private async updateSleeveFromTransaction(
+    tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+    transaction: {
+      id: string
+      userId: string
+      positionId: string
+      type: 'buy' | 'sell'
+      quantity: number
+      price: number
+      fee: number
+      sleeveType?: 'core' | 'volatility'
+      volatilityTradeDraftId?: string
+      executedAt: Date
+    }
+  ) {
+    const allocation = await tx.positionSleeveAllocation.findUnique({ where: { positionId: transaction.positionId } })
+    if (!allocation || allocation.status !== 'active') return
+    if (!transaction.sleeveType) throw new Error('Active sleeve allocation requires sleeveType')
+
+    let coreQuantityDelta = 0
+    let volatilityQuantityDelta = 0
+    let volatilityCashDelta = 0
+    let volatilityCostBasisDelta = 0
+    let volatilityRealizedPnlDelta = 0
+    const gross = transaction.quantity * transaction.price
+
+    if (transaction.sleeveType === 'core') {
+      if (transaction.type === 'sell' && transaction.quantity > allocation.coreQuantity) {
+        throw new Error('Sell quantity exceeds core sleeve quantity')
+      }
+      coreQuantityDelta = transaction.type === 'buy' ? transaction.quantity : -transaction.quantity
+    } else if (transaction.type === 'buy') {
+      const totalCost = gross + transaction.fee
+      if (totalCost > allocation.volatilityCash + 0.01) {
+        throw new Error('Buy amount exceeds volatility sleeve cash')
+      }
+      volatilityQuantityDelta = transaction.quantity
+      volatilityCashDelta = -totalCost
+      volatilityCostBasisDelta = totalCost
+    } else {
+      if (transaction.quantity > allocation.volatilityQuantity) {
+        throw new Error('Sell quantity exceeds volatility sleeve quantity')
+      }
+      const netProceeds = gross - transaction.fee
+      const carryingCost = allocation.volatilityQuantity > 0
+        ? allocation.volatilityCostBasis * (transaction.quantity / allocation.volatilityQuantity)
+        : 0
+      volatilityQuantityDelta = -transaction.quantity
+      volatilityCashDelta = netProceeds
+      volatilityCostBasisDelta = -carryingCost
+      volatilityRealizedPnlDelta = netProceeds - carryingCost
+    }
+
+    const updated = await tx.positionSleeveAllocation.update({
+      where: { id: allocation.id },
+      data: {
+        coreQuantity: { increment: coreQuantityDelta },
+        volatilityQuantity: { increment: volatilityQuantityDelta },
+        volatilityCash: { increment: volatilityCashDelta },
+        volatilityCostBasis: { increment: volatilityCostBasisDelta },
+        volatilityRealizedPnl: { increment: volatilityRealizedPnlDelta },
+        version: { increment: 1 },
+      },
+    })
+    const remainingQuantity = updated.coreQuantity + updated.volatilityQuantity
+    if (remainingQuantity <= 0.000001) {
+      await tx.positionSleeveAllocation.update({
+        where: { id: allocation.id },
+        data: { status: 'closed', closedAt: new Date(), version: { increment: 1 } },
+      })
+    }
+    await tx.positionSleeveLedgerEntry.create({
+      data: {
+        allocationId: allocation.id,
+        userId: transaction.userId,
+        positionId: transaction.positionId,
+        transactionId: transaction.id,
+        entryType: transaction.type,
+        sleeveType: transaction.sleeveType,
+        quantityDelta: transaction.sleeveType === 'core' ? coreQuantityDelta : volatilityQuantityDelta,
+        cashDelta: volatilityCashDelta,
+        costBasisDelta: volatilityCostBasisDelta,
+        realizedPnlDelta: volatilityRealizedPnlDelta,
+        price: transaction.price,
+        fee: transaction.fee,
+        occurredAt: transaction.executedAt,
+        metadataJson: JSON.stringify({
+          volatilityTradeDraftId: transaction.volatilityTradeDraftId || null,
+          gross,
+        }),
+      },
+    })
+    if (transaction.volatilityTradeDraftId) {
+      await tx.volatilityTradeDraft.update({
+        where: { id: transaction.volatilityTradeDraftId },
+        data: { status: 'confirmed', confirmedAt: transaction.executedAt },
+      })
+    }
   }
 
   private calculateSignedAmount(type: string, grossAmount: number, fee: number): number {
@@ -611,6 +748,9 @@ class TransactionService {
       if (!original) {
         throw new Error('Transaction not found')
       }
+      if (original.sleeveType) {
+        throw new Error('Sleeve transactions are immutable; record a correcting transaction to preserve the allocation ledger')
+      }
 
       // 回滚原交易对仓位的影响
       if (original.type === 'buy' || original.type === 'sell') {
@@ -761,6 +901,9 @@ class TransactionService {
 
       if (!transaction) {
         throw new Error('Transaction not found')
+      }
+      if (transaction.sleeveType) {
+        throw new Error('Sleeve transactions are immutable; record a correcting transaction to preserve the allocation ledger')
       }
 
       // 回滚仓位影响

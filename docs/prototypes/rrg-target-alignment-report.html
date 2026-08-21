@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>RRG 功能目标对齐报告 · FAMS</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-strong: #1d4ed8;
+      --success: #059669;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --info: #0891b2;
+      --ink: #0f172a;
+      --ink-2: #334155;
+      --muted: #64748b;
+      --paper: #ffffff;
+      --canvas: #f4f7fb;
+      --canvas-2: #eef3f8;
+      --line: #dbe3ef;
+      --line-soft: #e7edf5;
+      --leading-soft: #ecfdf5;
+      --weakening-soft: #fffbeb;
+      --lagging-soft: #fef2f2;
+      --improving-soft: #ecfeff;
+      --radius-sm: 8px;
+      --radius-md: 10px;
+      --radius-lg: 12px;
+      --shadow: 0 18px 46px rgba(15, 23, 42, .12);
+      --space: 24px;
+      --content: 1180px;
+      --font: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    body.compact { --space: 16px; font-size: 15px; }
+    a { color: var(--primary-strong); text-underline-offset: 3px; }
+    a:hover { color: var(--primary); }
+    button, input { font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; }
+    :focus-visible { outline: 3px solid rgba(37, 99, 235, .28); outline-offset: 2px; }
+    .wrap { width: min(calc(100% - 32px), var(--content)); margin-inline: auto; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      border-bottom: 1px solid rgba(219, 227, 239, .9);
+      background: rgba(255, 255, 255, .94);
+      backdrop-filter: blur(16px);
+    }
+    .topbar-inner { min-height: 62px; display: flex; align-items: center; gap: 28px; }
+    .brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; font-weight: 750; }
+    .brand-mark { width: 28px; height: 28px; border-radius: 7px; background: var(--ink); position: relative; }
+    .brand-mark::before, .brand-mark::after { content: ""; position: absolute; background: white; border-radius: 99px; }
+    .brand-mark::before { width: 12px; height: 2px; left: 8px; top: 9px; transform: rotate(-25deg); }
+    .brand-mark::after { width: 8px; height: 2px; left: 11px; top: 16px; transform: rotate(35deg); }
+    .nav { display: flex; gap: 20px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav a { color: var(--muted); text-decoration: none; font-size: 13px; white-space: nowrap; }
+    .nav a:hover { color: var(--ink); }
+    .status-chip { color: var(--primary-strong); background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 99px; padding: 5px 10px; font-size: 12px; white-space: nowrap; }
+
+    .hero { padding: clamp(54px, 8vw, 104px) 0 56px; border-bottom: 1px solid var(--line); background: var(--paper); }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1.38fr) minmax(310px, .62fr); gap: clamp(36px, 7vw, 90px); align-items: end; }
+    .eyebrow { color: var(--primary-strong); font-weight: 700; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+    h1, h2, h3, p { text-wrap: pretty; }
+    h1 { margin: 16px 0 22px; font-size: clamp(42px, 6.2vw, 76px); line-height: 1.04; letter-spacing: -.055em; max-width: 850px; }
+    .hero-lede { margin: 0; color: var(--ink-2); font-size: clamp(18px, 2vw, 23px); max-width: 760px; }
+    .hero-note { margin-top: 24px; color: var(--muted); font-size: 13px; display: flex; gap: 12px; align-items: center; }
+    .hero-note::before { content: ""; display: block; width: 34px; height: 1px; background: var(--muted); }
+    .decision-card { border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--paper); }
+    .decision-card-head { padding: 18px 20px; background: var(--ink); color: white; }
+    .decision-card-head small { display: block; color: #cbd5e1; margin-top: 2px; }
+    .decision-row { display: grid; grid-template-columns: 94px 1fr; gap: 16px; padding: 15px 20px; border-top: 1px solid var(--line-soft); font-size: 14px; }
+    .decision-row span:first-child { color: var(--muted); }
+    .decision-row strong { font-weight: 650; }
+
+    main { padding-bottom: 100px; }
+    section { scroll-margin-top: 84px; padding: clamp(54px, 7vw, 88px) 0; border-bottom: 1px solid var(--line); }
+    .section-kicker { color: var(--primary-strong); font: 650 12px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    h2 { margin: 12px 0 14px; font-size: clamp(30px, 4vw, 46px); line-height: 1.13; letter-spacing: -.035em; }
+    .section-intro { margin: 0 0 34px; max-width: 820px; color: var(--ink-2); font-size: 18px; }
+    .panel { border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius-lg); overflow: hidden; }
+    .panel-pad { padding: clamp(20px, 3vw, 34px); }
+
+    .definition-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space); }
+    .definition-core { padding: clamp(24px, 4vw, 42px); background: var(--ink); color: white; border-radius: var(--radius-lg); }
+    .definition-core .label { color: #93c5fd; font: 650 12px var(--mono); }
+    .definition-core h3 { margin: 18px 0; font-size: clamp(25px, 3vw, 38px); line-height: 1.22; letter-spacing: -.025em; }
+    .definition-core p { color: #cbd5e1; margin-bottom: 0; }
+    .axes { display: grid; gap: 12px; }
+    .axis-card { padding: 22px; border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius-lg); }
+    .axis-id { font: 700 12px var(--mono); color: var(--primary-strong); }
+    .axis-card h3 { margin: 5px 0 6px; font-size: 20px; }
+    .axis-card p { margin: 0; color: var(--muted); font-size: 14px; }
+    .formula { display: inline-block; margin-top: 13px; padding: 6px 9px; border-radius: 6px; background: var(--canvas-2); color: var(--ink-2); font: 12px var(--mono); }
+
+    .chart-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, .45fr); }
+    .chart-main { min-width: 0; padding: 22px; border-right: 1px solid var(--line); }
+    .chart-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+    .chart-toolbar strong { font-size: 15px; }
+    .chart-toolbar small { color: var(--muted); }
+    .segmented { display: inline-flex; border: 1px solid var(--line); padding: 3px; border-radius: 8px; background: var(--canvas); }
+    .segmented button { min-height: 34px; padding: 0 12px; border: 0; border-radius: 5px; color: var(--muted); background: transparent; cursor: pointer; }
+    .segmented button[aria-pressed="true"] { color: var(--ink); background: var(--paper); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+    .chart-canvas-wrap { position: relative; aspect-ratio: 1.45; min-height: 390px; border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; background: var(--paper); }
+    #rrgCanvas { display: block; width: 100%; height: 100%; }
+    .chart-badge { position: absolute; top: 12px; left: 12px; z-index: 2; padding: 5px 8px; color: var(--ink-2); background: rgba(255, 255, 255, .88); border: 1px solid var(--line); border-radius: 6px; font-size: 11px; backdrop-filter: blur(8px); pointer-events: none; }
+    .chart-side { padding: 24px; background: #fbfdff; }
+    .control-label { display: flex; justify-content: space-between; color: var(--ink-2); font-size: 13px; margin-bottom: 8px; }
+    input[type="range"] { width: 100%; accent-color: var(--primary); }
+    .legend { display: grid; gap: 11px; margin: 24px 0; }
+    .legend-row { display: grid; grid-template-columns: 10px 1fr; gap: 10px; align-items: start; font-size: 13px; color: var(--ink-2); }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; }
+    .chart-disclaimer { padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+
+    .quadrants { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: var(--space); }
+    .quadrant { padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-md); }
+    .quadrant .q-code { font: 700 11px var(--mono); }
+    .quadrant h3 { margin: 7px 0 4px; font-size: 18px; }
+    .quadrant p { margin: 0; color: var(--ink-2); font-size: 13px; }
+    .leading { background: var(--leading-soft); } .leading .q-code { color: var(--success); }
+    .weakening { background: var(--weakening-soft); } .weakening .q-code { color: var(--warning); }
+    .lagging { background: var(--lagging-soft); } .lagging .q-code { color: var(--danger); }
+    .improving { background: var(--improving-soft); } .improving .q-code { color: var(--info); }
+    .caveat { margin-top: 20px; padding: 16px 18px; border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius-sm); color: var(--ink-2); font-size: 14px; }
+    .caveat strong { color: var(--ink); }
+
+    .readiness { display: grid; grid-template-columns: 1fr .82fr; gap: var(--space); align-items: start; }
+    .evidence-table { width: 100%; border-collapse: collapse; }
+    .evidence-table th, .evidence-table td { padding: 16px 18px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top; }
+    .evidence-table th { color: var(--muted); background: #fbfdff; font: 650 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; }
+    .evidence-table tr:last-child td { border-bottom: 0; }
+    .evidence-table td { font-size: 14px; }
+    .code-ref { display: block; margin-top: 4px; color: var(--muted); font: 11px/1.5 var(--mono); overflow-wrap: anywhere; }
+    .signal { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; font-size: 12px; font-weight: 650; }
+    .signal::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .signal.good { color: var(--success); } .signal.partial { color: var(--warning); } .signal.missing { color: var(--danger); }
+    .gap-list { display: grid; }
+    .gap-item { padding: 20px 22px; border-bottom: 1px solid var(--line-soft); }
+    .gap-item:last-child { border-bottom: 0; }
+    .gap-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .gap-top strong { font-size: 15px; }
+    .gap-item p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+    .audit-note { margin-top: var(--space); display: flex; align-items: flex-start; gap: 18px; padding: 20px 22px; border: 1px solid #bfdbfe; border-radius: var(--radius-md); background: #eff6ff; }
+    .audit-index { flex: 0 0 auto; color: var(--primary-strong); font: 750 22px var(--mono); }
+    .audit-note p { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; }
+
+    .target-statement { display: grid; grid-template-columns: .42fr 1fr; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--paper); }
+    .target-label { padding: 28px; background: var(--primary-strong); color: white; font: 700 13px var(--mono); }
+    .target-copy { padding: clamp(26px, 4vw, 42px); font-size: clamp(21px, 2.7vw, 31px); line-height: 1.4; letter-spacing: -.018em; }
+    .surface { display: grid; grid-template-columns: 230px 1fr 280px; margin-top: var(--space); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--paper); min-height: 410px; }
+    .surface-side { padding: 20px; background: #fbfdff; border-right: 1px solid var(--line); }
+    .surface-title { color: var(--muted); font: 650 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; }
+    .control-mock { margin-top: 16px; }
+    .control-mock label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 11px; }
+    .select-mock { min-height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--ink-2); font-size: 12px; }
+    .surface-chart { display: grid; place-items: center; padding: 26px; min-width: 0; }
+    .surface-chart-inner { width: min(100%, 470px); aspect-ratio: 1.2; display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); position: relative; }
+    .surface-chart-inner::before, .surface-chart-inner::after { content: ""; position: absolute; z-index: 3; background: #94a3b8; }
+    .surface-chart-inner::before { width: 1px; height: 100%; left: 50%; }
+    .surface-chart-inner::after { height: 1px; width: 100%; top: 50%; }
+    .surface-q { padding: 12px; color: var(--muted); font: 10px var(--mono); }
+    .surface-q:nth-child(1) { background: var(--improving-soft); }
+    .surface-q:nth-child(2) { background: var(--leading-soft); text-align: right; }
+    .surface-q:nth-child(3) { background: var(--lagging-soft); display: flex; align-items: end; }
+    .surface-q:nth-child(4) { background: var(--weakening-soft); display: flex; align-items: end; justify-content: end; }
+    .surface-detail { padding: 20px; border-left: 1px solid var(--line); }
+    .detail-row { padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+    .detail-row:last-child { border-bottom: 0; }
+    .detail-row small { display: block; color: var(--muted); }
+    .detail-row strong { font-size: 13px; }
+    .scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space); margin-top: var(--space); }
+    .scope-card { padding: 24px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--paper); }
+    .scope-card h3 { margin: 0 0 14px; font-size: 18px; }
+    .clean-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 11px; }
+    .clean-list li { position: relative; padding-left: 19px; color: var(--ink-2); font-size: 14px; }
+    .clean-list li::before { content: ""; position: absolute; width: 7px; height: 7px; left: 0; top: .65em; border-radius: 50%; background: var(--primary); }
+    .out-list li::before { background: var(--muted); }
+
+    .choices { display: grid; gap: 18px; }
+    .choice-block { padding: 22px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--paper); }
+    .choice-head { display: grid; grid-template-columns: 42px 1fr; gap: 14px; margin-bottom: 16px; }
+    .choice-num { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 9px; color: white; background: var(--ink); font: 700 13px var(--mono); }
+    .choice-head h3 { margin: 0; font-size: 18px; }
+    .choice-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+    .choice-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .option { min-height: 100%; padding: 15px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); color: var(--ink-2); text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+    .option:hover { border-color: #93c5fd; transform: translateY(-1px); }
+    .option[aria-pressed="true"] { border-color: var(--primary); background: #eff6ff; color: var(--ink); box-shadow: inset 0 0 0 1px var(--primary); }
+    .option strong { display: block; font-size: 13px; }
+    .option span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .recommended { display: inline-block !important; width: fit-content; margin: 0 0 7px !important; color: var(--primary-strong) !important; font: 700 10px var(--mono) !important; letter-spacing: .04em; }
+    .alignment-summary { position: sticky; bottom: 16px; z-index: 20; margin-top: 24px; padding: 18px 20px; display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; color: white; background: rgba(15, 23, 42, .97); border: 1px solid #334155; border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+    .alignment-summary small { color: #94a3b8; }
+    #decisionText { margin-top: 4px; font-size: 13px; }
+    .btn { min-height: 42px; border: 1px solid transparent; border-radius: 8px; padding: 0 16px; font-weight: 650; font-size: 13px; cursor: pointer; }
+    .btn-primary { color: var(--ink); background: white; }
+    .btn-primary:hover { background: #eff6ff; }
+    .btn-secondary { color: var(--ink-2); background: white; border-color: var(--line); }
+    .btn-secondary:hover { border-color: #93c5fd; }
+
+    .acceptance-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .acceptance-card { padding: 22px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--paper); }
+    .acceptance-card .a-num { color: var(--primary-strong); font: 700 12px var(--mono); }
+    .acceptance-card h3 { margin: 9px 0 8px; font-size: 16px; }
+    .acceptance-card p { margin: 0; color: var(--muted); font-size: 13px; }
+    .gate { margin-top: var(--space); padding: 26px; display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; border-radius: var(--radius-lg); background: var(--ink); color: white; }
+    .gate h3 { margin: 0 0 4px; font-size: 20px; }
+    .gate p { margin: 0; color: #cbd5e1; font-size: 14px; }
+    .gate-badge { padding: 8px 12px; border: 1px solid #475569; border-radius: 99px; color: #bfdbfe; font: 650 11px var(--mono); white-space: nowrap; }
+
+    .sources { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space); }
+    .source-list { counter-reset: sources; }
+    .source-item { counter-increment: sources; display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--line-soft); }
+    .source-item:last-child { border-bottom: 0; }
+    .source-item::before { content: counter(sources, decimal-leading-zero); color: var(--muted); font: 700 11px var(--mono); padding-top: 5px; }
+    .source-item strong { display: block; font-size: 14px; }
+    .source-item p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .source-item a { overflow-wrap: anywhere; }
+    .footer { padding: 28px 0 44px; color: var(--muted); font-size: 12px; }
+    .footer-inner { display: flex; justify-content: space-between; gap: 20px; }
+
+    .tweaks-trigger { position: fixed; right: 18px; bottom: 18px; z-index: 40; width: 42px; height: 42px; border: 1px solid var(--line); border-radius: 50%; background: white; color: var(--ink); font: 700 12px var(--mono); box-shadow: 0 8px 24px rgba(15, 23, 42, .14); cursor: pointer; }
+    .tweaks { position: fixed; right: 18px; bottom: 70px; z-index: 41; width: min(286px, calc(100vw - 36px)); padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: white; box-shadow: var(--shadow); }
+    .tweaks[hidden] { display: none; }
+    .tweaks-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .tweaks-head strong { font: 700 13px var(--mono); }
+    .close { width: 32px; height: 32px; border: 0; border-radius: 6px; background: var(--canvas); cursor: pointer; }
+    .tweak-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid var(--line-soft); font-size: 13px; }
+    .switch { width: 42px; height: 24px; border: 0; padding: 3px; border-radius: 99px; background: #cbd5e1; cursor: pointer; }
+    .switch::before { content: ""; display: block; width: 18px; height: 18px; border-radius: 50%; background: white; transition: transform .18s ease; }
+    .switch[aria-pressed="true"] { background: var(--primary); }
+    .switch[aria-pressed="true"]::before { transform: translateX(18px); }
+
+    @media (max-width: 900px) {
+      .nav { display: none; }
+      .status-chip { margin-left: auto; }
+      .hero-grid, .definition-grid, .readiness, .sources { grid-template-columns: 1fr; }
+      .hero-grid { align-items: start; }
+      .quadrants { grid-template-columns: 1fr 1fr; }
+      .chart-layout { grid-template-columns: 1fr; }
+      .chart-main { border-right: 0; border-bottom: 1px solid var(--line); }
+      .surface { grid-template-columns: 190px 1fr; }
+      .surface-detail { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .choice-options, .acceptance-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .wrap { width: min(calc(100% - 22px), var(--content)); }
+      .topbar-inner { min-height: 56px; }
+      .status-chip { display: none; }
+      h1 { font-size: 42px; }
+      .decision-row { grid-template-columns: 80px 1fr; }
+      .quadrants, .scope-grid { grid-template-columns: 1fr; }
+      .chart-toolbar { align-items: flex-start; flex-direction: column; }
+      .chart-canvas-wrap { aspect-ratio: .92; min-height: 480px; }
+      .target-statement { grid-template-columns: 1fr; }
+      .target-label { padding: 15px 22px; }
+      .surface { grid-template-columns: 1fr; }
+      .surface-side { border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .surface-title { grid-column: 1 / -1; }
+      .control-mock { margin-top: 0; }
+      .surface-detail { grid-template-columns: 1fr; }
+      .alignment-summary, .gate { grid-template-columns: 1fr; position: static; }
+      .footer-inner { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+    @media print {
+      .topbar, .tweaks, .tweaks-trigger, .alignment-summary .btn { display: none !important; }
+      body { background: white; }
+      section { break-inside: avoid; }
+      .alignment-summary { position: static; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>FAMS / RRG</div>
+      <nav class="nav" aria-label="报告章节">
+        <a href="#definition">定义</a><a href="#current">项目现状</a><a href="#target">推荐目标</a><a href="#decisions">待确认</a><a href="#acceptance">目标验收</a>
+      </nav>
+      <span class="status-chip">目标对齐 v0 · 非开发计划</span>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow">Product alignment report · 2026-08-20</div>
+        <h1>先对齐“相对轮动”，<br>再安排怎么开发。</h1>
+        <p class="hero-lede">建议把它定义为 FAMS 的研究型轮动观察台：帮助用户在同一基准下比较持仓或候选资产的相对趋势与动量，不输出机械买卖信号，也不触碰当前交易锁。</p>
+        <div class="hero-note">依据公开定义、当前代码与治理合同整理；未使用虚构行情数据</div>
+      </div>
+      <aside class="decision-card" aria-label="推荐目标摘要">
+        <div class="decision-card-head"><strong>推荐目标快照</strong><small>需要你确认后，才进入开发计划</small></div>
+        <div class="decision-row"><span>产品位置</span><strong>策略研究 / 轮动研究</strong></div>
+        <div class="decision-row"><span>首版范围</span><strong>A 股与场内 ETF 持仓</strong></div>
+        <div class="decision-row"><span>计算路线</span><strong>透明可审计 RRG-style</strong></div>
+        <div class="decision-row"><span>行为边界</span><strong>观察、比较、导出；不交易</strong></div>
+      </aside>
+    </div>
+  </div>
+
+  <main>
+    <section id="definition">
+      <div class="wrap">
+        <div class="section-kicker">01 / Definition</div>
+        <h2>RRG 到底是什么</h2>
+        <p class="section-intro">Relative Rotation Graph（相对旋转图）把一组标的相对同一基准的趋势与动量放进一张二维图，并用历史尾迹呈现市场领导力如何变化。</p>
+
+        <div class="definition-grid">
+          <article class="definition-core">
+            <span class="label">ONE SENTENCE</span>
+            <h3>横轴回答“相对趋势强不强”，纵轴回答“这个趋势正在加速还是减速”。</h3>
+            <p>中心点通常标准化为 100 / 100。每个标的当前是一个点，过去若干期形成尾迹；比较必须使用同一基准、同一频率与可比价格口径。</p>
+          </article>
+          <div class="axes">
+            <article class="axis-card">
+              <span class="axis-id">X AXIS</span>
+              <h3>JdK RS-Ratio</h3>
+              <p>衡量相对表现的趋势及其强度。高于 100 表示相对趋势偏强，低于 100 表示偏弱。</p>
+              <span class="formula">asset / common benchmark → normalized trend</span>
+            </article>
+            <article class="axis-card">
+              <span class="axis-id">Y AXIS</span>
+              <h3>JdK RS-Momentum</h3>
+              <p>衡量 RS-Ratio 的变化动量，通常领先于 RS-Ratio 转向，但不保证趋势一定反转。</p>
+              <span class="formula">momentum of relative trend → normalized</span>
+            </article>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top: var(--space)">
+          <div class="chart-layout">
+            <div class="chart-main">
+              <div class="chart-toolbar">
+                <div><strong>概念轮动图</strong><br><small id="frequencyNote">周频示意 · 尾迹每点代表一周</small></div>
+                <div class="segmented" aria-label="示意图频率">
+                  <button type="button" data-frequency="daily" aria-pressed="false">日频</button>
+                  <button type="button" data-frequency="weekly" aria-pressed="true">周频</button>
+                </div>
+              </div>
+              <div class="chart-canvas-wrap">
+                <span class="chart-badge">概念路径 · 非真实行情</span>
+                <canvas id="rrgCanvas" role="img" aria-label="相对旋转图四象限与三条概念尾迹"></canvas>
+              </div>
+            </div>
+            <aside class="chart-side">
+              <div class="control-label"><span>尾迹长度</span><strong><span id="trailValue">8</span> 期</strong></div>
+              <input id="trailRange" type="range" min="4" max="12" value="8" aria-label="调整概念图尾迹长度">
+              <div class="legend" aria-label="概念尾迹图例">
+                <div class="legend-row"><span class="legend-dot" style="background:#2563eb"></span><span>科技 ETF<br><small>由改善进入领先</small></span></div>
+                <div class="legend-row"><span class="legend-dot" style="background:#d97706"></span><span>红利 ETF<br><small>领先但动量转弱</small></span></div>
+                <div class="legend-row"><span class="legend-dot" style="background:#dc2626"></span><span>黄金 ETF<br><small>弱势区内动量变化</small></span></div>
+              </div>
+              <div class="chart-disclaimer">示意图仅解释坐标、方向和尾迹，不代表任何真实标的判断。正式功能必须同时显示基准、数据截止日、价格口径与质量状态。</div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="quadrants">
+          <article class="quadrant leading"><span class="q-code">+ RATIO / + MOMENTUM</span><h3>领先 Leading</h3><p>相对趋势强，动量也强；不等于绝对价格一定上涨。</p></article>
+          <article class="quadrant weakening"><span class="q-code">+ RATIO / − MOMENTUM</span><h3>转弱 Weakening</h3><p>相对趋势仍强，但动量下降；可能只在右半区内震荡。</p></article>
+          <article class="quadrant lagging"><span class="q-code">− RATIO / − MOMENTUM</span><h3>落后 Lagging</h3><p>相对趋势与动量都弱；它仍可能在绝对价格上上涨。</p></article>
+          <article class="quadrant improving"><span class="q-code">− RATIO / + MOMENTUM</span><h3>改善 Improving</h3><p>相对趋势尚弱，但动量改善；是观察候选，不是买点。</p></article>
+        </div>
+        <div class="caveat"><strong>三条解释边界：</strong>典型路径常呈顺时针，但不保证走完四象限；RRG 关注相对表现而非绝对收益；官方资料明确其不是具有固定规则的交易系统。RRG® / Relative Rotation Graphs® 及 JdK 指标名称属于 RRG Research 的注册商标，未授权自研版本应使用清晰区分的产品命名。</div>
+      </div>
+    </section>
+
+    <section id="current">
+      <div class="wrap">
+        <div class="section-kicker">02 / Current state</div>
+        <h2>项目已经有“地基”，还没有 RRG</h2>
+        <p class="section-intro">当前仓库具备图表、规范化日线、覆盖率与任务审计能力，因此不需要重造基础设施；但计算语义、基准统一和跨资产身份仍是正式开工前必须解决的缺口。</p>
+
+        <div class="readiness">
+          <div class="panel">
+            <table class="evidence-table">
+              <thead><tr><th>能力</th><th>仓库证据</th><th>判断</th></tr></thead>
+              <tbody>
+                <tr><td>前端可视化</td><td>React 18、ECharts、Ant Design 已用于策略回测与多曲线图<span class="code-ref">frontend/package.json · frontend/src/pages/Backtest.tsx</span></td><td><span class="signal good">可复用</span></td></tr>
+                <tr><td>规范行情</td><td>Raw → Canonical 日线含来源、置信度、质量标记与数据版本<span class="code-ref">backend/prisma/schema.prisma:601–673</span></td><td><span class="signal good">地基已在</span></td></tr>
+                <tr><td>数据覆盖</td><td>已有 MarketDataCoverage，可表达缺口、陈旧与完整区间<span class="code-ref">backend/prisma/schema.prisma:675–703</span></td><td><span class="signal good">可接门禁</span></td></tr>
+                <tr><td>日频特征</td><td>已有收益、均线、波动、动量等 MarketFeatureDaily 字段<span class="code-ref">backend/prisma/schema.prisma:705–752</span></td><td><span class="signal partial">需扩展语义</span></td></tr>
+                <tr><td>产品入口</td><td>策略研究现有分析建议、红利低波与回测；尚无轮动研究路由<span class="code-ref">frontend/src/App.tsx:25–47 · AppLayout.tsx:35–44</span></td><td><span class="signal missing">待新增</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <aside class="panel gap-list">
+            <div class="gap-item"><div class="gap-top"><strong>“相对强弱”名不副实</strong><span class="signal missing">关键</span></div><p>当前 relativeStrength20/60 直接等于标的自身 return20d/60d，没有共同基准分母，不能复用为 RRG 横轴。</p><span class="code-ref">marketFeatureDailyService.ts:162–186</span></div>
+            <div class="gap-item"><div class="gap-top"><strong>标的范围被锁在六位代码</strong><span class="signal partial">限制</span></div><p>现有特征计算只接受六位 symbol，market 固定 CN、adjustType 固定 none；跨市场、基金与黄金不能直接进入同一计算。</p><span class="code-ref">marketFeatureDailyService.ts:197–209</span></div>
+            <div class="gap-item"><div class="gap-top"><strong>基准可用但口径分层</strong><span class="signal partial">治理</span></div><p>项目区分 price index、research proxy、free-source total return 等状态。RRG 研究可以用价格指数，但页面必须明确标签，不能暗示正式总回报基准。</p><span class="code-ref">docs/BENCHMARK_ENUM_CONTRACT.md</span></div>
+            <div class="gap-item"><div class="gap-top"><strong>精确 JdK 公式不可推定</strong><span class="signal missing">决策</span></div><p>官方用户指南说明两项 JdK 公式为专有公式。若没有授权，只能实现并如实命名为透明的 RRG-style 相对轮动指标。</p></div>
+          </aside>
+        </div>
+
+        <div class="audit-note">
+          <div class="audit-index">S0</div>
+          <div><strong>当前阶段允许研究开发，但要求人工批准与阶段门禁。</strong><p>状态源标记 researchReady=true、implementationApprovalRequired=true；允许 RESEARCH / OBSERVE / COMPARE，禁止 ORDER_CREATE / AUTO_TRADE。仓库最后提交日期为 2026-07-16；本报告只基于代码与文档现状，不声称本地运行库已有可用 RRG 样本。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="target">
+      <div class="wrap">
+        <div class="section-kicker">03 / Recommended target</div>
+        <h2>建议对齐成一个“轮动研究工作台”</h2>
+        <p class="section-intro">它不是再加一张漂亮的散点图，而是把“选择比较对象—验证数据可比—观察轮动—回到价格证据”串成一个研究闭环。</p>
+
+        <div class="target-statement">
+          <div class="target-label">TARGET USER STORY</div>
+          <div class="target-copy">作为管理多个持仓的投资者，我希望选择资产集合与共同基准，在日频或周频上查看相对趋势的当前象限、方向、速度与数据可信度，从而快速决定下一步要深入研究谁。</div>
+        </div>
+
+        <div class="surface" aria-label="推荐产品界面结构示意">
+          <aside class="surface-side">
+            <div class="surface-title">研究参数</div>
+            <div class="control-mock"><label>资产集合</label><div class="select-mock">当前持仓</div></div>
+            <div class="control-mock"><label>共同基准</label><div class="select-mock">沪深 300 · 价格指数</div></div>
+            <div class="control-mock"><label>频率 / 尾迹</label><div class="select-mock">周频 · 12 期</div></div>
+            <div class="control-mock"><label>数据截止</label><div class="select-mock">最近共同交易日</div></div>
+          </aside>
+          <div class="surface-chart">
+            <div class="surface-chart-inner" aria-hidden="true">
+              <div class="surface-q">IMPROVING</div><div class="surface-q">LEADING</div><div class="surface-q">LAGGING</div><div class="surface-q">WEAKENING</div>
+            </div>
+          </div>
+          <aside class="surface-detail">
+            <div class="surface-title">选中标的</div>
+            <div class="detail-row"><small>当前状态</small><strong>象限 + 运动方向 + 速度</strong></div>
+            <div class="detail-row"><small>可比性</small><strong>基准 / 频率 / 复权 / 共同截止日</strong></div>
+            <div class="detail-row"><small>证据回看</small><strong>价格、相对线与质量标记</strong></div>
+          </aside>
+        </div>
+
+        <div class="scope-grid">
+          <article class="scope-card">
+            <h3>目标内：首版必须成立</h3>
+            <ul class="clean-list">
+              <li>当前持仓、自选组合或预设集合使用同一基准比较</li>
+              <li>日频 / 周频切换，尾迹 4–12 期，标的显隐与高亮</li>
+              <li>当前象限、方向、尾迹速度、排序与选中标的详情</li>
+              <li>明确展示数据截止日、基准等级、价格口径与缺失原因</li>
+              <li>结果可追溯到输入序列、公式版本与计算时间</li>
+            </ul>
+          </article>
+          <article class="scope-card">
+            <h3>目标外：首版明确不做</h3>
+            <ul class="clean-list out-list">
+              <li>把“进入领先象限”直接翻译为买入或加仓建议</li>
+              <li>自动创建订单、自动调仓或解除任何交易门禁</li>
+              <li>在没有统一交易日与价格口径时强行比较跨市场资产</li>
+              <li>把自研近似指标称为 JdK RS-Ratio / RS-Momentum</li>
+              <li>为了填满图表而隐藏数据不足、陈旧或基准代理状态</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="decisions">
+      <div class="wrap">
+        <div class="section-kicker">04 / Decisions to align</div>
+        <h2>开发计划前，只需要先拍板三件事</h2>
+        <p class="section-intro">下方选项会生成一段对齐摘要。默认值是我结合当前代码约束给出的建议，并不代表已经替你做了最终决定。</p>
+
+        <div class="choices">
+          <div class="choice-block" data-choice-group="method">
+            <div class="choice-head"><span class="choice-num">01</span><div><h3>计算身份</h3><p>决定产品能否使用官方 JdK 指标名称，以及公式是否可完全审计。</p></div></div>
+            <div class="choice-options">
+              <button class="option" type="button" data-value="透明 RRG-style（自研公式与版本可审计）" aria-pressed="true"><span class="recommended">RECOMMENDED</span><strong>透明 RRG-style</strong><span>不冒充专有公式，适合当前研究与审计体系。</span></button>
+              <button class="option" type="button" data-value="授权 JdK RRG（需确认许可与接入方式）" aria-pressed="false"><strong>授权 JdK 原版</strong><span>定义最标准，但需许可、供应商或官方计算结果。</span></button>
+              <button class="option" type="button" data-value="暂缓计算路线，先做数据可行性验证" aria-pressed="false"><strong>先做可行性验证</strong><span>目标继续保留，开发计划先聚焦数据与授权调研。</span></button>
+            </div>
+          </div>
+
+          <div class="choice-block" data-choice-group="universe">
+            <div class="choice-head"><span class="choice-num">02</span><div><h3>首版资产集合</h3><p>决定是快速利用现有 CN 日线，还是一开始就承担跨资产对齐成本。</p></div></div>
+            <div class="choice-options">
+              <button class="option" type="button" data-value="当前持仓中的 A 股与场内 ETF" aria-pressed="true"><span class="recommended">RECOMMENDED</span><strong>持仓 A 股 + 场内 ETF</strong><span>最贴合现有数据管线，也直接服务组合管理。</span></button>
+              <button class="option" type="button" data-value="A 股行业/主题板块集合" aria-pressed="false"><strong>行业 / 主题轮动</strong><span>更符合经典 RRG 场景，但需建立稳定板块与成分口径。</span></button>
+              <button class="option" type="button" data-value="基金、黄金、港美股在内的全资产持仓" aria-pressed="false"><strong>全资产持仓</strong><span>用户价值广，但要先完成跨市场日历、币种与价格口径治理。</span></button>
+            </div>
+          </div>
+
+          <div class="choice-block" data-choice-group="benchmark">
+            <div class="choice-head"><span class="choice-num">03</span><div><h3>默认共同基准</h3><p>默认值只影响首屏；用户仍可在合格列表内切换。</p></div></div>
+            <div class="choice-options">
+              <button class="option" type="button" data-value="沪深 300 价格指数（明确标注 price_index）" aria-pressed="true"><span class="recommended">RECOMMENDED</span><strong>沪深 300 价格指数</strong><span>项目已有代码入口；研究可用，但必须标注不含完整分红。</span></button>
+              <button class="option" type="button" data-value="按资产集合推荐基准（需建立映射规则）" aria-pressed="false"><strong>集合自适应基准</strong><span>体验更自然，但映射规则必须可解释且可覆盖。</span></button>
+              <button class="option" type="button" data-value="用户每次必须手动选择合格基准" aria-pressed="false"><strong>强制手动选择</strong><span>避免默认偏差，但增加每次研究的操作成本。</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="alignment-summary" aria-live="polite">
+          <div><small>当前对齐摘要</small><div id="decisionText"></div></div>
+          <button id="copyDecision" class="btn btn-primary" type="button">复制摘要</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="acceptance">
+      <div class="wrap">
+        <div class="section-kicker">05 / Definition of done</div>
+        <h2>目标对齐后，用这些结果判断“做对了”</h2>
+        <p class="section-intro">这不是实施排期，而是产品级验收口径。后续开发计划应从这些结果反推数据、计算、API、前端与验证任务。</p>
+        <div class="acceptance-grid">
+          <article class="acceptance-card"><span class="a-num">A01</span><h3>语义正确</h3><p>同一标的、同一输入与公式版本得到稳定结果；页面不混淆 RSI、绝对收益和相对趋势。</p></article>
+          <article class="acceptance-card"><span class="a-num">A02</span><h3>可比性可见</h3><p>基准、频率、复权、币种、共同截止日与数据状态无需点开二级页面即可确认。</p></article>
+          <article class="acceptance-card"><span class="a-num">A03</span><h3>缺口不静默</h3><p>历史不足、日期错位、基准缺失或数据陈旧时，不画误导尾迹，并给出可行动原因。</p></article>
+          <article class="acceptance-card"><span class="a-num">A04</span><h3>研究闭环</h3><p>用户能从全局轮动图选择标的，再回看价格与相对线证据，而不是只看象限颜色。</p></article>
+          <article class="acceptance-card"><span class="a-num">A05</span><h3>交互可用</h3><p>桌面与移动端可操作；标的高亮、显隐、键盘焦点、尾迹控制和空/错状态完整。</p></article>
+          <article class="acceptance-card"><span class="a-num">A06</span><h3>边界不漂移</h3><p>所有输出保持 RESEARCH / OBSERVE / COMPARE，不生成订单或绕过人工交易门禁。</p></article>
+        </div>
+        <div class="gate"><div><h3>进入开发计划的唯一前置</h3><p>确认“计算身份、首版资产集合、默认共同基准”三项选择；频率默认周频 12 期，同时保留日频切换。</p></div><span class="gate-badge">AWAITING PRODUCT SIGN-OFF</span></div>
+      </div>
+    </section>
+
+    <section id="sources">
+      <div class="wrap">
+        <div class="section-kicker">06 / Evidence</div>
+        <h2>资料与代码依据</h2>
+        <p class="section-intro">定义优先采用 RRG Research / StockCharts 的原始或授权材料；项目判断以当前仓库代码与状态合同为准。</p>
+        <div class="sources">
+          <div class="panel panel-pad source-list">
+            <div class="source-item"><div><strong><a href="https://chartschool.stockcharts.com/table-of-contents/chart-analysis/chart-types/relative-rotation-graphs-rrg-charts" target="_blank" rel="noreferrer">StockCharts ChartSchool：Relative Rotation Graphs</a></strong><p>定义、两轴、四象限、尾迹、典型旋转与“非交易系统”边界。</p></div></div>
+            <div class="source-item"><div><strong><a href="https://chartschool.stockcharts.com/table-of-contents/technical-indicators-and-overlays/technical-indicators/rrg-relative-strength" target="_blank" rel="noreferrer">StockCharts：RRG Relative Strength</a></strong><p>RS-Ratio / RS-Momentum 使用方式，以及绘制所需历史数据量说明。</p></div></div>
+            <div class="source-item"><div><strong><a href="https://relativerotationgraphs.com/wp-content/uploads/2024/10/Relative-Rotation-Graph-Thomson-Reuters-Guide.pdf" target="_blank" rel="noreferrer">Thomson Reuters Eikon RRG User Guide</a></strong><p>坐标解释、四象限顺序、相对而非绝对表现，以及公式专有声明。</p></div></div>
+            <div class="source-item"><div><strong><a href="https://www.ssga.com/ie/en_gb/intermediary/insights/sector-etf-momentum-map" target="_blank" rel="noreferrer">State Street Sector ETF Momentum Map</a></strong><p>行业产品化案例：共同基准、日/周频、尾迹动画与多行业比较。</p></div></div>
+          </div>
+          <div class="panel panel-pad source-list">
+            <div class="source-item"><div><strong>MarketBarRaw / Canonical / Coverage</strong><p>backend/prisma/schema.prisma:601–703</p></div></div>
+            <div class="source-item"><div><strong>MarketFeatureDaily 与现有计算</strong><p>backend/prisma/schema.prisma:705–752<br>backend/src/services/market-data/marketFeatureDailyService.ts:155–209</p></div></div>
+            <div class="source-item"><div><strong>前端路由与策略研究导航</strong><p>frontend/src/App.tsx:25–47<br>frontend/src/components/layout/AppLayout.tsx:22–54</p></div></div>
+            <div class="source-item"><div><strong>阶段状态与基准合同</strong><p>docs/current-stage-state.json<br>docs/BENCHMARK_ENUM_CONTRACT.md</p></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer"><div class="wrap footer-inner"><span>FAMS · RRG 功能目标对齐报告 v0</span><span>研究材料，不构成投资建议或开发授权</span></div></footer>
+
+  <button class="tweaks-trigger" type="button" aria-label="打开 Tweaks" aria-expanded="false">T</button>
+  <aside class="tweaks" hidden aria-label="Tweaks">
+    <div class="tweaks-head"><strong>Tweaks</strong><button class="close" type="button" aria-label="关闭 Tweaks">×</button></div>
+    <div class="tweak-row"><span>紧凑信息密度</span><button id="densityToggle" class="switch" type="button" role="switch" aria-pressed="false" aria-label="切换紧凑信息密度"></button></div>
+    <div class="tweak-row"><span>隐藏概念尾迹</span><button id="trailToggle" class="switch" type="button" role="switch" aria-pressed="false" aria-label="切换概念尾迹显示"></button></div>
+  </aside>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('rrgCanvas');
+      const context = canvas.getContext('2d');
+      const trailRange = document.getElementById('trailRange');
+      const trailValue = document.getElementById('trailValue');
+      const frequencyNote = document.getElementById('frequencyNote');
+      let trailLength = Number(trailRange.value);
+      let trailsHidden = false;
+
+      const paths = [
+        { label: '科技 ETF', color: '#2563eb', points: [[38,37],[42,43],[47,50],[54,57],[61,63],[68,68],[75,72],[82,75],[88,77],[91,74],[92,69],[91,63]] },
+        { label: '红利 ETF', color: '#d97706', points: [[61,82],[68,80],[75,76],[82,70],[87,63],[89,56],[88,48],[85,41],[81,35],[76,31],[70,29],[65,30]] },
+        { label: '黄金 ETF', color: '#dc2626', points: [[30,40],[25,35],[21,30],[20,25],[23,22],[28,23],[33,27],[37,33],[40,40],[41,47],[39,53],[35,57]] }
+      ];
+
+      function drawChart() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.round(rect.width * dpr));
+        canvas.height = Math.max(1, Math.round(rect.height * dpr));
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const w = rect.width;
+        const h = rect.height;
+        const pad = Math.max(40, Math.min(w, h) * .11);
+        const plotW = w - pad * 2;
+        const plotH = h - pad * 2;
+        const midX = pad + plotW / 2;
+        const midY = pad + plotH / 2;
+        const mapPoint = ([x, y]) => [pad + (x / 100) * plotW, pad + ((100 - y) / 100) * plotH];
+
+        context.clearRect(0, 0, w, h);
+        context.fillStyle = '#ecfeff'; context.fillRect(pad, pad, plotW / 2, plotH / 2);
+        context.fillStyle = '#ecfdf5'; context.fillRect(midX, pad, plotW / 2, plotH / 2);
+        context.fillStyle = '#fef2f2'; context.fillRect(pad, midY, plotW / 2, plotH / 2);
+        context.fillStyle = '#fffbeb'; context.fillRect(midX, midY, plotW / 2, plotH / 2);
+
+        context.strokeStyle = '#e2e8f0'; context.lineWidth = 1;
+        for (let i = 0; i <= 4; i += 1) {
+          const x = pad + (plotW / 4) * i;
+          const y = pad + (plotH / 4) * i;
+          context.beginPath(); context.moveTo(x, pad); context.lineTo(x, pad + plotH); context.stroke();
+          context.beginPath(); context.moveTo(pad, y); context.lineTo(pad + plotW, y); context.stroke();
+        }
+        context.strokeStyle = '#64748b'; context.lineWidth = 1.3;
+        context.beginPath(); context.moveTo(midX, pad); context.lineTo(midX, pad + plotH); context.stroke();
+        context.beginPath(); context.moveTo(pad, midY); context.lineTo(pad + plotW, midY); context.stroke();
+
+        const labelSize = w < 550 ? 11 : 13;
+        context.font = `700 ${labelSize}px ${getComputedStyle(document.body).fontFamily}`;
+        context.fillStyle = '#0891b2'; context.textAlign = 'left'; context.fillText('改善 IMPROVING', pad + 10, pad + 22);
+        context.fillStyle = '#059669'; context.textAlign = 'right'; context.fillText('领先 LEADING', pad + plotW - 10, pad + 22);
+        context.fillStyle = '#dc2626'; context.textAlign = 'left'; context.fillText('落后 LAGGING', pad + 10, pad + plotH - 12);
+        context.fillStyle = '#d97706'; context.textAlign = 'right'; context.fillText('转弱 WEAKENING', pad + plotW - 10, pad + plotH - 12);
+
+        context.font = `11px ${getComputedStyle(document.body).fontFamily}`;
+        context.fillStyle = '#64748b';
+        context.textAlign = 'center'; context.fillText('RS-Ratio →', midX, h - 12);
+        context.save(); context.translate(13, midY); context.rotate(-Math.PI / 2); context.fillText('RS-Momentum →', 0, 0); context.restore();
+        context.font = `10px ${getComputedStyle(document.body).fontFamily}`;
+        context.fillText('100', midX, midY + 14);
+
+        if (!trailsHidden) {
+          paths.forEach((path) => {
+            const visible = path.points.slice(-trailLength);
+            context.strokeStyle = path.color;
+            context.lineWidth = 2;
+            context.lineJoin = 'round';
+            context.lineCap = 'round';
+            context.beginPath();
+            visible.forEach((point, index) => {
+              const [x, y] = mapPoint(point);
+              if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+            });
+            context.stroke();
+            visible.forEach((point, index) => {
+              const [x, y] = mapPoint(point);
+              const age = (index + 1) / visible.length;
+              context.globalAlpha = .25 + age * .75;
+              context.fillStyle = path.color;
+              context.beginPath(); context.arc(x, y, index === visible.length - 1 ? 5 : 2.8, 0, Math.PI * 2); context.fill();
+            });
+            context.globalAlpha = 1;
+            const [lastX, lastY] = mapPoint(visible[visible.length - 1]);
+            context.font = `650 ${w < 550 ? 10 : 12}px ${getComputedStyle(document.body).fontFamily}`;
+            context.textAlign = lastX > midX ? 'right' : 'left';
+            context.fillStyle = path.color;
+            context.fillText(path.label, lastX + (lastX > midX ? -9 : 9), lastY - 8);
+          });
+        }
+      }
+
+      trailRange.addEventListener('input', () => { trailLength = Number(trailRange.value); trailValue.textContent = String(trailLength); drawChart(); });
+      document.querySelectorAll('[data-frequency]').forEach((button) => {
+        button.addEventListener('click', () => {
+          document.querySelectorAll('[data-frequency]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+          frequencyNote.textContent = button.dataset.frequency === 'weekly' ? '周频示意 · 尾迹每点代表一周' : '日频示意 · 尾迹每点代表一个交易日';
+        });
+      });
+      new ResizeObserver(drawChart).observe(canvas.parentElement);
+
+      const choiceState = {};
+      function refreshDecision() {
+        document.querySelectorAll('[data-choice-group]').forEach((group) => {
+          const selected = group.querySelector('.option[aria-pressed="true"]');
+          choiceState[group.dataset.choiceGroup] = selected.dataset.value;
+        });
+        document.getElementById('decisionText').textContent = `计算：${choiceState.method}；范围：${choiceState.universe}；基准：${choiceState.benchmark}。`;
+      }
+      document.querySelectorAll('.option').forEach((button) => {
+        button.addEventListener('click', () => {
+          const group = button.closest('[data-choice-group]');
+          group.querySelectorAll('.option').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+          refreshDecision();
+        });
+      });
+      refreshDecision();
+      document.getElementById('copyDecision').addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+        try {
+          await navigator.clipboard.writeText(document.getElementById('decisionText').textContent);
+          button.textContent = '已复制';
+        } catch (error) {
+          button.textContent = '请手动复制';
+        }
+        window.setTimeout(() => { button.textContent = '复制摘要'; }, 1500);
+      });
+
+      const tweaks = document.querySelector('.tweaks');
+      const tweaksTrigger = document.querySelector('.tweaks-trigger');
+      function setTweaks(open) { tweaks.hidden = !open; tweaksTrigger.setAttribute('aria-expanded', String(open)); }
+      tweaksTrigger.addEventListener('click', () => setTweaks(tweaks.hidden));
+      document.querySelector('.close').addEventListener('click', () => setTweaks(false));
+      document.getElementById('densityToggle').addEventListener('click', (event) => {
+        const active = event.currentTarget.getAttribute('aria-pressed') !== 'true';
+        event.currentTarget.setAttribute('aria-pressed', String(active));
+        document.body.classList.toggle('compact', active);
+        drawChart();
+      });
+      document.getElementById('trailToggle').addEventListener('click', (event) => {
+        trailsHidden = event.currentTarget.getAttribute('aria-pressed') !== 'true';
+        event.currentTarget.setAttribute('aria-pressed', String(trailsHidden));
+        drawChart();
+      });
+    })();
+  </script>
+</body>
+</html>

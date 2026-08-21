@@ -19,6 +19,9 @@ const createTransactionSchema = {
       executedAt: { type: 'string' },
       notes: { type: 'string' },
       adviceActionId: { type: 'string' },
+      source: { type: 'string' },
+      sleeveType: { type: 'string', enum: ['core', 'volatility'] },
+      volatilityTradeDraftId: { type: 'string' },
     },
   },
 }

@@ -218,6 +218,27 @@ class MarketBarCacheService {
     await this.maybeFlushProviderHealth()
   }
 
+  async recordExternalProviderAttempt(input: {
+    provider: string
+    success: boolean
+    returnedDays: number
+    durationMs: number
+    reason?: string
+  }) {
+    if (input.success) {
+      await this.recordProviderSuccess(input.provider, {
+        returnedDays: input.returnedDays,
+        durationMs: input.durationMs,
+        consumer: 'relative_rotation',
+      })
+      return
+    }
+    await this.recordProviderFailure(
+      input.provider,
+      new Error(input.reason || `provider returned ${input.returnedDays} usable bars`),
+    )
+  }
+
   async flushProviderHealth() {
     const batches = Array.from(this.providerHealthAccumulators.values())
     if (batches.length === 0) return
