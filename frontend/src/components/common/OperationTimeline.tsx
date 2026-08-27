@@ -15,6 +15,8 @@ export type OperationTimelineType =
   | 'quote_list_market_cap_warmup'
   | 'market_bar_cache_preheat'
   | 'fivd_r_portfolio_refresh'
+  | 'fivd_r_fund_factset_refresh'
+  | 'fivd_r_gold_macro_factset_refresh'
   | 'portfolio_backtest_run'
 
 export interface OperationTimelineItem {
@@ -39,6 +41,8 @@ const TYPE_META: Record<OperationTimelineType, { label: string; color: string }>
   quote_list_market_cap_warmup: { label: '市值补齐', color: '#14b8a6' },
   market_bar_cache_preheat: { label: 'K线预热', color: '#f59e0b' },
   fivd_r_portfolio_refresh: { label: 'FIVD-R刷新', color: '#38bdf8' },
+  fivd_r_fund_factset_refresh: { label: '基金事实集刷新', color: '#14b8a6' },
+  fivd_r_gold_macro_factset_refresh: { label: '黄金宏观刷新', color: '#f59e0b' },
   portfolio_backtest_run: { label: '组合回测', color: '#22d3ee' },
 }
 

@@ -26,7 +26,7 @@ const OPERATION_WORKER_ID = `fams-api:${process.pid}:${Math.random().toString(36
 const QUOTE_LIST_MARKET_CAP_UNAVAILABLE_WARNING = 'BaoStock 派生流通市值缺失'
 
 type OperationStatus = 'queued' | 'running' | 'completed' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'partial'
-type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'strategy_tournament_run' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'dividend_low_vol_daily_scan' | 'relative_rotation_backtest' | 'relative_rotation_history_refresh' | 'volatility_sleeve_daily_analysis'
+type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'strategy_tournament_run' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'fivd_r_fund_factset_refresh' | 'fivd_r_gold_macro_factset_refresh' | 'dividend_low_vol_daily_scan' | 'relative_rotation_backtest' | 'relative_rotation_history_refresh' | 'volatility_sleeve_daily_analysis'
 
 interface OperationAction {
   type: string
@@ -282,6 +282,8 @@ class OperationService {
       case 'quote_list_market_cap_warmup':
         return artifactRefs.length > 0 ? [{ type: 'open_operation', label: '查看市值补齐产物', href: `/operations?operationId=${operation.id}` }] : []
       case 'fivd_r_portfolio_refresh':
+      case 'fivd_r_fund_factset_refresh':
+      case 'fivd_r_gold_macro_factset_refresh':
         return [
           { type: 'open_analysis', label: '查看 FIVD-R', href: '/analysis?section=fivdr' },
           ...(artifactRefs.length > 0 ? [{ type: 'open_operation', label: '查看 FIVD-R 产物', href: `/operations?operationId=${operation.id}` }] : []),

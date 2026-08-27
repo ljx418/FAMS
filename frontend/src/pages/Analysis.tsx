@@ -1499,7 +1499,7 @@ const DataGapRemediationPanel: React.FC<{
           <div className="text-xs text-sky-100/80">Data Gap Remediation</div>
           <div className="text-sm font-medium text-white">把结构化缺口转成补数/复验动作</div>
           <div className="mt-1 text-[11px] text-gray-400">
-            只执行已有执行器支持的动作；unsupported 项不会被包装成已补齐。
+            只执行已有执行器支持的动作；partial、insufficient 或 planned 项不会被包装成已补齐。
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1554,10 +1554,18 @@ const FivdRResearchHistoryPanel: React.FC<{
   snapshots: FivdRResearchSnapshotList | null
   watchList: FivdRWatchList | null
   loading: boolean
+  query: string
+  page: number
   onRefresh: () => void
-}> = ({ snapshots, watchList, loading, onRefresh }) => {
+  onQueryChange: (query: string) => void
+  onSearch: () => void
+  onPageChange: (page: number) => void
+}> = ({ snapshots, watchList, loading, query, page, onRefresh, onQueryChange, onSearch, onPageChange }) => {
   const snapshotItems = snapshots?.snapshots || []
   const watchItems = watchList?.reviews || []
+  const snapshotTotal = snapshots?.pagination?.total ?? snapshotItems.length
+  const watchTotal = watchList?.pagination?.total ?? watchItems.length
+  const totalPages = Math.max(snapshots?.pagination?.totalPages || 1, watchList?.pagination?.totalPages || 1)
   return (
     <div className="rounded-xl border border-indigo-400/20 bg-indigo-400/10 p-4">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -1569,9 +1577,25 @@ const FivdRResearchHistoryPanel: React.FC<{
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Tag color="#38bdf8">快照 {snapshotItems.length}</Tag>
-          <Tag color="#fbbf24">观察 {watchItems.length}</Tag>
+          <Tag color="#38bdf8">快照 {snapshotTotal}</Tag>
+          <Tag color="#fbbf24">观察 {watchTotal}</Tag>
           <Button size="small" loading={loading} onClick={onRefresh}>刷新</Button>
+        </div>
+      </div>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input.Search
+          allowClear
+          size="small"
+          value={query}
+          placeholder="按代码、名称、结论或运行编号筛选"
+          onChange={(event) => onQueryChange(event.target.value)}
+          onSearch={onSearch}
+          className="max-w-xl"
+        />
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Button size="small" disabled={page <= 1 || loading} onClick={() => onPageChange(page - 1)}>上一页</Button>
+          <span>第 {page} / {totalPages} 页</span>
+          <Button size="small" disabled={page >= totalPages || loading} onClick={() => onPageChange(page + 1)}>下一页</Button>
         </div>
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
@@ -1581,7 +1605,7 @@ const FivdRResearchHistoryPanel: React.FC<{
             <div className="text-xs text-gray-500">暂无研究快照。</div>
           ) : (
             <div className="space-y-2">
-              {snapshotItems.slice(0, 5).map((item) => (
+              {snapshotItems.map((item) => (
                 <div key={item.operationId} className="rounded border border-white/10 bg-[#161629] p-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-sm text-white">
@@ -1606,7 +1630,7 @@ const FivdRResearchHistoryPanel: React.FC<{
             <div className="text-xs text-gray-500">暂无观察记录。</div>
           ) : (
             <div className="space-y-2">
-              {watchItems.slice(0, 5).map((item) => (
+              {watchItems.map((item) => (
                 <div key={item.id} className="rounded border border-white/10 bg-[#161629] p-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-sm text-white">{item.symbol || item.positionId || item.runId}</div>
@@ -1674,6 +1698,8 @@ const Analysis: React.FC = () => {
   const [fivdRResearchSnapshots, setFivdRResearchSnapshots] = useState<FivdRResearchSnapshotList | null>(null)
   const [fivdRWatchList, setFivdRWatchList] = useState<FivdRWatchList | null>(null)
   const [fivdRResearchHistoryLoading, setFivdRResearchHistoryLoading] = useState(false)
+  const [fivdRResearchHistoryQuery, setFivdRResearchHistoryQuery] = useState('')
+  const [fivdRResearchHistoryPage, setFivdRResearchHistoryPage] = useState(1)
   const [activeSection, setActiveSection] = useState<AnalysisSection>('overview')
   const [adviceFilter, setAdviceFilter] = useState<'all' | 'high' | 'executable' | 'buy' | 'sell'>('all')
   const [adviceSort, setAdviceSort] = useState<'priority' | 'action' | 'latest'>('priority')
@@ -1692,15 +1718,19 @@ const Analysis: React.FC = () => {
     }, ...items].slice(0, 10))
   }
 
-  const loadFivdRResearchHistory = async () => {
+  const loadFivdRResearchHistory = async (options: { page?: number; query?: string } = {}) => {
+    const page = options.page ?? fivdRResearchHistoryPage
+    const query = options.query ?? fivdRResearchHistoryQuery
     setFivdRResearchHistoryLoading(true)
     try {
       const [snapshots, watchList] = await Promise.all([
-        listFivdRResearchSnapshots(20),
-        listFivdRWatch(20),
+        listFivdRResearchSnapshots({ limit: 5, page, query }),
+        listFivdRWatch({ limit: 5, page, query }),
       ])
       setFivdRResearchSnapshots(snapshots)
       setFivdRWatchList(watchList)
+      setFivdRResearchHistoryPage(page)
+      setFivdRResearchHistoryQuery(query)
     } catch (error) {
       console.error('Failed to load FIVD-R research history:', error)
       message.warning('FIVD-R 研究历史加载失败')
@@ -2671,7 +2701,12 @@ const Analysis: React.FC = () => {
                     snapshots={fivdRResearchSnapshots}
                     watchList={fivdRWatchList}
                     loading={fivdRResearchHistoryLoading}
-                    onRefresh={loadFivdRResearchHistory}
+                    query={fivdRResearchHistoryQuery}
+                    page={fivdRResearchHistoryPage}
+                    onRefresh={() => loadFivdRResearchHistory()}
+                    onQueryChange={(query) => setFivdRResearchHistoryQuery(query)}
+                    onSearch={() => loadFivdRResearchHistory({ page: 1 })}
+                    onPageChange={(page) => loadFivdRResearchHistory({ page })}
                   />
                   <ValidationFailureTaxonomyPanel report={fivdRValidationReport} />
                 </div>

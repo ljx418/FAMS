@@ -32,6 +32,25 @@ function hashPayload(payload: Record<string, unknown>) {
 }
 
 class FivdRInterventionService {
+  private toDto(record: any) {
+    return {
+      id: record.id,
+      userId: record.userId,
+      runId: record.runId,
+      positionId: record.positionId,
+      symbol: record.symbol,
+      decision: record.decision,
+      reason: record.reason,
+      reviewer: record.reviewer,
+      modelResultRef: record.modelResultRef,
+      evidenceRefs: JSON.parse(record.evidenceRefsJson || '[]'),
+      override: JSON.parse(record.overrideJson || '{}'),
+      previousHash: record.previousHash,
+      recordHash: record.recordHash,
+      createdAt: record.createdAt.toISOString(),
+    }
+  }
+
   async createReview(input: CreateFivdRInterventionReviewInput) {
     if (!input.reason.trim()) {
       throw new Error('reason is required for FIVD-R intervention review')
@@ -91,22 +110,60 @@ class FivdRInterventionService {
       orderBy: { createdAt: 'desc' },
       take: Math.max(1, Math.min(100, Number(params.limit) || 20)),
     })
-    return records.map((record) => ({
-      id: record.id,
-      userId: record.userId,
-      runId: record.runId,
-      positionId: record.positionId,
-      symbol: record.symbol,
-      decision: record.decision,
-      reason: record.reason,
-      reviewer: record.reviewer,
-      modelResultRef: record.modelResultRef,
-      evidenceRefs: JSON.parse(record.evidenceRefsJson || '[]'),
-      override: JSON.parse(record.overrideJson || '{}'),
-      previousHash: record.previousHash,
-      recordHash: record.recordHash,
-      createdAt: record.createdAt.toISOString(),
-    }))
+    return records.map((record) => this.toDto(record))
+  }
+
+  async listReviewsPage(params: {
+    userId: string
+    runId?: string
+    positionId?: string
+    symbol?: string
+    decision?: FivdRReviewDecision
+    query?: string
+    limit?: number
+    page?: number
+  }) {
+    const limit = Math.max(1, Math.min(100, Number(params.limit) || 20))
+    const page = Math.max(1, Number(params.page) || 1)
+    const query = String(params.query || '').trim()
+    const where: any = {
+      userId: params.userId,
+      ...(params.runId ? { runId: params.runId } : {}),
+      ...(params.positionId ? { positionId: params.positionId } : {}),
+      ...(params.symbol ? { symbol: params.symbol.trim().toUpperCase().replace(/\.(SH|SZ|BJ)$/, '') } : {}),
+      ...(params.decision ? { decision: params.decision } : {}),
+      ...(query ? {
+        OR: [
+          { runId: { contains: query } },
+          { symbol: { contains: query } },
+          { reason: { contains: query } },
+          { reviewer: { contains: query } },
+        ],
+      } : {}),
+    }
+    const [total, records] = await Promise.all([
+      prisma.fivdRInterventionReview.count({ where }),
+      prisma.fivdRInterventionReview.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ])
+    return {
+      reviews: records.map((record) => this.toDto(record)),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      filters: {
+        query,
+        symbol: params.symbol || '',
+        decision: params.decision || '',
+      },
+    }
   }
 
   async verifyChain(params: { userId: string; runId: string }) {

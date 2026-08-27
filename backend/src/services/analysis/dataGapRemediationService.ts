@@ -6,7 +6,7 @@ export type DataGapRemediationAction = {
   category: string
   gapIds: string[]
   symbols: string[]
-  operationType?: 'batch_factset_refresh' | 'fivd_r_validation_retest_audit' | 'fivd_r_asset_identity_resolution' | 'market_bar_cache_preheat'
+  operationType?: 'batch_factset_refresh' | 'fivd_r_validation_retest_audit' | 'fivd_r_asset_identity_resolution' | 'market_bar_cache_preheat' | 'fivd_r_fund_factset_refresh' | 'fivd_r_gold_macro_factset_refresh'
   operationInput?: Record<string, unknown>
   userMessage: string
   developerMessage: string
@@ -128,31 +128,47 @@ class DataGapRemediationService {
 
     const fundGaps = gaps.filter((gap) => gap.category === 'fund_factset')
     if (fundGaps.length > 0) {
+      const fundSymbols = unique(fundGaps.map((gap) => normalizeSymbol(gap.symbol)))
       actions.push({
         actionId: 'refresh_fund_factset',
-        status: 'unsupported',
+        status: fundSymbols.length > 0 ? 'executable' : 'planned',
         category: 'fund_factset',
         gapIds: fundGaps.map((gap) => gap.gapId),
-        symbols: unique(fundGaps.map((gap) => normalizeSymbol(gap.symbol))),
-        userMessage: '基金/债基事实集缺口已识别，但当前还没有完整 fund factset refresh Operation。',
-        developerMessage: 'Implement NAV history/drawdown/fee/manager/holdings provider before this can be executable.',
+        symbols: fundSymbols,
+        operationType: fundSymbols.length > 0 ? 'fivd_r_fund_factset_refresh' : undefined,
+        operationInput: fundSymbols.length > 0 ? { symbols: fundSymbols, kind: 'fund' } : undefined,
+        userMessage: fundSymbols.length > 0
+          ? '可用现有本地净值/行情与基金 profile、费率、持仓适配器重建基金事实集。'
+          : '基金事实集缺口缺少 symbol，需先完成资产身份解析。',
+        developerMessage: 'Runs the existing alternativeAssetFactsetService for matching open fund/ETF/bond positions and persists a research-only audit Operation.',
         expectedArtifacts: ['fund_factset_report.json'],
-        limitations: ['当前只能提示缺口，不能自动补齐基金经理、费用、持仓风格等事实。'],
+        limitations: [
+          '只刷新本地已有持仓；未匹配 symbol 会明确保留 unresolved。',
+          'Provider 缺失仍保持 partial/insufficient，不会把基金经理、费用或持仓风格伪造成已补齐。',
+        ],
       })
     }
 
     const goldGaps = gaps.filter((gap) => gap.category === 'gold_macro')
     if (goldGaps.length > 0) {
+      const goldSymbols = unique(goldGaps.map((gap) => normalizeSymbol(gap.symbol)))
       actions.push({
         actionId: 'refresh_gold_macro_factset',
-        status: 'unsupported',
+        status: goldSymbols.length > 0 ? 'executable' : 'planned',
         category: 'gold_macro',
         gapIds: goldGaps.map((gap) => gap.gapId),
-        symbols: unique(goldGaps.map((gap) => normalizeSymbol(gap.symbol))),
-        userMessage: '黄金宏观事实集缺口已识别，但当前还没有完整 gold macro factset refresh Operation。',
-        developerMessage: 'Implement gold price source, real-rate proxy, USD trend, inflation expectations, volatility and drawdown provider.',
+        symbols: goldSymbols,
+        operationType: goldSymbols.length > 0 ? 'fivd_r_gold_macro_factset_refresh' : undefined,
+        operationInput: goldSymbols.length > 0 ? { symbols: goldSymbols, kind: 'gold' } : undefined,
+        userMessage: goldSymbols.length > 0
+          ? '可用现有本地金价历史与实际利率、美元、通胀预期代理重建黄金宏观事实集。'
+          : '黄金宏观事实集缺口缺少 symbol，需先完成资产身份解析。',
+        developerMessage: 'Runs the existing alternativeAssetFactsetService gold macro proxies for matching open gold positions and persists a research-only audit Operation.',
         expectedArtifacts: ['gold_macro_factset_report.json'],
-        limitations: ['当前不能把黄金套用股票估值模型，也不能伪造宏观代理数据。'],
+        limitations: [
+          '黄金代理保持 research-only，不套用股票估值模型。',
+          '任一外部代理失败会明确保留 partial/insufficient，不会伪造成正式宏观数据。',
+        ],
       })
     }
 

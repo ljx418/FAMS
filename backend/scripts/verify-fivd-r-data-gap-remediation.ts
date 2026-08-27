@@ -50,17 +50,70 @@ async function main() {
   assert.equal(stockAction?.status, 'executable', 'stock gaps should be executable through batch_factset_refresh')
   assert.equal(stockAction?.operationType, 'batch_factset_refresh')
   assert.deepEqual(stockAction?.symbols, ['601127'])
-  assert.equal(fixturePlan.actions.find((action) => action.actionId === 'refresh_fund_factset')?.status, 'unsupported')
-  assert.equal(fixturePlan.actions.find((action) => action.actionId === 'refresh_gold_macro_factset')?.status, 'unsupported')
+  assert.equal(fixturePlan.actions.find((action) => action.actionId === 'refresh_fund_factset')?.status, 'executable')
+  assert.equal(fixturePlan.actions.find((action) => action.actionId === 'refresh_fund_factset')?.operationType, 'fivd_r_fund_factset_refresh')
+  assert.equal(fixturePlan.actions.find((action) => action.actionId === 'refresh_gold_macro_factset')?.status, 'executable')
+  assert.equal(fixturePlan.actions.find((action) => action.actionId === 'refresh_gold_macro_factset')?.operationType, 'fivd_r_gold_macro_factset_refresh')
+  assert.equal(fixturePlan.summary.unsupportedActions, 0, 'local fund/gold factset executors must replace unsupported placeholders')
   assert.equal(fixturePlan.actions.find((action) => action.actionId === 'run_validation_retest_audit')?.status, 'executable')
   assert.equal(fixturePlan.actions.find((action) => action.actionId === 'resolve_asset_identity')?.status, 'executable')
   assert.equal(fixturePlan.actions.find((action) => action.actionId === 'resolve_asset_identity')?.operationType, 'fivd_r_asset_identity_resolution')
   assert.equal(fixturePlan.actions.find((action) => action.actionId === 'refresh_market_data_cache')?.status, 'executable')
   assert.equal(fixturePlan.actions.find((action) => action.actionId === 'refresh_market_data_cache')?.operationType, 'market_bar_cache_preheat')
 
+  const missingSymbolPlan = dataGapRemediationService.buildPlan({
+    userId: 'default',
+    sourceRunId: 'missing-symbol-fixture',
+    gaps: [gap({
+      gapId: 'FUND:fund_profile_factset_missing',
+      category: 'fund_factset',
+      blockedReason: 'fund_profile_factset_missing',
+      symbol: '',
+      assetType: 'fund',
+    })],
+  })
+  assert.equal(missingSymbolPlan.actions[0]?.status, 'planned', 'missing symbol must not false-green as executable')
+
   const audit = await analysisService.createFivdRValidationRetestAudit('default', { candidateLimit: 5 }) as any
   assert.ok(audit.operationId, 'validation retest action must create an audit operation')
   assert.equal(audit.validationFailureTaxonomy?.summary?.tradeActionAllowed, false, 'validation taxonomy must not release trade action')
+
+  const fundRefresh = await analysisService.createFivdRAlternativeAssetFactsetRefresh('default', {
+    kind: 'fund',
+    symbols: ['__MISSING_FUND__'],
+    sourceRunId: 'contract-fixture',
+  }) as any
+  assert.ok(fundRefresh.operationId)
+  assert.equal(fundRefresh.status, 'insufficient')
+  assert.deepEqual(fundRefresh.unresolvedSymbols, ['__MISSING_FUND__'])
+  assert.equal(fundRefresh.formalTradingUnlocked, false)
+
+  const goldRefresh = await analysisService.createFivdRAlternativeAssetFactsetRefresh('default', {
+    kind: 'gold',
+    symbols: ['__MISSING_GOLD__'],
+    sourceRunId: 'contract-fixture',
+  }) as any
+  assert.ok(goldRefresh.operationId)
+  assert.equal(goldRefresh.status, 'insufficient')
+  assert.deepEqual(goldRefresh.unresolvedSymbols, ['__MISSING_GOLD__'])
+  assert.equal(goldRefresh.orderCreateAllowed, false)
+
+  const openPositions = await prisma.position.findMany({
+    where: { userId: 'default', status: 'open' },
+    include: { asset: true },
+  })
+  const realFundPosition = openPositions.find((position) => ['etf', 'fund', 'bond_fund', 'bond'].includes(position.asset.type))
+  assert.ok(realFundPosition, 'at least one real open fund/ETF/bond position is required')
+  const realFundRefresh = await analysisService.createFivdRAlternativeAssetFactsetRefresh('default', {
+    kind: 'fund',
+    symbols: [realFundPosition.asset.symbol],
+    sourceRunId: 'real-position-contract',
+  }) as any
+  assert.ok(realFundRefresh.operationId)
+  assert.equal(realFundRefresh.summary.matchedPositionCount, 1)
+  assert.equal(realFundRefresh.summary.factsetCount, 1)
+  assert.ok(['completed', 'partial'].includes(realFundRefresh.status))
+  assert.equal(realFundRefresh.autoTradeUnlocked, false)
 
   console.log(JSON.stringify({
     ok: true,
@@ -72,6 +125,8 @@ async function main() {
       symbols: action.symbols,
     })),
     validationAuditOperationId: audit.operationId,
+    alternativeAssetOperations: [fundRefresh.operationId, goldRefresh.operationId, realFundRefresh.operationId],
+    realFundRefreshStatus: realFundRefresh.status,
     tradeActionAllowed: audit.validationFailureTaxonomy?.summary?.tradeActionAllowed,
   }, null, 2))
 }

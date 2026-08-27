@@ -52,8 +52,14 @@ export async function analysisRoutes(app: FastifyInstance) {
   })
 
   app.get('/fivd-r/snapshots', async (request) => {
-    const { userId, limit } = request.query as any
-    return analysisService.listFivdRResearchSnapshots(userId || 'default', Number(limit || 20))
+    const { userId, limit, page, query, scope, symbol } = request.query as any
+    return analysisService.listFivdRResearchSnapshots(userId || 'default', {
+      limit: Number(limit || 20),
+      page: Number(page || 1),
+      query,
+      scope,
+      symbol,
+    })
   })
 
   app.post('/fivd-r/watch', async (request) => {
@@ -76,26 +82,31 @@ export async function analysisRoutes(app: FastifyInstance) {
   })
 
   app.get('/fivd-r/watch', async (request) => {
-    const { userId, runId, positionId, decision, limit } = request.query as any
+    const { userId, runId, positionId, symbol, decision, limit, page, query } = request.query as any
     const normalizedDecision = decision === 'manual_watch'
       || decision === 'approve_research_only'
       || decision === 'request_more_evidence'
       || decision === 'reject_trade_action'
       ? decision
       : 'manual_watch'
-    const reviews = await fivdRInterventionService.listReviews({
+    const result = await fivdRInterventionService.listReviewsPage({
       userId: userId || 'default',
       runId,
       positionId,
+      symbol,
       decision: normalizedDecision,
       limit: Number(limit || 20),
+      page: Number(page || 1),
+      query,
     })
     return {
       schemaVersion: 'fivd.r.watch_list.v1',
       userId: userId || 'default',
       decision: normalizedDecision,
-      count: reviews.length,
-      reviews,
+      count: result.pagination.total,
+      reviews: result.reviews,
+      pagination: result.pagination,
+      filters: result.filters,
       allowedActions: ['RESEARCH', 'OBSERVE', 'SNAPSHOT', 'WATCH', 'RISK_ALERT'],
       prohibitedActions: ['ADD', 'REDUCE', 'AUTO_TRADE'],
     }
@@ -234,6 +245,19 @@ export async function analysisRoutes(app: FastifyInstance) {
           status: operation.status,
         })
       }
+      if (action.operationType === 'fivd_r_fund_factset_refresh' || action.operationType === 'fivd_r_gold_macro_factset_refresh') {
+        const report = await analysisService.createFivdRAlternativeAssetFactsetRefresh(userId, {
+          kind: action.operationType === 'fivd_r_fund_factset_refresh' ? 'fund' : 'gold',
+          symbols: action.symbols,
+          sourceRunId: body.sourceRunId || null,
+        }) as any
+        startedOperations.push({
+          actionId: action.actionId,
+          operationId: report.operationId,
+          operationType: action.operationType,
+          status: report.status,
+        })
+      }
     }
     return {
       schemaVersion: 'fivd.r.data_gap_remediation_execution.v1',
@@ -248,7 +272,7 @@ export async function analysisRoutes(app: FastifyInstance) {
       })),
       auditOpinion: {
         severity: plan.summary.unsupportedActions > 0 || plan.summary.plannedActions > 0 ? 'major' : 'minor',
-        conclusion: '仅启动当前已有执行器支持的补数/复验动作；unsupported/planned 动作不会被伪造成完成。',
+        conclusion: '仅启动当前已有执行器支持的补数/复验动作；partial/insufficient/planned 动作不会被伪造成缺口已全部补齐。',
       },
     }
   })

@@ -11,6 +11,7 @@
     "verify:guide": "node scripts/verify-user-guide.mjs",
     "verify:daily-review-runtime": "node scripts/verify-daily-review-runtime.mjs",
     "verify:daily-review-cdp": "node scripts/verify-daily-review-cdp.mjs",
+    "verify:fivd-r-runtime": "node scripts/verify-fivd-r-runtime.mjs",
     "verify:daily-review-static-report": "node scripts/verify-static-daily-review-report.mjs"
   },
   "dependencies": {

@@ -2054,7 +2054,7 @@ export interface FivdRDataGapRemediationPlan {
     category: string
     gapIds: string[]
     symbols: string[]
-    operationType?: 'batch_factset_refresh' | 'fivd_r_validation_retest_audit' | 'fivd_r_asset_identity_resolution' | 'market_bar_cache_preheat'
+    operationType?: 'batch_factset_refresh' | 'fivd_r_validation_retest_audit' | 'fivd_r_asset_identity_resolution' | 'market_bar_cache_preheat' | 'fivd_r_fund_factset_refresh' | 'fivd_r_gold_macro_factset_refresh'
     operationInput?: Record<string, unknown>
     userMessage: string
     developerMessage: string
@@ -2110,6 +2110,17 @@ export interface FivdRResearchSnapshotList {
     } | null
     artifactRefs: string[]
   }>
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  filters: {
+    query: string
+    scope: string
+    symbol: string
+  }
 }
 
 export interface FivdRWatchList {
@@ -2132,6 +2143,17 @@ export interface FivdRWatchList {
     recordHash: string
     createdAt: string
   }>
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  filters: {
+    query: string
+    symbol: string
+    decision: string
+  }
   allowedActions: string[]
   prohibitedActions: Array<'ADD' | 'REDUCE' | 'AUTO_TRADE'>
 }
@@ -2670,8 +2692,23 @@ export async function saveFivdRResearchSnapshot(input: {
   return response.json()
 }
 
-export async function listFivdRResearchSnapshots(limit = 20): Promise<FivdRResearchSnapshotList> {
-  const response = await fetch(`${API_BASE}/api/v1/analysis/fivd-r/snapshots?userId=default&limit=${encodeURIComponent(String(limit))}`)
+export async function listFivdRResearchSnapshots(options: number | {
+  limit?: number
+  page?: number
+  query?: string
+  scope?: string
+  symbol?: string
+} = 20): Promise<FivdRResearchSnapshotList> {
+  const normalized = typeof options === 'number' ? { limit: options } : options
+  const search = new URLSearchParams({
+    userId: 'default',
+    limit: String(normalized.limit || 20),
+    page: String(normalized.page || 1),
+  })
+  if (normalized.query) search.set('query', normalized.query)
+  if (normalized.scope) search.set('scope', normalized.scope)
+  if (normalized.symbol) search.set('symbol', normalized.symbol)
+  const response = await fetch(`${API_BASE}/api/v1/analysis/fivd-r/snapshots?${search.toString()}`)
   if (!response.ok) {
     const errorText = await response.text()
     throw new Error(errorText || `HTTP error! status: ${response.status}`)
@@ -2699,8 +2736,22 @@ export async function addFivdRWatch(input: {
   return response.json()
 }
 
-export async function listFivdRWatch(limit = 20): Promise<FivdRWatchList> {
-  const response = await fetch(`${API_BASE}/api/v1/analysis/fivd-r/watch?userId=default&decision=manual_watch&limit=${encodeURIComponent(String(limit))}`)
+export async function listFivdRWatch(options: number | {
+  limit?: number
+  page?: number
+  query?: string
+  symbol?: string
+} = 20): Promise<FivdRWatchList> {
+  const normalized = typeof options === 'number' ? { limit: options } : options
+  const search = new URLSearchParams({
+    userId: 'default',
+    decision: 'manual_watch',
+    limit: String(normalized.limit || 20),
+    page: String(normalized.page || 1),
+  })
+  if (normalized.query) search.set('query', normalized.query)
+  if (normalized.symbol) search.set('symbol', normalized.symbol)
+  const response = await fetch(`${API_BASE}/api/v1/analysis/fivd-r/watch?${search.toString()}`)
   if (!response.ok) {
     const errorText = await response.text()
     throw new Error(errorText || `HTTP error! status: ${response.status}`)

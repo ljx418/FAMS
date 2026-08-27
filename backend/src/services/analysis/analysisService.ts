@@ -25,6 +25,7 @@ import { dataGapSummaryService } from './dataGapSummaryService.js'
 import { buildFivdRCapabilityFlags, deriveFivdRCapabilityState } from './fivdRCapabilityState.js'
 import { deriveProhibitedActions } from './fivdRProhibitedActions.js'
 import { researchAssetIdentityService } from '../asset/researchAssetIdentityService.js'
+import { alternativeAssetFactsetService } from '../valuation/alternativeAssetFactsetService.js'
 import { ensureUser } from '../../utils/user.js'
 
 type AdviceActionType = 'buy' | 'sell' | 'hold' | 'rebalance' | 'grid_order' | 'dca'
@@ -2973,9 +2974,21 @@ class AnalysisService {
     }
   }
 
-  async listFivdRResearchSnapshots(userId: string, limit = 20) {
+  async listFivdRResearchSnapshots(userId: string, options: number | {
+    limit?: number
+    page?: number
+    query?: string
+    scope?: string
+    symbol?: string
+  } = 20) {
     const normalizedUserId = userId || 'default'
     await this.ensureUser(normalizedUserId)
+    const normalizedOptions = typeof options === 'number' ? { limit: options } : options
+    const limit = Math.max(1, Math.min(100, Number(normalizedOptions.limit) || 20))
+    const page = Math.max(1, Number(normalizedOptions.page) || 1)
+    const query = String(normalizedOptions.query || '').trim().toLowerCase()
+    const scope = String(normalizedOptions.scope || '').trim().toLowerCase()
+    const symbol = String(normalizedOptions.symbol || '').trim().toUpperCase().replace(/\.(SH|SZ|BJ)$/, '')
     const operations = await prisma.operation.findMany({
       where: {
         userId: normalizedUserId,
@@ -2983,24 +2996,137 @@ class AnalysisService {
         status: { in: ['completed', 'succeeded'] },
       },
       orderBy: { completedAt: 'desc' },
-      take: Math.max(1, Math.min(100, Number(limit) || 20)),
+      take: 500,
     })
+    const allSnapshots = operations.map((operation) => {
+      const result = this.parseJson<Record<string, any>>(operation.resultJson, {})
+      return {
+        operationId: operation.id,
+        createdAt: operation.completedAt?.toISOString() || operation.requestedAt.toISOString(),
+        runId: result.runId,
+        scope: result.scope,
+        asset: result.asset,
+        summary: result.summary,
+        artifactRefs: this.parseJson<string[]>(operation.artifactRefsJson, []),
+      }
+    })
+    const filtered = allSnapshots.filter((snapshot) => {
+      const snapshotSymbol = String(snapshot.asset?.symbol || '').trim().toUpperCase().replace(/\.(SH|SZ|BJ)$/, '')
+      if (scope && String(snapshot.scope || '').toLowerCase() !== scope) return false
+      if (symbol && snapshotSymbol !== symbol) return false
+      if (!query) return true
+      return [snapshot.runId, snapshot.scope, snapshot.asset?.symbol, snapshot.asset?.name, snapshot.summary?.status, snapshot.summary?.conclusion]
+        .some((value) => String(value || '').toLowerCase().includes(query))
+    })
+    const start = (page - 1) * limit
     return {
       schemaVersion: 'fivd.r.research_snapshot_list.v1',
       userId: normalizedUserId,
-      snapshots: operations.map((operation) => {
-        const result = this.parseJson<Record<string, any>>(operation.resultJson, {})
-        return {
-          operationId: operation.id,
-          createdAt: operation.completedAt?.toISOString() || operation.requestedAt.toISOString(),
-          runId: result.runId,
-          scope: result.scope,
-          asset: result.asset,
-          summary: result.summary,
-          artifactRefs: this.parseJson<string[]>(operation.artifactRefsJson, []),
-        }
-      }),
+      snapshots: filtered.slice(start, start + limit),
+      pagination: {
+        page,
+        limit,
+        total: filtered.length,
+        totalPages: Math.max(1, Math.ceil(filtered.length / limit)),
+      },
+      filters: { query, scope, symbol },
     }
+  }
+
+  async createFivdRAlternativeAssetFactsetRefresh(userId: string, input: {
+    kind: 'fund' | 'gold'
+    symbols?: string[]
+    sourceRunId?: string | null
+  }) {
+    const normalizedUserId = userId || 'default'
+    await this.ensureUser(normalizedUserId)
+    const normalizeSymbol = (value: unknown) => String(value || '').trim().toUpperCase().replace(/\.(SH|SZ|BJ)$/, '')
+    const requestedSymbols = Array.from(new Set((input.symbols || []).map(normalizeSymbol).filter(Boolean)))
+    const positions = await prisma.position.findMany({
+      where: {
+        userId: normalizedUserId,
+        status: 'open',
+      },
+      include: { asset: true },
+      orderBy: { openedAt: 'asc' },
+    })
+    const supportedTypes = input.kind === 'fund'
+      ? new Set(['etf', 'fund', 'bond_fund', 'bond'])
+      : new Set(['gold'])
+    const targets = positions.filter((position) => (
+      supportedTypes.has(String(position.asset.type || '').toLowerCase())
+      && (requestedSymbols.length === 0 || requestedSymbols.includes(normalizeSymbol(position.asset.symbol)))
+    ))
+    const factsets: Array<Record<string, any>> = []
+    const failures: Array<{ symbol: string; error: string }> = []
+    for (const position of targets) {
+      try {
+        const factset = input.kind === 'fund'
+          ? await alternativeAssetFactsetService.buildFundLikeFactSet(position)
+          : await alternativeAssetFactsetService.buildGoldMacroFactSet(position)
+        factsets.push(factset)
+      } catch (error) {
+        failures.push({
+          symbol: normalizeSymbol(position.asset.symbol),
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+    const completedSymbols = new Set(factsets.map((factset) => normalizeSymbol(factset.symbol)))
+    const unresolvedSymbols = requestedSymbols.filter((symbol) => !completedSymbols.has(symbol))
+    const incompleteFactsets = factsets.filter((factset) => factset.status !== 'available')
+    const status = factsets.length === 0
+      ? 'insufficient'
+      : failures.length > 0 || unresolvedSymbols.length > 0 || incompleteFactsets.length > 0
+        ? 'partial'
+        : 'completed'
+    const operationType = input.kind === 'fund'
+      ? 'fivd_r_fund_factset_refresh'
+      : 'fivd_r_gold_macro_factset_refresh'
+    const artifactName = input.kind === 'fund'
+      ? 'fund_factset_report.json'
+      : 'gold_macro_factset_report.json'
+    const payload = {
+      schemaVersion: input.kind === 'fund'
+        ? 'fivd.r.fund_factset_refresh_report.v1'
+        : 'fivd.r.gold_macro_factset_refresh_report.v1',
+      generatedAt: new Date().toISOString(),
+      userId: normalizedUserId,
+      sourceRunId: input.sourceRunId || null,
+      kind: input.kind,
+      status,
+      requestedSymbols,
+      completedSymbols: Array.from(completedSymbols),
+      unresolvedSymbols,
+      summary: {
+        requestedCount: requestedSymbols.length,
+        matchedPositionCount: targets.length,
+        factsetCount: factsets.length,
+        availableCount: factsets.filter((factset) => factset.status === 'available').length,
+        partialCount: factsets.filter((factset) => factset.status === 'partial').length,
+        insufficientCount: factsets.filter((factset) => factset.status === 'insufficient').length,
+        failureCount: failures.length,
+      },
+      factsets,
+      failures,
+      auditOpinion: {
+        severity: status === 'completed' ? 'minor' : 'major',
+        conclusion: status === 'completed'
+          ? '本轮匹配的另类资产事实集已刷新。'
+          : '本轮刷新已完成，但仍有未匹配 symbol、Provider 缺口或 partial/insufficient 事实集；不得宣称缺口全部补齐。',
+      },
+      formalTradingUnlocked: false,
+      autoTradeUnlocked: false,
+      canCreateOrder: false,
+      orderCreateAllowed: false,
+    }
+    return this.createFivdRAuditOperation(
+      normalizedUserId,
+      operationType,
+      payload,
+      artifactName,
+      new Date(payload.generatedAt)
+    )
   }
 
   async createFivdRAssetIdentityResolutionReport(userId: string, input: {

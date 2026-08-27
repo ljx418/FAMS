@@ -132,6 +132,7 @@
     "test:fivd-r-trade-gate-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-trade-gate-contract.ts",
     "test:fivd-r-validation-taxonomy": "node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-validation-failure-taxonomy.ts",
     "test:fivd-r-data-gap-remediation": "node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-data-gap-remediation.ts",
+    "test:fivd-r-history-pagination": "node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-history-pagination.ts",
     "test:fivd-r-asset-identity-remediation": "node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-asset-identity-remediation.ts",
     "test:fivd-r-market-data-remediation": "node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-market-data-remediation.ts",
     "test:fivd-r-fund-gold-local-factset": "node node_modules/tsx/dist/cli.mjs scripts/verify-fivd-r-fund-gold-local-factset.ts",
