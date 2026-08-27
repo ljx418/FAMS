@@ -172,8 +172,10 @@ export function DailyReviewWorkflowDag({
                 data-testid={`dag-node-${node.id}`}
                 aria-label={`NODE ${String(node.sequence).padStart(2, '0')} ${node.title}，${status.label}，${reviewLabel[review]}`}
                 aria-pressed={selected}
-                onClick={() => onSelectNode(node.id)}
-                onDoubleClick={() => openDetail(node)}
+                onClick={(event) => {
+                  onSelectNode(node.id)
+                  if (event.detail >= 2) openDetail(node)
+                }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault()

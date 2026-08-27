@@ -44,7 +44,8 @@ try {
     await page.getByTestId('daily-review-workbench').waitFor({ timeout: 30_000 })
     assert.equal(page.url(), `${appBase}/daily-reviews/${reviewId}`)
     assert.equal(await page.getByRole('button', { name: /NODE \d{2}/ }).count(), 10)
-    assert.equal(await page.getByTestId('workflow-dag').locator('svg > path').count(), 17)
+    const dagEdges = page.getByTestId('workflow-dag').locator('svg[aria-hidden="true"] > path[marker-end]')
+    assert.equal(await dagEdges.count(), 17)
 
     for (const [sequence, title] of expectedNodes) {
       const button = page.getByRole('button', { name: new RegExp(`NODE ${sequence}`) })
@@ -53,26 +54,27 @@ try {
       await modal.getByText(`NODE ${sequence} · ${title}`, { exact: true }).waitFor()
       for (const allowedHeading of ['当前节点作用', '节点输入', '节点输出']) await modal.getByText(allowedHeading, { exact: true }).waitFor()
       for (const auditOnlyText of ['原始证据', '阻断条件', '本地节点审阅']) assert.equal(await modal.getByText(auditOnlyText, { exact: true }).count(), 0)
-      await modal.getByRole('button', { name: '关闭', exact: true }).click()
-      await modal.waitFor({ state: 'hidden' })
+      await page.locator('.ant-modal-wrap:visible .ant-modal-footer button').click()
+      await page.locator('.ant-modal-wrap:visible').waitFor({ state: 'hidden' })
     }
 
     const keyboardNode = page.getByRole('button', { name: /NODE 01/ })
     await keyboardNode.focus()
     await page.keyboard.press('Enter')
-    await page.getByTestId('node-detail-modal').waitFor()
-    await page.getByTestId('node-detail-modal').getByRole('button', { name: '关闭', exact: true }).click()
+    await page.locator('.ant-modal-wrap:visible').waitFor()
+    await page.locator('.ant-modal-wrap:visible .ant-modal-footer button').click()
+    await page.locator('.ant-modal-wrap:visible').waitFor({ state: 'hidden' })
 
     await page.getByRole('button', { name: /NODE 06/ }).click()
-    assert.ok(await page.getByTestId('workflow-dag').locator('svg > path[stroke="#2563eb"]').count() >= 4, '单击节点未高亮依赖路径')
+    assert.ok(await page.getByTestId('workflow-dag').locator('svg[aria-hidden="true"] > path[marker-end][stroke="#2563eb"]').count() >= 4, '单击节点未高亮依赖路径')
 
     await page.getByRole('button', { name: /NODE 03/ }).click()
-    await page.getByRole('button', { name: '高级审计', exact: true }).click()
+    await page.locator('button').filter({ hasText: '高级审计' }).click()
     const auditDrawer = page.getByTestId('daily-review-audit-drawer')
     await auditDrawer.getByText('原始证据', { exact: true }).waitFor()
     await auditDrawer.getByText('阻断条件', { exact: true }).waitFor()
     await page.keyboard.press('Escape')
-    await auditDrawer.waitFor({ state: 'hidden' })
+    await page.locator('.ant-drawer-content-wrapper:visible').waitFor({ state: 'hidden' })
 
     await page.getByTestId('daily-review-decision-summary').waitFor()
     const focusPanel = page.getByTestId('focus-buyback-points')
@@ -85,7 +87,7 @@ try {
     await attentionPanel.getByRole('button', { name: /查看原始证据/ }).first().click()
     await auditDrawer.getByText('当前证据筛选：').waitFor()
     await page.keyboard.press('Escape')
-    await auditDrawer.waitFor({ state: 'hidden' })
+    await page.locator('.ant-drawer-content-wrapper:visible').waitFor({ state: 'hidden' })
     await page.getByTestId('grid-derivation-traces').locator('.ant-collapse-header').first().click()
     await page.getByText('一、价值评估基线', { exact: true }).first().waitFor()
     await page.getByText('五、交易规则与有效期', { exact: true }).first().waitFor()
@@ -101,7 +103,7 @@ try {
     await options.last().click()
     assert.equal(await page.locator('.ant-select-selection-item').filter({ hasText: optionLabels.at(-1) }).count(), 1)
 
-    await page.getByRole('button', { name: '历史复盘' }).click()
+    await page.locator('button').filter({ hasText: '历史复盘' }).click()
     const historyTitle = page.getByText('历史持仓复盘', { exact: true })
     await historyTitle.waitFor()
     assert.equal(await page.getByRole('combobox', { name: '筛选复盘场次' }).count(), 1)
@@ -113,7 +115,7 @@ try {
     let annotationRestored = false
     if (viewport.name === 'desktop') {
       await page.getByRole('button', { name: /NODE 02/ }).click()
-      await page.getByRole('button', { name: '高级审计', exact: true }).click()
+      await page.locator('button').filter({ hasText: '高级审计' }).click()
       const annotation = page.getByTestId('node-review-annotation')
       await annotation.getByText('通过', { exact: true }).click()
       const note = `DRV1-7 ${reviewId} 浏览器本地审阅`
@@ -122,16 +124,18 @@ try {
       assert.equal(storage.positions.status, 'pass')
       assert.equal(storage.positions.note, note)
       await page.keyboard.press('Escape')
+      await page.locator('.ant-drawer-content-wrapper:visible').waitFor({ state: 'hidden' })
       await page.reload({ waitUntil: 'domcontentloaded' })
       await page.getByTestId('daily-review-workbench').waitFor({ timeout: 30_000 })
       await page.getByRole('button', { name: /NODE 02/ }).click()
-      await page.getByRole('button', { name: '高级审计', exact: true }).click()
+      await page.locator('button').filter({ hasText: '高级审计' }).click()
       annotationRestored = (await page.getByRole('textbox', { name: '节点审阅备注' }).inputValue()) === note
       assert.equal(annotationRestored, true)
       await page.keyboard.press('Escape')
+      await page.locator('.ant-drawer-content-wrapper:visible').waitFor({ state: 'hidden' })
 
       const downloadPromise = page.waitForEvent('download')
-      await page.getByRole('button', { name: '导出审计 JSON' }).click()
+      await page.locator('button').filter({ hasText: '导出审计 JSON' }).click()
       const download = await downloadPromise
       const downloadPath = await download.path()
       assert.ok(downloadPath)
