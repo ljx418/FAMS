@@ -27,7 +27,18 @@ async function main() {
   assert.ok(available, '至少一个真实基金/债基/ETF持仓必须返回真实 holdings factset')
   assert.ok(available.factSet.holdings.reportDate, 'holdings available must expose reportDate')
   assert.ok(available.factSet.holdings.topHoldings.length > 0, 'holdings available must expose topHoldings')
+  assert.ok(available.factSet.holdings.topHoldings.length <= 10, 'holdings must contain only the latest report top 10')
+  assert.equal(
+    new Set(available.factSet.holdings.topHoldings.map((holding) => holding.stockCode)).size,
+    available.factSet.holdings.topHoldings.length,
+    'latest report holdings must not contain duplicate stock codes',
+  )
   assert.ok(typeof available.factSet.holdings.top10ConcentrationPct === 'number', 'holdings available must expose top10ConcentrationPct')
+  assert.ok(
+    available.factSet.holdings.top10ConcentrationPct > 0
+      && available.factSet.holdings.top10ConcentrationPct <= 100,
+    'top10ConcentrationPct must stay within (0, 100]',
+  )
   assert.notEqual(available.factSet.holdings.holdingsStyle, 'unknown', 'holdings available must derive holdingsStyle')
   assert.ok(!available.factSet.blockedReasons.includes('fund_holdings_factset_missing'), 'available holdings must remove fund_holdings_factset_missing')
   assert.ok(

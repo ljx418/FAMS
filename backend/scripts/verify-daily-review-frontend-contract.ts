@@ -43,7 +43,7 @@ for (const text of ['session_closed', '父卖单成交后激活', '当前不占�
 for (const text of ['即时网格计划', '条件买回计划', '现在可设置草案', '待父卖单成交草案']) assert.match(workflowService, new RegExp(text))
 for (const text of ['单击高亮依赖路径', '双击节点查看作用、输入和输出', '当前节点作用', '节点输入', '节点输出']) assert.match(workflowDag, new RegExp(text))
 for (const text of ['高级审计', '本地节点审阅', '阻断条件', '原始证据']) assert.match(auditDrawer, new RegExp(text))
-assert.match(workflowDag, /onDoubleClick/)
+assert.match(workflowDag, /event\.detail >= 2\) openDetail\(node\)/)
 assert.match(workflowDag, /event\.key === 'Enter' \|\| event\.key === ' '/)
 assert.match(workflowService, /fams\.daily-review-audit-workflow\.v2/)
 assert.match(workflowService, /purpose:/)

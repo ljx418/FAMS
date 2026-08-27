@@ -962,11 +962,18 @@ class AlternativeAssetFactsetService {
     const sourceUrl = `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=${fundCode}&topLine=10`
     try {
       const html = await this.fetchEastmoneyF10Html(sourceUrl)
-      const reportDate = html.match(/截止至：<font class='px12'>(\d{4}-\d{2}-\d{2})<\/font>/)?.[1] || null
+      const reportDateMatch = html.match(/截止至：<font class='px12'>(\d{4}-\d{2}-\d{2})<\/font>/)
+      const reportDate = reportDateMatch?.[1] || null
+      const reportStart = reportDateMatch?.index ?? -1
+      const tableStart = reportStart >= 0 ? html.indexOf('<table', reportStart) : -1
+      const tableEnd = tableStart >= 0 ? html.indexOf('</table>', tableStart) : -1
+      const latestReportHtml = tableStart >= 0 && tableEnd > tableStart
+        ? html.slice(tableStart, tableEnd + '</table>'.length)
+        : ''
       const topHoldings: FundLikeFactSet['holdings']['topHoldings'] = []
       const holdingRegex = /<td><a href='[^']+'>\s*([A-Za-z0-9.]+)\s*<\/a><\/td><td class='tol'><a href='[^']+'>(.*?)<\/a><\/td>[\s\S]*?<td class='tor'>([\d.]+)%<\/td><td class='tor'>([\d,.]+)<\/td><td class='tor'>([\d,.]+)<\/td>/g
       let match: RegExpExecArray | null
-      while ((match = holdingRegex.exec(html)) !== null) {
+      while ((match = holdingRegex.exec(latestReportHtml)) !== null) {
         topHoldings.push({
           stockCode: match[1].trim(),
           stockName: this.stripHtml(match[2]).trim(),
@@ -990,6 +997,27 @@ class AlternativeAssetFactsetService {
         }
       }
       const top10ConcentrationPct = round(topHoldings.reduce((sum, holding) => sum + holding.proportionPct, 0), 4)
+      const uniqueHoldingCount = new Set(topHoldings.map((holding) => holding.stockCode)).size
+      if (
+        topHoldings.length > 10
+        || uniqueHoldingCount !== topHoldings.length
+        || top10ConcentrationPct === null
+        || top10ConcentrationPct <= 0
+        || top10ConcentrationPct > 100
+      ) {
+        return {
+          status: 'missing',
+          provider: 'eastmoney_f10_jjcc',
+          reportDate,
+          topHoldings: [],
+          top10ConcentrationPct: null,
+          equityHoldingCount: 0,
+          holdingsStyle: 'unknown',
+          sourceRefs: [sourceUrl],
+          blockedReasons: ['fund_holdings_factset_missing'],
+          lastError: 'provider_returned_invalid_latest_report_holdings',
+        }
+      }
       return {
         status: 'available',
         provider: 'eastmoney_f10_jjcc',
