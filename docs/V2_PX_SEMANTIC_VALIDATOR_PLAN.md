@@ -12,6 +12,7 @@ JSON Schema 只能证明报告结构合法，不能证明截图文件真实存�
 semanticValidatorImplemented=true
 semanticValidatorRequiredBeforePx1=true
 px1CodeSpikeAllowed=false
+px1FeasibilitySpikeEligible=true
 ```
 
 ## 2. Validator 必须校验的内容

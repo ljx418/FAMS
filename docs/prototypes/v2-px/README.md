@@ -8,8 +8,8 @@
 prototypeIncrementPresent=documentation_stub_only
 realChromeEvidencePresent=false
 legacyMockEvidenceAllowedForPxAcceptance=false
-px0GithubReviewGate=FAIL
-prototypePrdAlignment=NOT_TESTABLE
+px0GithubReviewGate=PASS
+prototypePrdAlignment=NOT_TESTABLE_UNTIL_PX1
 prototypeInteractionCoverage=FAIL
 semanticValidatorImplemented=true
 antiFalseGreenAcceptanceContractPassed=true

@@ -1,19 +1,20 @@
 # V2-PX External Brain Productization 开发及验收计划
 
-更新时间：2026-07-15
+更新时间：2026-08-27
 
 ## 1. 阶段定位
 
-V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。当前只允许进入 PX-0 文档门禁修复；不允许直接进入 PX-2+ 生产实现。
+V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。PX-0 文档和 anti-false-green 合同门禁已经完成；PX-1 尚未启动，不允许直接进入 PX-2+ 生产实现。
 
 ```text
-currentStage=PX-0_DOCUMENTATION_REVIEW_GATE
-px0GithubReviewGate=FAIL
-authorityBaselineStatus=UNRESOLVED
-routeAStatus=PROPOSED
-routeAImplementationReadiness=FAIL
-semanticValidatorImplemented=false
+currentStage=PX-0_COMPLETE_PX-1_PENDING_START_REVIEW
+px0GithubReviewGate=PASS
+authorityBaselineStatus=FROZEN
+routeAStatus=ACCEPTED_FOR_SPIKE
+routeAImplementationReadiness=READY_FOR_SPIKE
+semanticValidatorImplemented=true
 px1FeasibilitySpikeAllowed=false
+px1FeasibilitySpikeEligible=true
 px1PlanningAllowed=true
 px2PlusAllowed=false
 v2PxComplete=false
@@ -90,7 +91,7 @@ docs/prototypes/v2-px/README.md
 ```text
 pxDocsCommittedToReviewableBranch=true
 authorityBaselineStatus=FROZEN
-routeAAdrStatus=accepted
+routeAAdrStatus=ACCEPTED_FOR_SPIKE
 routeAImplementationDetailsFrozen=true
 intentSchemaMetaValidation=PASS
 intentSchemaFalseGreenDefense=PASS
@@ -102,11 +103,14 @@ acceptanceManifestSchemaMetaValidation=PASS
 acceptanceReportSchemaMetaValidation=PASS
 semanticValidatorImplemented=true
 semanticValidatorNegativeFixturesPassed=true
-prototypeThreeEntryActionsImplemented=true
-prototypeFiveRouteIntentsImplemented=true
-prototypeStateMatrixComplete=true
-prototypePrdTraceabilityPassed=true
-prdRequirementTraceabilityReady=true
+threeEntryContainerContractReady=true
+threeEntryActionContractReady=true
+fiveRouteIntentContractReady=true
+prototypeImplementationRequiredAtPx0=false
+realChromeEvidenceRequiredAtPx0=false
+px0ContractFixturesImplemented=true
+px0ContractTraceabilityPassed=true
+prdRequirementTraceabilityReadyForPx1=true
 activeV2StatusDriftCount=0
 legacyMockEvidenceExcluded=true
 antiFalseGreenAcceptanceContractPassed=true
@@ -119,7 +123,7 @@ PX 审计对象未提交
 状态字段 pending / passed 冲突
 静态 mock evidence 被写成真实 Chrome evidence
 Route A 未明确宿主、路由和生命周期
-ADR 仍为 proposed
+ADR 仍为 proposed 或错误宣称 technically validated
 schema 只检查文件存在或非空字符串
 README 仍为 documentation_stub_only
 真实 Chrome 证据只由报告自称
@@ -129,7 +133,7 @@ PX-0 validator 代码越界成生产功能
 
 ### PX-1 Route A 受限 feasibility spike
 
-进入条件：PX-0 全部通过，并经人工确认。
+进入条件：PX-0 全部通过，并经单独启动确认。当前为 eligible，但尚未启动。
 
 六项 spike：
 
@@ -370,9 +374,12 @@ g1ToG7AllGreen=true
 manualExperienceReviewPassed=true
 ```
 
-当前仍为：
+当前阶段状态：
 
 ```text
-px0GithubReviewGate=FAIL
+px0GithubReviewGate=PASS
+px1FeasibilitySpikeEligible=true
+px1SixSpikesPassed=false
+realChromeEvidencePassed=false
 v2PxComplete=NO_GO
 ```

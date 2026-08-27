@@ -3,12 +3,13 @@
 ## 状态
 
 ```text
-status=proposed
-px0GithubReviewGate=FAIL
+status=accepted_for_spike
+px0GithubReviewGate=PASS
 px1FeasibilitySpikeAllowed=false
-routeAStatus=PROPOSED
-routeAImplementationReadiness=PENDING_SHA_SEAL
-routeAAdrStatus=PROPOSED
+px1FeasibilitySpikeEligible=true
+routeAStatus=ACCEPTED_FOR_SPIKE
+routeAImplementationReadiness=READY_FOR_SPIKE
+routeAAdrStatus=ACCEPTED_FOR_SPIKE
 ```
 
 ## 背景
@@ -17,7 +18,7 @@ V2-PX External Brain Productization 需要支持三类入口、路由 intent 和
 
 ## 决策
 
-提议选择 Route A：
+选择 Route A 作为 PX-1 受限 feasibility spike 路线：
 
 ```text
 Independent Workspace Page Host
@@ -37,13 +38,13 @@ Independent Workspace Page Host
 
 ## 进入 accepted 前必须冻结的实现细节
 
-当前 ADR 仍是 `proposed`。Route A 状态必须按以下顺序推进：
+Route A 状态必须按以下顺序推进：
 
 ```text
 PROPOSED -> ACCEPTED_FOR_SPIKE -> TECHNICALLY_VALIDATED -> PRODUCTION_APPROVED
 ```
 
-只有以下内容全部补齐，才允许升为 `ACCEPTED_FOR_SPIKE`：
+以下内容是升为 `ACCEPTED_FOR_SPIKE` 的冻结条件，现已完成：
 
 | 类别 | 必须冻结 |
 | --- | --- |
@@ -61,7 +62,7 @@ PROPOSED -> ACCEPTED_FOR_SPIKE -> TECHNICALLY_VALIDATED -> PRODUCTION_APPROVED
 | 幂等 | duplicate ingest 的 `idempotencyKey` 规则 |
 | 证据 | 真实 Chrome screenshot、trace、event log、SHA-256 和 commitSha |
 
-上述 PX-1 spike 合同已在 PX-0 基线中冻结如下，等待 authority baseline 的 SHA 封印后把 ADR 状态推进到 `ACCEPTED_FOR_SPIKE`。
+上述 PX-1 spike 合同与 authority baseline SHA 已在 PX-0 基线中冻结，ADR 现为 `ACCEPTED_FOR_SPIKE`。这不是 `TECHNICALLY_VALIDATED` 或 `PRODUCTION_APPROVED`。
 
 ### Entrypoint 与构建合同
 

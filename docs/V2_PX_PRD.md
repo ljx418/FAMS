@@ -1,22 +1,23 @@
 # V2-PX External Brain Productization PRD
 
-更新时间：2026-07-15
+更新时间：2026-08-27
 
 ## 1. 阶段定位
 
-V2-PX 目标是把 External Brain 产品化为可被真实 Chrome 验证、可审计、可回放、可人工核查的浏览器扩展体验。当前仍处于 PX-0 文档和合同修复阶段。
+V2-PX 目标是把 External Brain 产品化为可被真实 Chrome 验证、可审计、可回放、可人工核查的浏览器扩展体验。PX-0 文档与 anti-false-green 合同已经完成；真实浏览器能力仍从 PX-1 开始实现和验证。
 
 ```text
-px0GithubReviewGate=FAIL
+px0GithubReviewGate=PASS
 px1PlanningAllowed=true
 px1CodeSpikeAllowed=false
+px1FeasibilitySpikeEligible=true
 px2PlusAllowed=false
 v2PxComplete=NO_GO
 ```
 
 ## 2. 权威状态
 
-本文是 V2-PX 当前权威 PRD 草案。PX-0 出门前仍必须冻结：
+本文是 V2-PX 当前权威 PRD。以下权威字段已由 `V2_PX_AUTHORITY_BASELINE.md` 冻结：
 
 ```text
 productId
@@ -27,7 +28,7 @@ hostApplication
 extensionPackage
 ```
 
-未冻结前，不得声明原型符合 PRD。
+基线 SHA 为 `6e5fd81157c8eec081637b901351465332617f98`。字段冻结只关闭 PX-0 文档门禁，不代表 PX-1 原型符合 PRD。
 
 ## 3. 用户目标
 
@@ -60,17 +61,18 @@ PX-0 不声明真实 Chrome evidence passed
 PX-0 不声明 V2-PX complete
 ```
 
-## 6. PRD 出门要求
+## 6. PX-0 出门结果
 
-PX-0 完成前必须建立：
-
-```text
-requirementId -> prototype element -> architecture entity -> implementation file -> automated test -> evidence artifact -> human review item
-```
-
-当前该链路尚未完成，因此：
+PX-0 已建立：
 
 ```text
-prototypePrdAlignment=NOT_TESTABLE
+requirementId -> planned prototype element -> architecture entity -> schema -> semantic validator -> fixture -> planned evidence -> human review item
 ```
 
+真实 implementation file、Chrome evidence 与 human review 属于 PX-1 及以后，因此：
+
+```text
+px0ContractTraceability=PASS
+prototypePrdAlignment=NOT_TESTABLE_UNTIL_PX1
+realChromeEvidencePresent=false
+```

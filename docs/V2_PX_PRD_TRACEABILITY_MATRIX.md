@@ -6,8 +6,9 @@
 
 ```text
 traceabilityMatrixReady=PX0_CONTRACT_READY
-prototypePrdAlignment=NOT_TESTABLE
+prototypePrdAlignment=NOT_TESTABLE_UNTIL_PX1
 px1CodeSpikeAllowed=false
+px1FeasibilitySpikeEligible=true
 ```
 
 本文件用于把 PRD requirement 映射到架构实体、原型元素、schema、测试、证据和人工复核项。当前仍是文档级矩阵，不代表实现完成。

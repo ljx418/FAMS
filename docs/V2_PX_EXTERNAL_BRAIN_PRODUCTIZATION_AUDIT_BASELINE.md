@@ -1,45 +1,47 @@
 # V2-PX External Brain Productization 审计基线
 
-更新时间：2026-07-15
+更新时间：2026-08-27（PX-0 seal 复核）
 
 ## 1. 当前结论
 
 ```text
-px0GithubReviewGate=FAIL
+px0GithubReviewGate=PASS
 routeAFatalArchitectureBlocker=none_found
-fatalDocumentationBaselineIssueCount=1
-majorIssueCount>=8
-routeAStatus=PROPOSED
+fatalDocumentationBaselineIssueCount=0
+majorIssueCountClosedAtPx0=6
+majorIssueCountDeferredToPx1Plus=3
+routeAStatus=ACCEPTED_FOR_SPIKE
 routeAConceptualFeasibility=PASS
-routeAImplementationReadiness=FAIL
-prototypePrdAlignment=NOT_TESTABLE
+routeAImplementationReadiness=READY_FOR_SPIKE
+prototypePrdAlignment=NOT_TESTABLE_UNTIL_PX1
 prototypeGate=FAIL
-schemaMetaValidation=PASS_5_OF_5
-intentSchemaStructuralDefense=PARTIAL_PASS
-realChromeEvidenceStructuralDefense=FAIL
-lifecycleSchemaStructuralDefense=FAIL
-acceptanceManifestStructuralDefense=FAIL
-acceptanceReportStructuralDefense=FAIL
-semanticValidatorImplemented=false
+schemaMetaValidation=PASS_6_OF_6
+intentSchemaStructuralDefense=PASS
+realChromeEvidenceStructuralDefense=PASS_CONTRACT_ONLY
+lifecycleSchemaStructuralDefense=PASS_CONTRACT_ONLY
+acceptanceManifestStructuralDefense=PASS
+acceptanceReportStructuralDefense=PASS
+semanticValidatorImplemented=true
 px1PlanningAllowed=true
 px1Allowed=false
 px1CodeSpikeAllowed=false
+px1FeasibilitySpikeEligible=true
 px2PlusAllowed=false
 v2PxComplete=NO_GO
-pxCoreDomainPolicy=UNRESOLVED
+pxCoreDomainPolicy=DOMAIN_NEUTRAL
 famsTradingGateFieldsExcludedFromPxCoreSchema=true
 ```
 
-当前 GitHub `main` 尚未包含 V2-PX External Brain Productization 的完整文档、ADR、schemas 和原型增量，因此 PX-0 GitHub 可复核门禁为 **FAIL**。本文档只记录审计基线和下一步门禁，不代表 PX-0 已通过。
+PX-0 审计对象已提交到可复核本地分支，基线 SHA 为 `6e5fd81157c8eec081637b901351465332617f98`，因此 PX-0 合同门禁为 **PASS**。当前没有真实浏览器原型或证据，PX-1 尚未执行，V2-PX 仍为 No-Go。
 
 ## 2. Fatal 问题
 
-当前未发现使 Route A 本质不可实现的架构障碍，但发现 1 个文档权威基线 Fatal：
+未发现使 Route A 本质不可实现的架构障碍，原文档权威基线 Fatal 已关闭：
 
 ```text
 fatalIssueCount=0
 routeAArchitecturallyFeasible=true
-fatalDocumentationBaselineIssueCount=1
+fatalDocumentationBaselineIssueCount=0
 ```
 
 说明：Route A 可以作为后续候选技术路线继续文档化和 spike 验证，但不能因为“可实现”直接进入生产开发。
@@ -48,7 +50,7 @@ fatalDocumentationBaselineIssueCount=1
 
 | 编号 | 问题 | 影响 | 处置 |
 | --- | --- | --- | --- |
-| F-DOC-1 | 产品与代码仓权威基线未冻结 | 无法判断 V2-PX 属于 FAMS 还是 Navia/mercury，也无法判断 FAMS namespace、投资建议和交易权限字段是否属于 PX 核心合同 | 必须通过 `docs/V2_PX_AUTHORITY_BASELINE.md` 冻结 `productId / repository / branch / commitSha / hostApplication / extensionPackage` |
+| F-DOC-1 | 产品与代码仓权威基线未冻结 | 已关闭 | `docs/V2_PX_AUTHORITY_BASELINE.md` 已冻结为 FAMS，基线 SHA 可复核 |
 
 ## 3. Major 问题
 
@@ -129,7 +131,6 @@ px1PlanningAllowed=true
 禁止声明：
 
 ```text
-px0GithubReviewGatePassed 不得为 true
 px1SpikePassed 不得为 true
 px2ProductionImplementationReady 不得为 true
 v2PxComplete 不得为 true
@@ -138,11 +139,8 @@ realChromeEvidencePassed 不得为 true
 
 ## 8. 下一步
 
-1. 将本审计基线与 PX 开发验收计划提交到可复核分支。
-2. 冻结 `docs/V2_PX_AUTHORITY_BASELINE.md` 中的产品、仓库、分支、commit 和宿主信息。
-3. 将 Route A ADR 从 `proposed` 升级为 `accepted` 前，补齐 WXT entrypoint、canonical URL、manifest/CSP、message envelope、tab reuse/focus、状态所有权、幂等键和 reload/update 恢复规则。
-4. 重写 PX intent route、dual-container lifecycle 和 real Chrome evidence schema。
-5. 补齐 acceptance manifest / acceptance report schema，确保 PX-6 不是自由文本报告。
-6. 增加 semantic validator，阻断 mock evidence、静态截图、状态漂移、文件不存在、哈希不一致和事件顺序错误。
-7. 将 PX-2..PX-6 与 G1..G7 从文档草案逐步升级为可执行验证合同。
-8. 等 PX-0 内容充分性门禁通过后，再申请 PX-1 受限 feasibility spike。
+1. 对 PX-1 受限 feasibility spike 做单独启动确认。
+2. 只创建 spike 包与最小 entrypoint，不进入 PX-2+ 生产功能。
+3. 使用 Playwright + Chrome CDP headless 采集真实 unpacked extension 证据。
+4. 让 semantic validator 校验 screenshot/trace/event log 文件、哈希、URL 和生命周期。
+5. 六项 spike 与人工核查未全部通过前，保持 `px2PlusAllowed=false`。

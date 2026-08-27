@@ -5,13 +5,14 @@
 ## 1. 当前结论
 
 ```text
-authorityBaselineStatus=PENDING_SHA_SEAL
+authorityBaselineStatus=FROZEN
 fatalDocumentationBaselineIssueCount=0
-px0GithubReviewGate=FAIL
+px0GithubReviewGate=PASS
 px1CodeSpikeAllowed=false
+px1FeasibilitySpikeEligible=true
 ```
 
-V2-PX 的产品归属已经确定为 FAMS。当前只等待 PX-0 基线提交的 40 位 Git SHA 回填；在 SHA 封印提交完成前，状态保持 `PENDING_SHA_SEAL`，不得提前声称 PX-0 通过。
+V2-PX 的产品归属已经确定为 FAMS。PX-0 基线提交的 40 位 Git SHA 已完成回填。Route A 可以进入受限 feasibility spike 的启动评审，但本次未开始 PX-1，也未创建扩展生产包。
 
 ```text
 observedLocalRepository=https://github.com/ljx418/FAMS.git
@@ -23,7 +24,7 @@ Navia/mercury 不再是本仓库 V2-PX 的候选权威归属。历史文档中�
 
 ## 2. 必须冻结的权威字段
 
-以下字段已经冻结；`commitSha` 在下一次 SHA 封印提交中写入本次 PX-0 基线提交的 SHA：
+以下字段已经冻结；`commitSha` 指向包含 PX-0 schema、semantic validator 与 fixtures 的基线提交：
 
 ```json
 {
@@ -31,7 +32,7 @@ Navia/mercury 不再是本仓库 V2-PX 的候选权威归属。历史文档中�
   "productName": "FAMS External Brain",
   "repository": "https://github.com/ljx418/FAMS.git",
   "branch": "main",
-  "commitSha": "PENDING_PX0_BASELINE_COMMIT",
+  "commitSha": "6e5fd81157c8eec081637b901351465332617f98",
   "hostApplication": "FAMS",
   "extensionPackage": "packages/fams-v2-px-extension",
   "workspacePageEntrypoint": "packages/fams-v2-px-extension/entrypoints/workspace/index.html",
@@ -92,9 +93,12 @@ hostApplication 非空
 extensionPackage 非空
 ```
 
-当前在 seal commit 之前：
+SHA seal 完成后：
 
 ```text
-px0GithubReviewGate=FAIL
+px0GithubReviewGate=PASS
 px1CodeSpikeAllowed=false
+px1FeasibilitySpikeEligible=true
 ```
+
+`px1CodeSpikeAllowed=false` 表示本次实现停在 PX-0，仍需单独启动 PX-1；它不否定 Route A 已达到 `ACCEPTED_FOR_SPIKE`。
