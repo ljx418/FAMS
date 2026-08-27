@@ -19,10 +19,10 @@ implementationStatus=DOCUMENTATION_ONLY
 | --- | --- | --- |
 | 1 目标体验与阶段边界 | 解释为什么开发、完成后是什么体验、当前不能做什么 | Side Panel、Workspace 和 Host App 分别解决什么问题？ |
 | 2 当前与目标差异 | 按 Web、API、PX 合同、Extension 四层列真实实体和缺口 | 哪些已存在、哪些需修改、哪些尚未开发？ |
-| 3 目标分层和交互 | 展示容器、Background、Adapter、FAMS、数据与证据调用关系 | 一个命令如何经过具体实体得到结果？ |
+| 3 目标分层和交互 | 展示容器、Background、target v3/v2 合同、Read/Ask Adapter、FAMS、数据与证据 | 导航和提交问题如何经过不同实体得到结果？ |
 | 4 三入口五 intent 与原型 | 展示入口动作、五视图和两个容器线框 | 用户实际看到什么、五 intent 落到什么数据？ |
-| 5 权限状态数据恢复 | 展示最小权限、状态所有权、存储边界和恢复状态机 | 什么数据存在哪里，断连时如何处理？ |
-| 6 开发及验收计划 | 展示 D0、PX-1～PX-6 的顺序、结果和停止规则 | 每阶段开发什么、验收什么、失败打回哪里？ |
+| 5 权限状态数据恢复 | 展示 4000 optional host/3000 external connect、状态所有权、TTL/ledger 和恢复 | 什么数据存在哪里，断连/未知结果如何处理？ |
+| 6 开发及验收计划 | 展示 D0、PX-1 合同迁移、PX-2 API+Workspace、PX-3～PX-6 | 每阶段开发什么、验收什么、失败打回哪里？ |
 | 7 里程碑风险与回退 | 展示 M0～M6、关键风险和替代路线 | 架构风险何时验证，失败后是否可逆？ |
 | 8 验收门槛与出门 | 展示十个场景的步骤、阈值、证据和两类出门声明 | 如何操作验收，什么条件才算通过？ |
 
@@ -64,6 +64,8 @@ implementationStatus=DOCUMENTATION_ONLY
 8. 图中所有“待新增”实体不得被文字写成已实现。
 9. `implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL` 与交易四锁必须可见。
 10. 现有 FTR draw.io 的 8 页内容和文件保持不变。
+11. 图中必须明确 current schema v2/v1 与 target v3/v2 的迁移关系，禁止把计划版本写成已实现。
+12. 3000 不得出现在 optionalHostPermissions；Ask 不得被描述为纯只读或自动确认。
 
 ## 6. 当前允许声明
 
@@ -72,6 +74,7 @@ implementationStatus=DOCUMENTATION_ONLY
 ```text
 v2PxDrawioDocumentationReady=true
 documentationReadyForImplementationReview=true
+externalChatGptAuditStatus=PENDING
 implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
 px1FeasibilitySpikeAllowed=false
 ```

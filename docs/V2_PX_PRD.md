@@ -7,9 +7,10 @@
 用户已认可 V2-PX 的产品规划和目标体验。本轮只完善开发文档、原型规格和架构，不授权实际代码开发。
 
 ```text
-prdStatus=APPROVED_PRODUCT_SCOPE_DOCUMENTATION_REDESIGN
+prdStatus=APPROVED_PRODUCT_SCOPE_DOCUMENTATION_REVIEW
 productGoalApproval=APPROVED_BY_USER
-documentationPhase=READY_FOR_IMPLEMENTATION_REVIEW
+documentationPhase=INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
+externalChatGptAuditStatus=PENDING
 implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
 px0GithubReviewGate=PASS
 px1PlanningAllowed=true
@@ -22,11 +23,13 @@ v2PxComplete=NO_GO
 权威配套文档：
 
 - 目标架构：`docs/V2_PX_TARGET_ARCHITECTURE.md`
+- API/运行时合同：`docs/V2_PX_API_RUNTIME_CONTRACT.md`
 - 开发及验收计划：`docs/V2_PX_EXTERNAL_BRAIN_PRODUCTIZATION_PLAN.md`
 - 原型规格：`docs/prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`
 - 需求追踪：`docs/V2_PX_PRD_TRACEABILITY_MATRIX.md`
 - 架构图：`docs/v2-px-target-architecture-gap.drawio`
 - 文档验收：`docs/V2_PX_DOCUMENTATION_ACCEPTANCE.md`
+- 外部审计包：`docs/V2_PX_CHATGPT_AUDIT_PACKET.md`
 
 ## 2. 产品问题
 
@@ -89,7 +92,7 @@ Workspace Page 使用 768/1280px 的完整布局，包含来源库、来源详�
 
 ### 5.3 Host App
 
-FAMS ChatBox、每日复盘和任务中心增加统一的“在外部大脑打开”入口。入口只传递 workspace/source/operation 等标识，不把原始账户截图、cookie 或 token 放进 route payload。
+FAMS ChatBox、每日复盘和任务中心增加统一的“在外部大脑打开”入口。入口只传递 workspace/source/review/operation 等标识，不把问题正文、原始账户截图、cookie 或 token 放进 route payload。Host App 的“查看来源”可靠 fallback 是打开或复用 Workspace 来源详情，不把能否自动打开 Side Panel 作为产品正确性的前提。
 
 详细线框与状态见 `docs/prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`。
 
@@ -130,18 +133,18 @@ FAMS ChatBox、每日复盘和任务中心增加统一的“在外部大脑打�
 | ID | 需求 | 用户价值 | 可量化验收 |
 | --- | --- | --- | --- |
 | PX-REQ-001 | 三入口容器 | 从 sidepanel、Workspace、host app 进入同一任务 | 三入口均有真实路径证据 |
-| PX-REQ-002 | 三类入口动作 | 查看来源、打开工作台、在工作台中定位 | 3×3 合法动作矩阵通过，非法组合被拒绝 |
+| PX-REQ-002 | 三类入口动作 | 查看来源、打开工作台、在工作台中定位 | 3×3 动作矩阵按入口目标容器通过，非法组合被拒绝；Host 查看来源落在 Workspace |
 | PX-REQ-003 | 五类 route intent | 来源库、详情、问答、追踪、图谱均可访问 | 五 intent 均有 read model、页面和证据 |
 | PX-REQ-004 | Side Panel 轻入口 | 快速理解结论且不拥挤 | 360/420 无溢出，摘要和主动作首屏可见 |
 | PX-REQ-005 | Workspace 完整宿主 | 图表、来源、追踪和证据有足够空间 | 768/1280 可用，刷新状态一致 |
 | PX-REQ-006 | 标签页复用 | 不产生重复 Workspace | 20 次重复打开只保留一个匹配 tab |
 | PX-REQ-007 | 刷新与恢复 | 研究上下文不中断 | Back/Forward/Refresh/关闭重开均有确定结果 |
 | PX-REQ-008 | 断连与重连 | FAMS 或 extension 短暂中断可恢复 | 5 秒内显示 restored 或明确 blocked |
-| PX-REQ-009 | 幂等与重复 ingest | 防止重复任务和数据副作用 | 同 key 同 payload 去重；不同 payload hard fail |
+| PX-REQ-009 | 幂等与重复 ingest | 防止重复任务和数据副作用 | dispatch 前落 ledger；同 key 同 payload 重放；不同 payload hard fail；未知结果不自动重试 |
 | PX-REQ-010 | 真实 Chrome 证据 | 人类能确认真实扩展运行 | extension URL、ID、版本、trace、事件、hash、SHA 齐全 |
 | PX-REQ-011 | 四类 viewport | 侧栏与完整页都可正常使用 | 360/420/768/1280 均无根级横向溢出 |
 | PX-REQ-012 | 隐私与证据脱敏 | 截图和证据不泄露敏感信息 | secret/cookie/token/账户原图提交数为 0 |
-| PX-REQ-013 | FAMS 只读领域适配 | 复用本地已有 Chat/Review/Operation | 五 intent 不复制投资计算，读模型合同通过 |
+| PX-REQ-013 | FAMS 有界领域适配 | 复用本地已有 Chat/Review/Operation | 只读视图与受控 Ask 分离；五 intent 不复制投资计算，合同通过 |
 | PX-REQ-014 | Background 单写状态 | 三入口不会各自写出冲突状态 | 所有状态变更均有 background event |
 | PX-REQ-015 | 最小权限连接 | 用户知道扩展访问哪些本地地址 | 安装默认 host 权限为空；授权由用户动作触发；无 `<all_urls>` |
 | PX-REQ-016 | 简明摘要与高级证据分层 | 普通用户不用阅读原始字段 | 首屏包含结论/依据/可信度/下一步；evidence 默认折叠 |
@@ -156,16 +159,16 @@ FAMS ChatBox、每日复盘和任务中心增加统一的“在外部大脑打�
 | --- | --- | --- | --- |
 | `source_library` | Operation artifact 和 Daily Review evidence 的统一只读索引 | `operationService`、`dailyReviewService` | 不建设通用互联网收藏系统 |
 | `source_detail` | 单个来源的摘要、时间、可信状态和关联任务 | artifactRefs、review/operation detail | 不把任意网页全文自动入库 |
-| `ask` | 结构化 FAMS 问答和每日复盘摘要 | `famsChatService` | 不开放无约束工具调用 |
+| `ask` | 进入问答视图；提交问题由独立 operation command 完成 | `famsChatService` 的结构化结果 | 不开放无约束工具调用或自动确认 |
 | `trace` | Operation timeline 和复盘步骤追踪 | `operationService`、workflow | 不展示仅内部可读的 secret |
 | `graph` | Daily Review DAG 和 evidence 关联图 | `dailyReviewWorkflowService` | 不新增知识图谱数据库或投资模型 |
 
 ## 9. 数据、权限和状态边界
 
 1. FAMS 后端继续拥有持仓、复盘、Operation 和 artifact 的业务真相。
-2. PX background 只拥有 route、correlation、idempotency、容器和恢复状态。
+2. PX background 只拥有 route、correlation、idempotency、容器和恢复状态；Ask 结果的业务真相继续属于 FAMS Chat 会话。
 3. `chrome.storage.local` 只保存最小恢复索引，不保存原始截图、cookie、token 或完整账户数据。
-4. 安装时不默认请求主机权限；用户点击“连接本地 FAMS”后，只能授予精确 localhost/127.0.0.1 端口。
+4. 安装时不默认请求主机权限；用户点击“连接本地 FAMS”后，只能授予后端 `localhost/127.0.0.1:4000`。前端 3000 只用于 Host App 外部消息 allowlist，不属于扩展 host permission。
 5. PX-1 仅验证本地单用户开发环境，不宣称生产身份与远程安全已经完成。
 6. PX Core 保持领域无关；FAMS adapter 继续执行研究与交易边界。
 
@@ -174,7 +177,7 @@ FAMS ChatBox、每日复盘和任务中心增加统一的“在外部大脑打�
 ### 10.1 可靠性
 
 - 状态摘要必须由 lifecycle events 推导。
-- 所有网络请求具有超时、取消和有限退避。
+- GET/health 具有超时和有限退避；POST Ask dispatch 后禁止自动重试，未知结果必须显式阻断。
 - 活动任务终止或所有容器关闭后停止后台轮询。
 - 恢复失败必须显示 blocked，不得静默清空或显示 success。
 
@@ -210,7 +213,7 @@ FAMS ChatBox、每日复盘和任务中心增加统一的“在外部大脑打�
 | --- | --- | --- |
 | M0 文档重构 | 人类能从 PRD、原型和 8 页图判断目标与风险 | `documentationReadyForImplementationReview=true` |
 | M1 PX-1 feasibility | 真实 Chrome 中能启动双容器并跑通最小路由 | `routeATechnicallyValidated=true`，不代表产品完成 |
-| M2 PX-2 Workspace | 完整页可显示五 intent 外壳和恢复 | `workspaceHostAccepted=true` |
+| M2 PX-2 Workspace/API | 完整页读取真实 bounded facade，显示五 intent 与恢复 | `workspaceHostAccepted=true` |
 | M3 PX-3 Side Panel | 轻入口、摘要和跳转可用 | `sidePanelEntryAccepted=true` |
 | M4 PX-4 Router/Adapter | 三入口同语义、标签复用、FAMS read model 可用 | `intentAndAdapterAccepted=true` |
 | M5 PX-5 Lifecycle | 刷新、断连、重开和 reload 可恢复 | `dualContainerLifecycleAccepted=true` |
@@ -225,6 +228,7 @@ M6 仍不表示正式交易、生产身份或 Chrome Web Store 发布可用。
 ```text
 prdRequirementTraceability=20/20
 targetArchitectureEntityMappingComplete=true
+apiRuntimeContractDecisionChecks=40/40
 prototypeStateMatrixComplete=true
 drawioPages<=8
 drawioChinese=true

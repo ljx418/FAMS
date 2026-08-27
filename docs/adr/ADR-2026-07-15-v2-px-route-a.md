@@ -10,7 +10,7 @@ px1FeasibilitySpikeEligible=true
 productGoalApproval=APPROVED_BY_USER
 implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
 routeAStatus=ACCEPTED_FOR_SPIKE
-routeAImplementationReadiness=DOCUMENTATION_REDESIGNED_AWAITING_USER_APPROVAL
+routeAImplementationReadiness=DOCUMENTATION_INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
 routeAAdrStatus=ACCEPTED_FOR_SPIKE
 routeATechnicallyValidated=false
 routeAProductionApproved=false
@@ -30,11 +30,11 @@ Independent Workspace Page Host
 + intent route contract
 + dual-container lifecycle audit
 + explicit optional local FAMS host permission
-+ FAMS read-only domain adapter
++ FAMS bounded query/ask domain adapter
 + real Chrome evidence only
 ```
 
-Route A.1 保留 Route A 的双容器目标，并关闭旧合同中的数据接入缺口：扩展安装时不默认获得主机访问权；用户点击“连接本地 FAMS”后，只能授予 manifest 预声明的精确 localhost/127.0.0.1 地址。PX Core 保持领域无关，FAMS 数据由只读 adapter 和现有业务服务提供。
+Route A.1 保留 Route A 的双容器目标，并关闭旧合同中的数据接入缺口：扩展安装时不默认获得主机访问权；用户点击“连接本地 FAMS”后，只能授予 manifest 预声明的精确 localhost/127.0.0.1 后端地址。PX Core 保持领域无关，FAMS 数据由有界 Query/Ask adapter 和现有业务服务提供。只读视图不会持久化新业务结果；Quick Ask 可以写入现有 FAMS Chat 会话，但禁止自动确认或交易动作。
 
 ## 选择理由
 
@@ -94,7 +94,7 @@ manifestVersion=3
 requiredPermissions=sidePanel,tabs,storage
 optionalPermissions=[]
 hostPermissions=[]
-optionalHostPermissions=http://localhost:3000/*,http://127.0.0.1:3000/*,http://localhost:4000/*,http://127.0.0.1:4000/*
+optionalHostPermissions=http://localhost:4000/*,http://127.0.0.1:4000/*
 permissionGrantTrigger=user_click_connect_local_fams
 allUrlsForbidden=true
 externallyConnectableMatches=http://localhost:3000/*,http://127.0.0.1:3000/*
@@ -103,7 +103,7 @@ extensionPagesCsp=script-src 'self'; object-src 'self'
 remoteExecutableCodeAllowed=false
 ```
 
-`hostPermissions=[]` 表示安装时没有默认主机权限；`optionalHostPermissions` 只在用户主动连接时请求。PX-1 如发现需要新增地址、`<all_urls>`、cookie 权限、content script 或其他 permission，必须先返回文档阶段修改 ADR 并重新评审，不能在实现中静默扩权。
+`hostPermissions=[]` 表示安装时没有默认主机权限；`optionalHostPermissions` 只在用户主动连接时请求后端 4000。前端 3000 仅通过 `externallyConnectableMatches` 发送严格 intent route，不属于 host permission。PX-1 如发现需要新增地址、`<all_urls>`、cookie 权限、content script 或其他 permission，必须先返回文档阶段修改 ADR 并重新评审，不能在实现中静默扩权。
 
 ### FAMS 数据接入合同
 
@@ -113,23 +113,25 @@ pxCoreDomainPolicy=DOMAIN_NEUTRAL
 domainAdapter=src/adapters/fams/FamsDomainAdapter.ts
 apiClient=src/adapters/fams/FamsApiClient.ts
 backendFacade=backend/src/routes/externalBrain.ts
+backendTypes=backend/src/services/external-brain/externalBrainTypes.ts
 backendReadService=backend/src/services/external-brain/externalBrainReadService.ts
+backendAskService=backend/src/services/external-brain/externalBrainAskService.ts
 backendPolicy=backend/src/services/external-brain/externalBrainPolicyService.ts
 businessSources=famsChatService,dailyReviewService,operationService,dailyReviewWorkflowService
 extensionBusinessDatabase=none
 ```
 
-PX-1 只允许用 `/health` 验证 permission、CORS、background 网络访问和断连恢复；完整五 intent facade 属于 PX-4。扩展不得直接复制投资计算，也不得以 `chrome.storage` 替代 Prisma 业务事实。
+PX-1 只允许用 `/health` 验证 permission、CORS、background 网络访问和断连恢复；完整五 intent facade 从 PX-2 开始并在 PX-4 完成集成。扩展不得直接复制投资计算，也不得以 `chrome.storage` 替代 Prisma/FAMS Chat 业务事实。
 
 ### Message envelope 与路由合同
 
-background 只接受 `v2-px-operation-command/1` 和 `v2-px-intent-route/2` 合同。消息必须带：
+目标 background 只接受外层 `v2-px-runtime-message/1` 包裹的 `v2-px-operation-command/2` 和 `v2-px-intent-route/3`。现有 v1/v2 是 PX-0 历史基线，必须在 PX-1 与 validator/fixtures/types 原子迁移。消息必须带：
 
 ```text
 type / routeId / correlationId / idempotencyKey / sourceContainer / targetContainer / payload
 ```
 
-`payload` 必须通过按 intent/command 分支的严格 schema，禁止附加字段和 secret-like 字段。sidepanel、Workspace Page 与 host app 不直接互相写状态，写操作统一通过 background。
+`payload` 必须通过按 intent/command 分支的严格 schema，禁止附加字段和 secret-like 字段。Intent Route 只导航，Quick Ask 问题只存在于 operation command；Host App 只能发 intent route。sidepanel、Workspace Page 与 host app 不直接互相写状态，写操作统一通过 background。完整动作矩阵和 DTO 见 `docs/V2_PX_API_RUNTIME_CONTRACT.md`。
 
 ### 打开、复用与多窗口规则
 
@@ -138,6 +140,7 @@ type / routeId / correlationId / idempotencyKey / sourceContainer / targetContai
 3. 当前窗口没有、其他窗口存在时，聚焦最近活动的匹配窗口和标签页。
 4. 不存在匹配标签页时才调用 `tabs.create`。
 5. 重复点击共享同一 `idempotencyKey` 时不得重复创建；同 key 不同 payload 必须拒绝并审计。
+6. Host App 的 `view_source` 可靠目标为 Workspace Page；不得把自动打开 Side Panel 当作必需正确路径。
 
 ### 导航、恢复与状态所有权
 
@@ -153,9 +156,12 @@ backgroundActiveOperationPollIntervalMs=2000
 backgroundPollingStopsOnTerminalOrNoContainer=true
 backgroundFailurePolicy=bounded_exponential_backoff
 duplicateCommandPolicy=deduplicate_same_semantics_reject_conflict
+dispatchLedger=chrome.storage.local,max500,ttl24h
+recoveryIndex=chrome.storage.local,max20,ttl30d
+postAskAutomaticRetry=0
 ```
 
-Back/Forward 由 Workspace Page URL state 恢复 intent；Refresh 从 `storage.session` 恢复 route/correlation，持久索引只读自 `storage.local`；关闭重开生成新 routeId，但保留 workspaceId；extension reload/update 后由容器 `reconnect` 重新订阅。任何无法恢复的状态必须记录 `blocked`，不得静默展示成功态。
+Back/Forward 由 Workspace Page URL state 恢复 intent；Refresh 从 `storage.session` 恢复 route/correlation，持久索引只读自 `storage.local`；关闭重开生成新 routeId，但保留 workspaceId；extension reload/update 后由容器 `reconnect` 重新订阅。POST dispatch 后结果未知时进入 `unknown_result`，禁止自动重试。未知 storage major 进入 blocked，禁止静默清空。任何无法恢复的状态必须记录 `blocked`，不得静默展示成功态。
 
 ### 真实 Chrome 证据合同
 

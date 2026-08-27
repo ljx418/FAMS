@@ -4,19 +4,19 @@
 
 ## 1. 架构结论
 
-V2-PX 采用 Route A.1：`独立 Workspace Page + 轻量 Side Panel + Background 单写者 + FAMS 只读领域适配层`。该设计优先复用现有 FAMS 的 Chat、Daily Review、Operation 与 workflow 能力，不复制投资计算逻辑，不引入第二套业务数据库，也不改变交易锁。
+V2-PX 采用 Route A.1：`独立 Workspace Page + 轻量 Side Panel + Background 单写者 + FAMS 有界查询/问答适配层`。该设计优先复用现有 FAMS 的 Chat、Daily Review、Operation 与 workflow 能力，不复制投资计算逻辑，不引入第二套业务数据库，也不改变交易锁。GET 类 intent 是只读查询；Quick Ask 可以写入现有 FAMS Chat 会话，但只允许 `read_only_direct/compute_quick_run`，不允许扩展自动确认操作。
 
 ```text
-architectureReviewStatus=DOCUMENTATION_READY_FOR_HUMAN_REVIEW
+architectureReviewStatus=INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
 implementationStatus=NOT_STARTED
 implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
 routeAStatus=ACCEPTED_FOR_SPIKE
-routeAImplementationReadiness=DOCUMENTATION_REDESIGNED_AWAITING_USER_APPROVAL
+routeAImplementationReadiness=DOCUMENTATION_INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
 routeATechnicallyValidated=false
 routeAProductionApproved=false
 ```
 
-架构的 8 页中文可视化位于 `docs/v2-px-target-architecture-gap.drawio`，页级职责和防退化检查位于 `docs/V2_PX_DRAWIO_SUMMARY.md`。
+架构的 8 页中文可视化位于 `docs/v2-px-target-architecture-gap.drawio`，页级职责和防退化检查位于 `docs/V2_PX_DRAWIO_SUMMARY.md`；实现级 API、消息、状态、存储、错误与权限决策以 `docs/V2_PX_API_RUNTIME_CONTRACT.md` 为准。
 
 状态图例：
 
@@ -37,7 +37,7 @@ routeAProductionApproved=false
 | 对话体验 | `frontend/src/components/chat/FamsChatBox.tsx` | 普通话摘要、结构化结果、页面跳转 | 复用结果协议；Side Panel 不复制全部复杂视图 |
 | 复盘体验 | `frontend/src/pages/DailyReviews.tsx` 与 `components/review/*` | 图表、决策摘要、DAG、审计抽屉 | Workspace 的 trace/graph 映射到其只读数据结构 |
 | 任务体验 | `frontend/src/pages/Operations.tsx`、`OperationTimeline.tsx` | Operation 状态、产物、时间线 | Workspace 的 source/trace 读取同一 Operation 数据 |
-| HTTP API | `backend/src/routes/chat.ts`、`dailyReview.ts`、`operation.ts` | Chat、复盘、Operation 接口 | 由目标只读聚合层编排，不直接复制服务逻辑 |
+| HTTP API | `backend/src/routes/chat.ts`、`dailyReview.ts`、`operation.ts` | Chat、复盘、Operation 接口 | 由目标有界 Query/Ask facade 编排，不直接复制服务逻辑 |
 | 业务服务 | `famsChatService`、`dailyReviewService`、`operationService`、`dailyReviewWorkflowService` | 研究问答、复盘、任务、DAG | 继续作为单一业务事实来源 |
 | 数据与审计 | Prisma Operation、Daily Review、artifactRefs | 持久业务结果与证据引用 | extension 只保存路由/恢复索引，不复制业务事实 |
 | PX 合同 | `docs/schemas/v2-px-*.schema.json`、`backend/scripts/verify-v2-px-semantic-contract.ts` | PX-0 结构与语义防假绿 | 作为后续实现的合同门禁，不冒充运行能力 |
@@ -56,6 +56,8 @@ Workspace tab reuse manager
 PX workspace state store
 FAMS host app bridge
 FAMS External Brain read facade
+FAMS External Brain bounded Ask facade
+intent-route/3 与 operation-command/2 runtime 绑定
 真实 unpacked Chrome PX evidence
 PX-1～PX-6 runtime acceptance commands
 ```
@@ -86,13 +88,15 @@ PX-1～PX-6 runtime acceptance commands
 
 | 状态 | 目标实体 | 责任 | 关键不变量 |
 | --- | --- | --- | --- |
-| 待新增 | `src/contracts/intentRoute.ts` | 绑定 `v2-px-intent-route/2` 类型和校验 | 不允许额外字段或 secret-like 字段 |
-| 待新增 | `src/contracts/operationCommand.ts` | 绑定 operation command | 所有写动作必须带 idempotencyKey |
+| 待新增 | `src/contracts/intentRoute.ts` | 绑定目标 `v2-px-intent-route/3` 类型和校验 | route 只导航；ask route 不携带 question |
+| 待新增 | `src/contracts/operationCommand.ts` | 绑定目标 `v2-px-operation-command/2` | query/refresh/ingest；所有潜在副作用带 idempotencyKey |
+| 待新增 | `src/contracts/runtimeMessage.ts`、`commandResult.ts`、`errors.ts` | 内部 envelope、结果与错误分类 | Host 外部消息只允许 intent route |
 | 待新增 | `src/background/intentRouter.ts` | 规范化三入口、三动作、五 intent | 同语义产生相同 canonicalRouteKey |
 | 待新增 | `src/background/workspaceTabManager.ts` | query/create/reuse/focus Workspace tab | 重复点击不创建重复标签页 |
-| 待新增 | `src/background/idempotencyRegistry.ts` | 同 key 去重、冲突拒绝 | 同 key 不同 payload 必须 blocked |
+| 待新增 | `src/background/idempotencyRegistry.ts` | local dispatch ledger、同 key 重放、冲突拒绝 | POST dispatch 后不自动重试；未知结果 blocked |
 | 待新增 | `src/state/workspaceStateStore.ts` | session 状态、local 恢复索引 | background 单写；容器只订阅 |
 | 待新增 | `src/state/lifecycleAuditStore.ts` | start/resume/reconnect/close/blocked 事件 | 汇总状态必须由事件推导 |
+| 待新增 | `src/state/workspaceStateMigrator.ts` | WorkspaceState 版本迁移与 TTL/LRU | 未知 major 不静默清空 |
 
 ### 4.3 UI 体验层
 
@@ -114,15 +118,16 @@ PX-1～PX-6 runtime acceptance commands
 
 | 状态 | 目标实体 | 责任 | 复用实体 |
 | --- | --- | --- | --- |
-| 需修改 | `frontend/src/services/pxExternalBrainBridge.ts` | host app 向 extension 发受控 route command | `chrome.runtime.sendMessage(extensionId, ...)`，缺扩展时降级 |
-| 需修改 | `frontend/src/components/external-brain/OpenInExternalBrainButton.tsx` | ChatBox/复盘/任务中心统一入口 | 传递 workspaceId/sourceId/operationId，不传原始账户数据 |
-| 待新增 | `backend/src/routes/externalBrain.ts` | 五 intent 的只读聚合 API | 注册在 `/api/v1/external-brain` |
-| 待新增 | `backend/src/services/external-brain/externalBrainReadService.ts` | 把现有 Chat/Review/Operation 输出转换为统一 read model | 不创建第二份投资计算 |
-| 待新增 | `backend/src/services/external-brain/externalBrainPolicyService.ts` | 只读/计算/确认/永久禁止策略 | 继续保持四项交易权限 false |
+| 需修改 | `frontend/src/services/pxExternalBrainBridge.ts` | host app 向 extension 发受控 intent route | 读取 `VITE_FAMS_PX_EXTENSION_ID`；缺扩展时普通话降级；禁止 operation command |
+| 需修改 | `frontend/src/components/external-brain/OpenInExternalBrainButton.tsx` | ChatBox/复盘/任务中心统一入口 | 传递 workspaceId/sourceRef/reviewId/operationId，不传原始账户数据 |
+| 待新增 | `backend/src/routes/externalBrain.ts`、`externalBrainTypes.ts` | 五 intent 的有界 API 与 DTO | 注册在 `/api/v1/external-brain`；服务端固定 local user `default` |
+| 待新增 | `backend/src/services/external-brain/externalBrainReadService.ts` | source/detail/trace/graph 统一 read model | 不创建第二份投资计算 |
+| 待新增 | `backend/src/services/external-brain/externalBrainAskService.ts` | 将 Quick Ask 委托 `famsChatService` | 只允许 read/quick compute；不自动确认 |
+| 待新增 | `backend/src/services/external-brain/externalBrainPolicyService.ts` | origin/本地用户/权限/交易策略 | 继续保持四项交易权限 false |
 | 待新增 | `src/adapters/fams/FamsApiClient.ts` | background 唯一网络访问者 | 用户授权 origin、超时、退避、取消 |
-| 待新增 | `src/adapters/fams/FamsDomainAdapter.ts` | PX core intent 到 FAMS read API 映射 | PX core 不出现交易域字段 |
+| 待新增 | `src/adapters/fams/FamsDomainAdapter.ts` | PX core query/ask 到 FAMS API 映射 | PX core 不出现交易域字段 |
 
-首期只读聚合 API 计划：
+首期有界 API 计划：
 
 ```text
 GET  /api/v1/external-brain/sources
@@ -132,13 +137,15 @@ GET  /api/v1/external-brain/traces/:operationId
 GET  /api/v1/external-brain/graphs/:scope/:id
 ```
 
-这些是计划实体，当前不存在。PX-1 可只使用 `/health` 完成连接可行性验证，不得提前实现完整 API。
+请求/响应 DTO、分页、错误、身份、超时和重试规则见 `V2_PX_API_RUNTIME_CONTRACT.md`。这些是计划实体，当前不存在。PX-1 可只使用 `/health` 完成连接可行性验证，不得提前把完整 API 写成已通过。
 
 ### 4.5 验收与证据层
 
 | 状态 | 目标实体 | 责任 |
 | --- | --- | --- |
-| 已开发 | `backend/scripts/verify-v2-px-semantic-contract.ts` | PX-0 schema/语义正反例 |
+| 已开发 | `backend/scripts/verify-v2-px-semantic-contract.ts` | PX-0 current schema/语义正反例；不代表 target 版本已验证 |
+| 待修改 | lifecycle/2→3、Chrome evidence/1→2 | PX-1 增加 sequence/state/reason、四视口、manifest/network/console |
+| 待修改 | acceptance manifest/report/1→2 | PX-6 增加 20 requirements、AC01～10、stage manifests 和人工证据 |
 | 待新增 | `packages/fams-v2-px-extension/tests/intent-route.spec.ts` | 三入口和五 intent 路由 |
 | 待新增 | `tests/workspace-host.spec.ts` | 独立宿主、视口、刷新恢复 |
 | 待新增 | `tests/sidepanel-entry.spec.ts` | 360/420 Side Panel |
@@ -155,9 +162,9 @@ GET  /api/v1/external-brain/graphs/:scope/:id
 用户
  -> SidePanelApp
  -> background.ts
- -> intentRouter（schema + policy + idempotency）
+ -> operation-command/2 query（schema + policy + dispatch ledger）
  -> FamsDomainAdapter
- -> externalBrainReadService
+ -> externalBrainAskService
  -> famsChatService / operationService
  -> background workspaceStateStore
  -> SidePanelApp（简明摘要）
@@ -192,13 +199,14 @@ Workspace Refresh
 | 数据 | 权威所有者 | 存储位置 | 禁止事项 |
 | --- | --- | --- | --- |
 | 持仓、复盘、Operation、artifact | FAMS 后端 | Prisma / artifact store | extension 不复制为业务事实 |
-| route/correlation/idempotency | PX background | `chrome.storage.session` | Side Panel/Workspace 不直接写 |
-| workspace 最小恢复索引 | PX background | `chrome.storage.local` | 不保存原始账户截图、cookie、token |
+| route/correlation/live container | PX background | `chrome.storage.session`，最多 20 workspace | Side Panel/Workspace 不直接写 |
+| workspace 最小恢复索引 | PX background | `chrome.storage.local`，最多 20 条/30 天 | 不保存问题、回答、原始账户截图、cookie、token |
+| idempotency dispatch ledger | PX background | `chrome.storage.local`，最多 500 条/24 小时 | 只存 digest/state/resultRef；不存 payload 原文 |
 | 当前容器视图 | 各容器本地 | React memory | 不作为审计真相 |
 | lifecycle audit | PX background | session + 验收导出 | 汇总状态不得脱离事件自报 |
 | Chrome 证据 | acceptance collector | `.verification/private/v2-px` | 不提交隐私和浏览器 profile |
 
-background 是 PX 状态单写者，也是唯一 FAMS 网络访问者。容器不直接轮询后端。仅 background 在存在活动任务时做有界轮询：初始 2 秒、失败指数退避、终态停止、容器全部关闭时停止。
+background 是 PX 状态单写者，也是唯一 FAMS 网络访问者。容器不直接轮询后端。仅 background 在存在活动任务时按 2s→4s→8s、最大 10s 做有界轮询，终态停止、容器全部关闭时停止。GET 最多有限重试；POST Ask dispatch 后自动重试次数恒为 0。
 
 ## 7. 权限、安全与交易边界
 
@@ -208,16 +216,17 @@ background 是 PX 状态单写者，也是唯一 FAMS 网络访问者。容器�
 requiredPermissions=sidePanel,tabs,storage
 hostPermissions=[]
 optionalHostPermissions=
-  http://localhost:3000/*
-  http://127.0.0.1:3000/*
   http://localhost:4000/*
   http://127.0.0.1:4000/*
+externallyConnectableMatches=
+  http://localhost:3000/*
+  http://127.0.0.1:3000/*
 permissionGrantTrigger=用户点击“连接本地 FAMS”
 allUrlsForbidden=true
 remoteExecutableCodeAllowed=false
 ```
 
-“hostPermissions 为空”指安装时不默认获得主机访问权；运行时只允许用户主动授予 manifest 中列出的精确本地地址。
+“hostPermissions 为空”指安装时不默认获得主机访问权；运行时只允许用户主动授予 manifest 中列出的精确后端地址。3000 只允许向扩展发送受控 intent route，不授予扩展访问前端页面内容的权限。External Brain route 还必须以 `FAMS_V2_PX_EXTENSION_IDS` 验证 extension origin；现有全局 `origin:true` 不能冒充该目标已实现。
 
 ### 7.2 身份边界
 
@@ -253,12 +262,14 @@ PX Core schema 保持领域无关；FAMS adapter 只能返回研究、观察、�
 | 风险 | 可能性 | 影响 | 文档级缓解 | 实现前验证 |
 | --- | --- | --- | --- | --- |
 | WXT Side Panel 的 headless 自动化能力不足 | 中 | 高 | PX-1 只做可行性 spike | 必须用 unpacked Chrome + CDP 证明 |
-| optional host permission / CORS 不兼容 | 中 | 高 | 精确 origin、用户触发、只读 `/health` 起步 | PX-1 连接场景 hard gate |
+| optional host permission / CORS 不兼容 | 中 | 高 | 4000 精确 host；3000 external connect；只读 `/health` 起步 | PX-1 连接场景 hard gate |
 | 三入口状态漂移 | 中 | 高 | background 单写者、统一 envelope | 三入口同任务 route matrix 100% |
-| 当前 FAMS API 粒度不适合五 intent | 高 | 中 | 只读聚合 facade，不复制业务服务 | PX-2/PX-4 contract test |
+| 当前 FAMS API 粒度不适合五 intent | 高 | 中 | 有界 Query/Ask facade，不复制业务服务 | PX-2/PX-4 contract test |
+| 当前 v2/v1 schema 与目标动作/问答语义不一致 | 高 | 高 | 目标 v3/v2 已在运行时合同冻结 | PX-1 原子迁移 schema/validator/fixtures/types |
+| current evidence schema 允许结构通过但不足以证明完整体验 | 高 | 高 | target lifecycle/3、Chrome evidence/2、acceptance/2 字段已冻结 | PX-1/PX-6 分批原子迁移全部 producers/consumers |
 | Workspace 复制现有复杂页面 | 中 | 中 | 只复用 read model 与小型 UI 组件 | 原型和四视口人工检查 |
 | 本地单用户被误写为生产安全 | 中 | 高 | PRD 明确非目标和状态字段 | PX-6 文案与 manifest 扫描 |
 
 ## 10. 实现许可边界
 
-本文完成后只能声明架构文档已具备受控开发支撑。没有用户新的明确批准，不得创建 `packages/fams-v2-px-extension`、不得新增 `externalBrain.ts`、不得修改 `App.tsx/FamsChatBox.tsx`，也不得运行 PX-1 真实扩展 spike。
+本文完成后只能声明架构文档已通过内部审计并具备外部/用户评审条件。没有用户新的明确批准，不得创建 `packages/fams-v2-px-extension`、不得新增 `externalBrain.ts`、不得修改 `App.tsx/FamsChatBox.tsx`，也不得运行 PX-1 真实扩展 spike。

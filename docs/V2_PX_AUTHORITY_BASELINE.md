@@ -16,6 +16,8 @@ px1FeasibilitySpikeEligible=true
 
 V2-PX 的产品归属已经确定为 FAMS。PX-0 基线提交的 40 位 Git SHA 已完成回填。Route A 可以进入受限 feasibility spike 的启动评审，但本次未开始 PX-1，也未创建扩展生产包。
 
+PX-0 基线提交包含 current `v2-px-intent-route/2` 与 `v2-px-operation-command/1`；文档复审已发现其与目标体验存在明确语义差异。目标 `intent-route/3`、`operation-command/2` 已在 `docs/V2_PX_API_RUNTIME_CONTRACT.md` 冻结，未来 PX1-02 必须将 schema、semantic validator、fixtures 和 runtime types 原子迁移。该 target 版本当前未实现，不修改下方 PX-0 seal SHA。
+
 ```text
 observedLocalRepository=https://github.com/ljx418/FAMS.git
 observedLocalBranch=main
@@ -77,8 +79,9 @@ Commit 2: 将 Commit 1 的 40 位 SHA 写入 commitSha，并把状态切换到 F
 ```text
 Step 1 authorityBaselineStatus=FROZEN
 Step 2 routeAAdrStatus=ACCEPTED_FOR_SPIKE
-Step 3 routeAAdrStatus=TECHNICALLY_VALIDATED after PX-1
-Step 4 routeAAdrStatus=PRODUCTION_APPROVED before PX-2+ production implementation
+Step 3 target runtime contract schema/validator/fixtures/types migrated atomically in PX-1
+Step 4 routeAAdrStatus=TECHNICALLY_VALIDATED after PX-1
+Step 5 routeAAdrStatus=PRODUCTION_APPROVED before PX-2+ production implementation
 ```
 
 `authorityBaselineStatus=FROZEN` 不依赖 Route A ADR 已接受；它只冻结产品、仓库、branch、commit 和宿主。

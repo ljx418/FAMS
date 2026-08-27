@@ -7,12 +7,13 @@
 V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。用户已认可产品规划和目标，但本轮明确回到文档开发阶段：先补齐 PRD、原型、目标架构、里程碑、验收门槛和 draw.io，再等待用户单独批准实际开发。PX-1 尚未启动，不允许直接进入 PX-2+ 生产实现。
 
 ```text
-currentStage=DOCUMENTATION_REDESIGN_COMPLETE_AWAITING_USER_IMPLEMENTATION_APPROVAL
+currentStage=DOCUMENTATION_INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
 px0GithubReviewGate=PASS
 authorityBaselineStatus=FROZEN
 productGoalApproval=APPROVED_BY_USER
 routeAStatus=ACCEPTED_FOR_SPIKE
-routeAImplementationReadiness=DOCUMENTATION_REDESIGNED_AWAITING_USER_APPROVAL
+routeAImplementationReadiness=DOCUMENTATION_INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
+externalChatGptAuditStatus=PENDING
 semanticValidatorImplemented=true
 px1FeasibilitySpikeAllowed=false
 px1FeasibilitySpikeEligible=true
@@ -23,7 +24,7 @@ implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
 productionCodeChangesAllowedInCurrentPhase=false
 ```
 
-本计划的架构、原型、追踪和图形入口分别为 `V2_PX_TARGET_ARCHITECTURE.md`、`prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`、`V2_PX_PRD_TRACEABILITY_MATRIX.md` 和 `v2-px-target-architecture-gap.drawio`；自动文档验收记录在 `V2_PX_DOCUMENTATION_ACCEPTANCE.md`。
+本计划的架构、运行时合同、原型、追踪和图形入口分别为 `V2_PX_TARGET_ARCHITECTURE.md`、`V2_PX_API_RUNTIME_CONTRACT.md`、`prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`、`V2_PX_PRD_TRACEABILITY_MATRIX.md` 和 `v2-px-target-architecture-gap.drawio`；自动文档验收记录在 `V2_PX_DOCUMENTATION_ACCEPTANCE.md`。
 
 ### 1.0.1 当前文档阶段硬边界
 
@@ -65,7 +66,8 @@ Route A 采用“独立 Workspace Page 宿主 + WXT background / sidepanel 复�
 | Extension Shell | `WXT background` | 负责扩展生命周期、消息分发、权限边界和审计事件 |
 | User Entry | `sidepanel` | 轻量入口，承接快速查询、状态提示和跳转 |
 | Workspace Host | `Workspace Page` | 独立完整宿主，承载 External Brain 主体验、任务、图表和审计证据 |
-| Intent Router | `pxIntentRoute` | 将 `entryContainer / entryAction / routeIntent / targetContainer / routePayload` 规范化为可审计 route |
+| Intent Router | `pxIntentRoute/3` | 将 `entryContainer / entryAction / routeIntent / targetContainer / routePayload` 规范化为只导航的可审计 route |
+| Command Dispatcher | `pxOperationCommand/2` | 承担 query/refresh/ingest，使用 local dispatch ledger 保证 at-most-once |
 | Container Lifecycle | `dualContainerLifecycle` | 验证 sidepanel 与 Workspace Page 的启动、恢复、关闭、重连 |
 | Evidence Layer | `realChromeEvidence` | 只接受真实 Chrome 自动化截图、trace 和事件日志 |
 | Anti-False-Green | `pxAntiFalseGreenContract` | 阻断 mock HTML、静态截图、状态漂移和未提交对象 |
@@ -148,8 +150,8 @@ PX-0 validator 代码越界成生产功能
 
 1. Workspace Page 独立宿主能启动。
 2. sidepanel 能打开并跳转 Workspace Page。
-3. background 能路由 intent，并记录 message envelope。
-4. intent route schema 能校验三入口请求、三类用户动作和五类 route intent。
+3. background 能路由 intent，并记录 `runtime-message/1` envelope。
+4. schema/validator/fixture/type 原子迁移至目标 `intent-route/3`、`operation-command/2`，校验三入口、三动作和五 intent。
 5. 双容器生命周期能记录启动、恢复、关闭、重连。
 6. 真实 Chrome 自动化证据能生成截图和事件日志。
 
@@ -159,6 +161,7 @@ PX-0 validator 代码越界成生产功能
 workspacePageHostStarted=true
 sidepanelEntryWorks=true
 backgroundIntentRouteWorks=true
+targetRuntimeContractMigrationPassed=true
 intentSchemaValidationPassed=true
 dualContainerLifecycleAuditPassed=true
 realChromeEvidenceGenerated=true
@@ -167,7 +170,7 @@ semanticValidatorPassed=true
 
 PX-1 完成后仍不得进入 PX-2+，除非六项 spike 全部通过且人工审核通过。
 
-### PX-2 Workspace Page 最小宿主产品化
+### PX-2 Bounded API + Workspace Page 最小宿主产品化
 
 进入条件：PX-1 六项 spike 全绿，人工批准。
 
@@ -175,22 +178,28 @@ PX-1 完成后仍不得进入 PX-2+，除非六项 spike 全部通过且人工�
 
 ```text
 extension workspace entrypoint
+backend externalBrain route / types / read service / ask service / policy
+extension FamsApiClient / FamsDomainAdapter
 workspace route shell
 workspace state restore module
 workspace evidence panel
 ```
 
-验收命令：
+计划验收命令：
 
 ```text
-npm run test:v2-px-workspace-host
-npm run test:v2-px-real-chrome-workspace
+npm --prefix backend run test:v2-px-api-contract
+npm --prefix backend run test:v2-px-policy
+npm --prefix packages/fams-v2-px-extension run test:workspace
+npm --prefix packages/fams-v2-px-extension run verify:real-chrome
 ```
 
 验收证据：
 
 ```text
 workspace_host_audit.json
+external_brain_api_contract.json
+external_brain_policy_audit.json
 real_chrome_workspace_evidence.json
 desktop_1280_workspace.png
 tablet_768_workspace.png
@@ -204,15 +213,15 @@ canonical URL 不稳定 -> PX-2
 刷新后状态丢失 -> PX-2
 ```
 
-### PX-3 Sidepanel 轻入口与工作台跳转
+### PX-3 Sidepanel 轻入口、Host Bridge 与工作台跳转
 
 目标：sidepanel 只做轻入口、任务摘要和跳转，不承载完整 External Brain 主体验。
 
-验收命令：
+计划验收命令：
 
 ```text
-npm run test:v2-px-sidepanel-entry
-npm run test:v2-px-sidepanel-to-workspace
+npm --prefix packages/fams-v2-px-extension run test:sidepanel
+npm --prefix frontend run verify:v2-px-host-bridge
 ```
 
 验收证据：
@@ -220,6 +229,7 @@ npm run test:v2-px-sidepanel-to-workspace
 ```text
 sidepanel_entry_audit.json
 sidepanel_to_workspace_trace.json
+host_bridge_audit.json
 mobile_420_sidepanel.png
 mobile_360_sidepanel.png
 ```
@@ -227,7 +237,7 @@ mobile_360_sidepanel.png
 失败归属：
 
 ```text
-sidepanel 与 Workspace Page routeId 不一致 -> PX-3
+同一打开动作交接时 routeId 被改写或 correlation 断裂 -> PX-3
 sidepanel 误承载完整体验导致不可用 -> PX-3
 ```
 
@@ -235,11 +245,10 @@ sidepanel 误承载完整体验导致不可用 -> PX-3
 
 目标：background 统一路由三入口 intent，处理 tab 查询、创建、复用、聚焦、多窗口和 idempotency。
 
-验收命令：
+计划验收命令：
 
 ```text
-npm run test:v2-px-background-router
-npm run test:v2-px-idempotency
+npm --prefix packages/fams-v2-px-extension run test:router
 ```
 
 验收证据：
@@ -247,6 +256,7 @@ npm run test:v2-px-idempotency
 ```text
 background_intent_router_audit.json
 idempotency_audit.json
+dispatch_ledger_reload_audit.json
 multi_window_tab_reuse_trace.json
 ```
 
@@ -255,18 +265,17 @@ multi_window_tab_reuse_trace.json
 ```text
 重复 ingest 无幂等键 -> PX-4
 多窗口复用错误标签页 -> PX-4
-routeId/correlationId 不一致 -> PX-4
+同一业务对象 canonical/correlation 断裂或不同动作错误复用 routeId -> PX-4
 ```
 
 ### PX-5 双容器生命周期与恢复
 
 目标：真实 Chrome 中验证 sidepanel 与 Workspace Page 的 start、resume、reconnect、close、extension reload/update 恢复。
 
-验收命令：
+计划验收命令：
 
 ```text
-npm run test:v2-px-dual-container-lifecycle
-npm run test:v2-px-extension-reload-recovery
+npm --prefix packages/fams-v2-px-extension run test:lifecycle
 ```
 
 验收证据：
@@ -289,11 +298,10 @@ reload 后无法恢复 -> PX-5
 
 目标：汇总 PX-2 到 PX-5 证据，形成 V2-PX 产品化候选验收包。
 
-验收命令：
+计划验收命令：
 
 ```text
-npm run test:v2-px-acceptance
-npm run test:v2-px-anti-false-green
+npm --prefix packages/fams-v2-px-extension run verify:acceptance
 ```
 
 验收证据：
@@ -318,13 +326,13 @@ manual_experience_review_checklist.md
 
 | Gate | 名称 | 输入 | 命令 | 通过阈值 | 失败打回 |
 | --- | --- | --- | --- | --- | --- |
-| G1 | 权威基线 | repository / branch / commit / productId / extensionPackage | `npm run test:v2-px-authority-baseline` | 全字段冻结且 commit 可复核 | PX-0 |
-| G2 | Route A 架构冻结 | ADR / entrypoints / manifest / CSP / message envelope | `npm run test:v2-px-route-a-contract` | ADR accepted 且实现细节完整 | PX-0/PX-1 |
-| G3 | 三入口语义 | entryContainer / entryAction / routeIntent / targetContainer | `npm run test:v2-px-intent-route` | 三入口同任务 route 一致 | PX-1/PX-4 |
-| G4 | Workspace 宿主 | Workspace Page URL / restore / viewport | `npm run test:v2-px-workspace-host` | 1280/768 可用，刷新恢复 | PX-2 |
-| G5 | Sidepanel 跳转 | sidepanel / Workspace Page / tab reuse | `npm run test:v2-px-sidepanel-entry` | 420/360 可用，跳转一致 | PX-3 |
-| G6 | 双容器生命周期 | Chrome trace / lifecycle events | `npm run test:v2-px-dual-container-lifecycle` | start/resume/reconnect/close 全部可推导 | PX-5 |
-| G7 | Anti-false-green | schema + semantic validator + evidence files | `npm run test:v2-px-anti-false-green` | 正向 fixture 通过，负向 fixture 必须失败 | PX-6 |
+| G1 | 权威基线 | repository / branch / commit / productId / extensionPackage | `npm --prefix backend run test:v2-px-authority-baseline`（计划） | 全字段冻结且 commit 可复核 | PX-0 |
+| G2 | Route A/运行时合同 | ADR / entrypoints / manifest / CSP / API/runtime contract | extension `test:contracts`（计划） | 目标 v3/v2 schema、validator、fixtures、types 原子一致 | PX-0/PX-1 |
+| G3 | 三入口语义 | entryContainer / entryAction / routeIntent / targetContainer | extension `test:router`（计划） | 3×3 目标矩阵；同任务 canonical key/correlation 一致 | PX-1/PX-4 |
+| G4 | Workspace/API | Workspace URL / API DTO / restore / viewport | backend `test:v2-px-api-contract` + extension `test:workspace`（计划） | 五端点合同；1280/768 可用；刷新恢复 | PX-2 |
+| G5 | Sidepanel/Host | sidepanel / Host bridge / Workspace / tab reuse | extension `test:sidepanel` + frontend `verify:v2-px-host-bridge`（计划） | 420/360 可用，三页 Host fallback 正确 | PX-3 |
+| G6 | 双容器生命周期 | target lifecycle/3、Chrome evidence/2、storage migration | extension `test:lifecycle`（计划） | sequence/state/reason、TTL/未知版本均可推导 | PX-5 |
+| G7 | Anti-false-green | target acceptance manifest/report/2 + semantic validator | extension `verify:acceptance`（计划） | 20 requirements、AC01～10、正例/负例、artifact/commit 可复核 | PX-6 |
 
 当前 PX-2..PX-6 与 G1..G7 是文档计划，不允许跳过 PX-1 直接进入实现。
 
@@ -344,6 +352,10 @@ pxThreeEntryPrototypeMissing=true
 entryActionRouteIntentMatrixMissing=true
 semanticValidatorMissing=true
 schemaNegativeFixturesNotFailing=true
+targetContractVersionDrift=true
+postAskAutomaticRetryCount>0
+unknownDispatchResultReportedAsSuccess=true
+extensionHostPermissionContainsPort3000=true
 px2PlusStartedBeforePx1Passed=true
 ```
 
@@ -355,7 +367,7 @@ PX 完成前必须能被人类按以下路径核查：
 2. 从 Workspace Page 独立发起同一组动作。
 3. 从 host app 发起同一组动作。
 4. 五类 route intent 至少覆盖 `source_library / source_detail / ask / trace / graph`。
-5. 对同一任务发起 intent，三入口进入同一可追踪 `routeId / correlationId`。
+5. 对同一任务发起 intent，三入口保持同一 `workspaceId / canonicalRouteKey / correlationId`；每个新动作有独立 `routeId`，不得错误要求 routeId 相同。
 6. 在真实 Chrome 中观察 sidepanel 与 Workspace Page 生命周期。
 7. 查看 audit evidence，确认不是 mock HTML 截图。
 
@@ -400,10 +412,10 @@ v2PxComplete=NO_GO
 | 阶段 | 允许触碰的目标实体 | 明确不允许 | 阶段完成后的用户效果 |
 | --- | --- | --- | --- |
 | 当前文档阶段 | PRD、计划、原型规格、ADR、traceability、draw.io、文档状态源 | 任何生产源码、extension package、schema 行为和 runtime test | 人类能正确判断目标、实体、风险、里程碑和验收 |
-| PX-1 | 最小 `wxt.config.ts`、三个 entrypoint、最小 router/store、Chrome evidence collector | 五 intent 完整业务 UI、FAMS 生产聚合 API | 真实 Chrome 证明双容器、连接、路由和证据路线可行 |
-| PX-2 | `WorkspaceApp/Router`、五视图外壳、RecoveryBanner、EvidenceDrawer | 完整 Side Panel 和复杂 router 生产化 | 用户可在完整页面查看分层结果并刷新恢复 |
+| PX-1 | 最小 `wxt.config.ts`、三个 entrypoint、目标 v3/v2 合同迁移、最小 router/store、Chrome evidence collector | 五 intent 完整业务 UI、FAMS 业务 facade | 真实 Chrome 证明双容器、连接、路由和证据路线可行 |
+| PX-2 | External Brain API/Types/Read/Ask/Policy、FAMS adapter、`WorkspaceApp/Router`、五视图、RecoveryBanner、EvidenceDrawer | 完整 Side Panel 和跨入口生产化 | 用户可在完整页面读取真实 FAMS 事实、受控提问并刷新恢复 |
 | PX-3 | `SidePanelApp`、ConnectionGate、FAMS host bridge/button | 将复杂图表/DAG 塞入侧栏 | 用户可从轻入口或 FAMS 页面进入同一工作区 |
-| PX-4 | intentRouter、tab manager、idempotency、FAMS read facade/adapter | 复制投资计算或绕过现有服务 | 三入口和五 intent 真正连接现有 FAMS 事实 |
+| PX-4 | intentRouter、tab manager、local dispatch ledger、状态所有权完整集成 | 复制投资计算、POST 自动重试或绕过现有服务 | 三入口和五 intent 同语义；重复动作无副作用 |
 | PX-5 | lifecycle store、恢复、断连退避、reload/update | 由 UI 自报成功或无限轮询 | 用户跨刷新、重开和断连仍能恢复或看见明确阻断 |
 | PX-6 | acceptance collector、manifest、HTML、G1～G7、人工清单 | 修复中顺带扩大产品范围 | 人类可按 commit、截图、trace 和步骤完成最终体验核查 |
 
@@ -419,6 +431,8 @@ v2PxComplete=NO_GO
 4. 关闭 host permission 与 FAMS 数据接入冲突。
 5. 把 20 项 requirement 映射到实体、阶段、计划测试、证据和人类核查。
 6. 生成不超过 8 页的中文 draw.io gap 文档。
+7. 冻结 API/DTO、消息、状态、存储、错误、CORS、Host bridge 与 v2→v3 合同迁移。
+8. 完成产品、架构、反伪完成和交叉一致性四轮独立审计。
 
 出门：文档自动审计通过后只可请求用户批准 PX-1，不自动进入实现。
 
@@ -430,24 +444,24 @@ v2PxComplete=NO_GO
 
 1. unpacked MV3 extension 能在真实 Chrome 启动。
 2. Side Panel 与独立 Workspace 空壳能启动。
-3. 用户主动授予本地 FAMS optional host permission，background 只读访问 `/health`。
-4. 三入口最小 command 能通过统一 schema 进入 background。
+3. 用户主动授予 4000 本地 FAMS optional host permission，background 只读访问 `/health`；3000 仅 external connect。
+4. 把历史 `intent-route/2`、`operation-command/1` 原子迁移到目标 v3/v2，并让三入口最小 message 通过统一 envelope 进入 background。
 5. workspace tab query/create/focus 和同 key 去重可验证。
 6. lifecycle event、真实截图、trace、extension ID、Chrome 版本、hash 和 commit 可导出。
 
 PX-1 不实现完整五 intent 业务结果。任一关键路径不可行则 `routeAStatus=RETURN_TO_ADR`，不进入 PX-2。
 
-### PX-2 Workspace 产品化
+### PX-2 Bounded API 与 Workspace 产品化
 
-先实现完整页面框架、五 intent 页面状态和信息分层，再接 read model。用户看到的是可理解的 Workspace，而不是技术字段集合。必须先通过 768/1280、刷新恢复和六状态验收。
+先按运行时合同实现 External Brain types、Read/Ask/Policy service、五端点和 extension adapter，再实现完整页面框架、五 intent、信息分层和恢复。用户看到真实 FAMS read model 与受控 Ask，而不是 mock 或技术字段集合。必须通过 API 同源性、交易 policy、768/1280、刷新恢复和六状态验收。
 
 ### PX-3 Side Panel 与 Host App 入口
 
-Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和打开工作台。FAMS ChatBox、Daily Review、Operations 使用同一个 bridge/button 传递受控 ID；扩展缺失时给出可理解降级，不抛原始异常。
+Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和打开工作台。FAMS ChatBox、Daily Review、Operations 使用同一个 bridge/button，只发送 intent route 与受控 ID；扩展缺失或 extension ID 未配置时给出可理解降级，不抛原始异常。Host 的查看来源以 Workspace 为可靠目标。
 
 ### PX-4 Router、幂等与 FAMS Adapter
 
-实现 Background 单写者、标签复用、五 intent read facade 和 policy。所有业务结果继续由现有 FAMS service 生成；adapter 只转换 read model。此阶段必须证明重复动作无副作用、五 intent 不漂移、交易端点请求为 0。
+完成 Background 单写者、标签复用、canonical route、24 小时 dispatch ledger 和跨入口状态集成。所有业务结果继续由现有 FAMS service 生成；adapter 只转换 read model/受控 Ask。此阶段必须证明同 key 重放无副作用、不同 digest hard fail、unknown result 不自动二次 dispatch、五 intent 不漂移、交易端点请求为 0。
 
 ### PX-5 生命周期与恢复
 
@@ -461,9 +475,9 @@ Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和
 
 | Milestone | 依赖 | 自动化出门门槛 | 人类看到的结果 | 当前状态 |
 | --- | --- | --- | --- | --- |
-| M0 Documentation Review Ready | 无 | 20/20 traceability；8 页图可解析；文档状态一致；代码 diff=0 | 能评估目标体验、架构风险和验收风险 | 当前进行中 |
-| M1 Route A Technically Validated | M0 + 用户批准 | 六项 spike、真实 Chrome、权限和负例全部通过 | Side Panel/Workspace 空壳真实可运行 | 未开始 |
-| M2 Workspace Host Accepted | M1 + 人工确认 | 768/1280、五视图、六状态、刷新恢复通过 | 完整工作台可理解、可浏览 | 未开始 |
+| M0 Documentation Review Ready | 无 | 20/20 traceability；40/40 决策检查；8 页图；状态一致；生产代码 diff=0 | 能评估目标体验、架构/规格/出门风险 | 当前文档已内审，待外部与用户审查 |
+| M1 Route A Technically Validated | M0 + 用户批准 | 目标合同迁移、六项 spike、真实 Chrome、权限和负例全部通过 | Side Panel/Workspace 空壳真实可运行 | 未开始 |
+| M2 Bounded API + Workspace Accepted | M1 + 人工确认 | 五端点 DTO/同源/policy；768/1280、五视图、六状态、刷新恢复 | 完整工作台可读真实结果并受控提问 | 未开始 |
 | M3 Side Panel Entry Accepted | M2 | 360/420、简明摘要、连接、跳转和 host app 入口通过 | 随时快速提问并进入完整页 | 未开始 |
 | M4 Intent & FAMS Adapter Accepted | M3 | 三入口、五 intent、20 次 tab/idempotency、交易边界通过 | 同一任务不重复，结果来自现有 FAMS | 未开始 |
 | M5 Lifecycle Accepted | M4 | 必测 lifecycle 场景 100% 可推导 | 刷新、重开、断连可恢复或明确阻断 | 未开始 |
@@ -475,30 +489,33 @@ Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和
 
 | 场景 | 前置条件 | 人类/自动化操作 | 量化通过阈值 | 必须证据 | 失败打回 |
 | --- | --- | --- | --- | --- | --- |
-| AC-PX-01 首次连接 | extension 已安装，FAMS 3000/4000 已启动，未授予主机权限 | 打开 Side Panel，点击连接，确认精确 origin | 安装默认 host 权限为空；授权后 `/health` 200；无 `<all_urls>` | permission audit、截图、network log | PX-1 |
-| AC-PX-02 快速提问 | 已连接，存在可查询的本地数据 | Side Panel 输入问题并发送 | 2 秒内显示 shell；结果含结论/依据/时间/下一步；原始异常=0 | 360/420 截图、route trace | PX-3/PX-4 |
+| AC-PX-01 首次连接 | extension 已安装，FAMS 3000/4000 已启动，未授予主机权限 | 打开 Side Panel，点击连接，只确认后端 4000 origin | 安装默认 host 权限为空；未授权请求=0；授权后 `/health` 200；3000 只在 external connect；无 `<all_urls>` | permission/manifest audit、截图、network log | PX-1 |
+| AC-PX-02 快速提问 | 已连接，存在可查询的本地数据 | Side Panel 输入问题并发送，再重放同一 key | 1 秒内显示 ack；最终结果含结论/依据/时间/下一步；同 key 后端 dispatch=1；POST 自动重试=0；原始异常=0 | 360/420 截图、command/API trace | PX-2/PX-3/PX-4 |
 | AC-PX-03 打开工作台 | Side Panel 有当前 workspace | 连续点击 20 次“在完整工作台打开” | 同 workspace tab=1；重复 operation=0；1 秒内聚焦 | multi-window tab trace | PX-4 |
-| AC-PX-04 Host App 跳转 | FAMS ChatBox、Daily Review、Operations 可访问 | 分别点击“在外部大脑打开” | 三入口业务对象一致；route/correlation 链完整 | entry matrix、三处截图 | PX-3/PX-4 |
+| AC-PX-04 Host App 跳转 | FAMS ChatBox、Daily Review、Operations 可访问且 extension ID 已配置 | 分别点击“在外部大脑打开”；再移除 ID 验证降级 | 三入口业务对象、canonical key/correlation 一致且 routeId 各自可追溯；Host 查看来源进入 Workspace；缺扩展时有配置说明 | entry matrix、三处截图、bridge audit | PX-3/PX-4 |
 | AC-PX-05 五 intent | 存在 review、operation 和 artifact | 依次进入来源库、详情、问答、追踪、图谱 | 5/5 有真实 read model；不存在数据时显示 empty，不用 mock | intent audit、五视图截图 | PX-2/PX-4 |
 | AC-PX-06 四视口 | Side Panel/Workspace 已构建 | 360/420/768/1280 运行 | `scrollWidth<=clientWidth`；关键动作可见；console errors=0 | 四视口截图、DOM audit | PX-2/PX-3 |
-| AC-PX-07 生命周期 | 工作区已打开 | Back/Forward/Refresh/关闭重开/reload/断连重连 | 每个场景 100% 为 restored 或 blocked；5 秒内显示结果 | lifecycle events、Chrome trace | PX-5 |
+| AC-PX-07 生命周期 | 工作区已打开 | Back/Forward/Refresh/关闭重开/reload/断连重连/未知 storage major | 每个场景 100% 为 restored 或 blocked；5 秒内显示结果；未知版本不静默清空 | lifecycle events、storage audit、Chrome trace | PX-5 |
 | AC-PX-08 状态降级 | 可注入连接失败、空数据、schema 冲突 | 触发未连接/加载/空/失败/恢复/阻断 | 6/6 有原因和下一步；伪 success=0 | state matrix audit、截图 | PX-2/PX-3/PX-5 |
 | AC-PX-09 隐私与交易边界 | 使用脱敏测试账户 | 运行全路径并扫描证据和网络 | secret/cookie/token/账户原图=0；broker order 请求=0；四锁恒 false | redaction + trade boundary audit | 全阶段 |
-| AC-PX-10 防假绿 | 完整候选证据已生成 | 删除截图、改 hash、换 mock URL、制造事件乱序 | 所有负例必须失败；正例全部通过；commit 可复核 | negative fixtures、G1-G7 audit | PX-6/对应来源阶段 |
+| AC-PX-10 防假绿 | 完整候选证据已生成 | 删除截图、改 hash、换 mock URL、制造事件乱序/合同版本漂移/unknown→success | 所有负例必须失败；正例全部通过；commit 可复核 | negative fixtures、G1-G7 audit | PX-6/对应来源阶段 |
 
 ## 11. 计划验收命令的真实性规则
 
 PX-1+ 的命令当前只是计划，不得在 package script 不存在时声称可执行：
 
 ```text
-npm run test:v2-px-entry-matrix
-npm run test:v2-px-workspace-host
-npm run test:v2-px-sidepanel-entry
-npm run test:v2-px-background-router
-npm run test:v2-px-fams-adapter
-npm run test:v2-px-dual-container-lifecycle
-npm run test:v2-px-accessibility
-npm run test:v2-px-acceptance
+npm --prefix backend run test:v2-px-api-contract
+npm --prefix backend run test:v2-px-policy
+npm --prefix frontend run verify:v2-px-host-bridge
+npm --prefix packages/fams-v2-px-extension run test:contracts
+npm --prefix packages/fams-v2-px-extension run test:px1-spike
+npm --prefix packages/fams-v2-px-extension run test:workspace
+npm --prefix packages/fams-v2-px-extension run test:sidepanel
+npm --prefix packages/fams-v2-px-extension run test:router
+npm --prefix packages/fams-v2-px-extension run test:lifecycle
+npm --prefix packages/fams-v2-px-extension run verify:real-chrome
+npm --prefix packages/fams-v2-px-extension run verify:acceptance
 ```
 
 未来每增加一个命令，必须同时增加真实 package script、测试文件、正负例、输出 schema 和证据路径；否则 gate 保持 `not_implemented`。
@@ -509,9 +526,9 @@ npm run test:v2-px-acceptance
 
 1. XML 解析得到 V2-PX draw.io 恰好 8 页且每页含节点和交互边。
 2. 图中文字以中文为主，所有代码实体使用真实或明确计划路径。
-3. PRD 恰好包含 PX-REQ-001～PX-REQ-020，traceability 对应 20/20。
+3. PRD 恰好包含 PX-REQ-001～PX-REQ-020，traceability 对应 20/20，运行时关键决策检查 40/40。
 4. `documentation/implementation/realChrome` 状态无 passed/pending 冲突。
-5. Git diff 不含 `frontend/src`、`backend/src`、`packages`、schema 或构建配置。
+5. Git diff 不含 `frontend/src`、`backend/src`、`packages`、schema、validator、fixture 或构建配置。
 
 ### 12.2 人类文档评审
 
@@ -523,6 +540,7 @@ npm run test:v2-px-acceptance
 4. 权限、隐私、状态所有权和交易边界在哪里执行。
 5. 每个里程碑的用户结果、测试、证据、失败归属和停止条件是什么。
 6. PX-1 失败时为什么必须回到 ADR，而不是继续生产实现。
+7. 当前 PX-0 v2/v1 合同与目标 v3/v2 差异是什么、为何必须在 PX-1 原子迁移。
 
 ### 12.3 当前阶段出门声明
 
@@ -536,3 +554,43 @@ px1FeasibilitySpikeAllowed=false
 ```
 
 只有用户后续明确发出进入实际开发的批准，才能把 `px1FeasibilitySpikeAllowed` 改为 `true`。任何自动化脚本不得代替该批准。
+
+## 13. 剩余开发工作包与逐包验收顺序
+
+下列顺序是用户未来批准实施后的唯一默认顺序。每个工作包采用“先失败用例与合同 → 最小实现 → 自动验收 → 原始证据 → 阶段审计”的闭环；不允许通过并行越级把后置能力混入前一阶段的完成声明。
+
+| Work package | 开发内容与具体实体 | 前置 | 计划自动验收 | 人工核查 | 出门/失败处置 |
+| --- | --- | --- | --- | --- | --- |
+| PX1-01 构建基线 | 创建独立 npm/WXT package、三 entrypoint、锁定依赖、MV3 manifest/CSP | 用户明确批准 PX-1 | extension `build` + `test:px1-spike` | unpacked 扩展可识别，两个容器不是普通网页 mock | 构建/加载失败即 RETURN_TO_ADR |
+| PX1-02 合同原子迁移 | `intent-route/3`、`operation-command/2`、runtime envelope/result/error；同步 schema/validator/fixtures/types | PX1-01 | extension `test:contracts`；所有旧冲突负例失败 | 3×3 矩阵、Ask 导航/提交分离可解释 | 任一版本漂移 G2/G3 fail |
+| PX1-03 权限与连接 | optional 4000、external connect 3000、ConnectionGate、background `/health` | PX1-02 | permission/manifest/network 负例 | 人类明确看到访问地址与拒绝后果 | 未授权请求非 0 或需扩权即 RETURN_TO_ADR |
+| PX1-04 最小路由/标签 | background、intentRouter、workspaceTabManager、最小 WorkspaceState | PX1-02 | 入口 route、20 次 tab reuse、canonical URL | Side Panel 能打开/聚焦真实 Workspace 空壳 | 重复 tab 或错误窗口为 PX-1 fail |
+| PX1-05 真实 Chrome 证据 | lifecycle/2→3、Chrome evidence/1→2；Playwright + CDP collector、trace/event/hash/stage manifest | PX1-01～04 | extension `verify:real-chrome` | extension URL/ID/version/build、四视口、manifest/network/console 可核查 | 任一 target evidence consumer 漂移不得进入 PX-2 |
+| PX2-01 API 类型与 policy | `externalBrainTypes.ts`、route pre-handler、local user、origin allowlist、错误 envelope、交易四锁 | M1 人工通过 | backend `test:v2-px-policy` | blocked 文案无交易解锁/原始错误 | 任一 policy 旁路停止 PX-2 |
+| PX2-02 Read/Ask facade | `externalBrainReadService`、`externalBrainAskService`、五端点、分页、同源映射 | PX2-01 | backend `test:v2-px-api-contract` | 与 FAMS Chat/Review/Operation 同一对象对照 | 字段缺失则修 facade；禁止复制计算 |
+| PX2-03 Extension adapter | `FamsApiClient`、`FamsDomainAdapter`、GET 有限重试、POST 0 自动重试 | PX2-02 | adapter contract + network fault tests | 断连/超时不出现伪 success | 无法满足则回 API 合同评审 |
+| PX2-04 Workspace 垂直切片 | WorkspaceApp/Router、五 View、RecoveryBanner、EvidenceDrawer、768/1280 | PX2-03 | extension `test:workspace` + real Chrome | 五视图信息层级、六状态、来源/证据一致 | M2 仅在真实 read model 下出门 |
+| PX3-01 Side Panel | SidePanelApp、QuickAsk、摘要、最近任务、ConnectionGate、360/420 | M2 | extension `test:sidepanel` | ack 与最终回答可区分；首屏不拥挤 | 完整图/DAG 挤入侧栏则 fail |
+| PX3-02 Host Bridge | bridge/button 接入 ChatBox、Daily Review、Operations；extension ID 配置与降级 | PX3-01 | frontend `verify:v2-px-host-bridge` | 三页入口、Host view_source→Workspace、缺扩展提示 | 发送 question/完整对象即 hard fail |
+| PX4-01 Router 完整集成 | 3×3 动作、五 intent、canonical key、correlation/route chain | M3 | extension `test:router` | 三入口同对象落在相同工作区/视图 | 语义漂移 G3 fail |
+| PX4-02 at-most-once | idempotency registry、local dispatch ledger、prepared/dispatched/completed/unknown | PX4-01 | 重放、冲突、reload、timeout 负例 | 未知结果明确要求核查，不自动再发 | 重复 operation/POST retry 非 0 即 fail |
+| PX4-03 边界集成 | FAMS adapter/policy、证据脱敏、订单 endpoint 监测 | PX4-02 | policy/redaction/trade boundary audits | 所有页面保持研究/人工计划措辞 | secret 或 order request 任一非 0 即 hard fail |
+| PX5-01 恢复与迁移 | Back/Forward/Refresh、关闭重开、TTL/LRU、已知/未知 storage version | M4 | extension `test:lifecycle` | 5 秒内进入 restored/recovering/blocked | 静默清空或自报成功即 fail |
+| PX5-02 中断生命周期 | FAMS 断连、background suspend/reconnect、extension reload/update、轮询停止 | PX5-01 | lifecycle event/Chrome trace | 上次任务仍可识别，恢复失败有下一步 | 事件不可推导则 fail |
+| PX6-01 全量自动验收 | acceptance manifest/report/1→2；G1～G7、20 requirements、四视口、API、可访问性、隐私、负例、commit/hash | M5 | extension `verify:acceptance` | HTML 汇总能从结论钻取 AC01～10 和原始证据 | 任一 target schema/consumer/gate 非绿不生成候选声明 |
+| PX6-02 人类体验验收 | 按 AC-PX-01～10 逐项操作、记录截图和结论 | PX6-01 | 自动化仅准备页面/证据 | 用户逐项 check：通过/失败/截图/备注 | 未完成人工核查不声明 candidate |
+
+## 14. 每阶段交付物和责任归属
+
+这里的“责任”是失败打回的代码模块/阶段，不是要求用户组建五个评审角色。
+
+| 阶段 | 必交付 | 失败归属 | 禁止声明 |
+| --- | --- | --- | --- |
+| PX-1 | package/lock、contract migration、spike audit、real Chrome manifest | Extension shell / contract / browser harness | “产品可用”“五 intent 完成” |
+| PX-2 | API contract audit、policy audit、Workspace evidence | Backend facade / adapter / Workspace | “三入口已完成” |
+| PX-3 | Side Panel evidence、Host bridge audit、三页面截图 | Side Panel / frontend bridge | “幂等与恢复已完整” |
+| PX-4 | entry matrix、dispatch ledger、trade/redaction audit | Router / state / policy integration | “生命周期已完成” |
+| PX-5 | lifecycle/storage/recovery audit、Chrome trace | Lifecycle / migration / reconnect | “产品候选已出门” |
+| PX-6 | manifest、JSON/HTML report、G1～G7、人工清单 | Evidence/来源阶段 | “生产安全”“正式交易可用” |
+
+阶段证据目录统一为 `.verification/private/v2-px/<commitSha>/<PX-stage>/`。每个 `stage-manifest.json` 必须记录运行命令、退出码、开始/结束时间、代码 commit、Chrome/extension/build 版本、artifact SHA-256、失败归属和人工状态；未提交到 Git 的私有原始证据只在 manifest 中以相对路径和 hash 被引用。

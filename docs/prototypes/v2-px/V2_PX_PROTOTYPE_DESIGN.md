@@ -55,6 +55,7 @@ Side Panel 必须具备：
 - `查看依据`、`在完整工作台打开` 两个明确动作。
 - 最近任务列表最多 5 条。
 - 360px 无横向滚动；主要点击区域高度至少 44px。
+- 提交问题后 1 秒内显示“已接收/正在处理”；最终摘要与接收态分开，不把 skeleton 或 ack 冒充答案。
 
 Side Panel 禁止：
 
@@ -99,7 +100,7 @@ Side Panel 禁止：
 | --- | --- | --- | --- |
 | 来源库 | 类型、标题、时间、可信状态 | sourceRef、artifactRef、operationId | 无来源时解释如何运行复盘或研究任务 |
 | 来源详情 | 摘要、来源、截至时间、关联任务 | 原始字段和证据链 | 来源删除时保留引用并显示不可用 |
-| 问答 | 简明结论、依据、风险、下一步 | 结构化结果、模型/数据状态 | LLM 不可用时显示确定性 fallback |
+| 问答 | 简明结论、依据、风险、下一步 | 结构化结果、模型/数据状态 | 进入 Ask View 不等于提交问题；LLM 不可用时显示确定性 fallback |
 | 追踪 | 任务状态、阶段、耗时、下一步 | Operation task、错误和 artifact | 任务不存在时允许回到来源库 |
 | 图谱 | 复盘 DAG 或 evidence 关系 | 节点输入输出和依赖 | 无图谱时说明该任务不支持图谱 |
 
@@ -120,10 +121,10 @@ Side Panel 禁止：
 | 入口 | 查看来源 | 打开工作台 | 在工作台中打开 |
 | --- | --- | --- | --- |
 | Side Panel | 当前面板显示来源摘要 | 打开/复用最近 workspace | 将当前 source/operation 定位到 Workspace |
-| Workspace Page | 在主区切换来源详情 | 聚焦当前 workspace | 定位目标 view，不新建重复 tab |
-| FAMS Host App | 打开 Side Panel 来源摘要 | 打开/复用 workspace | 携带当前 review/operation/source 上下文定位 |
+| Workspace Page | 在主区原地切换来源详情 | 聚焦当前 workspace | 定位目标 view，不新建重复 tab |
+| FAMS Host App | 打开/复用 Workspace 来源详情 | 打开/复用 workspace | 携带当前 review/operation/source 上下文定位 |
 
-三入口传递同一业务对象时，`workspaceId / canonicalRouteKey / correlationId` 的语义必须一致；允许新的操作生成新 `routeId`，但不能丢失关联链。
+三入口传递同一业务对象时，`workspaceId / canonicalRouteKey / correlationId` 的语义必须一致；允许新的操作生成新 `routeId`，但不能丢失关联链。Host App 不以自动唤起 Side Panel 为正确性前提；Chrome 能力不支持时必须可靠进入 Workspace。Intent route 只负责进入 Ask View，问题正文由扩展内部 operation command 提交。
 
 ## 8. 可视性和可访问性门槛
 
@@ -143,5 +144,7 @@ Side Panel 禁止：
 4. 分别触发未连接、加载、空、失败、恢复和阻断状态，确认每种状态有原因和下一步。
 5. 连续点击三次打开工作台，目标体验必须是聚焦同一标签页。
 6. 检查任何页面均没有创建订单、自动交易或交易解锁动作。
+7. 从 Host App 点击“查看来源”，确认进入 Workspace 来源详情；关闭扩展或清空 extension ID 后确认出现普通话配置说明。
+8. 在 Ask View 只导航不发送问题；只有点击发送才产生一个 query command，同 key 重放不产生第二次请求。
 
 本文通过只表示目标原型足以指导实现。真实交互、截图、trace 和 lifecycle event 必须等用户批准后由 PX-1+ 在真实 Chrome 中生成。
