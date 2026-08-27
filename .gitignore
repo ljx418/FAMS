@@ -32,6 +32,7 @@ backend/prisma/*.db-wal
 backend/prisma/backups/
 
 .verification/
+reports/
 .tmp/
 backend/.tmp-tsx/
 docs/.$*.bkp

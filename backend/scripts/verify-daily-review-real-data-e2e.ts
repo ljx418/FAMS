@@ -117,6 +117,7 @@ try {
         sessionType: 'manual',
         triggerSource: 'drv1_7_real_e2e',
         executionMode: 'inline',
+        requireLlmSuccess: process.env.FAMS_REAL_E2E_REQUIRE_LLM === '1',
         idempotencyKey,
       }),
     })
@@ -143,6 +144,13 @@ try {
   assert.ok(['available', 'fallback'].includes(report.llmSynthesis?.status), '一次性汇总缺少可审计状态')
   assert.ok([0, 1].includes(report.llmSynthesis?.attemptCount), '一次性汇总请求次数越界')
   assert.equal(report.llmSynthesis?.attempted, report.llmSynthesis?.attemptCount === 1)
+  if (process.env.FAMS_REAL_E2E_REQUIRE_LLM === '1') {
+    assert.equal(report.llmGate?.required, true, '最终真实验收没有启用 LLM 强制门禁')
+    assert.equal(report.llmGate?.passed, true, `真实 LLM 汇总未通过：${report.llmSynthesis?.failureCode || report.llmSynthesis?.status}`)
+    assert.equal(report.llmSynthesis?.status, 'available', '强制模式不接受 fallback')
+    assert.equal(report.llmSynthesis?.source, 'llm', '强制模式必须来自真实 LLM')
+    assert.equal(report.llmSynthesis?.attemptCount, 1, '强制模式必须且只能调用一次 LLM')
+  }
   const accountedSymbols = [...assets.map((asset: any) => asset.symbol), ...errors.map((error: any) => error.symbol)].sort()
   assert.deepEqual(accountedSymbols, nonCashPositions.map((position) => position.asset.symbol).sort(), '持仓资产覆盖不一致')
   for (const error of errors) assert.ok(String(error.message || '').trim(), `${error.symbol || error.assetId} 缺少明确错误`)
@@ -172,6 +180,7 @@ try {
     closeTo(finalPoint.ma10, expected.ma10, `${asset.symbol} chart.ma10`)
     closeTo(finalPoint.ma30, expected.ma30, `${asset.symbol} chart.ma30`)
     assert.ok(asset.grid?.id, `${asset.symbol} 缺少已保存 GridPlan`)
+    assert.ok(asset.buybackGrid?.id, `${asset.symbol} 缺少已保存条件买回 GridPlan`)
     assert.equal(asset.grid?.derivation?.schemaVersion, 'fams.grid-derivation.v1', `${asset.symbol} 缺少可复算网格推导`)
     assert.ok(Number.isFinite(Number(asset.grid?.derivation?.anchor?.value)), `${asset.symbol} 网格锚点无效`)
     assert.ok(Number.isFinite(Number(asset.grid?.derivation?.spacing?.finalPercent)), `${asset.symbol} 网格间距无效`)
@@ -183,7 +192,25 @@ try {
       (asset.grid?.orders || []).map((order: any) => [order.id, order.side, order.level, order.price, order.quantity]),
       `${asset.symbol} 页面订单清单不是已保存 GridOrderDraft 的准确投影`,
     )
-    return { symbol: asset.symbol, source, dates: { first: dates[0], last: dates.at(-1) }, expected, gridOrders: asset.grid?.orders?.length || 0 }
+    assert.deepEqual(
+      (decisionAsset.conditionalBuyback?.orders || []).map((order: any) => [order.id, order.side, order.level, order.price, order.quantity, order.status]),
+      (asset.buybackGrid?.orders || []).map((order: any) => [order.id, order.side, order.level, order.price, order.quantity, order.status]),
+      `${asset.symbol} 条件买回清单不是已保存 GridOrderDraft 的准确投影`,
+    )
+    for (const order of asset.grid?.orders || []) {
+      const priceTick = Number(asset.grid?.constraints?.priceTick)
+      const lotSize = Number(asset.grid?.constraints?.lotSize)
+      assert.ok(Math.abs(Number(order.price) / priceTick - Math.round(Number(order.price) / priceTick)) < 1e-8, `${asset.symbol} 价格不符合 tick`)
+      assert.ok(Math.abs(Number(order.quantity) / lotSize - Math.round(Number(order.quantity) / lotSize)) < 1e-8, `${asset.symbol} 数量不符合 lot`)
+    }
+    for (const order of asset.buybackGrid?.orders || []) {
+      const trigger = JSON.parse(order.triggerConditionJson || '{}')
+      assert.equal(order.status, 'awaiting_parent_fill')
+      assert.equal(trigger.parentGridPlanId, asset.grid.id)
+      assert.equal(trigger.consumesImmediateCashBeforeFill, false)
+      assert.ok((asset.grid.orders || []).some((parent: any) => parent.id === trigger.parentOrderDraftId && parent.side === 'sell'))
+    }
+    return { symbol: asset.symbol, source, dates: { first: dates[0], last: dates.at(-1) }, expected, gridOrders: asset.grid?.orders?.length || 0, conditionalBuybacks: asset.buybackGrid?.orders?.length || 0 }
   })
 
   assert.equal(workflow.schemaVersion, 'fams.daily-review-audit-workflow.v2')
@@ -201,7 +228,11 @@ try {
   })
   assert.equal(workflow.snapshotCounts.positionSnapshots, assets.length)
   assert.equal(workflow.snapshotCounts.marketSnapshots, assets.length)
-  assert.equal(workflow.snapshotCounts.gridPlans, assets.length)
+  assert.equal(workflow.snapshotCounts.gridPlans, assets.length * 2)
+  const immediateBuyAmount = assets.flatMap((asset: any) => asset.grid?.orders || []).filter((order: any) => order.side === 'buy').reduce((sum: number, order: any) => sum + Number(order.amount), 0)
+  assert.ok(immediateBuyAmount <= Number(report.portfolio?.immediateBuyBudget?.initial) + 0.01, '即时买单超过组合预算')
+  closeTo(report.portfolio?.immediateBuyBudget?.used, Number(immediateBuyAmount.toFixed(2)), '组合预算已用金额')
+  assert.equal(report.portfolio?.immediateBuyBudget?.conditionalBuybackExcludedUntilParentFill, true)
   assert.ok((workflow.attentionCandidates || []).every((candidate: any) => (
     candidate.source && candidate.reason && candidate.evidenceStatus && Array.isArray(candidate.evidenceRefs) && candidate.evidenceRefs.length > 0
   )), '关注标的来源/理由/证据不完整')
@@ -244,6 +275,7 @@ try {
       decisionSummaryMatchesPersistedDrafts: true,
       valuationAndGridDerivationPersisted: true,
       llmSynthesisAtMostOneRequest: true,
+      llmSynthesisRequiredAndAvailable: process.env.FAMS_REAL_E2E_REQUIRE_LLM === '1',
       dagContractV2: true,
       allNonCashPositionsAccountedFor: true,
       oneNewReviewOnly: true,

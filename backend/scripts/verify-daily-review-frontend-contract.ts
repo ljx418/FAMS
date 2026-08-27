@@ -36,8 +36,11 @@ assert.match(page, /<DailyReviewAuditDrawer/)
 for (const node of ['触发评审', '持仓快照', '行情采集', '均线计算', '基本面与消息', '策略评估', '关注标的', '系统网格', '历史比较', '执行边界']) {
   assert.match(workflowService, new RegExp(node))
 }
-for (const text of ['30 日均线', 'MA5', 'MA10', 'MA30', '波动交易网格草案', '公开审计工作台', '不展示模型私密思维链']) assert.match(page, new RegExp(text))
-for (const text of ['需要关注的标的', '具体如何设置买卖单', '为什么得到这些价格和数量', '价值评估只提供风险背景']) assert.match(decisionPanel, new RegExp(text))
+for (const text of ['30 日均线', 'MA5', 'MA10', 'MA30', '波动交易网格完整台账', '公开审计工作台', '不展示模型私密思维链', '卖出后条件买回']) assert.match(page, new RegExp(text))
+for (const text of ['需要关注的标的', '现在可人工核对的买卖单', '卖出成交后再人工设置的买回单', '四个重点标的：现在看什么价', '为什么得到这些价格和数量', '价值评估只提供风险背景']) assert.match(decisionPanel, new RegExp(text))
+for (const symbol of ['601127', '600276', '159851', '513770']) assert.match(decisionPanel, new RegExp(symbol))
+for (const text of ['session_closed', '父卖单成交后激活', '当前不占现金', '父卖价 − 一个本轮最终网格间距', '最大余数']) assert.match(decisionPanel, new RegExp(text))
+for (const text of ['即时网格计划', '条件买回计划', '现在可设置草案', '待父卖单成交草案']) assert.match(workflowService, new RegExp(text))
 for (const text of ['单击高亮依赖路径', '双击节点查看作用、输入和输出', '当前节点作用', '节点输入', '节点输出']) assert.match(workflowDag, new RegExp(text))
 for (const text of ['高级审计', '本地节点审阅', '阻断条件', '原始证据']) assert.match(auditDrawer, new RegExp(text))
 assert.match(workflowDag, /onDoubleClick/)
@@ -62,4 +65,5 @@ console.log(JSON.stringify({
   localNodeReviewAnnotations: true,
   dagNodeDetailAndAdvancedAuditSeparated: true,
   decisionSummaryAndDeterministicDerivation: true,
+  dualGridAndFourFocusAssets: true,
 }, null, 2))

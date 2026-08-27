@@ -77,6 +77,7 @@ try {
     ma10: 10.5,
     ma30: 10,
     atr14: 0.3,
+    now: new Date('2026-08-25T02:30:00.000Z'),
   })
   assert.equal(grid.mode, 'mean_reversion')
   assert.ok(grid.orders.some((order) => order.side === 'buy'))
@@ -98,6 +99,7 @@ try {
     ma10: 10.5,
     ma30: 10,
     atr14: 0.3,
+    now: new Date('2026-08-25T02:30:00.000Z'),
   })
   assert.equal(subLotGrid.mode, 'observe_only')
   assert.ok(subLotGrid.blockers.includes('order_size_below_minimum_lot_or_available_budget'))

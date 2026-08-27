@@ -9,7 +9,8 @@
     "preview": "node node_modules/vite/bin/vite.js preview",
     "lint": "eslint src --ext .ts,.tsx",
     "verify:guide": "node scripts/verify-user-guide.mjs",
-    "verify:daily-review-runtime": "node scripts/verify-daily-review-runtime.mjs"
+    "verify:daily-review-runtime": "node scripts/verify-daily-review-runtime.mjs",
+    "verify:daily-review-static-report": "node scripts/verify-static-daily-review-report.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",

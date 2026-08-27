@@ -23,6 +23,7 @@ const baseInput = {
   atr14: 0.3,
   valuationStatus: 'available',
   valuationConclusion: 'risk_review',
+  now: new Date('2026-08-25T02:30:00.000Z'),
 } as const
 
 const material = gridStrategyService.buildGridDraft({ ...baseInput, materialChange: 'material' })
@@ -79,10 +80,10 @@ const validPayload = {
   }],
 }
 assert.equal(validateDailyReviewSynthesisPayload(validPayload, synthesisInput).ok, true)
-assert.deepEqual(validateDailyReviewSynthesisPayload({
+assert.equal(validateDailyReviewSynthesisPayload({
   ...validPayload,
   overview: '建议在 10 元附近操作',
-}, synthesisInput), { ok: false, code: 'llm_numeric_narrative_rejected' })
+}, synthesisInput).code, 'llm_numeric_narrative_rejected')
 assert.deepEqual(validateDailyReviewSynthesisPayload({
   ...validPayload,
   attentionSummaries: [{ ...validPayload.attentionSummaries[0], evidenceRefs: ['invented:evidence'] }],

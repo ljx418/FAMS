@@ -7,8 +7,10 @@ const reviewId = process.env.FAMS_REAL_E2E_REVIEW_ID?.trim()
 assert.ok(reviewId, 'FAMS_REAL_E2E_REVIEW_ID is required')
 const appBase = process.env.FAMS_FRONTEND_E2E_BASE || 'http://localhost:3000'
 const repoRoot = resolve(import.meta.dirname, '../..')
-const evidenceDir = resolve(repoRoot, '.verification/daily-review-v1/DRV1-7/frontend-runtime')
-const auditDir = resolve(repoRoot, 'backend/data/gpt-audit/daily-portfolio-review-v1/DRV1-7/frontend-runtime')
+const localBrowserLibDir = resolve(repoRoot, '.verification/playwright-libs/lib')
+process.env.LD_LIBRARY_PATH = [localBrowserLibDir, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':')
+const evidenceDir = resolve(repoRoot, '.verification/private/daily-review/DRV1-13/playwright-runtime')
+const auditDir = resolve(repoRoot, '.verification/private/daily-review/DRV1-13/audit-runtime')
 await Promise.all([mkdir(evidenceDir, { recursive: true }), mkdir(auditDir, { recursive: true })])
 
 const expectedNodes = [
@@ -73,7 +75,11 @@ try {
     await auditDrawer.waitFor({ state: 'hidden' })
 
     await page.getByTestId('daily-review-decision-summary').waitFor()
+    const focusPanel = page.getByTestId('focus-buyback-points')
+    await focusPanel.waitFor()
+    for (const symbol of ['601127', '600276', '159851', '513770']) assert.equal(await focusPanel.getByTestId(`focus-asset-${symbol}`).count(), 1)
     await page.getByTestId('manual-order-plan').waitFor()
+    await page.getByTestId('conditional-buyback-plan').waitFor()
     const attentionPanel = page.getByTestId('attention-synthesis')
     assert.doesNotMatch(await attentionPanel.innerText(), /market-provider:|financial-report:|quote-list-canonical:|stock-factset-cache:/, '关注正文泄漏原始证据标识')
     await attentionPanel.getByRole('button', { name: /查看原始证据/ }).first().click()
@@ -82,7 +88,9 @@ try {
     await auditDrawer.waitFor({ state: 'hidden' })
     await page.getByTestId('grid-derivation-traces').locator('.ant-collapse-header').first().click()
     await page.getByText('一、价值评估基线', { exact: true }).first().waitFor()
-    await page.getByText('五、风险门禁与最终输出', { exact: true }).first().waitFor()
+    await page.getByText('五、交易规则与有效期', { exact: true }).first().waitFor()
+    await page.getByText('六、卖出后条件买回', { exact: true }).first().waitFor()
+    await page.getByText('七、风险门禁与最终输出', { exact: true }).first().waitFor()
 
     const assetSelect = page.getByRole('combobox', { name: '选择行情资产' })
     await assetSelect.focus()
@@ -166,6 +174,7 @@ const audit = {
   assertions: {
     tenNodeDagAndSeventeenEdges: true, doubleClickModalOnlyPurposeInputsOutputs: true, keyboardNodeDetailOperable: true,
     singleClickHighlightsDependencyPath: true, decisionSummaryAndReproducibleTrace: true, attentionNarrativeHidesRawEvidenceRefs: true,
+    dualGridListsSeparated: true, fourFocusAssetsVisible: true, conditionalBuybackNotPresentedAsImmediate: true,
     advancedAuditContainsEvidenceAndAnnotations: true, assetSwitchSixRealPositions: true, localAnnotationPersistence: true,
     exportIncludesNonFormalAnnotations: true, fourTradingLocksVisible: true, pageReloadDoesNotInvokeLlm: true,
     screenshotPanelPresentWithoutVisionCall: true, responsiveNoRootOverflow: true, browserErrorsZero: true,
