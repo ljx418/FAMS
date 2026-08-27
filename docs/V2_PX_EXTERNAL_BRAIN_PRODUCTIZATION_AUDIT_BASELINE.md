@@ -2,6 +2,8 @@
 
 更新时间：2026-08-27（PX-0 seal 复核）
 
+> 历史基线说明：本文记录 PX-0 seal 时点的审计结论。2026-08-27 用户认可产品目标但要求先回到文档开发阶段；当前实施许可以 `V2_PX_DOCUMENTATION_COVERAGE_REVIEW.md`、`V2_PX_PRD.md` 和 `V2_PX_EXTERNAL_BRAIN_PRODUCTIZATION_PLAN.md` 为准。当前 `px1FeasibilitySpikeAllowed=false`，不得把本文的 `READY_FOR_SPIKE` 理解为已获代码开发授权。
+
 ## 1. 当前结论
 
 ```text

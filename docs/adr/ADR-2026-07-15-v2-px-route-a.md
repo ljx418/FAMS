@@ -7,26 +7,34 @@ status=accepted_for_spike
 px0GithubReviewGate=PASS
 px1FeasibilitySpikeAllowed=false
 px1FeasibilitySpikeEligible=true
+productGoalApproval=APPROVED_BY_USER
+implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
 routeAStatus=ACCEPTED_FOR_SPIKE
-routeAImplementationReadiness=READY_FOR_SPIKE
+routeAImplementationReadiness=DOCUMENTATION_REDESIGNED_AWAITING_USER_APPROVAL
 routeAAdrStatus=ACCEPTED_FOR_SPIKE
+routeATechnicallyValidated=false
+routeAProductionApproved=false
 ```
 
 ## 背景
 
-V2-PX External Brain Productization 需要支持三类入口、路由 intent 和真实浏览器双容器生命周期。当前 GitHub main 尚未包含完整 PX 文档、ADR、schemas 和原型增量；旧 V2 evidence 存在静态 mock HTML 截图，不能作为真实 Chrome 证据。
+V2-PX External Brain Productization 需要支持三类入口、路由 intent 和真实浏览器双容器生命周期。PX-0 文档、schema、semantic validator 与 fixture 已在 main 建立可复核基线，但当前没有 extension package、双容器运行实现或真实 Chrome evidence。旧 V2 evidence 中的静态 mock HTML 截图继续被排除，不能作为真实 Chrome 证据。
 
 ## 决策
 
-选择 Route A 作为 PX-1 受限 feasibility spike 路线：
+选择 Route A.1 作为 PX-1 受限 feasibility spike 路线：
 
 ```text
 Independent Workspace Page Host
 + WXT background / sidepanel route reuse
 + intent route contract
 + dual-container lifecycle audit
++ explicit optional local FAMS host permission
++ FAMS read-only domain adapter
 + real Chrome evidence only
 ```
+
+Route A.1 保留 Route A 的双容器目标，并关闭旧合同中的数据接入缺口：扩展安装时不默认获得主机访问权；用户点击“连接本地 FAMS”后，只能授予 manifest 预声明的精确 localhost/127.0.0.1 地址。PX Core 保持领域无关，FAMS 数据由只读 adapter 和现有业务服务提供。
 
 ## 选择理由
 
@@ -44,7 +52,7 @@ Route A 状态必须按以下顺序推进：
 PROPOSED -> ACCEPTED_FOR_SPIKE -> TECHNICALLY_VALIDATED -> PRODUCTION_APPROVED
 ```
 
-以下内容是升为 `ACCEPTED_FOR_SPIKE` 的冻结条件，现已完成：
+以下内容是文档基线必须冻结的条件，现已完成文档定义；真实可行性仍待 PX-1：
 
 | 类别 | 必须冻结 |
 | --- | --- |
@@ -52,17 +60,17 @@ PROPOSED -> ACCEPTED_FOR_SPIKE -> TECHNICALLY_VALIDATED -> PRODUCTION_APPROVED
 | WXT entrypoint | background、sidepanel、Workspace Page 的实际 entrypoint 路径 |
 | 构建产物 | Workspace Page 最终 HTML 路径、asset 路径和构建命令 |
 | URL 规则 | `chrome.runtime.getURL()` 生成的 canonical Workspace URL |
-| Manifest/CSP | manifest 权限、side_panel 配置、host permissions、CSP 修改 |
+| Manifest/CSP | manifest 权限、side_panel、optional host permissions、externally connectable origin、CSP |
 | Message envelope | background message 的 `type / routeId / correlationId / idempotencyKey / source / target` |
 | 打开方式 | sidepanel 到 Workspace Page 的 `tabs.create / tabs.query / tabs.update` 规则 |
 | 标签页复用 | 单窗口、多窗口、已存在标签页、聚焦和重复点击规则 |
 | 浏览器导航 | Back、Forward、Refresh、关闭重开和 extension reload/update 恢复 |
 | 状态交接 | `workspaceId / sourceId / operationId / routePayload` 的归属和交接 |
-| 状态所有权 | sidepanel 与 Workspace Page 是否同时轮询、谁拥有写入权、如何去重 |
+| 状态所有权 | background 单写；容器只订阅；background 活动任务有界轮询与终态停止 |
 | 幂等 | duplicate ingest 的 `idempotencyKey` 规则 |
 | 证据 | 真实 Chrome screenshot、trace、event log、SHA-256 和 commitSha |
 
-上述 PX-1 spike 合同与 authority baseline SHA 已在 PX-0 基线中冻结，ADR 现为 `ACCEPTED_FOR_SPIKE`。这不是 `TECHNICALLY_VALIDATED` 或 `PRODUCTION_APPROVED`。
+上述 PX-1 spike 合同与 authority baseline SHA 已建立文档基线；本轮新增的权限与 FAMS adapter 设计需要接受人类架构评审。当前不是 `TECHNICALLY_VALIDATED` 或 `PRODUCTION_APPROVED`，且用户尚未批准进入代码开发。
 
 ### Entrypoint 与构建合同
 
@@ -86,12 +94,32 @@ manifestVersion=3
 requiredPermissions=sidePanel,tabs,storage
 optionalPermissions=[]
 hostPermissions=[]
+optionalHostPermissions=http://localhost:3000/*,http://127.0.0.1:3000/*,http://localhost:4000/*,http://127.0.0.1:4000/*
+permissionGrantTrigger=user_click_connect_local_fams
+allUrlsForbidden=true
+externallyConnectableMatches=http://localhost:3000/*,http://127.0.0.1:3000/*
 sidePanelDefaultPath=sidepanel.html
 extensionPagesCsp=script-src 'self'; object-src 'self'
 remoteExecutableCodeAllowed=false
 ```
 
-PX-1 如发现需要新增 permission 或 host permission，必须先修改 ADR 并重新评审，不能在实现中静默扩权。
+`hostPermissions=[]` 表示安装时没有默认主机权限；`optionalHostPermissions` 只在用户主动连接时请求。PX-1 如发现需要新增地址、`<all_urls>`、cookie 权限、content script 或其他 permission，必须先返回文档阶段修改 ADR 并重新评审，不能在实现中静默扩权。
+
+### FAMS 数据接入合同
+
+```text
+networkOwner=background
+pxCoreDomainPolicy=DOMAIN_NEUTRAL
+domainAdapter=src/adapters/fams/FamsDomainAdapter.ts
+apiClient=src/adapters/fams/FamsApiClient.ts
+backendFacade=backend/src/routes/externalBrain.ts
+backendReadService=backend/src/services/external-brain/externalBrainReadService.ts
+backendPolicy=backend/src/services/external-brain/externalBrainPolicyService.ts
+businessSources=famsChatService,dailyReviewService,operationService,dailyReviewWorkflowService
+extensionBusinessDatabase=none
+```
+
+PX-1 只允许用 `/health` 验证 permission、CORS、background 网络访问和断连恢复；完整五 intent facade 属于 PX-4。扩展不得直接复制投资计算，也不得以 `chrome.storage` 替代 Prisma 业务事实。
 
 ### Message envelope 与路由合同
 
@@ -120,6 +148,10 @@ backgroundOwnsWrites=true
 sidepanelPollingAllowed=false
 workspacePollingAllowed=false
 containersSubscribeToBackgroundState=true
+backgroundOwnsNetwork=true
+backgroundActiveOperationPollIntervalMs=2000
+backgroundPollingStopsOnTerminalOrNoContainer=true
+backgroundFailurePolicy=bounded_exponential_backoff
 duplicateCommandPolicy=deduplicate_same_semantics_reject_conflict
 ```
 
@@ -146,6 +178,16 @@ Playwright trace / lifecycle event log
 | Route B：只用 sidepanel 承载完整体验 | 面板空间不足，难以承载图表、任务、审计和多步工作流 |
 | Route C：只用 Web App 页面，不做 extension shell | 无法验证扩展入口、background、sidepanel 和双容器生命周期 |
 | Route D：先做生产实现再补 ADR/schema | 容易产生 PX-2+ 先行和 false green 验收 |
+| Route E：extension 安装时请求 `<all_urls>` | 权限范围远大于本地 FAMS 目标，无法解释最小权限边界 |
+
+## 方案代价与后果
+
+采用 Route A.1 后：
+
+- 更容易：完整工作台不受侧栏尺寸限制；三入口共用状态；真实 Chrome 生命周期可审计；FAMS 业务事实不重复。
+- 更困难：需要验证 optional host permission、CORS、外部消息 sender origin 和 background suspend/reconnect。
+- 放弃：PX-1 不追求完整业务功能，只回答技术可行性；本阶段不支持远程生产 origin。
+- 可逆性：若本地权限或双容器生命周期在 PX-1 不可行，可退回 Web Workspace + extension launcher，但必须重开 ADR，不能把失败隐藏成部分通过。
 
 ## PX-1 Spike 问题
 
@@ -161,6 +203,16 @@ realChromeEvidenceCanBeGenerated?
 ```
 
 PX-1 仍是 feasibility spike，不得顺带实现 PX-2+ 生产能力。
+
+开始 PX-1 还需要额外满足：
+
+```text
+documentationReadyForImplementationReview=true
+explicitUserApprovalForImplementation=true
+px1FeasibilitySpikeAllowed=USER_MUST_EXPLICITLY_APPROVE_BEFORE_TRUE
+```
+
+本轮只有 `productGoalApproval=APPROVED_BY_USER`，不满足第二项。
 
 ## 放弃条件
 

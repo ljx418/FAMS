@@ -2,6 +2,8 @@
 
 更新时间：2026-08-27
 
+> 历史应用记录：本文证明 PX-0 外部审计意见曾被应用。当前已进入新一轮文档重构，权威状态以 `V2_PX_DOCUMENTATION_COVERAGE_REVIEW.md`、`V2_PX_PRD.md` 和 `V2_PX_EXTERNAL_BRAIN_PRODUCTIZATION_PLAN.md` 为准；`px1FeasibilitySpikeAllowed=false`，尚未获实际开发授权。
+
 ## 1. 本轮结论
 
 ```text

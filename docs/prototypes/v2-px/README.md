@@ -5,7 +5,9 @@
 ## 当前状态
 
 ```text
-prototypeIncrementPresent=documentation_stub_only
+prototypeIncrementPresent=px0_contract_fixtures_only
+prototypeDesignDocumentPresent=true
+interactivePrototypePresent=false
 realChromeEvidencePresent=false
 legacyMockEvidenceAllowedForPxAcceptance=false
 px0GithubReviewGate=PASS
@@ -15,7 +17,7 @@ semanticValidatorImplemented=true
 antiFalseGreenAcceptanceContractPassed=true
 ```
 
-本目录用于承载 V2-PX External Brain Productization 的原型增量、合同 fixture、真实 Chrome 验收证据和 anti-false-green 说明。`fixtures/` 已提供 PX-0 结构与语义合同正反例，但还没有 PX-1 浏览器原型，不能作为真实 Chrome 或 V2-PX 完成证据。
+本目录用于承载 V2-PX External Brain Productization 的原型设计、合同 fixture、真实 Chrome 验收证据和 anti-false-green 说明。`V2_PX_PROTOTYPE_DESIGN.md` 已固化 Side Panel、Workspace、三入口、五 intent、六状态和四视口目标；`fixtures/` 已提供 PX-0 结构与语义合同正反例。但当前仍没有交互式原型或 PX-1 浏览器实现，不能作为真实 Chrome 或 V2-PX 完成证据。
 
 ## PX-0 fixture
 

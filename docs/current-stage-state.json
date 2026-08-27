@@ -1,6 +1,6 @@
 {
   "schemaVersion": "fams.current_stage_state.v1",
-  "effectiveAt": "2026-08-27T12:12:00+08:00",
+  "effectiveAt": "2026-08-27T14:24:04+08:00",
   "stage": "formal_release_readiness_engineering_complete_business_gates_blocked",
   "statusSourcePolicy": "automation_must_read_this_file_before_markdown_status_text",
   "substageManifestSource": "docs/S0_S8_SUBSTAGE_ACCEPTANCE_MANIFESTS.json",
@@ -33,6 +33,33 @@
         "rawEvidencePolicy": "local_private_git_ignored"
       },
       "humanAcceptanceStatus": "not_performed",
+      "formalTradingUnlocked": false,
+      "autoTradeUnlocked": false,
+      "canCreateOrder": false,
+      "orderCreateAllowed": false
+    },
+    "v2PxExternalBrain": {
+      "prd": "docs/V2_PX_PRD.md",
+      "developmentPlan": "docs/V2_PX_EXTERNAL_BRAIN_PRODUCTIZATION_PLAN.md",
+      "targetArchitecture": "docs/V2_PX_TARGET_ARCHITECTURE.md",
+      "prototypeDesign": "docs/prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md",
+      "traceabilityMatrix": "docs/V2_PX_PRD_TRACEABILITY_MATRIX.md",
+      "drawio": "docs/v2-px-target-architecture-gap.drawio",
+      "currentPhase": "documentation_ready_for_implementation_review",
+      "productGoalApproval": "approved_by_user",
+      "documentationRequirementCoverage": "20/20",
+      "documentationCoverage": "100/100",
+      "automatedDocumentationAcceptanceStatus": "passed",
+      "humanArchitectureReviewStatus": "pending",
+      "routeAStatus": "accepted_for_spike",
+      "routeATechnicallyValidated": false,
+      "interactivePrototypePresent": false,
+      "extensionPackagePresent": false,
+      "realChromeEvidencePresent": false,
+      "implementationApprovalStatus": "pending_explicit_user_approval",
+      "px1FeasibilitySpikeAllowed": false,
+      "px2PlusAllowed": false,
+      "v2PxComplete": false,
       "formalTradingUnlocked": false,
       "autoTradeUnlocked": false,
       "canCreateOrder": false,
@@ -123,6 +150,7 @@
     "Each real user workbook requires fresh account-level revalidation before being used as evidence.",
     "Automated FTR completion may prepare a release review package but must not enable the production adapter or change any trading permission to true.",
     "2026-08-21 FTR-0 documentation freeze passed; FTR-1 entry audit stopped at formal_provider_authorization because provider authorization records=0 and the formal provider credential is missing.",
-    "2026-08-27 daily review v1.2 passed Playwright four-viewport acceptance and Windows Google Chrome CDP desktop/mobile spot checks; human acceptance remains not_performed and all trading locks remain false."
+    "2026-08-27 daily review v1.2 passed Playwright four-viewport acceptance and Windows Google Chrome CDP desktop/mobile spot checks; human acceptance remains not_performed and all trading locks remain false.",
+    "2026-08-27 V2-PX product goals were accepted by the user, but implementation remains explicitly unauthorized. The active phase is documentation redesign; PX-1 and all production code changes remain blocked until a new explicit approval."
   ]
 }

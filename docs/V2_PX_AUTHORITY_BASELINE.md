@@ -2,6 +2,8 @@
 
 更新时间：2026-08-27
 
+> 权威字段仍保持冻结；但用户已要求在实际开发前完成新一轮文档与架构评审。`ACCEPTED_FOR_SPIKE` 只表示技术路线可作为 spike 候选，不表示代码开发已获授权。当前 `implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL`、`px1FeasibilitySpikeAllowed=false`。
+
 ## 1. 当前结论
 
 ```text

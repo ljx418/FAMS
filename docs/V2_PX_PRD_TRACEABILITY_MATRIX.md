@@ -1,44 +1,78 @@
-# V2-PX PRD Traceability Matrix
+# V2-PX PRD 需求追踪矩阵
 
 更新时间：2026-08-27
 
 ## 1. 当前结论
 
 ```text
-traceabilityMatrixReady=PX0_CONTRACT_READY
-prototypePrdAlignment=NOT_TESTABLE_UNTIL_PX1
-px1CodeSpikeAllowed=false
-px1FeasibilitySpikeEligible=true
+traceabilityMatrixReady=DOCUMENTATION_20_OF_20
+implementationMappingStatus=PLANNED_NOT_IMPLEMENTED
+prototypeDesignCoverage=DOCUMENTED_NOT_INTERACTIVE
+realChromeEvidencePresent=false
+px1FeasibilitySpikeAllowed=false
+implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
 ```
 
-本文件用于把 PRD requirement 映射到架构实体、原型元素、schema、测试、证据和人工复核项。当前仍是文档级矩阵，不代表实现完成。
+本矩阵覆盖 PRD 的 20 项需求。目标文件、测试和证据凡标记“计划”的都尚不存在，不能因为出现在矩阵中就声明已实现。
 
 ## 2. 追踪矩阵
 
-| Requirement | Prototype Element | Architecture Entity | Contract / Schema | Planned Test | Evidence Artifact | Human Review |
-| --- | --- | --- | --- | --- | --- | --- |
-| PX-REQ-001 三入口容器 | sidepanel / workspace / host app 入口图 | sidepanel, Workspace Page, host app bridge | `v2-px-intent-route.schema.json` | PX-0: `test:v2-px-semantic-contract`; PX-1: `test:v2-px-intent-route` | PX-0 fixture result；PX-1 route scenario result | 三入口是否真实可见 |
-| PX-REQ-002 三类用户动作 | 查看来源 / 打开工作台 / 在工作台中打开 | entry action handler | `entryAction` enum | `test:v2-px-entry-action-matrix` | action matrix audit | 用户动作是否语义清晰 |
-| PX-REQ-003 五类 route intent | source library/detail/ask/trace/graph 页面 | PX intent router | `routeIntent` enum | `test:v2-px-route-intent-matrix` | route intent audit | 五类 intent 是否覆盖 PRD |
-| PX-REQ-004 Side Panel 轻入口 | 420/360 sidepanel 设计 | sidepanel shell | real Chrome evidence schema | `test:v2-px-sidepanel-entry` | sidepanel screenshots | 是否轻入口而非完整主体验 |
-| PX-REQ-005 Workspace Page | 1280/768 workspace 设计 | Workspace Page host | lifecycle + evidence schema | `test:v2-px-workspace-host` | workspace screenshots | 是否完整承载主体验 |
-| PX-REQ-006 标签页复用 | tab reuse journey | background router | operation/route command | `test:v2-px-tab-reuse` | tab trace audit | 多窗口复用是否正确 |
-| PX-REQ-007 刷新恢复 | reload/reopen journey | state restore module | lifecycle schema | `test:v2-px-recovery` | recovery audit | 刷新后状态是否一致 |
-| PX-REQ-008 reconnect | offline/reconnect journey | background + container ports | lifecycle schema | `test:v2-px-reconnect` | reconnect event log | 断连恢复是否可信 |
-| PX-REQ-009 幂等 ingest | duplicate ingest journey | PX operation command handler | `v2-px-operation-command.schema.json` | PX-0: semantic negative fixture；PX-1: `test:v2-px-idempotency` | idempotency contract result / audit | 重复提交是否去重 |
-| PX-REQ-010 真实 Chrome | evidence review page | evidence collector | real Chrome evidence schema | `test:v2-px-real-chrome-evidence` | screenshots + trace | 是否排除 mock |
-| PX-REQ-011 四类 viewport | 420/360/768/1280 设计 | responsive shell | evidence schema | `test:v2-px-viewports` | viewport screenshots | 是否无遮挡/溢出 |
-| PX-REQ-012 隐私脱敏 | evidence redaction view | artifact sanitizer | acceptance manifest schema | `test:v2-px-evidence-redaction` | redaction audit | 是否无密钥/cookie |
+| Requirement | 目标体验/原型 | 目标代码实体 | 阶段 | 计划自动验收 | 计划证据 | 人类核查 | 当前状态 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| PX-REQ-001 三入口 | Side Panel / Workspace / FAMS 页面均能进入同一任务 | `background.ts`、`pxExternalBrainBridge.ts`、`WorkspaceApp.tsx` | PX-1/PX-4 | `test:v2-px-entry-matrix` | `entry_matrix_audit.json` | 三入口是否真实可见 | 文档完成，代码未开发 |
+| PX-REQ-002 三动作 | 查看来源、打开工作台、在工作台定位 | `intentRouter.ts`、`OpenInExternalBrainButton.tsx` | PX-1/PX-4 | `test:v2-px-entry-action-matrix` | `entry_action_audit.json` | 动作文案是否清晰 | 文档完成，代码未开发 |
+| PX-REQ-003 五 intent | 来源库/详情/问答/追踪/图谱 | `WorkspaceRouter.tsx`、五个 View、`externalBrainReadService.ts` | PX-2/PX-4 | `test:v2-px-route-intent-matrix` | `route_intent_audit.json` | 五类结果是否与名称一致 | 文档完成，代码未开发 |
+| PX-REQ-004 轻量 Side Panel | 首屏摘要、连接、打开工作台 | `SidePanelApp.tsx`、`ConnectionGate.tsx` | PX-3 | `test:v2-px-sidepanel-entry` | `mobile_360/420_sidepanel.png` | 是否避免完整工作台挤压 | 原型文档完成，代码未开发 |
+| PX-REQ-005 完整 Workspace | 五视图、摘要、证据抽屉 | `WorkspaceApp.tsx`、`WorkspaceRouter.tsx` | PX-2 | `test:v2-px-workspace-host` | `tablet_768/desktop_1280_workspace.png` | 是否完整且易读 | 原型文档完成，代码未开发 |
+| PX-REQ-006 标签复用 | 重复打开聚焦既有 tab | `workspaceTabManager.ts` | PX-1/PX-4 | `test:v2-px-tab-reuse` | `multi_window_tab_reuse_trace.json` | 多窗口聚焦是否符合预期 | 文档完成，代码未开发 |
+| PX-REQ-007 刷新恢复 | Back/Forward/Refresh/关闭重开 | `workspaceStateStore.ts`、`RecoveryBanner.tsx` | PX-2/PX-5 | `test:v2-px-recovery` | `workspace_recovery_audit.json` | 恢复或阻断是否可理解 | 文档完成，代码未开发 |
+| PX-REQ-008 断连重连 | FAMS/extension 中断后恢复 | `lifecycleAuditStore.ts`、`FamsApiClient.ts` | PX-1/PX-5 | `test:v2-px-reconnect` | `reconnect_event_log.json` | 5 秒内是否给结果 | 文档完成，代码未开发 |
+| PX-REQ-009 幂等 | 同 key 去重、冲突拒绝 | `idempotencyRegistry.ts` | PX-4 | `test:v2-px-idempotency` | `idempotency_audit.json` | 重复点击是否无副作用 | PX-0 合同有负例；runtime 未开发 |
+| PX-REQ-010 真实 Chrome | unpacked extension 截图/trace/hash | `collect-real-chrome-evidence.mjs` | PX-1/PX-6 | `test:v2-px-real-chrome-evidence` | `real_chrome_evidence.json` | URL/ID/版本是否真实 | schema 已开发；真实证据不存在 |
+| PX-REQ-011 四视口 | 360/420/768/1280 | 两个容器 UI | PX-2/PX-3/PX-6 | `test:v2-px-viewports` | 四张截图 + overflow audit | 遮挡、溢出、字号是否合格 | 原型文档完成，代码未开发 |
+| PX-REQ-012 隐私脱敏 | 证据无 secret/cookie/账户原图 | evidence collector + sanitizer | PX-1/PX-6 | `test:v2-px-evidence-redaction` | `redaction_audit.json` | 私有目录是否被 Git 忽略 | schema 有约束；runtime 未开发 |
+| PX-REQ-013 FAMS 适配 | 五 intent 复用现有业务事实 | `externalBrainReadService.ts`、`FamsDomainAdapter.ts` | PX-4 | `test:v2-px-fams-adapter` | `fams_adapter_contract.json` | 结果与原 FAMS 页面是否一致 | 架构完成，代码未开发 |
+| PX-REQ-014 单写状态 | background 拥有 route/lifecycle 写入 | `background.ts`、两个 Store | PX-1/PX-5 | `test:v2-px-state-ownership` | `state_ownership_audit.json` | 三入口是否无状态打架 | ADR 完成，代码未开发 |
+| PX-REQ-015 最小权限 | 用户主动连接精确本地 origin | `wxt.config.ts`、`ConnectionGate.tsx` | PX-1/PX-3 | `test:v2-px-permissions` | `permission_audit.json` | 安装/连接文案是否透明 | ADR 完成，代码未开发 |
+| PX-REQ-016 摘要分层 | 普通话摘要 + 折叠 evidence | `SidePanelApp.tsx`、`EvidenceDrawer.tsx` | PX-2/PX-3 | `test:v2-px-information-hierarchy` | 浏览器截图与 DOM audit | 用户是否无需读原始字段 | 原型文档完成，代码未开发 |
+| PX-REQ-017 降级状态 | 未连接/加载/空/失败/恢复/阻断 | `ConnectionGate.tsx`、`RecoveryBanner.tsx` | PX-2/PX-3/PX-5 | `test:v2-px-state-matrix` | `ui_state_matrix_audit.json` | 六种状态是否都有下一步 | 原型文档完成，代码未开发 |
+| PX-REQ-018 交易硬边界 | 无订单入口、四锁恒 false | `externalBrainPolicyService.ts`、`FamsDomainAdapter.ts` | 全阶段 | `test:v2-px-trade-boundary` | `trade_boundary_audit.json` | 页面是否存在误导交易动作 | 现有 FAMS 锁已实现；PX adapter 未开发 |
+| PX-REQ-019 可访问性 | 键盘、对比度、点击区、无溢出 | Side Panel/Workspace UI | PX-2/PX-3/PX-6 | `test:v2-px-accessibility` | `accessibility_audit.json` | 键盘走完整核心路径 | 原型门槛完成，代码未开发 |
+| PX-REQ-020 防规格漂移 | PRD/实体/阶段/证据/commit 一致 | semantic validator + acceptance manifest | PX-0/PX-6 | `test:v2-px-anti-false-green` | `g1_g7_gate_audit.json` | 按 commit 复核 | PX-0 合同已开发；PX-6 未开发 |
 
-## 3. 当前阻断
+## 3. 当前代码实体状态总计
 
 ```text
-prototypeIncrementPresent=px0_contract_fixtures_only
-realChromeEvidencePresent=false
-semanticValidatorImplemented=true
-implementationFileMappingMissing=true
-px0AutomatedContractTestImplemented=true
-px1BrowserTestsNotImplemented=true
+existingReusableFamsEntities=16
+existingPxContractOrValidatorEntities=7
+targetEntitiesRequiringModification=2
+targetProductionEntitiesNotDeveloped=25+
+realChromeEvidenceArtifacts=0
+implementedPx1PlusRequirements=0/20
+documentationMappedRequirements=20/20
 ```
 
-PX-0 已建立 `requirement -> schema -> semantic validator -> fixture` 的合同链路。`prototype element -> production implementation file -> real Chrome evidence -> human review` 属于 PX-1 及以后，仍不得标记完成。
+## 4. 规格漂移检查
+
+以下规则用于审查未来实现：
+
+1. 任何新增生产文件必须能映射到本矩阵中的目标实体；无法映射则先改 PRD/架构并重新批准。
+2. 五 intent 不得被替换成含义不同的页面标签却仍宣称通过。
+3. Side Panel 不得膨胀成完整工作台；Workspace 不得退化为纯跳转页。
+4. FAMS adapter 不得复制投资计算或绕过现有业务服务。
+5. 未产生真实 Chrome evidence 前，PX-REQ-010 保持未实现。
+6. 自动验收通过不能代替最终人类体验核查。
+7. 所有“计划命令”只有在 package script 和测试实体真实存在后才能计入完成率。
+
+## 5. 当前阻断
+
+```text
+interactivePrototypePresent=false
+extensionPackagePresent=false
+implementationFileMappingPresentInDocs=true
+px1BrowserTestsImplemented=false
+realChromeEvidencePresent=false
+explicitUserApprovalForImplementation=false
+```
+
+因此当前应停留在文档评审，不进入实际开发。
