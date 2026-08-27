@@ -29,6 +29,7 @@
     "test:daily-review-v3-grid-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-daily-review-v3-grid-contract.ts",
     "test:daily-review-frontend-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-daily-review-frontend-contract.ts",
     "test:daily-review-real-data-e2e": "node node_modules/tsx/dist/cli.mjs scripts/verify-daily-review-real-data-e2e.ts",
+    "test:current-stage-consistency": "node node_modules/tsx/dist/cli.mjs scripts/verify-current-stage-consistency.ts",
     "run:import-current-broker-screenshot": "node node_modules/tsx/dist/cli.mjs scripts/import-current-broker-screenshot.ts",
     "report:daily-review-html": "node node_modules/tsx/dist/cli.mjs scripts/generate-daily-review-html.ts",
     "test:external-technical": "node node_modules/tsx/dist/cli.mjs scripts/verify-external-technical-provider.ts",
