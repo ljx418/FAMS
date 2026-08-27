@@ -61,14 +61,14 @@ class VisionCaptureService {
   "documentType": "holding|trade|order|mixed",
   "rawText": "简短原文",
   "rows": [{
-    "rowType": "holding|trade|order",
+    "rowType": "account_summary|holding|trade|order",
     "rawText": "该行原文",
     "fields": {},
     "fieldConfidence": {"字段名": 0.0},
     "confidence": 0.0
   }]
 }
-持仓字段使用 symbol,name,quantity,avgCost,currentPrice,marketValue；成交字段使用 symbol,type,quantity,price,fee,executedAt,broker,confirmationNo；委托字段使用 symbol,side,status,quantity,filledQuantity,limitPrice,submittedAt,externalOrderId,validUntil。日期用 ISO 8601，方向只用 buy/sell。无法确定的字段省略。`,
+账户汇总只生成一行，字段使用 availableCash,cashBalance,withdrawableCash,stockMarketValue,totalAssets,holdingPnl,dayPnl,dayPnlPct；持仓字段使用 symbol,name,quantity,avgCost,currentPrice,marketValue；成交字段使用 symbol,type,quantity,price,fee,executedAt,broker,confirmationNo；委托字段使用 symbol,side,status,quantity,filledQuantity,limitPrice,submittedAt,externalOrderId,validUntil。金额和比例保留图片所示正负号；日期用 ISO 8601，方向只用 buy/sell。无法确定的字段省略。`,
             },
             {
               type: 'image_url',

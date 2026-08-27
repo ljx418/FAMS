@@ -153,8 +153,13 @@ class DailyReviewWorkflowService {
     const materialCount = assets.filter((asset: any) => asset?.fundamentalAndNews?.level === 'material').length
     const insufficientFactCount = assets.filter((asset: any) => asset?.fundamentalAndNews?.level === 'insufficient').length
     const evidenceRefs = unique(assets.flatMap((asset: any) => asset?.fundamentalAndNews?.evidenceRefs || []))
-    const gridBlockers = unique(assets.flatMap((asset: any) => asset?.grid?.blockers || []))
-    const orderDraftCount = review.gridPlans.reduce((sum, plan) => sum + plan.orders.length, 0)
+    const gridBlockers = unique(assets.flatMap((asset: any) => [...(asset?.grid?.blockers || []), ...(asset?.buybackGrid?.blockers || [])]))
+    const immediatePlans = review.gridPlans.filter((plan) => plan.mode !== 'conditional_buyback')
+    const conditionalBuybackPlans = review.gridPlans.filter((plan) => plan.mode === 'conditional_buyback')
+    const immediateOrderDraftCount = immediatePlans.reduce((sum, plan) => sum + plan.orders.length, 0)
+    const conditionalBuybackDraftCount = conditionalBuybackPlans.reduce((sum, plan) => sum + plan.orders.length, 0)
+    const orderDraftCount = immediateOrderDraftCount + conditionalBuybackDraftCount
+    const dualGridExpected = assets.some((asset: any) => asset?.buybackGrid)
     const expectedNonCashAssets = Number(report.portfolio?.reviewedAssets || 0) + errors.length
     const snapshotCounts = {
       positionSnapshots: review.positionSnapshots.length,
@@ -236,10 +241,16 @@ class DailyReviewWorkflowService {
       },
       {
         id: 'grid', sequence: 8, title: '系统网格',
-        status: assets.length === 0 ? 'empty' : review.gridPlans.length >= assets.length ? 'complete' : review.gridPlans.length > 0 ? 'partial' : 'blocked',
+        status: assets.length === 0 ? 'empty' : review.gridPlans.length >= assets.length * (dualGridExpected ? 2 : 1) ? 'complete' : review.gridPlans.length > 0 ? 'partial' : 'blocked',
         provenance: 'runtime_record',
         inputs: [value('成功资产', assets.length), value('激活策略版本', report.strategy?.activeStrategyVersionIds || [])],
-        outputs: [value('网格计划', review.gridPlans.length), value('人工计划草案档位', orderDraftCount), value('观察计划', review.gridPlans.filter((plan) => plan.status === 'observe_only').length)],
+        outputs: [
+          value('即时网格计划', immediatePlans.length),
+          value('条件买回计划', conditionalBuybackPlans.length),
+          value('现在可设置草案', immediateOrderDraftCount),
+          value('待父卖单成交草案', conditionalBuybackDraftCount),
+          value('观察计划', review.gridPlans.filter((plan) => plan.status === 'observe_only').length),
+        ],
         evidenceRefs: review.gridPlans.map((plan) => `grid-plan:${plan.id}`),
         blockerCodes: gridBlockers,
       },

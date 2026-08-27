@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { prisma } from '../../db/prisma.js'
 import { ensureUser } from '../../utils/user.js'
-import { assetTrendService } from '../market-data/assetTrendService.js'
+import { assetTrendService, type AssetTrendSnapshot } from '../market-data/assetTrendService.js'
 import { positionAdviceService, type PositionAdviceResult } from '../position/positionAdviceService.js'
 import { gridStrategyService, type GridStrategyConfig } from '../strategy/gridStrategyService.js'
 import { valueAssessmentService, type ValueAssessmentFactSet } from '../valuation/valueAssessmentService.js'
@@ -16,6 +16,7 @@ export interface StartDailyReviewInput {
   scheduledFor?: Date
   idempotencyKey?: string
   executionMode?: 'inline' | 'queued'
+  requireLlmSuccess?: boolean
 }
 
 const parseJson = <T>(value: string | null | undefined, fallback: T): T => {
@@ -164,9 +165,16 @@ function gridAssetType(assetType: string) {
   return assetType === 'bond_fund' ? 'bond' : assetType
 }
 
+function gridMarket(exchange: string | null | undefined) {
+  if (exchange === 'HK') return 'HK'
+  if (exchange === 'US') return 'US'
+  return 'CN'
+}
+
 function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
   const assets = assetReviews.map((item) => {
     const orders = Array.isArray(item.grid?.orders) ? item.grid.orders : []
+    const conditionalBuybackOrders = Array.isArray(item.buybackGrid?.orders) ? item.buybackGrid.orders : []
     const buyOrders = orders.filter((order: any) => order.side === 'buy')
     const sellOrders = orders.filter((order: any) => order.side === 'sell')
     const action = buyOrders.length > 0 && sellOrders.length > 0
@@ -196,6 +204,7 @@ function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
       quoteAsOf: item.trend?.quote?.asOf ?? null,
       valuationContext: item.valuationContext,
       gridDerivation: item.grid?.derivation || null,
+      adjustment: item.grid?.adjustment || { changed: false, reasons: [] },
       blockers: item.grid?.blockers || [],
       orders: orders.map((order: any) => ({
         id: order.id,
@@ -208,6 +217,26 @@ function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
         conflictStatus: order.conflictStatus,
         rationale: order.rationale,
       })),
+      conditionalBuyback: {
+        status: item.buybackGrid?.status || 'observe_only',
+        summary: item.buybackGrid?.summary || '本轮没有可绑定的父卖单。',
+        blockers: item.buybackGrid?.blockers || [],
+        derivation: item.buybackGrid?.derivation || null,
+        adjustment: item.buybackGrid?.adjustment || { changed: false, reasons: [] },
+        orders: conditionalBuybackOrders.map((order: any) => ({
+          id: order.id,
+          side: order.side,
+          level: order.level,
+          price: order.price,
+          quantity: order.quantity,
+          amount: order.amount,
+          validUntil: order.validUntil,
+          status: order.status,
+          conflictStatus: order.conflictStatus,
+          triggerCondition: parseJson(order.triggerConditionJson, {}),
+          rationale: order.rationale,
+        })),
+      },
       evidenceRefs: [...new Set([
         ...(item.fundamentalAndNews?.evidenceRefs || []),
         ...(item.valuationContext?.evidenceRefs || []),
@@ -223,6 +252,7 @@ function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
       assets: assets.length,
       buyDrafts: assets.reduce((sum, item) => sum + item.orders.filter((order: any) => order.side === 'buy').length, 0),
       sellDrafts: assets.reduce((sum, item) => sum + item.orders.filter((order: any) => order.side === 'sell').length, 0),
+      conditionalBuybackDrafts: assets.reduce((sum, item) => sum + item.conditionalBuyback.orders.length, 0),
       observeAssets: assets.filter((item) => item.orders.length === 0).length,
     },
     assets,
@@ -255,7 +285,12 @@ class DailyReviewService {
         status: 'queued',
         createdBy: triggerSource,
         idempotencyKey,
-        inputJson: JSON.stringify({ sessionType, triggerSource, scheduledFor: scheduledFor?.toISOString() || null }),
+        inputJson: JSON.stringify({
+          sessionType,
+          triggerSource,
+          scheduledFor: scheduledFor?.toISOString() || null,
+          requireLlmSuccess: input.requireLlmSuccess === true,
+        }),
         progressMessage: '等待生成每日持仓复盘',
       },
     })
@@ -283,11 +318,13 @@ class DailyReviewService {
   async executeReview(reviewId: string) {
     const review = await prisma.dailyReviewRun.findUnique({
       where: { id: reviewId },
-      include: { previousRun: true },
+      include: { previousRun: true, operation: true },
     })
     if (!review) throw new Error('Daily review run not found')
     if (['completed', 'partial', 'failed'].includes(review.status)) return this.getReview(reviewId, review.userId)
     const startedAt = new Date()
+    const operationInput = parseJson<any>(review.operation?.inputJson, {})
+    const requireLlmSuccess = operationInput.requireLlmSuccess === true
     if (review.status === 'running') {
       await prisma.$transaction([
         prisma.gridPlan.deleteMany({ where: { dailyReviewRunId: review.id } }),
@@ -310,9 +347,44 @@ class DailyReviewService {
     })
     const previousReport = parseJson<any>(review.previousRun?.reportJson, {})
     const activeConfigs = await gridStrategyService.getActiveConfigs(review.userId)
-    const totalValue = positions.reduce((sum, position) => sum + (position.marketValue ?? position.quantity * (position.currentPrice || position.avgCost)), 0)
+    const investablePositions = positions.filter((position) => position.asset.type !== 'cash')
+    const assetTimeoutMs = Math.max(5_000, Number(process.env.FAMS_DAILY_REVIEW_ASSET_TIMEOUT_MS || 45_000))
+    const trendResults = await Promise.allSettled(investablePositions.map((position) => withTimeout(
+      assetTrendService.getSnapshot({ assetId: position.assetId, days: 30, persist: true }),
+      assetTimeoutMs,
+      `daily_review_trend_timeout:${position.asset.symbol}`,
+    )))
+    const trendByAsset = new Map<string, AssetTrendSnapshot>()
+    const trendErrorByAsset = new Map<string, Error>()
+    trendResults.forEach((result, index) => {
+      const position = investablePositions[index]
+      if (result.status === 'fulfilled') trendByAsset.set(position.assetId, result.value)
+      else trendErrorByAsset.set(position.assetId, result.reason instanceof Error ? result.reason : new Error(String(result.reason)))
+    })
     const cashBudget = positions.filter((position) => position.asset.type === 'cash')
       .reduce((sum, position) => sum + (position.marketValue ?? position.quantity * (position.currentPrice || 1)), 0)
+    const totalValue = positions.reduce((sum, position) => {
+      if (position.asset.type === 'cash') return sum + (position.marketValue ?? position.quantity * (position.currentPrice || 1))
+      const liveTrend = trendByAsset.get(position.assetId)
+      return sum + (liveTrend
+        ? position.quantity * liveTrend.quote.price
+        : (position.marketValue ?? position.quantity * (position.currentPrice || position.avgCost)))
+    }, 0)
+    const portfolioPricing = {
+      basis: 'review_quote_price',
+      livePricedAssets: investablePositions.filter((position) => trendByAsset.has(position.assetId)).map((position) => position.asset.symbol),
+      fallbackPricedAssets: investablePositions.filter((position) => !trendByAsset.has(position.assetId)).map((position) => position.asset.symbol),
+      cashBasis: 'open_cash_position_market_value',
+    }
+    const gridConfigFor = (position: (typeof positions)[number]) => {
+      const applicable = activeConfigs.find((item) => item.config.applicableAssetTypes.includes(gridAssetType(position.asset.type) as any)) || null
+      return applicable?.config || fallbackGridConfig(position.asset.type)
+    }
+    const portfolioCashFloorPercent = investablePositions.length > 0
+      ? Math.max(...investablePositions.map((position) => gridConfigFor(position).riskPolicy.cashFloorPercent))
+      : 0
+    const initialImmediateBuyBudget = Math.max(0, cashBudget - totalValue * portfolioCashFloorPercent / 100)
+    let remainingImmediateBuyBudget = initialImmediateBuyBudget
     const errors: Array<{ assetId: string; symbol: string; message: string }> = []
     const assetReviews: any[] = []
 
@@ -320,20 +392,43 @@ class DailyReviewService {
       const position = positions[index]
       if (position.asset.type === 'cash') continue
       try {
-        const assetTimeoutMs = Math.max(5_000, Number(process.env.FAMS_DAILY_REVIEW_ASSET_TIMEOUT_MS || 45_000))
-        const [trend, positionAdvice, externalOrders, valueAssessment] = await withTimeout(Promise.all([
-          assetTrendService.getSnapshot({ assetId: position.assetId, days: 30, persist: true }),
-          positionAdviceService.getPositionAdvice(position.id, {
-            useCache: false,
-            externalAnalysisMode: process.env.FAMS_DAILY_REVIEW_EXTERNAL_ANALYSIS_MODE === 'live' ? 'live' : 'cached',
-          }),
-          prisma.externalOrderObservation.findMany({
-            where: { userId: review.userId, assetId: position.assetId, status: { in: ['pending', 'submitted', 'partial', 'open'] } },
-            orderBy: { observedAt: 'desc' },
-            take: 20,
-          }),
-          valueAssessmentService.assessPosition(position).catch(() => null),
-        ]), assetTimeoutMs, `daily_review_asset_timeout:${position.asset.symbol}`)
+        const trend = trendByAsset.get(position.assetId)
+        if (!trend) throw trendErrorByAsset.get(position.assetId) || new Error(`daily_review_trend_unavailable:${position.asset.symbol}`)
+        let positionAdvice: PositionAdviceResult
+        let externalOrders: any[]
+        let valueAssessment: ValueAssessmentFactSet | null
+        let evidenceMode: 'current_factset' | 'cached_degraded_after_timeout' = 'current_factset'
+        let evidenceWarning: string | null = null
+        try {
+          [positionAdvice, externalOrders, valueAssessment] = await withTimeout(Promise.all([
+            positionAdviceService.getPositionAdvice(position.id, {
+              useCache: false,
+              externalAnalysisMode: process.env.FAMS_DAILY_REVIEW_EXTERNAL_ANALYSIS_MODE === 'live' ? 'live' : 'cached',
+            }),
+            prisma.externalOrderObservation.findMany({
+              where: { userId: review.userId, assetId: position.assetId, status: { in: ['pending', 'submitted', 'partial', 'open'] } },
+              orderBy: { observedAt: 'desc' },
+              take: 20,
+            }),
+            valueAssessmentService.assessPosition(position).catch(() => null),
+          ]), assetTimeoutMs, `daily_review_asset_timeout:${position.asset.symbol}`)
+        } catch (primaryError) {
+          evidenceMode = 'cached_degraded_after_timeout'
+          evidenceWarning = primaryError instanceof Error ? primaryError.message : String(primaryError)
+          ;[positionAdvice, externalOrders, valueAssessment] = await withTimeout(Promise.all([
+            positionAdviceService.getPositionAdvice(position.id, {
+              useCache: true,
+              externalAnalysisMode: 'cached',
+              skipBackgroundRefresh: true,
+            }),
+            prisma.externalOrderObservation.findMany({
+              where: { userId: review.userId, assetId: position.assetId, status: { in: ['pending', 'submitted', 'partial', 'open'] } },
+              orderBy: { observedAt: 'desc' },
+              take: 20,
+            }),
+            withTimeout(valueAssessmentService.assessPosition(position), 8_000, `daily_review_value_timeout:${position.asset.symbol}`).catch(() => null),
+          ]), 12_000, `daily_review_cached_fallback_timeout:${position.asset.symbol}`)
+        }
         const previousAsset = (previousReport.assets || []).find((item: any) => item.assetId === position.assetId)
         const materialChange = classifyMaterialChange(positionAdvice, previousAsset, valueAssessment)
         const valueContext = valuationContext(valueAssessment, position.asset.type)
@@ -350,10 +445,12 @@ class DailyReviewService {
         const gridDraft = gridStrategyService.buildGridDraft({
           config,
           assetType: gridAssetType(position.asset.type),
+          market: gridMarket(position.asset.exchange),
           currentPrice: trend.quote.price,
           avgCost: position.avgCost,
           quantity: position.quantity,
           cashBudget,
+          availablePortfolioBuyBudget: remainingImmediateBuyBudget,
           portfolioValue: totalValue,
           currentMarketValue: position.quantity * trend.quote.price,
           completedBars: trend.indicators.sampleCount,
@@ -368,9 +465,10 @@ class DailyReviewService {
           support,
           resistance,
           externalOrders: externalOrders.map((order) => ({ side: order.side, price: order.limitPrice, status: order.status })),
+          now: startedAt,
         })
         const previousPlan = await prisma.gridPlan.findFirst({
-          where: { userId: review.userId, assetId: position.assetId },
+          where: { userId: review.userId, assetId: position.assetId, mode: { not: 'conditional_buyback' } },
           include: { orders: { orderBy: [{ side: 'asc' }, { level: 'asc' }] } },
           orderBy: { createdAt: 'desc' },
         })
@@ -406,6 +504,60 @@ class DailyReviewService {
                 rationale: order.rationale,
                 conflictStatus: order.conflictStatus || 'none',
                 evidenceRefsJson: JSON.stringify(materialChange.evidenceRefs),
+              })),
+            },
+          },
+          include: { orders: true },
+        })
+        const immediateBuyAmount = gridPlan.orders
+          .filter((order) => order.side === 'buy')
+          .reduce((sum, order) => sum + order.amount, 0)
+        remainingImmediateBuyBudget = Math.max(0, remainingImmediateBuyBudget - immediateBuyAmount)
+
+        const previousBuybackPlan = await prisma.gridPlan.findFirst({
+          where: { userId: review.userId, assetId: position.assetId, mode: 'conditional_buyback' },
+          include: { orders: { orderBy: [{ side: 'asc' }, { level: 'asc' }] } },
+          orderBy: { createdAt: 'desc' },
+        })
+        const buybackDraft = gridStrategyService.buildConditionalBuybackDraft({
+          parentGridPlanId: gridPlan.id,
+          parentSellOrders: gridPlan.orders
+            .filter((order) => order.side === 'sell')
+            .map((order) => ({ id: order.id, level: order.level, price: order.price, quantity: order.quantity, validUntil: order.validUntil })),
+          spacingAbsolute: Number((gridDraft.derivation as any).spacing?.absoluteAmount || 0),
+          assetType: gridAssetType(position.asset.type),
+          market: gridMarket(position.asset.exchange),
+          now: startedAt,
+        })
+        const buybackChange = gridChange(previousBuybackPlan, buybackDraft)
+        const buybackValidUntil = buybackDraft.constraints.validUntil ? new Date(buybackDraft.constraints.validUntil) : null
+        const buybackPlan = await prisma.gridPlan.create({
+          data: {
+            userId: review.userId,
+            dailyReviewRunId: review.id,
+            assetId: position.assetId,
+            strategyVersionId: applicable?.version.id || null,
+            previousPlanId: previousBuybackPlan?.id || null,
+            mode: buybackDraft.mode,
+            status: buybackDraft.status,
+            summary: buybackDraft.summary,
+            constraintsJson: JSON.stringify({ ...buybackDraft.constraints, derivation: buybackDraft.derivation }),
+            changeReasonsJson: JSON.stringify(buybackChange.reasons),
+            evidenceRefsJson: JSON.stringify(materialChange.evidenceRefs),
+            validUntil: buybackValidUntil,
+            orders: {
+              create: buybackDraft.orders.map((order) => ({
+                side: order.side,
+                level: order.level,
+                price: order.price,
+                quantity: order.quantity,
+                amount: order.amount,
+                validUntil: new Date(order.validUntil),
+                triggerConditionJson: JSON.stringify(order.triggerCondition),
+                rationale: order.rationale,
+                conflictStatus: order.conflictStatus,
+                evidenceRefsJson: JSON.stringify(materialChange.evidenceRefs),
+                status: order.status,
               })),
             },
           },
@@ -451,6 +603,8 @@ class DailyReviewService {
           trend,
           marketConfidence,
           recommendation: positionAdvice.advice,
+          evidenceMode,
+          evidenceWarnings: evidenceWarning ? [evidenceWarning] : [],
           fundamentalAndNews: materialChange,
           valuationContext: valueContext,
           grid: {
@@ -467,6 +621,21 @@ class DailyReviewService {
             sideBlockers: gridDraft.sideBlockers,
             blockers: gridDraft.blockers,
             adjustment: change,
+          },
+          buybackGrid: {
+            id: buybackPlan.id,
+            parentGridPlanId: gridPlan.id,
+            strategyVersionId: applicable?.version.id || null,
+            strategySource,
+            templateId: config.templateId,
+            mode: buybackPlan.mode,
+            status: buybackPlan.status,
+            summary: buybackPlan.summary,
+            orders: buybackPlan.orders,
+            constraints: buybackDraft.constraints,
+            derivation: buybackDraft.derivation,
+            blockers: buybackDraft.blockers,
+            adjustment: buybackChange,
           },
         })
       } catch (error) {
@@ -541,7 +710,7 @@ class DailyReviewService {
             conclusion: '未识别出足以改变原策略的重大事实，继续按现有研究计划观察。',
             reasons: ['本轮事实变化未达到重大变化阈值。'],
           }
-    const status = errors.length === 0 ? 'completed' : assetReviews.length > 0 ? 'partial' : 'failed'
+    const deterministicStatus = errors.length === 0 ? 'completed' : assetReviews.length > 0 ? 'partial' : 'failed'
     const decisionSummary = buildDecisionSummary(assetReviews, strategyAssessment)
     if (review.operationId) {
       await prisma.operation.update({
@@ -555,6 +724,16 @@ class DailyReviewService {
       attentionCandidates: candidates,
       assets: assetReviews,
     })
+    const llmGate = {
+      required: requireLlmSuccess,
+      passed: llmSynthesis.status === 'available',
+      status: llmSynthesis.status,
+      source: llmSynthesis.source,
+      attemptCount: llmSynthesis.attemptCount,
+      failureCode: llmSynthesis.failureCode,
+    }
+    const llmRequiredFailure = requireLlmSuccess && !llmGate.passed
+    const status = llmRequiredFailure ? 'failed' : deterministicStatus
     const completedAt = new Date()
     const report = {
       schemaVersion: 'fams.daily-portfolio-review.v2',
@@ -563,7 +742,20 @@ class DailyReviewService {
       completedAt: completedAt.toISOString(),
       sessionType: review.sessionType,
       triggerSource: review.triggerSource,
-      portfolio: { totalValue, cashBudget, positions: positions.length, reviewedAssets: assetReviews.length },
+      portfolio: {
+        totalValue,
+        cashBudget,
+        positions: positions.length,
+        reviewedAssets: assetReviews.length,
+        pricing: portfolioPricing,
+        immediateBuyBudget: {
+          cashFloorPercent: portfolioCashFloorPercent,
+          initial: Number(initialImmediateBuyBudget.toFixed(2)),
+          used: Number((initialImmediateBuyBudget - remainingImmediateBuyBudget).toFixed(2)),
+          remaining: Number(remainingImmediateBuyBudget.toFixed(2)),
+          conditionalBuybackExcludedUntilParentFill: true,
+        },
+      },
       strategy: {
         activeStrategyVersionIds: activeConfigs.map((item) => item.version.id),
         fallback: activeConfigs.length === 0 ? ['mean_reversion_atr_v1', 'cost_support_v1'] : null,
@@ -573,6 +765,7 @@ class DailyReviewService {
       attentionCandidates: candidates,
       decisionSummary,
       llmSynthesis,
+      llmGate,
       errors,
       executionBoundary: {
         planDraftOnly: true,
@@ -603,7 +796,7 @@ class DailyReviewService {
         summaryText: `${review.sessionType === 'open' ? '开盘后' : review.sessionType === 'pre_close' ? '收盘前' : '手动'}复盘：完成 ${assetReviews.length}/${positions.filter((item) => item.asset.type !== 'cash').length} 个资产分析。`,
         disclaimerText: report.disclaimer,
         inputSnapshotJson: JSON.stringify({ reviewId: review.id, previousRunId: review.previousRunId }),
-        recommendationJson: JSON.stringify({ assets: assetReviews.map((item) => ({ assetId: item.assetId, recommendation: item.recommendation, grid: item.grid })), candidates }),
+        recommendationJson: JSON.stringify({ assets: assetReviews.map((item) => ({ assetId: item.assetId, recommendation: item.recommendation, grid: item.grid, buybackGrid: item.buybackGrid })), candidates }),
         rationaleText: '基于当前持仓、最近30个完整交易日收盘价、MA5/MA10/MA30、已有基本面与消息面证据及已激活策略版本生成。',
         status: 'proposed',
       },
@@ -613,7 +806,9 @@ class DailyReviewService {
         userId: review.userId,
         type: 'daily_review',
         title: `${review.sessionType === 'open' ? '开盘后' : review.sessionType === 'pre_close' ? '收盘前' : '手动'}持仓复盘已生成`,
-        message: status === 'completed' ? `已完成 ${assetReviews.length} 个持仓资产复盘。` : `复盘状态为 ${status}，${errors.length} 个资产需要补充数据。`,
+        message: llmRequiredFailure
+          ? `确定性复盘已保存，但要求的真实 LLM 汇总未通过：${llmSynthesis.failureCode || llmSynthesis.status}。`
+          : status === 'completed' ? `已完成 ${assetReviews.length} 个持仓资产复盘。` : `复盘状态为 ${status}，${errors.length} 个资产需要补充数据。`,
         severity: status === 'completed' ? 'info' : 'warning',
         triggeredAt: completedAt,
       },
@@ -627,7 +822,7 @@ class DailyReviewService {
           completedAt,
           strategyVersionIdsJson: JSON.stringify(activeConfigs.map((item) => item.version.id)),
           reportJson: JSON.stringify(report),
-          dataQualityJson: JSON.stringify({ status, reviewedAssets: assetReviews.length, failedAssets: errors.length, errors }),
+          dataQualityJson: JSON.stringify({ status, deterministicStatus, reviewedAssets: assetReviews.length, failedAssets: errors.length, errors, llmGate }),
         },
       }),
       ...(review.operationId ? [prisma.operation.update({
@@ -638,10 +833,14 @@ class DailyReviewService {
           progressPct: 100,
           progressCurrent: assetReviews.length,
           progressTotal: positions.filter((item) => item.asset.type !== 'cash').length,
-          progressMessage: status === 'completed' ? '每日持仓复盘已完成' : `复盘完成，但有 ${errors.length} 个资产数据不足`,
-          resultJson: JSON.stringify({ reviewId: review.id, adviceId: advice.id, status, attentionCandidates: candidates }),
-          errorJson: JSON.stringify(errors),
-          errorSummary: errors.length > 0 ? errors.map((item) => `${item.symbol}: ${item.message}`).join('; ') : null,
+          progressMessage: llmRequiredFailure
+            ? '确定性复盘已保存，但要求的真实 LLM 汇总未通过'
+            : status === 'completed' ? '每日持仓复盘已完成' : `复盘完成，但有 ${errors.length} 个资产数据不足`,
+          resultJson: JSON.stringify({ reviewId: review.id, adviceId: advice.id, status, attentionCandidates: candidates, llmGate }),
+          errorJson: JSON.stringify({ assetErrors: errors, llmGate }),
+          errorSummary: llmRequiredFailure
+            ? `要求的真实 LLM 汇总未通过：${llmSynthesis.failureCode || llmSynthesis.status}`
+            : errors.length > 0 ? errors.map((item) => `${item.symbol}: ${item.message}`).join('; ') : null,
         },
       })] : []),
     ])

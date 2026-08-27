@@ -103,7 +103,13 @@ type ReviewDetail = ReviewListItem & {
     generatedAt?: string
     completedAt?: string
     sessionType?: string
-    portfolio?: { totalValue?: number; cashBudget?: number; positions?: number; reviewedAssets?: number }
+    portfolio?: {
+      totalValue?: number
+      cashBudget?: number
+      positions?: number
+      reviewedAssets?: number
+      immediateBuyBudget?: { cashFloorPercent?: number; initial?: number; used?: number; remaining?: number; conditionalBuybackExcludedUntilParentFill?: boolean }
+    }
     strategy?: {
       activeStrategyVersionIds?: string[]
       fallback?: string[] | string | null
@@ -265,6 +271,7 @@ export default function DailyReviews() {
           sessionType: session,
           triggerSource: 'user',
           executionMode: 'inline',
+          requireLlmSuccess: true,
           idempotencyKey: `daily-review-workbench:${session}:${new Date().toISOString()}`,
         }),
       })
@@ -322,24 +329,38 @@ export default function DailyReviews() {
 
   const gridRows = useMemo(() => assets.flatMap((asset: any) => {
     const orders = Array.isArray(asset.grid?.orders) ? asset.grid.orders : []
-    if (orders.length === 0) return [{
+    const immediateRows = orders.length === 0 ? [{
       key: `${asset.assetId}:observe`, symbol: asset.symbol, name: asset.name,
-      strategySource: asset.grid?.strategySource, mode: asset.grid?.mode, side: 'observe', level: null,
+      planType: 'immediate', strategySource: asset.grid?.strategySource, mode: asset.grid?.mode, side: 'observe', level: null,
       price: null, quantity: null, validUntil: asset.grid?.constraints?.validUntil || null,
       status: asset.grid?.status || 'observe_only', rationale: asset.grid?.summary || asset.grid?.blockers?.join('；'),
-    }]
-    return orders.map((order: any) => ({
+    }] : orders.map((order: any) => ({
       key: order.id || `${asset.assetId}:${order.side}:${order.level}`,
-      symbol: asset.symbol, name: asset.name, strategySource: asset.grid?.strategySource, mode: asset.grid?.mode,
+      symbol: asset.symbol, name: asset.name, planType: 'immediate', strategySource: asset.grid?.strategySource, mode: asset.grid?.mode,
       side: order.side, level: order.level, price: order.price, quantity: order.quantity,
       validUntil: order.validUntil || asset.grid?.constraints?.validUntil || null,
       status: order.conflictStatus === 'none' ? 'manual_draft' : order.conflictStatus,
       rationale: order.rationale || asset.grid?.summary,
     }))
+    const buybackOrders = Array.isArray(asset.buybackGrid?.orders) ? asset.buybackGrid.orders : []
+    const buybackRows = buybackOrders.length === 0 ? [{
+      key: `${asset.assetId}:buyback-observe`, symbol: asset.symbol, name: asset.name,
+      planType: 'conditional_buyback', strategySource: asset.buybackGrid?.strategySource, mode: asset.buybackGrid?.mode, side: 'observe', level: null,
+      price: null, quantity: null, validUntil: asset.buybackGrid?.constraints?.validUntil || null,
+      status: asset.buybackGrid?.status || 'observe_only', rationale: asset.buybackGrid?.summary || asset.buybackGrid?.blockers?.join('；') || '旧报告未保存条件买回计划',
+    }] : buybackOrders.map((order: any) => ({
+      key: order.id || `${asset.assetId}:conditional:${order.level}`,
+      symbol: asset.symbol, name: asset.name, planType: 'conditional_buyback', strategySource: asset.buybackGrid?.strategySource, mode: asset.buybackGrid?.mode,
+      side: order.side, level: order.level, price: order.price, quantity: order.quantity,
+      validUntil: order.validUntil || asset.buybackGrid?.constraints?.validUntil || null,
+      status: order.status || 'awaiting_parent_fill', rationale: order.rationale || asset.buybackGrid?.summary,
+    }))
+    return [...immediateRows, ...buybackRows]
   }), [assets])
 
   const gridColumns: ColumnsType<any> = [
     { title: '标的', dataIndex: 'symbol', fixed: 'left', width: 112, render: (symbol, row) => <div><strong>{symbol}</strong><div className="text-xs text-slate-500">{row.name}</div></div> },
+    { title: '计划类型', dataIndex: 'planType', width: 150, render: (value) => <Tag color={value === 'immediate' ? 'blue' : 'gold'}>{value === 'immediate' ? '即时人工计划' : '卖出后条件买回'}</Tag> },
     { title: '策略来源', dataIndex: 'strategySource', width: 160, render: (source) => <Tag>{source || 'unknown'}</Tag> },
     { title: '方向', dataIndex: 'side', width: 90, render: (side) => <Tag color={side === 'buy' ? 'red' : side === 'sell' ? 'green' : 'default'}>{side === 'buy' ? '买入草案' : side === 'sell' ? '卖出草案' : '观察'}</Tag> },
     { title: '档位', dataIndex: 'level', width: 70, render: (level) => level ?? '—' },
@@ -467,7 +488,7 @@ export default function DailyReviews() {
           </Card>
 
           <Card className="fams-card">
-            <SectionHeading eyebrow="GRID PLAN" title="波动交易网格草案" description="仅展示实际保存的系统研究计划。买入和卖出均为人工计划草案，不会创建订单。" />
+            <SectionHeading eyebrow="GRID PLAN" title="波动交易网格完整台账" description="即时人工计划与卖出后条件买回分别标识；条件买回在父卖单成交前未激活且不占当前现金。" />
             <Table columns={gridColumns} dataSource={gridRows} pagination={false} scroll={{ x: 1240 }} size="small" />
           </Card>
 

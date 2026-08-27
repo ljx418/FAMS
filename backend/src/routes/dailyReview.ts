@@ -13,6 +13,7 @@ export async function dailyReviewRoutes(app: FastifyInstance) {
       triggerSource: body.triggerSource || 'user',
       idempotencyKey: body.idempotencyKey,
       executionMode: body.executionMode || 'inline',
+      requireLlmSuccess: body.requireLlmSuccess === true,
     })
   })
 

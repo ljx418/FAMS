@@ -123,10 +123,12 @@ const merge = (base: unknown, override: unknown): any => {
 export interface GridBuildInput {
   config: GridStrategyConfig
   assetType: string
+  market?: string
   currentPrice: number
   avgCost: number
   quantity: number
   cashBudget: number
+  availablePortfolioBuyBudget?: number
   portfolioValue?: number
   currentMarketValue?: number
   completedBars: number
@@ -142,6 +144,86 @@ export interface GridBuildInput {
   resistance?: number | null
   externalOrders?: Array<{ side: string; price: number | null; status: string }>
   now?: Date
+}
+
+export type GridPriceDirection = 'buy' | 'sell'
+
+export function resolveGridTradingRules(assetType: string, market = 'CN') {
+  const isChina = market === 'CN'
+  const priceTick = assetType === 'etf' && isChina ? 0.001 : assetType === 'stock' && isChina ? 0.01 : 0.0001
+  const lotSize = isChina && (assetType === 'stock' || assetType === 'etf') ? 100 : 0.01
+  return {
+    market,
+    priceTick,
+    priceDecimals: priceTick === 0.001 ? 3 : priceTick === 0.01 ? 2 : 4,
+    lotSize,
+    buyPriceRounding: 'down' as const,
+    sellPriceRounding: 'up' as const,
+  }
+}
+
+export function roundGridPrice(value: number, tick: number, direction: GridPriceDirection) {
+  if (!Number.isFinite(value) || value <= 0 || !Number.isFinite(tick) || tick <= 0) return 0
+  const decimals = tick === 0.001 ? 3 : tick === 0.01 ? 2 : 4
+  const scaled = direction === 'buy'
+    ? Math.floor((value + tick * 1e-9) / tick)
+    : Math.ceil((value - tick * 1e-9) / tick)
+  return Number((Math.max(1, scaled) * tick).toFixed(decimals))
+}
+
+function normalizeToLot(value: number, lotSize: number) {
+  const decimals = lotSize < 1 ? 2 : 0
+  return Number((Math.max(0, Math.floor((value + lotSize * 1e-9) / lotSize)) * lotSize).toFixed(decimals))
+}
+
+export function allocateLargestRemainder(totalQuantity: number, weights: number[], levels: number, lotSize: number) {
+  if (levels <= 0 || lotSize <= 0) return []
+  const usableWeights = weights.slice(0, levels)
+  const weightSum = usableWeights.reduce((sum, value) => sum + value, 0)
+  const totalLots = Math.floor((totalQuantity + lotSize * 1e-9) / lotSize)
+  if (totalLots <= 0 || weightSum <= 0) return Array.from({ length: levels }, () => 0)
+  const exact = usableWeights.map((weight) => totalLots * weight / weightSum)
+  const allocatedLots = exact.map((value) => Math.floor(value))
+  let remaining = totalLots - allocatedLots.reduce((sum, value) => sum + value, 0)
+  const ranking = exact
+    .map((value, index) => ({ index, remainder: value - Math.floor(value) }))
+    .sort((left, right) => right.remainder - left.remainder || left.index - right.index)
+  for (let index = 0; remaining > 0; index = (index + 1) % ranking.length) {
+    allocatedLots[ranking[index].index] += 1
+    remaining -= 1
+  }
+  const decimals = lotSize < 1 ? 2 : 0
+  return allocatedLots.map((lots) => Number((lots * lotSize).toFixed(decimals)))
+}
+
+function allocateBuyLots(budget: number, prices: number[], weights: number[], lotSize: number) {
+  if (budget <= 0 || prices.length === 0) return prices.map(() => 0)
+  const usableWeights = weights.slice(0, prices.length)
+  const weightSum = usableWeights.reduce((sum, value) => sum + value, 0) || 1
+  const targets = usableWeights.map((weight) => budget * weight / weightSum)
+  const exactLots = prices.map((price, index) => targets[index] / (price * lotSize))
+  const lots = exactLots.map((value) => Math.max(0, Math.floor(value)))
+  let remaining = budget - lots.reduce((sum, value, index) => sum + value * lotSize * prices[index], 0)
+  const ranking = exactLots
+    .map((value, index) => ({ index, remainder: value - Math.floor(value) }))
+    .sort((left, right) => right.remainder - left.remainder || left.index - right.index)
+  for (const item of ranking) {
+    const lotAmount = prices[item.index] * lotSize
+    if (remaining + 1e-8 >= lotAmount) {
+      lots[item.index] += 1
+      remaining -= lotAmount
+    }
+  }
+  const decimals = lotSize < 1 ? 2 : 0
+  return lots.map((value) => Number((value * lotSize).toFixed(decimals)))
+}
+
+export function shanghaiSessionClose(now: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now)
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value)
+  return new Date(Date.UTC(value('year'), value('month') - 1, value('day'), 7, 0, 0, 0))
 }
 
 class GridStrategyService {
@@ -383,23 +465,24 @@ class GridStrategyService {
       : config.spacingPolicy.value
     const spacingPercent = Math.max(config.spacingPolicy.minPercent, Math.min(config.spacingPolicy.maxPercent, rawSpacingPercent))
     const spacing = input.currentPrice * spacingPercent / 100
-    const isBoardLot = input.assetType === 'stock' || input.assetType === 'etf'
-    const unit = isBoardLot ? 100 : 0.01
-    const normalizeQuantity = (value: number) => Math.max(0, Math.floor(value / unit) * unit)
+    const tradingRules = resolveGridTradingRules(input.assetType, input.market || 'CN')
+    const unit = tradingRules.lotSize
     const weights = config.sizingPolicy.levelWeights
     const maxAdjustment = config.sizingPolicy.maxAdjustmentPercent / 100
     const cashAfterFloor = Math.max(0, input.cashBudget - (input.portfolioValue || input.cashBudget) * config.riskPolicy.cashFloorPercent / 100)
     const weightCapacity = input.portfolioValue && input.portfolioValue > 0
       ? Math.max(0, input.portfolioValue * config.riskPolicy.maxAssetWeightPercent / 100 - (input.currentMarketValue || input.quantity * input.currentPrice))
       : Number.POSITIVE_INFINITY
-    const buyBudget = Math.max(0, Math.min(cashAfterFloor * maxAdjustment, weightCapacity))
-    const sellQuantity = Math.max(0, input.quantity * maxAdjustment)
+    const portfolioBudgetRemainingBefore = Number.isFinite(input.availablePortfolioBuyBudget)
+      ? Math.max(0, Number(input.availablePortfolioBuyBudget))
+      : cashAfterFloor
+    const buyBudget = Math.max(0, Math.min(cashAfterFloor * maxAdjustment, weightCapacity, portfolioBudgetRemainingBefore))
+    const sellQuantity = normalizeToLot(Math.max(0, input.quantity * maxAdjustment), unit)
     if (buyBudget <= 0 && config.levelPolicy.buyLevels > 0) buyBlockers.push('buy_budget_or_weight_capacity_exhausted')
     if (sellQuantity < unit && config.levelPolicy.sellLevels > 0) sellBlockers.push('sell_quantity_below_minimum_lot')
-    const buyWeightSum = weights.slice(0, config.levelPolicy.buyLevels).reduce((sum, value) => sum + value, 0) || 1
-    const sellWeightSum = weights.slice(0, config.levelPolicy.sellLevels).reduce((sum, value) => sum + value, 0) || 1
     const now = input.now || new Date()
-    const validUntil = new Date(now.getTime() + config.riskPolicy.validMinutes * 60_000)
+    const validUntil = shanghaiSessionClose(now)
+    if (now.getTime() >= validUntil.getTime()) globalBlockers.push('session_closed')
     const external = (input.externalOrders || []).filter((order) => ['pending', 'submitted', 'partial', 'open'].includes(order.status))
     const conflict = (side: 'buy' | 'sell', price: number) => external.some((order) => order.side === side && order.price && Math.abs(order.price - price) <= spacing * 0.35)
 
@@ -434,6 +517,14 @@ class GridStrategyService {
         finalPercent: Number(spacingPercent.toFixed(4)),
         absoluteAmount: Number(spacing.toFixed(4)),
       },
+      tradingRules,
+      validity: {
+        policy: 'session_close',
+        timeZone: 'Asia/Shanghai',
+        generatedAt: now.toISOString(),
+        validUntil: validUntil.toISOString(),
+        sessionClosed: now.getTime() >= validUntil.getTime(),
+      },
       sizing: {
         cashBudget: input.cashBudget,
         portfolioValue: input.portfolioValue ?? null,
@@ -444,6 +535,7 @@ class GridStrategyService {
         weightCapacity: Number.isFinite(weightCapacity) ? Number(weightCapacity.toFixed(2)) : null,
         maxAdjustmentPercent: config.sizingPolicy.maxAdjustmentPercent,
         buyBudget: Number(buyBudget.toFixed(2)),
+        portfolioBudgetRemainingBefore: Number(portfolioBudgetRemainingBefore.toFixed(2)),
         sellQuantity: Number(sellQuantity.toFixed(4)),
         lotSize: unit,
         levelWeights: weights,
@@ -462,39 +554,53 @@ class GridStrategyService {
         blockers: [...new Set(globalBlockers)],
         sideBlockers: derivation.gates,
         summary: `观察模式：${[...new Set(globalBlockers)].join('、')}`,
-        constraints: { anchor, spacingPercent, validUntil: validUntil.toISOString(), notTradingAdvice: true },
+        constraints: {
+          anchor, spacingPercent, validUntil: validUntil.toISOString(), validityPolicy: 'session_close',
+          priceTick: tradingRules.priceTick, lotSize: tradingRules.lotSize, notTradingAdvice: true,
+        },
         derivation,
       }
     }
 
     const orders: Array<Record<string, unknown>> = []
-    for (let level = 1; buyBlockers.length === 0 && level <= config.levelPolicy.buyLevels; level += 1) {
+    if (buyBlockers.length === 0 && config.levelPolicy.buyLevels > 0) {
       const base = config.mode === 'cost_support' ? Math.min(input.currentPrice, input.support || anchor, anchor) : Math.min(input.currentPrice, anchor)
-      const price = Number(Math.max(0.0001, base - spacing * level).toFixed(4))
-      const allocated = buyBudget * (weights[level - 1] / buyWeightSum)
-      const quantity = normalizeQuantity(allocated / price)
-      if (quantity <= 0) continue
-      orders.push({
-        side: 'buy', level, price, quantity, amount: Number((price * quantity).toFixed(2)),
-        validUntil: validUntil.toISOString(),
-        conflictStatus: conflict('buy', price) ? 'overlaps_external' : 'none',
-        triggerCondition: { priceAtOrBelow: price },
-        rationale: `以 ${anchor.toFixed(4)} 为锚，间距 ${spacingPercent.toFixed(2)}% 的第 ${level} 档买入草案`,
+      const prices = Array.from({ length: config.levelPolicy.buyLevels }, (_value, index) => (
+        roundGridPrice(Math.max(tradingRules.priceTick, base - spacing * (index + 1)), tradingRules.priceTick, 'buy')
+      ))
+      const quantities = allocateBuyLots(buyBudget, prices, weights, unit)
+      prices.forEach((price, index) => {
+        const quantity = quantities[index]
+        if (quantity <= 0) return
+        orders.push({
+          side: 'buy', level: index + 1, price, quantity, amount: Number((price * quantity).toFixed(2)),
+          validUntil: validUntil.toISOString(),
+          conflictStatus: conflict('buy', price) ? 'overlaps_external' : 'none',
+          triggerCondition: { priceAtOrBelow: price },
+          rationale: `以 ${anchor.toFixed(4)} 为锚，间距 ${spacingPercent.toFixed(2)}% 的第 ${index + 1} 档买入草案；价格按 ${tradingRules.priceTick} 元步长向下取整`,
+        })
       })
     }
-    for (let level = 1; sellBlockers.length === 0 && level <= config.levelPolicy.sellLevels; level += 1) {
+    if (sellBlockers.length === 0 && config.levelPolicy.sellLevels > 0) {
       const base = config.mode === 'cost_support' ? Math.max(input.currentPrice, input.resistance || anchor, anchor) : Math.max(input.currentPrice, anchor)
-      const price = Number((base + spacing * level).toFixed(4))
-      const quantity = normalizeQuantity(sellQuantity * (weights[level - 1] / sellWeightSum))
-      if (quantity <= 0) continue
-      orders.push({
-        side: 'sell', level, price, quantity, amount: Number((price * quantity).toFixed(2)),
-        validUntil: validUntil.toISOString(),
-        conflictStatus: conflict('sell', price) ? 'overlaps_external' : 'none',
-        triggerCondition: { priceAtOrAbove: price },
-        rationale: `以 ${anchor.toFixed(4)} 为锚，间距 ${spacingPercent.toFixed(2)}% 的第 ${level} 档卖出草案`,
+      const quantities = allocateLargestRemainder(sellQuantity, weights, config.levelPolicy.sellLevels, unit)
+      quantities.forEach((quantity, index) => {
+        if (quantity <= 0) return
+        const price = roundGridPrice(base + spacing * (index + 1), tradingRules.priceTick, 'sell')
+        orders.push({
+          side: 'sell', level: index + 1, price, quantity, amount: Number((price * quantity).toFixed(2)),
+          validUntil: validUntil.toISOString(),
+          conflictStatus: conflict('sell', price) ? 'overlaps_external' : 'none',
+          triggerCondition: { priceAtOrAbove: price },
+          rationale: `以 ${anchor.toFixed(4)} 为锚，间距 ${spacingPercent.toFixed(2)}% 的第 ${index + 1} 档卖出草案；价格按 ${tradingRules.priceTick} 元步长向上取整，数量按最大余数法分配`,
+        })
       })
     }
+    const immediateBuyAmount = orders
+      .filter((order) => order.side === 'buy')
+      .reduce((sum, order) => sum + Number(order.amount || 0), 0)
+    ;(derivation.sizing as Record<string, unknown>).immediateBuyAmount = Number(immediateBuyAmount.toFixed(2))
+    ;(derivation.sizing as Record<string, unknown>).portfolioBudgetRemainingAfter = Number(Math.max(0, portfolioBudgetRemainingBefore - immediateBuyAmount).toFixed(2))
     if (orders.length === 0) {
       const blockers = [...new Set([
         ...buyBlockers,
@@ -512,6 +618,9 @@ class GridStrategyService {
           maxAdjustmentPercent: config.sizingPolicy.maxAdjustmentPercent,
           cashFloorPercent: config.riskPolicy.cashFloorPercent,
           maxAssetWeightPercent: config.riskPolicy.maxAssetWeightPercent,
+          priceTick: tradingRules.priceTick,
+          lotSize: tradingRules.lotSize,
+          validityPolicy: 'session_close',
           validUntil: validUntil.toISOString(), notTradingAdvice: true,
         },
         derivation,
@@ -532,9 +641,97 @@ class GridStrategyService {
         maxAdjustmentPercent: config.sizingPolicy.maxAdjustmentPercent,
         cashFloorPercent: config.riskPolicy.cashFloorPercent,
         maxAssetWeightPercent: config.riskPolicy.maxAssetWeightPercent,
+        priceTick: tradingRules.priceTick,
+        lotSize: tradingRules.lotSize,
+        immediateBuyAmount: Number(immediateBuyAmount.toFixed(2)),
+        portfolioBudgetRemainingBefore: Number(portfolioBudgetRemainingBefore.toFixed(2)),
+        portfolioBudgetRemainingAfter: Number(Math.max(0, portfolioBudgetRemainingBefore - immediateBuyAmount).toFixed(2)),
+        validityPolicy: 'session_close',
         validUntil: validUntil.toISOString(), notTradingAdvice: true,
       },
       derivation,
+    }
+  }
+
+  buildConditionalBuybackDraft(input: {
+    parentGridPlanId: string
+    parentSellOrders: Array<{ id: string; level: number; price: number; quantity: number; validUntil?: Date | string | null }>
+    spacingAbsolute: number
+    assetType: string
+    market?: string
+    now?: Date
+  }) {
+    const now = input.now || new Date()
+    const validUntil = shanghaiSessionClose(now)
+    const tradingRules = resolveGridTradingRules(input.assetType, input.market || 'CN')
+    const blockers: string[] = []
+    if (now.getTime() >= validUntil.getTime()) blockers.push('session_closed')
+    if (!Number.isFinite(input.spacingAbsolute) || input.spacingAbsolute <= 0) blockers.push('grid_spacing_invalid')
+    if (input.parentSellOrders.length === 0) blockers.push('parent_sell_draft_unavailable')
+    const derivationRows: Array<Record<string, unknown>> = []
+    const orders = blockers.length > 0 ? [] : input.parentSellOrders.flatMap((parent) => {
+      const rawPrice = parent.price - input.spacingAbsolute
+      const price = roundGridPrice(rawPrice, tradingRules.priceTick, 'buy')
+      const quantity = normalizeToLot(parent.quantity, tradingRules.lotSize)
+      if (rawPrice <= 0 || price <= 0 || quantity <= 0) return []
+      const triggerCondition = {
+        activationPolicy: 'after_parent_sell_fill',
+        parentGridPlanId: input.parentGridPlanId,
+        parentOrderDraftId: parent.id,
+        parentSellLevel: parent.level,
+        parentSellPrice: parent.price,
+        requiredFilledQuantity: quantity,
+        consumesImmediateCashBeforeFill: false,
+      }
+      derivationRows.push({
+        level: parent.level,
+        parentOrderDraftId: parent.id,
+        parentSellPrice: parent.price,
+        spacingAbsolute: input.spacingAbsolute,
+        rawBuybackPrice: rawPrice,
+        roundedBuybackPrice: price,
+        priceTick: tradingRules.priceTick,
+        quantity,
+      })
+      return [{
+        side: 'buy' as const,
+        level: parent.level,
+        price,
+        quantity,
+        amount: Number((price * quantity).toFixed(2)),
+        validUntil: validUntil.toISOString(),
+        status: 'awaiting_parent_fill',
+        conflictStatus: 'not_active_until_parent_fill',
+        triggerCondition,
+        rationale: `仅在父卖单第 ${parent.level} 档确认成交 ${quantity} 后激活；按父卖价下移一个本轮间距并以 ${tradingRules.priceTick} 元步长向下取整`,
+      }]
+    })
+    return {
+      mode: 'conditional_buyback' as const,
+      status: orders.length > 0 ? 'awaiting_parent_fill' as const : 'observe_only' as const,
+      orders,
+      blockers: [...new Set(blockers)],
+      summary: orders.length > 0
+        ? `生成 ${orders.length} 档卖出成交后条件买回草案；父卖单成交前不占用当前现金。`
+        : `未生成条件买回草案：${[...new Set(blockers)].join('、')}`,
+      constraints: {
+        parentGridPlanId: input.parentGridPlanId,
+        activationPolicy: 'after_parent_sell_fill',
+        consumesImmediateCashBeforeFill: false,
+        spacingAbsolute: Number(input.spacingAbsolute.toFixed(4)),
+        priceTick: tradingRules.priceTick,
+        lotSize: tradingRules.lotSize,
+        validityPolicy: 'session_close',
+        validUntil: validUntil.toISOString(),
+        notTradingAdvice: true,
+      },
+      derivation: {
+        schemaVersion: 'fams.conditional-buyback-derivation.v1',
+        formula: 'parent_sell_price - one_final_grid_spacing',
+        tradingRules,
+        validity: { policy: 'session_close', timeZone: 'Asia/Shanghai', generatedAt: now.toISOString(), validUntil: validUntil.toISOString() },
+        parents: derivationRows,
+      },
     }
   }
 }

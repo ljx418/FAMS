@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, App as AntApp, Button, Card, Checkbox, Input, Modal, Space, Tag } from 'antd'
+import { Alert, App as AntApp, Button, Card, Checkbox, Descriptions, Input, Modal, Space, Tag } from 'antd'
 import { EditOutlined, SafetyCertificateOutlined, UploadOutlined } from '@ant-design/icons'
 import { API_BASE } from '../../config/api'
 
@@ -40,6 +40,17 @@ type ScreenshotPreview = {
     missingHoldingsWillNeverBeClosed: true
     createsBrokerOrder: false
   }
+  accountReconciliation: null | {
+    status: 'exact' | 'warning' | 'unavailable'
+    rowMarketValueSum: number
+    brokerStockMarketValue: number | null
+    stockMarketValueVariance: number | null
+    availableCash: number | null
+    calculatedTotalAssets: number | null
+    brokerTotalAssets: number | null
+    totalAssetsVariance: number | null
+    ledgerBasis: 'holding_rows_plus_available_cash'
+  }
 }
 
 type VisionCaptureStatus = {
@@ -57,10 +68,14 @@ const captureFieldLabels: Record<string, string> = {
   symbol: '证券代码', name: '名称', quantity: '数量', avgCost: '平均成本', currentPrice: '当前价', marketValue: '市值',
   type: '成交类型', side: '方向', price: '成交价', fee: '费用', executedAt: '成交时间', broker: '券商', confirmationNo: '成交编号',
   status: '委托状态', filledQuantity: '已成交数量', limitPrice: '委托价', submittedAt: '委托时间', externalOrderId: '外部委托号', validUntil: '有效期',
+  availableCash: '可用金额', cashBalance: '资金余额', withdrawableCash: '可取金额', stockMarketValue: '股票市值', totalAssets: '总资产',
+  holdingPnl: '持仓盈亏', dayPnl: '当日盈亏', dayPnlPct: '当日盈亏比（%）',
 }
 
 function captureFieldKeys(rowType: string, fields: Record<string, unknown>) {
-  const defaults = rowType === 'holding'
+  const defaults = rowType === 'account_summary'
+    ? ['availableCash', 'cashBalance', 'withdrawableCash', 'stockMarketValue', 'totalAssets', 'holdingPnl', 'dayPnl', 'dayPnlPct']
+    : rowType === 'holding'
     ? ['symbol', 'name', 'quantity', 'avgCost', 'currentPrice', 'marketValue']
     : rowType === 'trade'
       ? ['symbol', 'type', 'quantity', 'price', 'fee', 'executedAt', 'broker', 'confirmationNo']
@@ -291,6 +306,24 @@ export function ScreenshotCapturePanel({
               message="截图缺失的现有持仓只提示差异，绝不自动减仓或平仓"
               description={`文档类型：${preview.capture.documentType}；可确认 ${preview.rows.filter((row) => row.status === 'ready').length}/${preview.rows.length} 行；不会创建券商订单。`}
             />
+            {preview.accountReconciliation ? (
+              <Alert
+                type={preview.accountReconciliation.status === 'exact' ? 'success' : 'warning'}
+                showIcon
+                message={preview.accountReconciliation.status === 'exact' ? '账户汇总与逐行持仓完全对平' : '账户汇总与逐行市值存在差额，按原图保留并提示'}
+                description={(
+                  <Descriptions size="small" column={{ xs: 1, sm: 2 }} className="mt-2">
+                    <Descriptions.Item label="逐行股票市值">{preview.accountReconciliation.rowMarketValueSum.toFixed(2)}</Descriptions.Item>
+                    <Descriptions.Item label="券商股票市值">{preview.accountReconciliation.brokerStockMarketValue?.toFixed(2) ?? '--'}</Descriptions.Item>
+                    <Descriptions.Item label="市值差额">{preview.accountReconciliation.stockMarketValueVariance?.toFixed(2) ?? '--'}</Descriptions.Item>
+                    <Descriptions.Item label="可用金额">{preview.accountReconciliation.availableCash?.toFixed(2) ?? '--'}</Descriptions.Item>
+                    <Descriptions.Item label="逐行市值 + 可用金额">{preview.accountReconciliation.calculatedTotalAssets?.toFixed(2) ?? '--'}</Descriptions.Item>
+                    <Descriptions.Item label="券商总资产">{preview.accountReconciliation.brokerTotalAssets?.toFixed(2) ?? '--'}</Descriptions.Item>
+                    <Descriptions.Item label="总资产差额">{preview.accountReconciliation.totalAssetsVariance?.toFixed(2) ?? '--'}</Descriptions.Item>
+                  </Descriptions>
+                )}
+              />
+            ) : null}
             <div className="max-h-[52vh] space-y-2 overflow-y-auto">
               {preview.rows.map((row) => {
                 const draft = draftFields[row.id] || row.fields

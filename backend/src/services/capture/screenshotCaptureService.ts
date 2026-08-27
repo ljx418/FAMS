@@ -16,7 +16,7 @@ const CAPTURE_ROOT = resolve(
 )
 
 const rowSchema = z.object({
-  rowType: z.enum(['holding', 'trade', 'order']),
+  rowType: z.enum(['account_summary', 'holding', 'trade', 'order']),
   rawText: z.string().optional().default(''),
   fields: z.record(z.unknown()),
   fieldConfidence: z.record(z.number().min(0).max(1)).optional().default({}),
@@ -24,7 +24,7 @@ const rowSchema = z.object({
 }).strict()
 
 const editableRowSchema = z.object({
-  rowType: z.enum(['holding', 'trade', 'order']).optional(),
+  rowType: z.enum(['account_summary', 'holding', 'trade', 'order']).optional(),
   rawText: z.string().optional(),
   fields: z.record(z.unknown()).optional(),
   fieldConfidence: z.record(z.number().min(0).max(1)).optional(),
@@ -52,6 +52,34 @@ function asDate(value: unknown) {
   if (!value) return null
   const date = new Date(String(value))
   return Number.isNaN(date.getTime()) ? null : date
+}
+
+function asFinite(value: unknown) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function decimalPlaces(value: unknown) {
+  const text = String(value)
+  if (/e-/i.test(text)) return Number(text.split(/e-/i)[1]) || 0
+  return text.includes('.') ? text.split('.')[1].length : 0
+}
+
+function rounded(value: number, precision: number) {
+  const factor = 10 ** precision
+  return Math.round((value + Number.EPSILON) * factor) / factor
+}
+
+function resolveScreenshotCost(existingCost: number | null | undefined, screenshotCost: number) {
+  const displayPrecision = decimalPlaces(screenshotCost)
+  const preserveExistingPrecision = Number.isFinite(existingCost)
+    && rounded(Number(existingCost), displayPrecision) === rounded(screenshotCost, displayPrecision)
+  return {
+    resolvedCost: preserveExistingPrecision ? Number(existingCost) : screenshotCost,
+    displayedCost: screenshotCost,
+    displayPrecision,
+    preserveExistingPrecision,
+  }
 }
 
 function detectMime(buffer: Buffer) {
@@ -128,6 +156,7 @@ class ScreenshotCaptureService {
     mimeType?: string
     originalFilename?: string
     conversationId?: string
+    capturedAt?: Date
   }) {
     const body = input.base64.replace(/^data:[^;]+;base64,/, '')
     return this.upload({ ...input, buffer: Buffer.from(body, 'base64') })
@@ -136,7 +165,13 @@ class ScreenshotCaptureService {
   private validateRow(row: CaptureExtractionRow) {
     const fields = row.fields as Record<string, unknown>
     const issues: string[] = []
-    if (!String(fields.symbol || '').trim()) issues.push('symbol_missing')
+    if (row.rowType !== 'account_summary' && !String(fields.symbol || '').trim()) issues.push('symbol_missing')
+    if (row.rowType === 'account_summary') {
+      if (asPositive(fields.availableCash, true) === null) issues.push('available_cash_invalid')
+      for (const key of ['cashBalance', 'withdrawableCash', 'stockMarketValue', 'totalAssets', 'holdingPnl', 'dayPnl', 'dayPnlPct']) {
+        if (fields[key] !== undefined && asFinite(fields[key]) === null) issues.push(`${key}_invalid`)
+      }
+    }
     if (row.rowType === 'holding') {
       if (asPositive(fields.quantity) === null) issues.push('quantity_invalid')
       if (asPositive(fields.avgCost) === null) issues.push('avg_cost_invalid')
@@ -174,6 +209,7 @@ class ScreenshotCaptureService {
     })
     const prepared = []
     const seenHoldingSymbols = new Set<string>()
+    let accountSummaryCount = 0
     for (let rowIndex = 0; rowIndex < parsed.length; rowIndex += 1) {
       const row = parsed[rowIndex]
       const fields = row.fields as Record<string, unknown>
@@ -181,16 +217,25 @@ class ScreenshotCaptureService {
       const identity = symbol ? await assetIdentityResolver.resolve(symbol) : null
       const matchedAsset = identity?.matchedAsset || null
       const issues = this.validateRow(row)
+      if (row.rowType === 'account_summary') {
+        accountSummaryCount += 1
+        if (accountSummaryCount > 1) issues.push('duplicate_account_summary_in_capture')
+      }
       if (row.rowType === 'holding' && symbol) {
         if (seenHoldingSymbols.has(symbol)) issues.push('duplicate_holding_symbol_in_capture')
         seenHoldingSymbols.add(symbol)
       }
-      if (!matchedAsset) issues.push('asset_not_matched_locally')
+      if (row.rowType !== 'account_summary' && !matchedAsset) issues.push('asset_not_matched_locally')
       const currentPosition = matchedAsset
         ? existingPositions.find((position) => position.assetId === matchedAsset.id)
         : null
       const importKey = `${capture.sha256}:${rowIndex}:${row.rowType}`
-      const diff = row.rowType === 'holding'
+      const costResolution = row.rowType === 'holding' && currentPosition && asPositive(fields.avgCost) !== null
+        ? resolveScreenshotCost(currentPosition.avgCost, asPositive(fields.avgCost)!)
+        : null
+      const diff = row.rowType === 'account_summary'
+        ? { type: 'update_account_summary_and_cash', before: null, after: fields }
+        : row.rowType === 'holding'
         ? {
             type: currentPosition ? 'update_position' : 'create_position',
             before: currentPosition ? {
@@ -200,11 +245,15 @@ class ScreenshotCaptureService {
               marketValue: currentPosition.marketValue,
             } : null,
             after: fields,
+            costResolution,
           }
         : { type: row.rowType === 'trade' ? 'create_transaction' : 'observe_external_order', before: null, after: fields }
       prepared.push({ rowIndex, row, matchedAsset, identity, issues, diff, importKey })
     }
     const shownHoldingAssetIds = new Set(prepared.filter((item) => item.row.rowType === 'holding' && item.matchedAsset).map((item) => item.matchedAsset!.id))
+    if (prepared.some((item) => item.row.rowType === 'account_summary')) {
+      for (const position of existingPositions.filter((item) => item.asset.type === 'cash')) shownHoldingAssetIds.add(position.assetId)
+    }
     const missingHoldings = existingPositions
       .filter((position) => !shownHoldingAssetIds.has(position.assetId))
       .map((position) => ({
@@ -317,7 +366,13 @@ class ScreenshotCaptureService {
     const identity = symbol ? await assetIdentityResolver.resolve(symbol) : null
     const matchedAsset = identity?.matchedAsset || null
     const issues = this.validateRow(candidate)
-    if (!matchedAsset) issues.push('asset_not_matched_locally')
+    if (candidate.rowType !== 'account_summary' && !matchedAsset) issues.push('asset_not_matched_locally')
+    if (candidate.rowType === 'account_summary') {
+      const siblings = await prisma.screenshotCaptureRow.count({
+        where: { captureId: row.captureId, id: { not: row.id }, rowType: 'account_summary', status: { not: 'ignored' } },
+      })
+      if (siblings > 0) issues.push('duplicate_account_summary_in_capture')
+    }
     if (candidate.rowType === 'holding' && symbol) {
       const siblings = await prisma.screenshotCaptureRow.findMany({
         where: { captureId: row.captureId, id: { not: row.id }, rowType: 'holding', status: { not: 'ignored' } },
@@ -330,7 +385,12 @@ class ScreenshotCaptureService {
     const currentPosition = matchedAsset && candidate.rowType === 'holding'
       ? await prisma.position.findFirst({ where: { userId: row.capture.userId, assetId: matchedAsset.id, status: 'open' } })
       : null
-    const diff = candidate.rowType === 'holding'
+    const costResolution = candidate.rowType === 'holding' && currentPosition && asPositive(candidate.fields.avgCost) !== null
+      ? resolveScreenshotCost(currentPosition.avgCost, asPositive(candidate.fields.avgCost)!)
+      : null
+    const diff = candidate.rowType === 'account_summary'
+      ? { type: 'update_account_summary_and_cash', before: null, after: candidate.fields }
+      : candidate.rowType === 'holding'
       ? {
           type: currentPosition ? 'update_position' : 'create_position',
           before: currentPosition ? {
@@ -340,6 +400,7 @@ class ScreenshotCaptureService {
             marketValue: currentPosition.marketValue,
           } : null,
           after: candidate.fields,
+          costResolution,
         }
       : { type: candidate.rowType === 'trade' ? 'create_transaction' : 'observe_external_order', before: null, after: candidate.fields }
 
@@ -376,6 +437,9 @@ class ScreenshotCaptureService {
     const shownHoldingAssetIds = new Set(rows
       .filter((row) => row.rowType === 'holding' && row.status !== 'ignored' && row.assetId)
       .map((row) => row.assetId!))
+    if (rows.some((row) => row.rowType === 'account_summary' && row.status !== 'ignored')) {
+      for (const position of positions.filter((item) => item.asset.type === 'cash')) shownHoldingAssetIds.add(position.assetId)
+    }
     const missingHoldings = positions
       .filter((position) => !shownHoldingAssetIds.has(position.assetId))
       .map((position) => ({
@@ -408,6 +472,38 @@ class ScreenshotCaptureService {
     })
     if (!capture) throw new Error('Screenshot capture not found')
     if (expectedUserId && capture.userId !== expectedUserId) throw new Error('Screenshot capture does not belong to the requested user')
+    const visibleRows = capture.rows.filter((row) => row.status !== 'ignored')
+    const accountRow = visibleRows.find((row) => row.rowType === 'account_summary')
+    const accountFields = accountRow ? parseJson<Record<string, unknown>>(accountRow.fieldsJson, {}) : null
+    const rowMarketValueSum = visibleRows
+      .filter((row) => row.rowType === 'holding')
+      .reduce((sum, row) => {
+        const fields = parseJson<Record<string, unknown>>(row.fieldsJson, {})
+        const explicit = asPositive(fields.marketValue, true)
+        const quantity = asPositive(fields.quantity, true)
+        const currentPrice = asPositive(fields.currentPrice)
+        return sum + (explicit ?? (quantity !== null && currentPrice !== null ? quantity * currentPrice : 0))
+      }, 0)
+    const brokerStockMarketValue = asFinite(accountFields?.stockMarketValue)
+    const availableCash = asPositive(accountFields?.availableCash, true)
+    const brokerTotalAssets = asFinite(accountFields?.totalAssets)
+    const calculatedTotalAssets = availableCash === null ? null : rowMarketValueSum + availableCash
+    const accountReconciliation = accountFields ? {
+      status: brokerStockMarketValue === null
+        ? 'unavailable'
+        : Math.abs(brokerStockMarketValue - rowMarketValueSum) <= 0.01 ? 'exact' : 'warning',
+      accountSummary: accountFields,
+      rowMarketValueSum: Number(rowMarketValueSum.toFixed(2)),
+      brokerStockMarketValue,
+      stockMarketValueVariance: brokerStockMarketValue === null ? null : Number((brokerStockMarketValue - rowMarketValueSum).toFixed(2)),
+      availableCash,
+      calculatedTotalAssets: calculatedTotalAssets === null ? null : Number(calculatedTotalAssets.toFixed(2)),
+      brokerTotalAssets,
+      totalAssetsVariance: brokerTotalAssets === null || calculatedTotalAssets === null
+        ? null
+        : Number((brokerTotalAssets - calculatedTotalAssets).toFixed(2)),
+      ledgerBasis: 'holding_rows_plus_available_cash',
+    } : null
     return {
       schemaVersion: 'fams.screenshot-capture-preview.v1',
       capture: {
@@ -427,6 +523,7 @@ class ScreenshotCaptureService {
         missingHoldingsWillNeverBeClosed: true,
         createsBrokerOrder: false,
       },
+      accountReconciliation,
     }
   }
 
@@ -448,15 +545,62 @@ class ScreenshotCaptureService {
         results.push({ rowId: row.id, status: 'already_confirmed' })
         continue
       }
-      if (!row.assetId) throw new Error(`Row ${row.rowIndex} does not have a matched asset`)
       const fields = parseJson<Record<string, unknown>>(row.fieldsJson, {})
+      if (row.rowType === 'account_summary') {
+        const availableCash = asPositive(fields.availableCash, true)
+        if (availableCash === null) throw new Error(`Row ${row.rowIndex} does not have a valid availableCash`)
+        const existing = await prisma.position.findFirst({
+          where: { userId: capture.userId, status: 'open', asset: { type: 'cash' } },
+          include: { asset: true },
+        })
+        const cashAsset = existing?.asset || await prisma.asset.findFirst({ where: { type: 'cash' } })
+        if (!cashAsset) throw new Error('Cash asset is required before confirming account summary')
+        const position = existing
+          ? await prisma.position.update({
+              where: { id: existing.id },
+              data: { quantity: availableCash, avgCost: 1, currentPrice: 1, marketValue: availableCash, costBasis: availableCash, unrealizedPnl: 0, source: 'screenshot_confirmed' },
+            })
+          : await prisma.position.create({
+              data: {
+                userId: capture.userId,
+                assetId: cashAsset.id,
+                openKey: `${capture.userId}:${cashAsset.id}`,
+                quantity: availableCash,
+                avgCost: 1,
+                currentPrice: 1,
+                marketValue: availableCash,
+                costBasis: availableCash,
+                unrealizedPnl: 0,
+                source: 'screenshot_confirmed',
+              },
+            })
+        await prisma.positionSnapshot.create({
+          data: {
+            userId: capture.userId,
+            positionId: position.id,
+            assetId: cashAsset.id,
+            sourceCaptureId: capture.id,
+            quantity: availableCash,
+            avgCost: 1,
+            currentPrice: 1,
+            marketValue: availableCash,
+            costBasis: availableCash,
+          },
+        })
+        results.push({ rowId: row.id, status: 'confirmed', entity: 'cash_position', entityId: position.id, availableCash })
+      } else if (!row.assetId) {
+        throw new Error(`Row ${row.rowIndex} does not have a matched asset`)
+      }
+      const assetId = row.assetId
       if (row.rowType === 'holding') {
         const quantity = asPositive(fields.quantity, true)!
-        const avgCost = asPositive(fields.avgCost)!
-        const currentPrice = asPositive(fields.currentPrice) || avgCost
+        const screenshotCost = asPositive(fields.avgCost)!
+        const currentPrice = asPositive(fields.currentPrice) || screenshotCost
         const marketValue = asPositive(fields.marketValue, true) ?? quantity * currentPrice
+        const existing = await prisma.position.findFirst({ where: { userId: capture.userId, assetId: assetId!, status: 'open' } })
+        const costResolution = resolveScreenshotCost(existing?.avgCost, screenshotCost)
+        const avgCost = costResolution.resolvedCost
         const costBasis = quantity * avgCost
-        const existing = await prisma.position.findFirst({ where: { userId: capture.userId, assetId: row.assetId, status: 'open' } })
         const position = existing
           ? await prisma.position.update({
               where: { id: existing.id },
@@ -465,8 +609,8 @@ class ScreenshotCaptureService {
           : await prisma.position.create({
               data: {
                 userId: capture.userId,
-                assetId: row.assetId,
-                openKey: `${capture.userId}:${row.assetId}`,
+                assetId: assetId!,
+                openKey: `${capture.userId}:${assetId}`,
                 quantity,
                 avgCost,
                 currentPrice,
@@ -480,7 +624,7 @@ class ScreenshotCaptureService {
           data: {
             userId: capture.userId,
             positionId: position.id,
-            assetId: row.assetId,
+            assetId: assetId!,
             sourceCaptureId: capture.id,
             quantity,
             avgCost,
@@ -489,12 +633,12 @@ class ScreenshotCaptureService {
             costBasis,
           },
         })
-        results.push({ rowId: row.id, status: 'confirmed', entity: 'position', entityId: position.id })
+        results.push({ rowId: row.id, status: 'confirmed', entity: 'position', entityId: position.id, costResolution })
       } else if (row.rowType === 'trade') {
         const existing = row.importKey ? await prisma.transaction.findUnique({ where: { sourceImportKey: row.importKey } }) : null
         const transaction = existing || await transactionService.createTransaction({
           userId: capture.userId,
-          assetId: row.assetId,
+          assetId: assetId!,
           type: String(fields.type || fields.side).toLowerCase() as any,
           quantity: asPositive(fields.quantity)!,
           price: asPositive(fields.price)!,
@@ -513,7 +657,7 @@ class ScreenshotCaptureService {
           where: { captureRowId: row.id },
           create: {
             userId: capture.userId,
-            assetId: row.assetId,
+            assetId: assetId!,
             captureRowId: row.id,
             side: String(fields.side).toLowerCase(),
             status: String(fields.status || 'open').toLowerCase(),

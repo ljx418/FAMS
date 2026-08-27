@@ -44,7 +44,7 @@ function firstConfigured(candidates: Array<[string, string | undefined]>) {
 
 function defaultModel(provider: FamsLlmProvider) {
   if (provider === 'deepseek') return 'deepseek-chat'
-  if (provider === 'minimax') return 'abab6.5s-chat'
+  if (provider === 'minimax') return 'MiniMax-M2.7'
   if (provider === 'openai_compatible') return 'gpt-4o-mini'
   if (provider === 'openai') return 'gpt-4o-mini'
   return 'disabled'
@@ -100,7 +100,7 @@ export function getFamsLlmConfig(): FamsLlmRuntimeConfig {
 
   const model = (process.env.FAMS_LLM_MODEL || process.env.LLM_MODEL || defaultModel(provider)).trim()
   const baseUrl = (process.env.FAMS_LLM_BASE_URL || process.env.LLM_BASE_URL || defaultBaseUrl(provider) || '').trim() || undefined
-  const timeoutMs = Math.max(5_000, Math.min(120_000, Number(process.env.FAMS_LLM_TIMEOUT_MS || 30_000) || 30_000))
+  const timeoutMs = Math.max(5_000, Math.min(120_000, Number(process.env.FAMS_LLM_TIMEOUT_MS || 90_000) || 90_000))
   return {
     provider: key && provider !== 'disabled' ? provider : 'disabled',
     configured: Boolean(key && provider !== 'disabled'),

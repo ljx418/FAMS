@@ -14,6 +14,7 @@ interface PositionAdviceOptions {
   externalAnalysisMode?: 'none' | 'cached' | 'live'
   useCache?: boolean
   forceRefresh?: boolean
+  skipBackgroundRefresh?: boolean
   cacheTtlMs?: number
 }
 
@@ -246,7 +247,7 @@ class PositionAdviceService {
         where: { id: cache.id },
         data: { status: 'stale' },
       }).catch(() => undefined)
-      this.triggerBackgroundRefresh(position, options)
+      if (options.skipBackgroundRefresh !== true) this.triggerBackgroundRefresh(position, options)
     }
 
     return {
