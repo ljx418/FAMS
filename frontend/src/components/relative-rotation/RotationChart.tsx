@@ -50,6 +50,8 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
     const assetSeries: any[] = chartItems.flatMap(({ item, points }, itemIndex) => {
       const color = seriesColors[itemIndex % seriesColors.length]
       const name = `${item.name} ${item.symbol}`
+      const limited = item.readiness === 'limited'
+      const aged = item.freshness === 'stale' || item.freshness === 'unknown'
       const chartData = points.map((point) => [
         point.relativeTrend,
         point.relativeMomentum,
@@ -60,7 +62,7 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
         point.speed,
       ])
       return [{
-        id: `rrg-${item.symbol}`,
+        id: `rrg-${item.targetKey}`,
         name,
         type: 'line' as const,
         z: 5,
@@ -71,7 +73,8 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
         lineStyle: {
           color,
           width: 2.6,
-          opacity: 0.82,
+          opacity: aged ? 0.46 : 0.82,
+          type: limited ? 'dashed' as const : 'solid' as const,
           cap: 'round' as const,
           join: 'round' as const,
           shadowBlur: 3,
@@ -94,7 +97,7 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
         animationDurationUpdate: reducedMotion ? 0 : 320,
         animationEasingUpdate: 'cubicOut' as const,
       }, {
-        id: `rrg-dots-${item.symbol}`,
+        id: `rrg-dots-${item.targetKey}`,
         name,
         type: 'scatter' as const,
         z: 6,
@@ -103,12 +106,12 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
         symbolSize: (_value: unknown, params: { dataIndex: number }) => (
           3 + ((params.dataIndex / Math.max(1, chartData.length - 1)) * 3)
         ),
-        itemStyle: { color, opacity: 0.46, borderColor: '#ffffff', borderWidth: 0.8 },
+        itemStyle: { color, opacity: aged ? 0.22 : 0.46, borderColor: '#ffffff', borderWidth: 0.8 },
         emphasis: { focus: 'series' as const, scale: 1.2 },
         animationDurationUpdate: reducedMotion ? 0 : 320,
         animationEasingUpdate: 'cubicOut' as const,
       }, {
-        id: `rrg-head-${item.symbol}`,
+        id: `rrg-head-${item.targetKey}`,
         name,
         type: 'scatter' as const,
         z: 8,
@@ -117,7 +120,7 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
         symbolSize: 14,
         itemStyle: {
           color,
-          opacity: 1,
+          opacity: aged ? 0.62 : 1,
           borderColor: '#ffffff',
           borderWidth: 2.5,
           shadowBlur: 10,
@@ -155,7 +158,7 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
       aria: {
         enabled: true,
         decal: { show: false },
-        label: { description: `相对轮动图，头部日期 ${headDate}，显示 ${chartItems.length} 个当前持仓标的。` },
+        label: { description: `相对轮动图，头部日期 ${headDate}，显示 ${chartItems.length} 个持仓或自选标的。` },
       },
       grid: { left: 70, right: 54, top: 30, bottom: 78, containLabel: false },
       legend: {

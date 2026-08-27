@@ -10,6 +10,8 @@
     "test:market-data": "node node_modules/tsx/dist/cli.mjs scripts/verify-market-data-reliability.ts",
     "test:transaction-cost": "node node_modules/tsx/dist/cli.mjs scripts/verify-transaction-cost-model.ts",
     "test:relative-rotation-sleeve": "node node_modules/tsx/dist/cli.mjs scripts/verify-relative-rotation-sleeve.ts",
+    "test:relative-rotation-watchlist": "node node_modules/tsx/dist/cli.mjs scripts/verify-relative-rotation-watchlist.ts",
+    "test:relative-rotation-watchlist-real-data": "node node_modules/tsx/dist/cli.mjs scripts/verify-relative-rotation-watchlist-real-data.ts",
     "test:position-consistency": "node node_modules/tsx/dist/cli.mjs scripts/verify-position-consistency.ts",
     "test:analysis-trace": "node node_modules/tsx/dist/cli.mjs scripts/verify-analysis-trace.ts",
     "test:screener-resolver": "node node_modules/tsx/dist/cli.mjs scripts/verify-screener-resolver.ts",

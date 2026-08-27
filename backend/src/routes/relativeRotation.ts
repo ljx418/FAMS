@@ -3,8 +3,56 @@ import { prisma } from '../db/prisma.js'
 import { operationService } from '../services/operation/operationService.js'
 import { volatilitySleeveService } from '../services/volatility-sleeve/volatilitySleeveService.js'
 import { relativeRotationService } from '../services/relative-rotation/relativeRotationService.js'
+import { relativeRotationUniverseService } from '../services/relative-rotation/relativeRotationUniverseService.js'
 
 export async function relativeRotationRoutes(app: FastifyInstance) {
+  app.get('/watchlist', async (request) => {
+    const query = request.query as Record<string, string | undefined>
+    return relativeRotationUniverseService.listWatchlist(query.userId || 'default')
+  })
+
+  app.post('/watchlist', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const result = await relativeRotationUniverseService.addWatchlistItem(
+      typeof body.userId === 'string' ? body.userId : 'default',
+      String(body.market || ''),
+      String(body.code || ''),
+      {
+        refresh: body.refresh !== false,
+        years: typeof body.years === 'number' ? body.years : undefined,
+      },
+    )
+    reply.code(result.created ? 201 : 200)
+    return result
+  })
+
+  app.delete('/watchlist/:itemId', async (request) => {
+    const { itemId } = request.params as { itemId: string }
+    const query = request.query as Record<string, string | undefined>
+    return relativeRotationUniverseService.deleteWatchlistItem(query.userId || 'default', itemId)
+  })
+
+  app.get('/universe/timeline', async (request) => {
+    const query = request.query as Record<string, string | undefined>
+    return relativeRotationUniverseService.getUniverseTimeline(query.userId || 'default', {
+      market: query.market,
+      frequency: query.frequency,
+      years: Number(query.years || 8),
+    })
+  })
+
+  app.post('/universe/refresh', async (request) => {
+    const body = request.body as Record<string, unknown>
+    return relativeRotationUniverseService.refreshUniverse(
+      typeof body.userId === 'string' ? body.userId : 'default',
+      {
+        market: typeof body.market === 'string' ? body.market : 'CN',
+        targetKeys: Array.isArray(body.targetKeys) ? body.targetKeys.map(String) : [],
+        years: typeof body.years === 'number' ? body.years : 8,
+      },
+    )
+  })
+
   app.get('/holdings', async (request) => {
     const query = request.query as Record<string, string | undefined>
     const frequency = query.frequency === 'daily' ? 'daily' : 'weekly'

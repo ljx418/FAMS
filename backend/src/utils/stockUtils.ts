@@ -468,7 +468,10 @@ function parseTencentKlineRows(
     throw new Error(`Tencent history error ${payload.code}: ${payload.msg || 'unknown error'}`)
   }
   const data = payload.data?.[marketSymbol]
-  const rows = adjustType === 'qfq' ? data?.qfqday : data?.day
+  // Newly listed securities without any corporate action may not expose a
+  // separate qfqday array. In that case the adjustment factor is effectively
+  // 1, so the same-provider day series is the valid qfq fallback.
+  const rows = adjustType === 'qfq' ? (data?.qfqday || data?.day) : data?.day
   return (rows || []).map((row) => ({
     date: String(row[0] || ''),
     open: Number(row[1]),

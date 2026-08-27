@@ -24,7 +24,7 @@ function buildUrl(url: string, params?: Record<string, unknown>) {
   return `${url}${url.includes('?') ? '&' : '?'}${search.toString().replace(/%2C/g, ',')}`
 }
 
-async function curlJson<T>(method: 'GET' | 'POST', url: string, options: AxiosRequestConfig = {}): Promise<T> {
+async function curlText(method: 'GET' | 'POST', url: string, options: AxiosRequestConfig = {}): Promise<string> {
   const timeoutSeconds = Math.max(1, Math.ceil((options.timeout || 10000) / 1000))
   const args = ['-sS', '-L', '--max-time', String(timeoutSeconds), '-X', method]
   const headers = options.headers as Record<string, string> | undefined
@@ -44,18 +44,14 @@ async function curlJson<T>(method: 'GET' | 'POST', url: string, options: AxiosRe
   let lastError: unknown
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      return await new Promise<T>((resolve, reject) => {
+      return await new Promise<string>((resolve, reject) => {
         execFile('curl', args, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
           if (error) {
             reject(new Error(stderr.trim() || error.message))
             return
           }
 
-          try {
-            resolve(JSON.parse(stdout) as T)
-          } catch {
-            reject(new Error(`HTTP JSON parse failed: ${stdout.slice(0, 200)}`))
-          }
+          resolve(stdout)
         })
       })
     } catch (error) {
@@ -65,6 +61,15 @@ async function curlJson<T>(method: 'GET' | 'POST', url: string, options: AxiosRe
   }
 
   throw lastError instanceof Error ? lastError : new Error('curl request failed')
+}
+
+async function curlJson<T>(method: 'GET' | 'POST', url: string, options: AxiosRequestConfig = {}): Promise<T> {
+  const payload = await curlText(method, url, options)
+  try {
+    return JSON.parse(payload) as T
+  } catch {
+    throw new Error(`HTTP JSON parse failed: ${payload.slice(0, 200)}`)
+  }
 }
 
 export async function getJson<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
@@ -78,6 +83,10 @@ export async function getJson<T>(url: string, options: AxiosRequestConfig = {}):
 
 export async function getJsonWithCurlOnly<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
   return curlJson<T>('GET', url, options)
+}
+
+export async function getTextWithCurlOnly(url: string, options: AxiosRequestConfig = {}): Promise<string> {
+  return curlText('GET', url, options)
 }
 
 export async function postJson<T>(url: string, data: unknown, options: AxiosRequestConfig = {}): Promise<T> {

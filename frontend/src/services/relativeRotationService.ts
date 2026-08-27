@@ -1,6 +1,9 @@
 import axios from 'axios'
 
 export type RotationQuadrant = 'leading' | 'weakening' | 'lagging' | 'improving'
+export type RotationMarket = 'CN' | 'HK' | 'US'
+export type RotationReadiness = 'verified' | 'limited' | 'insufficient' | 'unavailable'
+export type RotationFreshness = 'fresh' | 'delayed' | 'stale' | 'unknown'
 
 export interface RotationPoint {
   date: string
@@ -121,31 +124,44 @@ export interface RotationHoldingsReport {
 }
 
 export interface RotationTimelineItem {
-  positionId: string
-  assetId: string
+  targetKey: string
+  market: RotationMarket
+  sources: Array<'holding' | 'watchlist'>
+  positionId: string | null
+  assetId: string | null
+  watchlistItemId: string | null
+  deletable: boolean
   symbol: string
   name: string
   assetType: string
-  eligible: true
   dataStatus: 'ready' | 'partial' | 'insufficient'
+  readiness: RotationReadiness
+  freshness: RotationFreshness
+  freshnessLag: number | null
+  assetAsOfDate: string | null
   coveragePercent: number
   sampleDays: number
+  benchmarkSampleDays: number
   firstPointDate: string | null
   lastPointDate: string | null
+  commonAsOfDate: string | null
+  refreshedAt: string | null
   sourceProviders: string[]
   points: RotationPoint[]
   blockers: string[]
+  warnings: string[]
 }
 
 export interface RotationTimelineReport {
-  schemaVersion: 'fams.relative_rotation.timeline.v1'
+  schemaVersion: 'fams.relative_rotation.universe_timeline.v2'
   generatedAt: string
-  universe: 'current_holdings'
+  universe: 'holdings_and_watchlist'
+  market: RotationMarket
   benchmark: {
     id: string
     symbol: string
     name: string
-    status: 'price_index'
+    status: 'price_index' | 'unavailable'
     sourceProviders: string[]
   }
   formulaVersion: string
@@ -158,9 +174,45 @@ export interface RotationTimelineReport {
   availableDateCount: number
   eligibleCount: number
   readyCount: number
+  limitedCount: number
   refreshRecommended: boolean
   refreshReasons: string[]
   notTradingAdvice: true
+}
+
+export interface RotationWatchlistItem {
+  id: string
+  targetKey: string
+  market: RotationMarket
+  symbol: string
+  name: string
+  assetType: string
+  exchange: string | null
+  currency: string
+  identityStatus: 'verified' | 'provisional'
+  identityEvidence: string[]
+  identityWarnings: string[]
+  createdAt: string
+  updatedAt: string
+  series: Array<{
+    frequency: 'weekly' | 'daily'
+    readiness: RotationReadiness
+    freshness: RotationFreshness
+    freshnessLag: number | null
+    sampleDays: number
+    commonAsOfDate: string | null
+    refreshedAt: string
+    blockers: string[]
+    warnings: string[]
+  }>
+}
+
+export interface RotationWatchlistReport {
+  schemaVersion: 'fams.relative_rotation.watchlist.v1'
+  generatedAt: string
+  limit: number
+  count: number
+  items: RotationWatchlistItem[]
 }
 
 export interface OperationDto {
@@ -181,9 +233,51 @@ export async function getRotationHoldings(frequency: 'weekly' | 'daily' = 'weekl
   return response.data
 }
 
-export async function getRotationTimeline(frequency: 'weekly' | 'daily' = 'weekly', years = 8) {
-  const response = await axios.get<RotationTimelineReport>('/api/v1/relative-rotation/timeline', {
-    params: { userId: 'default', frequency, years },
+export async function getRotationTimeline(frequency: 'weekly' | 'daily' = 'weekly', years = 8, market: RotationMarket = 'CN') {
+  const response = await axios.get<RotationTimelineReport>('/api/v1/relative-rotation/universe/timeline', {
+    params: { userId: 'default', frequency, years, market },
+  })
+  return response.data
+}
+
+export async function getRotationWatchlist() {
+  const response = await axios.get<RotationWatchlistReport>('/api/v1/relative-rotation/watchlist', {
+    params: { userId: 'default' },
+  })
+  return response.data
+}
+
+export async function addRotationWatchlistItem(input: { market: RotationMarket; code: string }) {
+  const response = await axios.post<{ created: boolean; item: RotationWatchlistItem; refresh: Record<string, unknown> | null }>(
+    '/api/v1/relative-rotation/watchlist',
+    { userId: 'default', market: input.market, code: input.code, refresh: true, years: 8 },
+  )
+  return response.data
+}
+
+export async function deleteRotationWatchlistItem(itemId: string) {
+  const response = await axios.delete<{
+    deleted: true
+    targetKey: string
+    deletedSeries: number
+    deletedPoints: number
+    deletedRefreshRuns: number
+    sharedMarketBarsRetained: number
+    stillVisibleViaHolding: boolean
+  }>(`/api/v1/relative-rotation/watchlist/${itemId}`, { params: { userId: 'default' } })
+  return response.data
+}
+
+export async function refreshRotationUniverse(market: RotationMarket, targetKeys: string[], years = 8) {
+  const response = await axios.post<{
+    schemaVersion: 'fams.relative_rotation.universe_refresh.v1'
+    requestedTargets: number
+    completedTargets: number
+  }>('/api/v1/relative-rotation/universe/refresh', {
+    userId: 'default',
+    market,
+    targetKeys,
+    years,
   })
   return response.data
 }

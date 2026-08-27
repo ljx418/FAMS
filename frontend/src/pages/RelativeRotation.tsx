@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
+  App as AntApp,
   Button,
   Card,
   Col,
@@ -10,6 +11,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Progress,
   Row,
   Segmented,
@@ -18,31 +20,36 @@ import {
   Space,
   Spin,
   Statistic,
+  Switch,
   Tag,
   Tooltip,
-  message,
 } from 'antd'
 import {
   BarChartOutlined,
   CaretRightOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  DeleteOutlined,
   ExperimentOutlined,
   HistoryOutlined,
   PauseOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
   SwapOutlined,
+  PlusOutlined,
 } from '@ant-design/icons'
 import { RotationChart } from '../components/relative-rotation/RotationChart'
 import {
   activateSleeve,
+  addRotationWatchlistItem,
   confirmVolatilityDraft,
+  deleteRotationWatchlistItem,
   dismissVolatilityDraft,
   getOperation,
   getRotationHoldings,
   getRotationTimeline,
-  refreshRotationTimeline,
+  getRotationWatchlist,
+  refreshRotationUniverse,
   runRotationBacktest,
   runVolatilityDailyAnalysis,
   transferSleeve,
@@ -50,6 +57,8 @@ import {
   type RotationHoldingItem,
   type RotationHoldingsReport,
   type RotationTimelineReport,
+  type RotationMarket,
+  type RotationWatchlistReport,
 } from '../services/relativeRotationService'
 
 const quadrantMeta = {
@@ -65,11 +74,46 @@ const formatPercent = (value?: number | null) => `${Number(value || 0).toFixed(1
 
 const operationIdOf = (operation: OperationDto) => operation.operationId || operation.id || ''
 const terminalOperationStatuses = new Set(['completed', 'succeeded', 'partial', 'failed', 'cancelled'])
+const HIDDEN_TARGETS_STORAGE_KEY = 'fams.rrg.hidden-targets.default.v1'
+
+const marketOptions = [
+  { label: 'A股', value: 'CN' },
+  { label: '港股', value: 'HK' },
+  { label: '美股', value: 'US' },
+]
+
+const readinessMeta = {
+  verified: { label: '验证充分', color: 'success' },
+  limited: { label: '有限历史', color: 'warning' },
+  insufficient: { label: '样本不足', color: 'default' },
+  unavailable: { label: '行情不可用', color: 'error' },
+} as const
+
+const freshnessMeta = {
+  fresh: { label: '最新', color: 'success' },
+  delayed: { label: '延迟1日', color: 'warning' },
+  stale: { label: '已老化', color: 'error' },
+  unknown: { label: '待校验', color: 'default' },
+} as const
 
 export default function RelativeRotation() {
+  const { message } = AntApp.useApp()
   const [frequency, setFrequency] = useState<'weekly' | 'daily'>('weekly')
+  const [market, setMarket] = useState<RotationMarket>('CN')
   const [report, setReport] = useState<RotationHoldingsReport | null>(null)
   const [timeline, setTimeline] = useState<RotationTimelineReport | null>(null)
+  const [watchlist, setWatchlist] = useState<RotationWatchlistReport | null>(null)
+  const [watchlistMarket, setWatchlistMarket] = useState<RotationMarket>('CN')
+  const [watchlistCode, setWatchlistCode] = useState('')
+  const [watchlistWorking, setWatchlistWorking] = useState('')
+  const [hiddenTargetKeys, setHiddenTargetKeys] = useState<Set<string>>(() => {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(HIDDEN_TARGETS_STORAGE_KEY) || '[]')
+      return new Set(Array.isArray(stored) ? stored.map(String) : [])
+    } catch {
+      return new Set()
+    }
+  })
   const [loading, setLoading] = useState(true)
   const [workingLabel, setWorkingLabel] = useState('')
   const [operationProgress, setOperationProgress] = useState(0)
@@ -83,7 +127,7 @@ export default function RelativeRotation() {
   const [playbackSpeed, setPlaybackSpeed] = useState<0.5 | 1 | 2>(1)
   const [reducedMotion, setReducedMotion] = useState(false)
   const headDateRef = useRef('')
-  const automaticRefreshAttempted = useRef(false)
+  const automaticRefreshAttempted = useRef(new Set<string>())
   const [activationForm] = Form.useForm()
   const [transferForm] = Form.useForm()
   const [confirmForm] = Form.useForm()
@@ -93,10 +137,12 @@ export default function RelativeRotation() {
     try {
       const [nextReport, nextTimeline] = await Promise.all([
         getRotationHoldings(frequency, frequency === 'weekly' ? 12 : 20),
-        getRotationTimeline(frequency, 8),
+        getRotationTimeline(frequency, 8, market),
       ])
+      const nextWatchlist = await getRotationWatchlist()
       setReport(nextReport)
       setTimeline(nextTimeline)
+      setWatchlist(nextWatchlist)
       const preservedDate = headDateRef.current
       const preservedIndex = preservedDate
         ? nextTimeline.dates.reduce((best, date, index) => date <= preservedDate ? index : best, 0)
@@ -108,7 +154,7 @@ export default function RelativeRotation() {
     } finally {
       setLoading(false)
     }
-  }, [frequency])
+  }, [frequency, market])
 
   useEffect(() => {
     void load()
@@ -186,21 +232,48 @@ export default function RelativeRotation() {
     }
   }
 
+  const runUniverseRefresh = async (label: string, targetKeys: string[]) => {
+    if (targetKeys.length === 0) return
+    setWorkingLabel(label)
+    setOperationProgress(15)
+    try {
+      const result = await refreshRotationUniverse(market, targetKeys, 8)
+      setOperationProgress(100)
+      message.success(`${label}完成：${result.completedTargets}/${result.requestedTargets} 个标的就绪`)
+      await load()
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : `${label}失败`)
+    } finally {
+      setWorkingLabel('')
+      setOperationProgress(0)
+    }
+  }
+
   useEffect(() => {
-    if (!timeline?.refreshRecommended || automaticRefreshAttempted.current || workingLabel) return
-    automaticRefreshAttempted.current = true
-    const key = `rrg-timeline-refresh:default:8:${new Date().toISOString().slice(0, 10)}`
-    void runTrackedOperation('补齐 8 年轮动历史', () => refreshRotationTimeline(8, key))
-    // runTrackedOperation is intentionally excluded: this gate runs once per page visit.
+    if (!timeline?.refreshRecommended || workingLabel) return
+    const refreshKey = `${market}:${frequency}:${new Date().toISOString().slice(0, 10)}`
+    if (automaticRefreshAttempted.current.has(refreshKey)) return
+    const targetKeys = timeline.items
+      .filter((item) => !hiddenTargetKeys.has(item.targetKey))
+      .filter((item) => item.freshness !== 'fresh' || item.readiness === 'unavailable')
+      .map((item) => item.targetKey)
+    if (targetKeys.length === 0) return
+    automaticRefreshAttempted.current.add(refreshKey)
+    void runUniverseRefresh('刷新可见 RRG 数据', targetKeys)
+    // The automatic gate runs once per market/frequency/day.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeline?.refreshRecommended, workingLabel])
+  }, [frequency, hiddenTargetKeys, market, timeline?.generatedAt, timeline?.refreshRecommended, workingLabel])
 
   const timelineItems = timeline?.items || []
-  const activeAtHead = useMemo(
-    () => timelineItems.filter((item) => item.points.some((point) => point.date <= headDate)).length,
-    [headDate, timelineItems],
+  const visibleTimelineItems = useMemo(
+    () => timelineItems.filter((item) => !hiddenTargetKeys.has(item.targetKey)),
+    [hiddenTargetKeys, timelineItems],
   )
-  const readyCount = report?.items.filter((item) => item.rotation?.dataStatus === 'ready').length || 0
+  const activeAtHead = useMemo(
+    () => visibleTimelineItems.filter((item) => item.points.some((point) => point.date <= headDate)).length,
+    [headDate, visibleTimelineItems],
+  )
+  const readyCount = timeline?.items.filter((item) => item.readiness === 'verified').length || 0
   const activeSleeves = report?.items.filter((item) => item.allocation?.status === 'active').length || 0
   const pendingDrafts = report?.items.filter((item) => item.latestDraft?.status === 'pending').length || 0
 
@@ -211,6 +284,61 @@ export default function RelativeRotation() {
     }
     if (headIndex >= timelineDates.length - 1) setHeadIndex(0)
     setPlaying(true)
+  }
+
+  const persistHiddenTargets = (next: Set<string>) => {
+    setHiddenTargetKeys(next)
+    window.localStorage.setItem(HIDDEN_TARGETS_STORAGE_KEY, JSON.stringify(Array.from(next)))
+  }
+
+  const toggleTargetVisibility = (targetKey: string, visible: boolean) => {
+    const next = new Set(hiddenTargetKeys)
+    if (visible) next.delete(targetKey)
+    else next.add(targetKey)
+    persistHiddenTargets(next)
+    const item = timelineItems.find((candidate) => candidate.targetKey === targetKey)
+    if (visible && item && item.freshness !== 'fresh' && !workingLabel) {
+      void runUniverseRefresh(`刷新 ${item.name}`, [targetKey])
+    }
+  }
+
+  const addWatchlistTarget = async () => {
+    const code = watchlistCode.trim()
+    if (!code) {
+      message.warning('请输入证券代码')
+      return
+    }
+    setWatchlistWorking('add')
+    try {
+      const result = await addRotationWatchlistItem({ market: watchlistMarket, code })
+      const next = new Set(hiddenTargetKeys)
+      next.delete(result.item.targetKey)
+      persistHiddenTargets(next)
+      setWatchlistCode('')
+      setMarket(watchlistMarket)
+      message.success(result.created ? `已添加 ${result.item.name}` : `${result.item.name} 已在自选列表`)
+      await load()
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '添加自选失败')
+    } finally {
+      setWatchlistWorking('')
+    }
+  }
+
+  const deleteWatchlistTarget = async (itemId: string, targetKey: string) => {
+    setWatchlistWorking(itemId)
+    try {
+      const result = await deleteRotationWatchlistItem(itemId)
+      const next = new Set(hiddenTargetKeys)
+      next.delete(targetKey)
+      persistHiddenTargets(next)
+      message.success(`已删除自选及 ${result.deletedPoints} 个专属 RRG 节点；共享行情已保留`)
+      await load()
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '删除自选失败')
+    } finally {
+      setWatchlistWorking('')
+    }
   }
 
   const openActivation = (item: RotationHoldingItem) => {
@@ -327,7 +455,7 @@ export default function RelativeRotation() {
 
       <Row gutter={[16, 16]}>
         <Col xs={12} lg={6}><Card size="small"><Statistic title="合格持仓" value={report?.eligibleCount || 0} suffix="个" /></Card></Col>
-        <Col xs={12} lg={6}><Card size="small"><Statistic title="轮动数据就绪" value={readyCount} suffix="个" valueStyle={{ color: '#1d4ed8' }} /></Card></Col>
+        <Col xs={12} lg={6}><Card size="small"><Statistic title="当前市场验证充分" value={readyCount} suffix="个" valueStyle={{ color: '#1d4ed8' }} /></Card></Col>
         <Col xs={12} lg={6}><Card size="small"><Statistic title="已启用波动仓" value={activeSleeves} suffix="个" valueStyle={{ color: '#0f766e' }} /></Card></Col>
         <Col xs={12} lg={6}><Card size="small"><Statistic title="待确认草稿" value={pendingDrafts} suffix="个" valueStyle={{ color: pendingDrafts ? '#b45309' : '#334155' }} /></Card></Col>
       </Row>
@@ -337,25 +465,126 @@ export default function RelativeRotation() {
         size="small"
       >
         <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 5 }}>
-          <Descriptions.Item label="资产集合">当前持仓 A股 / 场内ETF</Descriptions.Item>
-          <Descriptions.Item label="共同基准">{report?.benchmark.name || '沪深300'} · 价格指数</Descriptions.Item>
-          <Descriptions.Item label="资产价格">前复权 qfq</Descriptions.Item>
+          <Descriptions.Item label="资产集合">持仓 + 自选 · A股 / 港股 / 美股</Descriptions.Item>
+          <Descriptions.Item label="当前基准">{timeline?.benchmark.name || '沪深300'} · 价格指数</Descriptions.Item>
+          <Descriptions.Item label="资产价格">{market === 'CN' ? '前复权 qfq' : '复权收盘价 adjusted close'}</Descriptions.Item>
           <Descriptions.Item label="公式">transparent v1</Descriptions.Item>
-          <Descriptions.Item label="历史范围">最长 8 年 · 含指标预热期</Descriptions.Item>
+          <Descriptions.Item label="历史门槛">91日 / 53周可绘制 · 756日验证充分</Descriptions.Item>
         </Descriptions>
         <Alert
           className="mt-3"
           type="info"
           showIcon
-          message="图表比较相对表现，不代表绝对收益；沪深300为价格指数，所有草稿均需人工录入实际成交。"
+          message="三地市场按各自基准分图比较；隐藏仅暂停刷新，删除自选不会删除持仓或全项目共享行情。"
         />
+      </Card>
+
+      <Card
+        title={<Space><PlusOutlined className="text-blue-600" /><span>RRG 自选与显示管理</span></Space>}
+        extra={<Tag>{watchlist?.count || 0} / {watchlist?.limit || 30} 个自选</Tag>}
+      >
+        <div className="grid gap-3 lg:grid-cols-[220px_minmax(240px,1fr)_auto]">
+          <Segmented
+            block
+            value={watchlistMarket}
+            options={marketOptions}
+            onChange={(value) => setWatchlistMarket(value as RotationMarket)}
+            aria-label="新增自选市场"
+          />
+          <Input
+            value={watchlistCode}
+            onChange={(event) => setWatchlistCode(event.target.value)}
+            onPressEnter={() => void addWatchlistTarget()}
+            placeholder={watchlistMarket === 'CN' ? '输入6位代码，如 515070' : watchlistMarket === 'HK' ? '输入港股代码，如 700' : '输入美股代码，如 AAPL'}
+            aria-label="证券代码"
+          />
+          <Button type="primary" icon={<PlusOutlined />} loading={watchlistWorking === 'add'} onClick={() => void addWatchlistTarget()}>
+            添加并验证
+          </Button>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">当前市场标的</div>
+            <div className="mt-1 text-xs text-slate-500">持仓默认展示；关闭开关后仅停止绘图与主动刷新，数据会按交易日逐步老化。</div>
+          </div>
+          <Segmented
+            value={market}
+            options={marketOptions}
+            onChange={(value) => {
+              setPlaying(false)
+              setMarket(value as RotationMarket)
+              setHeadIndex(0)
+            }}
+            aria-label="RRG市场"
+          />
+        </div>
+
+        {timelineItems.length > 0 ? (
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+            {timelineItems.map((item, index) => {
+              const readiness = readinessMeta[item.readiness]
+              const freshness = freshnessMeta[item.freshness]
+              const visible = !hiddenTargetKeys.has(item.targetKey)
+              return (
+                <div key={item.targetKey} className={`grid gap-3 px-4 py-3 md:grid-cols-[minmax(180px,1.3fr)_minmax(180px,1fr)_minmax(170px,1fr)_auto] md:items-center ${index ? 'border-t border-slate-100' : ''}`}>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate font-medium text-slate-950">{item.name}</span>
+                      <span className="font-mono text-xs text-slate-500">{item.symbol}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {item.sources.includes('holding') && <Tag color="blue">持仓</Tag>}
+                      {item.sources.includes('watchlist') && <Tag color="purple">自选</Tag>}
+                      <Tag>{item.market}</Tag>
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    <div><Tag color={readiness.color}>{readiness.label}</Tag><Tag color={freshness.color}>{freshness.label}</Tag></div>
+                    <div className="mt-1">{item.sampleDays} 个交易日 · 截止 {item.assetAsOfDate || item.commonAsOfDate || '--'}</div>
+                  </div>
+                  <div className="text-xs leading-5 text-slate-500">
+                    <div>基准：{timeline?.benchmark.name}</div>
+                    <div>{item.sourceProviders.join(' / ') || '尚无可用数据源'}</div>
+                    {item.blockers[0] && <Tooltip title={item.blockers.join('；')}><span className="cursor-help text-amber-700">{item.blockers[0]}</span></Tooltip>}
+                  </div>
+                  <Space size="small" wrap>
+                    <Switch
+                      size="small"
+                      checked={visible}
+                      checkedChildren="显示"
+                      unCheckedChildren="隐藏"
+                      onChange={(checked) => toggleTargetVisibility(item.targetKey, checked)}
+                      aria-label={`${visible ? '隐藏' : '显示'} ${item.name}`}
+                    />
+                    <Button size="small" icon={<ReloadOutlined />} disabled={Boolean(workingLabel)} onClick={() => void runUniverseRefresh(`刷新 ${item.name}`, [item.targetKey])} aria-label={`刷新 ${item.name}`} />
+                    {item.watchlistItemId && (
+                      <Popconfirm
+                        title="删除该自选及其专属 RRG 数据？"
+                        description={item.sources.includes('holding') ? '该标的仍是持仓，删除后会继续按持仓默认展示。' : '共享行情、其他用户数据和历史持仓不会被删除。'}
+                        okText="删除"
+                        cancelText="取消"
+                        okButtonProps={{ danger: true }}
+                        onConfirm={() => deleteWatchlistTarget(item.watchlistItemId!, item.targetKey)}
+                      >
+                        <Button danger size="small" type="text" icon={<DeleteOutlined />} loading={watchlistWorking === item.watchlistItemId} aria-label={`删除自选 ${item.name}`} />
+                      </Popconfirm>
+                    )}
+                  </Space>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <Empty className="mt-5" image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前市场还没有持仓或自选标的" />
+        )}
       </Card>
 
       <Card
         title={(
           <div>
-            <Space><SwapOutlined className="text-blue-600" /><span>当前持仓相对轮动</span></Space>
-            <div className="mt-1 text-xs font-normal text-slate-500">拖动头部日期，或播放完整时间序列，观察持仓如何穿越四个象限。</div>
+            <Space><SwapOutlined className="text-blue-600" /><span>{timeline?.benchmark.name || '市场基准'}相对轮动</span></Space>
+            <div className="mt-1 text-xs font-normal text-slate-500">当前仅绘制已开启显示的持仓与自选；有限历史为虚线，老化缓存降低透明度。</div>
           </div>
         )}
         extra={(
@@ -372,12 +601,12 @@ export default function RelativeRotation() {
       >
         {loading && !timeline ? (
           <div className="flex h-[560px] items-center justify-center"><Spin size="large" /></div>
-        ) : timelineDates.length > 0 && headDate ? (
+        ) : timelineDates.length > 0 && headDate && visibleTimelineItems.some((item) => item.points.length > 0) ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-3">
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600">
                 <span><strong className="text-slate-900">{headDate}</strong> 头部日期</span>
-                <span><strong className="text-slate-900">{activeAtHead}</strong> / {timeline?.eligibleCount || 0} 个标的已上市</span>
+                <span><strong className="text-slate-900">{activeAtHead}</strong> / {visibleTimelineItems.length} 个可见标的有轨迹</span>
                 <span><strong className="text-slate-900">{timeline?.availableDateCount || 0}</strong> 个可播放节点</span>
                 <span>{timeline?.visibleRange.startDate} — {timeline?.visibleRange.endDate}</span>
               </div>
@@ -385,14 +614,14 @@ export default function RelativeRotation() {
                 size="small"
                 icon={<ReloadOutlined />}
                 disabled={Boolean(workingLabel)}
-                onClick={() => void runTrackedOperation('刷新 8 年轮动历史', () => refreshRotationTimeline(8))}
+                onClick={() => void runUniverseRefresh('刷新可见 RRG 数据', visibleTimelineItems.map((item) => item.targetKey))}
               >
                 智能换源刷新
               </Button>
             </div>
             <div className="px-1 sm:px-3">
               <RotationChart
-                items={timelineItems}
+                items={visibleTimelineItems}
                 headDate={headDate}
                 tailLength={tailLength}
                 loading={loading}
@@ -466,9 +695,9 @@ export default function RelativeRotation() {
           </>
         ) : (
           <div className="flex h-[420px] items-center justify-center px-6">
-            <Empty description="尚无可绘制的前复权轮动轨迹；请使用智能换源刷新补齐历史行情。">
-              <Button type="primary" loading={Boolean(workingLabel)} onClick={() => void runTrackedOperation('补齐 8 年轮动历史', () => refreshRotationTimeline(8))}>
-                补齐 8 年历史
+            <Empty description={timelineItems.length > 0 && visibleTimelineItems.length === 0 ? '当前市场标的均已隐藏；请先在自选管理中开启显示。' : '尚无可绘制轨迹；样本不足或数据源不可用的标的不会生成虚假坐标。'}>
+              <Button type="primary" disabled={visibleTimelineItems.length === 0} loading={Boolean(workingLabel)} onClick={() => void runUniverseRefresh('补齐可见 RRG 历史', visibleTimelineItems.map((item) => item.targetKey))}>
+                补齐可见历史
               </Button>
             </Empty>
           </div>

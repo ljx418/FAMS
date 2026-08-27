@@ -36,6 +36,7 @@ model User {
   positionSleeveLedgerEntries PositionSleeveLedgerEntry[]
   volatilityStrategyBacktests VolatilityStrategyBacktest[]
   volatilityTradeDrafts VolatilityTradeDraft[]
+  relativeRotationWatchlistItems RelativeRotationWatchlistItem[]
 }
 
 // 资产主表
@@ -722,6 +723,94 @@ model RelativeRotationPoint {
   @@unique([symbol, benchmarkId, frequency, tradeDate, formulaVersion])
   @@index([symbol, benchmarkId, frequency, tradeDate])
   @@index([tradeDate, quadrant])
+}
+
+// 用户维护的 RRG 自选关系。显隐仅保存在前端，不进入该模型。
+model RelativeRotationWatchlistItem {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  market               String
+  symbol               String
+  name                 String
+  assetType            String   @default("stock")
+  exchange             String?
+  currency             String
+  identityStatus       String   @default("provisional") // verified, provisional
+  identityEvidenceJson String   @default("[]")
+  identityWarningsJson String   @default("[]")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  series      RelativeRotationWatchlistSeries[]
+  refreshRuns RelativeRotationWatchlistRefreshRun[]
+
+  @@unique([userId, market, symbol])
+  @@index([userId, market, createdAt])
+}
+
+model RelativeRotationWatchlistSeries {
+  id                  String   @id @default(uuid())
+  watchlistItemId     String
+  watchlistItem       RelativeRotationWatchlistItem @relation(fields: [watchlistItemId], references: [id], onDelete: Cascade)
+  benchmarkId         String
+  benchmarkSymbol     String
+  frequency           String
+  formulaVersion      String
+  dataVersion         String
+  adjustType          String
+  readiness           String   @default("unavailable") // verified, limited, insufficient, unavailable
+  freshness           String   @default("unknown") // fresh, delayed, stale, unknown
+  freshnessLag        Int?
+  coveragePercent     Float    @default(0)
+  sampleDays          Int      @default(0)
+  benchmarkSampleDays Int      @default(0)
+  commonAsOfDate      DateTime?
+  sourceProvidersJson String   @default("[]")
+  blockersJson        String   @default("[]")
+  warningsJson        String   @default("[]")
+  refreshedAt         DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  points RelativeRotationWatchlistPoint[]
+
+  @@unique([watchlistItemId, benchmarkId, frequency, formulaVersion])
+  @@index([watchlistItemId, frequency, commonAsOfDate])
+}
+
+model RelativeRotationWatchlistPoint {
+  id               String   @id @default(uuid())
+  seriesId         String
+  series           RelativeRotationWatchlistSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  tradeDate        DateTime
+  relativePrice    Float
+  relativeTrend    Float
+  relativeMomentum Float
+  quadrant         String
+  deltaX           Float?
+  deltaY           Float?
+  speed            Float?
+  createdAt        DateTime @default(now())
+
+  @@unique([seriesId, tradeDate])
+  @@index([seriesId, tradeDate])
+}
+
+model RelativeRotationWatchlistRefreshRun {
+  id                   String    @id @default(uuid())
+  watchlistItemId      String
+  watchlistItem        RelativeRotationWatchlistItem @relation(fields: [watchlistItemId], references: [id], onDelete: Cascade)
+  status               String    @default("running") // running, completed, partial, failed
+  requestedYears       Int       @default(8)
+  providerAttemptsJson String    @default("[]")
+  summaryJson          String    @default("{}")
+  errorMessage         String?
+  startedAt            DateTime  @default(now())
+  completedAt          DateTime?
+  createdAt            DateTime  @default(now())
+
+  @@index([watchlistItemId, startedAt])
 }
 
 model VolatilityStrategyBacktest {
