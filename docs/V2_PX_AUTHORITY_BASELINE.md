@@ -1,52 +1,52 @@
 # V2-PX 权威产品与代码仓基线
 
-更新时间：2026-07-15
+更新时间：2026-08-27
 
 ## 1. 当前结论
 
 ```text
-authorityBaselineStatus=UNRESOLVED
-fatalDocumentationBaselineIssueCount=1
+authorityBaselineStatus=PENDING_SHA_SEAL
+fatalDocumentationBaselineIssueCount=0
 px0GithubReviewGate=FAIL
 px1CodeSpikeAllowed=false
 ```
 
-当前 V2-PX 文档使用了 External Brain / WXT / sidepanel / Workspace Page / background / 双容器 Chrome 等产品化概念，但现有工作目录和远端信息显示当前本地仓库为 FAMS：
+V2-PX 的产品归属已经确定为 FAMS。当前只等待 PX-0 基线提交的 40 位 Git SHA 回填；在 SHA 封印提交完成前，状态保持 `PENDING_SHA_SEAL`，不得提前声称 PX-0 通过。
 
 ```text
 observedLocalRepository=https://github.com/ljx418/FAMS.git
 observedLocalBranch=main
-observedLocalCommit=c6aacc47c197706a69cf7ed6ea6bc5e00a8fda60
+observedIntegrationBranch=codex/daily-review-v1-2-closure
 ```
 
-外部审计指出可能存在 Navia/mercury 与 FAMS 的权威基线混用。该问题必须在 PX-0 内关闭，否则不得进入 PX-1 代码 spike。
+Navia/mercury 不再是本仓库 V2-PX 的候选权威归属。历史文档中的相关名称只用于说明已关闭的歧义，不得进入 schema、fixture、包名或验收报告。
 
 ## 2. 必须冻结的权威字段
 
-PX-0 出门前必须由项目负责人明确以下字段：
+以下字段已经冻结；`commitSha` 在下一次 SHA 封印提交中写入本次 PX-0 基线提交的 SHA：
 
 ```json
 {
-  "productId": "",
-  "productName": "",
-  "repository": "",
-  "branch": "",
-  "commitSha": "",
-  "hostApplication": "",
-  "extensionPackage": "",
-  "workspacePageEntrypoint": "",
-  "sidepanelEntrypoint": "",
-  "backgroundEntrypoint": ""
+  "productId": "fams-v2-px",
+  "productName": "FAMS External Brain",
+  "repository": "https://github.com/ljx418/FAMS.git",
+  "branch": "main",
+  "commitSha": "PENDING_PX0_BASELINE_COMMIT",
+  "hostApplication": "FAMS",
+  "extensionPackage": "packages/fams-v2-px-extension",
+  "workspacePageEntrypoint": "packages/fams-v2-px-extension/entrypoints/workspace/index.html",
+  "sidepanelEntrypoint": "packages/fams-v2-px-extension/entrypoints/sidepanel/index.html",
+  "backgroundEntrypoint": "packages/fams-v2-px-extension/entrypoints/background.ts"
 }
 ```
 
-## 3. 两种可接受权威归属选项
+这三个 entrypoint 是 PX-1 spike 的冻结目标路径，在 PX-0 中不创建生产包，也不表示文件已经存在。
+
+## 3. 已选择的权威归属
 
 注意：本节的权威归属选项不是 ADR 中的 Route A。ADR Route A 特指“独立 Workspace Page + sidepanel/background”架构路线。
 
-### Authority Option FAMS
-
-如果 V2-PX 属于 FAMS，则必须冻结：
+选择 Authority Option FAMS：
 
 ```text
 productId=fams-v2-px
@@ -54,29 +54,18 @@ repository=https://github.com/ljx418/FAMS.git
 hostApplication=FAMS
 ```
 
-并允许在 PX 合同中保留 FAMS 领域术语。但 PX 核心浏览器合同仍不得把投资交易 gate 写成核心字段；交易边界应作为 FAMS domain adapter 的外层 policy，而不是 `intent route` 的基础 schema。
+PX 核心浏览器合同不内置投资交易 gate；交易边界继续由 FAMS domain adapter 的外层 policy 执行。
 
-### Authority Option Navia / Mercury
+## 4. SHA 封印规则
 
-如果 V2-PX 属于 Navia/mercury，则必须：
-
-```text
-productId=navia-v2-px 或 mercury-v2-px
-repository=<Navia/mercury 权威仓库>
-hostApplication=<Navia/mercury host app>
-```
-
-并从 PX 核心合同中移除 FAMS namespace、投资建议和交易权限字段。
-
-## 4. 当前处理
-
-在权威基线未冻结前，PX 文档采用中立 PX 合同：
+为避免文档自引用导致 SHA 永远变化，采用两次提交：
 
 ```text
-PX core schema 不再内置 notTradingAdvice / ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
-FAMS 交易边界只保留在 FAMS adapter / release gate 文档中
-Route A 仍为 proposed，不得宣称 accepted / frozen
+Commit 1: 提交 PX-0 schema、semantic validator、fixtures 与待封印权威基线
+Commit 2: 将 Commit 1 的 40 位 SHA 写入 commitSha，并把状态切换到 FROZEN / ACCEPTED_FOR_SPIKE
 ```
+
+`commitSha` 始终指向 Commit 1；Commit 2 是只包含封印字段和阶段状态的 seal commit。
 
 ## 5. 状态推进顺序
 
@@ -103,7 +92,7 @@ hostApplication 非空
 extensionPackage 非空
 ```
 
-未满足时：
+当前在 seal commit 之前：
 
 ```text
 px0GithubReviewGate=FAIL

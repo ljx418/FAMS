@@ -1,6 +1,6 @@
 # V2-PX Semantic Validator 计划
 
-更新时间：2026-07-15
+更新时间：2026-08-27
 
 ## 1. 目标
 
@@ -9,7 +9,7 @@ JSON Schema 只能证明报告结构合法，不能证明截图文件真实存�
 当前状态：
 
 ```text
-semanticValidatorImplemented=false
+semanticValidatorImplemented=true
 semanticValidatorRequiredBeforePx1=true
 px1CodeSpikeAllowed=false
 ```
@@ -38,7 +38,20 @@ fakeChromeEvidenceRejected=true
 missingFileRejected=true
 hashMismatchRejected=true
 eventOrderMismatchRejected=true
+arbitrarySecretRejected=true
+prematurePx2Rejected=true
+idempotencyConflictRejected=true
 ```
+
+实现入口：
+
+```text
+backend/scripts/verify-v2-px-semantic-contract.ts
+npm --prefix backend run test:v2-px-semantic-contract
+docs/prototypes/v2-px/fixtures/semantic-contract-fixtures.json
+```
+
+验证器使用本仓库现有 Ajv 2020 实现结构校验，并在其上执行路径边界、文件存在性、SHA-256、extension URL、route/correlation、事件顺序、secret-like 字段、阶段门禁与幂等语义检查。
 
 ## 4. 负向 fixture 必须覆盖
 
@@ -57,11 +70,16 @@ PX-2+ 在 PX-1 passed 前启动
 
 ## 5. 出门结论
 
-只有 schema 校验和 semantic validator 同时通过，才允许声明：
+当前 schema 校验和 semantic validator 的 PX-0 正反例已经同时通过，允许声明：
 
 ```text
 antiFalseGreenAcceptanceContractPassed=true
 ```
 
-当前不得声明该字段为 true。
+这只表示“验收合同可以拦截已知假绿”，不表示真实 Chrome 已运行，也不表示 PX-1 spike 通过：
 
+```text
+realChromeAcceptanceClaimed=false
+px1SpikePassed=false
+px2PlusProductionImplementationAllowed=false
+```

@@ -7,7 +7,7 @@ status=proposed
 px0GithubReviewGate=FAIL
 px1FeasibilitySpikeAllowed=false
 routeAStatus=PROPOSED
-routeAImplementationReadiness=FAIL
+routeAImplementationReadiness=PENDING_SHA_SEAL
 routeAAdrStatus=PROPOSED
 ```
 
@@ -61,6 +61,83 @@ PROPOSED -> ACCEPTED_FOR_SPIKE -> TECHNICALLY_VALIDATED -> PRODUCTION_APPROVED
 | 幂等 | duplicate ingest 的 `idempotencyKey` 规则 |
 | 证据 | 真实 Chrome screenshot、trace、event log、SHA-256 和 commitSha |
 
+上述 PX-1 spike 合同已在 PX-0 基线中冻结如下，等待 authority baseline 的 SHA 封印后把 ADR 状态推进到 `ACCEPTED_FOR_SPIKE`。
+
+### Entrypoint 与构建合同
+
+```text
+extensionPackage=packages/fams-v2-px-extension
+backgroundEntrypoint=packages/fams-v2-px-extension/entrypoints/background.ts
+sidepanelEntrypoint=packages/fams-v2-px-extension/entrypoints/sidepanel/index.html
+workspacePageEntrypoint=packages/fams-v2-px-extension/entrypoints/workspace/index.html
+buildCommand=npm --prefix packages/fams-v2-px-extension run build
+chromeMv3Output=packages/fams-v2-px-extension/.output/chrome-mv3
+workspaceOutput=workspace.html
+canonicalWorkspaceUrl=chrome.runtime.getURL('/workspace.html')
+```
+
+这些是 spike 的目标路径，不表示 PX-0 已创建或验证该包。
+
+### Manifest 与权限合同
+
+```text
+manifestVersion=3
+requiredPermissions=sidePanel,tabs,storage
+optionalPermissions=[]
+hostPermissions=[]
+sidePanelDefaultPath=sidepanel.html
+extensionPagesCsp=script-src 'self'; object-src 'self'
+remoteExecutableCodeAllowed=false
+```
+
+PX-1 如发现需要新增 permission 或 host permission，必须先修改 ADR 并重新评审，不能在实现中静默扩权。
+
+### Message envelope 与路由合同
+
+background 只接受 `v2-px-operation-command/1` 和 `v2-px-intent-route/2` 合同。消息必须带：
+
+```text
+type / routeId / correlationId / idempotencyKey / sourceContainer / targetContainer / payload
+```
+
+`payload` 必须通过按 intent/command 分支的严格 schema，禁止附加字段和 secret-like 字段。sidepanel、Workspace Page 与 host app 不直接互相写状态，写操作统一通过 background。
+
+### 打开、复用与多窗口规则
+
+1. sidepanel 或 host app 发出 `open_workspace/open_in_workspace` 后，background 使用 canonical Workspace URL 查询标签页。
+2. 当前窗口已有同一 `workspaceId` 的标签页时，复用并聚焦该标签页。
+3. 当前窗口没有、其他窗口存在时，聚焦最近活动的匹配窗口和标签页。
+4. 不存在匹配标签页时才调用 `tabs.create`。
+5. 重复点击共享同一 `idempotencyKey` 时不得重复创建；同 key 不同 payload 必须拒绝并审计。
+
+### 导航、恢复与状态所有权
+
+```text
+canonicalIdentity=workspaceId
+routeCorrelation=routeId + correlationId
+backgroundOwnsWrites=true
+sidepanelPollingAllowed=false
+workspacePollingAllowed=false
+containersSubscribeToBackgroundState=true
+duplicateCommandPolicy=deduplicate_same_semantics_reject_conflict
+```
+
+Back/Forward 由 Workspace Page URL state 恢复 intent；Refresh 从 `storage.session` 恢复 route/correlation，持久索引只读自 `storage.local`；关闭重开生成新 routeId，但保留 workspaceId；extension reload/update 后由容器 `reconnect` 重新订阅。任何无法恢复的状态必须记录 `blocked`，不得静默展示成功态。
+
+### 真实 Chrome 证据合同
+
+PX-1 必须用真实安装的 unpacked Chrome extension 生成：
+
+```text
+chrome-extension:// URL
+Chrome version + extensionId + baseline commitSha
+360/420/768/1280 viewport screenshots
+Playwright trace / lifecycle event log
+每个 artifact 的 SHA-256
+```
+
+`backend/scripts/verify-v2-px-semantic-contract.ts` 是 PX-1 证据的前置语义门禁；PX-0 fixture 通过不等于真实 Chrome 通过。
+
 ## 被拒绝路线
 
 | 路线 | 放弃原因 |
@@ -100,6 +177,6 @@ realChromeEvidenceCannotBeGenerated=true
 Route A 是 External Brain 产品化路线，不得在 PX core schema 中内置具体业务域的交易、投资建议或订单字段。若权威产品基线最终确认属于 FAMS，则 FAMS adapter 必须在外层 policy 中继续执行既有交易 gate；若最终确认属于 Navia/mercury，则相关 FAMS 字段必须完全移除。
 
 ```text
-pxCoreDomainPolicy=UNRESOLVED
+pxCoreDomainPolicy=DOMAIN_NEUTRAL
 domainSpecificTradingGateLivesInAdapter=true
 ```

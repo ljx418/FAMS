@@ -1,0 +1,409 @@
+{
+  "schemaVersion": "v2-px-semantic-fixtures/1",
+  "fixtures": [
+    {
+      "name": "valid_px0_intent_route_contract",
+      "kind": "intent_route",
+      "expected": "pass",
+      "document": {
+        "schemaVersion": "v2-px-intent-route/2",
+        "productId": "fams-v2-px",
+        "repository": "https://github.com/ljx418/FAMS.git",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "entryContainer": "sidepanel",
+        "entryAction": "open_workspace",
+        "routeIntent": "source_detail",
+        "targetContainer": "workspace_page",
+        "routeId": "px-route-contract-0001",
+        "correlationId": "px-corr-contract-0001",
+        "idempotencyKey": "px-idem-contract-0001",
+        "permissionType": "read_only_direct",
+        "routePayload": {
+          "workspaceId": "workspace_contract",
+          "sourceId": "source_contract"
+        },
+        "audit": {
+          "createdAt": "2026-08-27T02:00:00.000Z",
+          "sourceContainer": "sidepanel",
+          "schemaValidated": true,
+          "semanticValidationRequired": true
+        }
+      }
+    },
+    {
+      "name": "unknown_route_intent",
+      "kind": "intent_route",
+      "expected": "fail",
+      "expectedErrorCode": "schema_invalid",
+      "document": {
+        "schemaVersion": "v2-px-intent-route/2",
+        "productId": "fams-v2-px",
+        "repository": "https://github.com/ljx418/FAMS.git",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "entryContainer": "sidepanel",
+        "entryAction": "open_workspace",
+        "routeIntent": "unknown_route",
+        "targetContainer": "workspace_page",
+        "routeId": "px-route-contract-0002",
+        "correlationId": "px-corr-contract-0002",
+        "idempotencyKey": "px-idem-contract-0002",
+        "permissionType": "read_only_direct",
+        "routePayload": { "workspaceId": "workspace_contract" },
+        "audit": {
+          "createdAt": "2026-08-27T02:01:00.000Z",
+          "sourceContainer": "sidepanel",
+          "schemaValidated": true,
+          "semanticValidationRequired": true
+        }
+      }
+    },
+    {
+      "name": "entry_and_audit_source_mismatch",
+      "kind": "intent_route",
+      "expected": "fail",
+      "expectedErrorCode": "schema_invalid",
+      "document": {
+        "schemaVersion": "v2-px-intent-route/2",
+        "productId": "fams-v2-px",
+        "repository": "https://github.com/ljx418/FAMS.git",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "entryContainer": "sidepanel",
+        "entryAction": "view_source",
+        "routeIntent": "source_library",
+        "targetContainer": "sidepanel",
+        "routeId": "px-route-contract-0003",
+        "correlationId": "px-corr-contract-0003",
+        "idempotencyKey": "px-idem-contract-0003",
+        "permissionType": "read_only_direct",
+        "routePayload": { "workspaceId": "workspace_contract" },
+        "audit": {
+          "createdAt": "2026-08-27T02:02:00.000Z",
+          "sourceContainer": "host_app",
+          "schemaValidated": true,
+          "semanticValidationRequired": true
+        }
+      }
+    },
+    {
+      "name": "payload_contains_arbitrary_secret",
+      "kind": "intent_route",
+      "expected": "fail",
+      "expectedErrorCode": "secret_key",
+      "document": {
+        "schemaVersion": "v2-px-intent-route/2",
+        "productId": "fams-v2-px",
+        "repository": "https://github.com/ljx418/FAMS.git",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "entryContainer": "host_app",
+        "entryAction": "open_in_workspace",
+        "routeIntent": "ask",
+        "targetContainer": "workspace_page",
+        "routeId": "px-route-contract-0004",
+        "correlationId": "px-corr-contract-0004",
+        "idempotencyKey": "px-idem-contract-0004",
+        "permissionType": "compute_quick_run",
+        "routePayload": {
+          "workspaceId": "workspace_contract",
+          "question": "summarize",
+          "arbitrarySecret": "must-never-be-accepted"
+        },
+        "audit": {
+          "createdAt": "2026-08-27T02:03:00.000Z",
+          "sourceContainer": "host_app",
+          "schemaValidated": true,
+          "semanticValidationRequired": true
+        }
+      }
+    },
+    {
+      "name": "fake_real_chrome_url",
+      "kind": "real_chrome_evidence",
+      "expected": "fail",
+      "expectedErrorCode": "schema_invalid",
+      "document": {
+        "schemaVersion": "v2-px-real-chrome-evidence/1",
+        "mode": "real_chrome",
+        "chromeVersion": "140.0.7339.42",
+        "extensionId": "abcdefghijklmnopabcdefghijklmnop",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "routeId": "px-route-contract-0005",
+        "pageUrls": [
+          "http://localhost:3000/mock-sidepanel.html",
+          "http://localhost:3000/mock-workspace.html"
+        ],
+        "viewports": [
+          { "width": 420, "height": 800 },
+          { "width": 1280, "height": 900 }
+        ],
+        "screenshots": [
+          {
+            "path": "missing-sidepanel.png",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "capturedAt": "2026-08-27T02:04:00.000Z",
+            "container": "sidepanel",
+            "viewport": { "width": 420, "height": 800 },
+            "routeId": "px-route-contract-0005"
+          },
+          {
+            "path": "missing-workspace.png",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "capturedAt": "2026-08-27T02:05:00.000Z",
+            "container": "workspace_page",
+            "viewport": { "width": 1280, "height": 900 },
+            "routeId": "px-route-contract-0005"
+          }
+        ],
+        "traceRefs": [
+          {
+            "path": "missing-trace.json",
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "startedAt": "2026-08-27T02:04:00.000Z",
+            "endedAt": "2026-08-27T02:05:00.000Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "acceptance_artifact_missing",
+      "kind": "acceptance_manifest",
+      "expected": "fail",
+      "expectedErrorCode": "artifact_missing",
+      "context": { "px1SpikePassed": false },
+      "document": {
+        "schemaVersion": "v2-px-acceptance-manifest/1",
+        "product": {
+          "productId": "fams-v2-px",
+          "hostApplication": "FAMS",
+          "extensionPackage": "packages/fams-v2-px-extension"
+        },
+        "repository": "https://github.com/ljx418/FAMS.git",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "routeAStatus": "accepted",
+        "pxStage": "PX-0",
+        "gates": [
+          { "gateId": "G1", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G2", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G3", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G4", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G5", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G6", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G7", "status": "passed", "evidenceRefs": [], "failureOwner": "none" }
+        ],
+        "artifacts": [
+          {
+            "path": "does-not-exist.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "artifactType": "json"
+          }
+        ],
+        "antiFalseGreen": {
+          "staticMockHtmlUsed": false,
+          "prototypeScreenshotOnly": false,
+          "semanticValidatorPassed": false,
+          "allArtifactHashesVerified": false
+        }
+      }
+    },
+    {
+      "name": "acceptance_artifact_hash_mismatch",
+      "kind": "acceptance_manifest",
+      "expected": "fail",
+      "expectedErrorCode": "hash_mismatch",
+      "context": { "px1SpikePassed": false },
+      "document": {
+        "schemaVersion": "v2-px-acceptance-manifest/1",
+        "product": {
+          "productId": "fams-v2-px",
+          "hostApplication": "FAMS",
+          "extensionPackage": "packages/fams-v2-px-extension"
+        },
+        "repository": "https://github.com/ljx418/FAMS.git",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "routeAStatus": "accepted",
+        "pxStage": "PX-0",
+        "gates": [
+          { "gateId": "G1", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G2", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G3", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G4", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G5", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G6", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G7", "status": "passed", "evidenceRefs": [], "failureOwner": "none" }
+        ],
+        "artifacts": [
+          {
+            "path": "artifact-payload.json",
+            "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "artifactType": "json"
+          }
+        ],
+        "antiFalseGreen": {
+          "staticMockHtmlUsed": false,
+          "prototypeScreenshotOnly": false,
+          "semanticValidatorPassed": false,
+          "allArtifactHashesVerified": false
+        }
+      }
+    },
+    {
+      "name": "lifecycle_event_order_mismatch",
+      "kind": "dual_container_lifecycle",
+      "expected": "fail",
+      "expectedErrorCode": "event_order",
+      "document": {
+        "schemaVersion": "v2-px-dual-container-lifecycle/2",
+        "productId": "fams-v2-px",
+        "repository": "https://github.com/ljx418/FAMS.git",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "correlationId": "px-corr-contract-0008",
+        "routeId": "px-route-contract-0008",
+        "browserEvidence": {
+          "schemaVersion": "v2-px-real-chrome-evidence/1",
+          "mode": "real_chrome",
+          "chromeVersion": "140.0.7339.42",
+          "extensionId": "abcdefghijklmnopabcdefghijklmnop",
+          "commitSha": "1111111111111111111111111111111111111111",
+          "routeId": "px-route-contract-0008",
+          "pageUrls": [
+            "chrome-extension://abcdefghijklmnopabcdefghijklmnop/sidepanel.html",
+            "chrome-extension://abcdefghijklmnopabcdefghijklmnop/workspace.html"
+          ],
+          "viewports": [
+            { "width": 420, "height": 800 },
+            { "width": 1280, "height": 900 }
+          ],
+          "screenshots": [
+            {
+              "path": "missing-sidepanel.png",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "capturedAt": "2026-08-27T02:10:00.000Z",
+              "container": "sidepanel",
+              "viewport": { "width": 420, "height": 800 },
+              "routeId": "px-route-contract-0008"
+            },
+            {
+              "path": "missing-workspace.png",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "capturedAt": "2026-08-27T02:11:00.000Z",
+              "container": "workspace_page",
+              "viewport": { "width": 1280, "height": 900 },
+              "routeId": "px-route-contract-0008"
+            }
+          ],
+          "traceRefs": [
+            {
+              "path": "missing-trace.json",
+              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "startedAt": "2026-08-27T02:10:00.000Z",
+              "endedAt": "2026-08-27T02:11:00.000Z"
+            }
+          ]
+        },
+        "containers": {
+          "sidepanel": { "started": true, "resumed": true, "reconnected": true, "closed": true, "stateDerivedFromEvents": true },
+          "workspacePage": { "started": true, "resumed": true, "reconnected": true, "closed": true, "stateDerivedFromEvents": true }
+        },
+        "events": [
+          { "at": "2026-08-27T02:10:04.000Z", "container": "sidepanel", "eventType": "close", "routeId": "px-route-contract-0008", "correlationId": "px-corr-contract-0008" },
+          { "at": "2026-08-27T02:10:01.000Z", "container": "sidepanel", "eventType": "start", "routeId": "px-route-contract-0008", "correlationId": "px-corr-contract-0008" },
+          { "at": "2026-08-27T02:10:02.000Z", "container": "sidepanel", "eventType": "resume", "routeId": "px-route-contract-0008", "correlationId": "px-corr-contract-0008" },
+          { "at": "2026-08-27T02:10:03.000Z", "container": "sidepanel", "eventType": "reconnect", "routeId": "px-route-contract-0008", "correlationId": "px-corr-contract-0008" },
+          { "at": "2026-08-27T02:10:05.000Z", "container": "background", "eventType": "route_intent", "routeId": "px-route-contract-0008", "correlationId": "px-corr-contract-0008" },
+          { "at": "2026-08-27T02:10:06.000Z", "container": "workspace_page", "eventType": "start", "routeId": "px-route-contract-0008", "correlationId": "px-corr-contract-0008" },
+          { "at": "2026-08-27T02:10:07.000Z", "container": "workspace_page", "eventType": "resume", "routeId": "px-route-contract-0008", "correlationId": "px-corr-contract-0008" },
+          { "at": "2026-08-27T02:10:08.000Z", "container": "workspace_page", "eventType": "reconnect", "routeId": "px-route-contract-0008", "correlationId": "px-corr-contract-0008" },
+          { "at": "2026-08-27T02:10:09.000Z", "container": "workspace_page", "eventType": "close", "routeId": "px-route-contract-0008", "correlationId": "px-corr-contract-0008" }
+        ],
+        "antiFalseGreen": {
+          "staticMockHtmlUsed": false,
+          "prototypeScreenshotOnly": false,
+          "realChromeTracePresent": true,
+          "semanticValidatorRequired": true
+        }
+      }
+    },
+    {
+      "name": "px2_before_px1_spike_passed",
+      "kind": "acceptance_manifest",
+      "expected": "fail",
+      "expectedErrorCode": "px_stage_forbidden",
+      "context": { "px1SpikePassed": false },
+      "document": {
+        "schemaVersion": "v2-px-acceptance-manifest/1",
+        "product": {
+          "productId": "fams-v2-px",
+          "hostApplication": "FAMS",
+          "extensionPackage": "packages/fams-v2-px-extension"
+        },
+        "repository": "https://github.com/ljx418/FAMS.git",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "routeAStatus": "accepted",
+        "pxStage": "PX-2",
+        "gates": [
+          { "gateId": "G1", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G2", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G3", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G4", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G5", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G6", "status": "passed", "evidenceRefs": [], "failureOwner": "none" },
+          { "gateId": "G7", "status": "passed", "evidenceRefs": [], "failureOwner": "none" }
+        ],
+        "artifacts": [
+          {
+            "path": "artifact-payload.json",
+            "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "artifactType": "json"
+          }
+        ],
+        "antiFalseGreen": {
+          "staticMockHtmlUsed": false,
+          "prototypeScreenshotOnly": false,
+          "semanticValidatorPassed": false,
+          "allArtifactHashesVerified": false
+        }
+      }
+    },
+    {
+      "name": "duplicate_idempotency_key_with_different_payload",
+      "kind": "operation_command_batch",
+      "expected": "fail",
+      "expectedErrorCode": "idempotency_conflict",
+      "document": [
+        {
+          "schemaVersion": "v2-px-operation-command/1",
+          "productId": "fams-v2-px",
+          "commandId": "px-command-contract-0010a",
+          "idempotencyKey": "px-idem-contract-0010",
+          "routeId": "px-route-contract-0010",
+          "correlationId": "px-corr-contract-0010",
+          "commandType": "ingest_source",
+          "sourceContainer": "workspace_page",
+          "targetContainer": "background",
+          "payload": {
+            "workspaceId": "workspace_contract",
+            "sourceId": "source_contract",
+            "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "requestedAt": "2026-08-27T02:20:00.000Z"
+        },
+        {
+          "schemaVersion": "v2-px-operation-command/1",
+          "productId": "fams-v2-px",
+          "commandId": "px-command-contract-0010b",
+          "idempotencyKey": "px-idem-contract-0010",
+          "routeId": "px-route-contract-0010",
+          "correlationId": "px-corr-contract-0010",
+          "commandType": "ingest_source",
+          "sourceContainer": "workspace_page",
+          "targetContainer": "background",
+          "payload": {
+            "workspaceId": "workspace_contract",
+            "sourceId": "source_contract",
+            "contentDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "requestedAt": "2026-08-27T02:20:01.000Z"
+        }
+      ]
+    }
+  ]
+}

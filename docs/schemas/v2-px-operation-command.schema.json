@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-operation-command.schema.json",
+  "title": "V2-PX Operation Command Contract",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "productId",
+    "commandId",
+    "idempotencyKey",
+    "routeId",
+    "correlationId",
+    "commandType",
+    "sourceContainer",
+    "targetContainer",
+    "payload",
+    "requestedAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "v2-px-operation-command/1"
+    },
+    "productId": {
+      "const": "fams-v2-px"
+    },
+    "commandId": {
+      "type": "string",
+      "pattern": "^px-command-[a-z0-9][a-z0-9-]{7,80}$"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "pattern": "^px-idem-[a-z0-9][a-z0-9-]{7,120}$"
+    },
+    "routeId": {
+      "type": "string",
+      "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$"
+    },
+    "correlationId": {
+      "type": "string",
+      "pattern": "^px-corr-[a-z0-9][a-z0-9-]{7,80}$"
+    },
+    "commandType": {
+      "type": "string",
+      "enum": ["ingest_source", "query", "refresh_index"]
+    },
+    "sourceContainer": {
+      "type": "string",
+      "enum": ["sidepanel", "workspace_page", "host_app"]
+    },
+    "targetContainer": {
+      "const": "background"
+    },
+    "payload": {
+      "oneOf": [
+        { "$ref": "#/$defs/ingestPayload" },
+        { "$ref": "#/$defs/queryPayload" },
+        { "$ref": "#/$defs/refreshPayload" }
+      ]
+    },
+    "requestedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "commandType": { "const": "ingest_source" } } },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/ingestPayload" } } }
+    },
+    {
+      "if": { "properties": { "commandType": { "const": "query" } } },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/queryPayload" } } }
+    },
+    {
+      "if": { "properties": { "commandType": { "const": "refresh_index" } } },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/refreshPayload" } } }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{2,80}$"
+    },
+    "ingestPayload": {
+      "type": "object",
+      "required": ["workspaceId", "sourceId", "contentDigest"],
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": { "$ref": "#/$defs/id" },
+        "sourceId": { "$ref": "#/$defs/id" },
+        "contentDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "queryPayload": {
+      "type": "object",
+      "required": ["workspaceId", "question"],
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": { "$ref": "#/$defs/id" },
+        "question": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "refreshPayload": {
+      "type": "object",
+      "required": ["workspaceId"],
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": { "$ref": "#/$defs/id" }
+      }
+    }
+  }
+}

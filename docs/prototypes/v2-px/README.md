@@ -1,6 +1,6 @@
 # V2-PX Prototype Evidence 说明
 
-更新时间：2026-07-15
+更新时间：2026-08-27
 
 ## 当前状态
 
@@ -11,9 +11,21 @@ legacyMockEvidenceAllowedForPxAcceptance=false
 px0GithubReviewGate=FAIL
 prototypePrdAlignment=NOT_TESTABLE
 prototypeInteractionCoverage=FAIL
+semanticValidatorImplemented=true
+antiFalseGreenAcceptanceContractPassed=true
 ```
 
-本目录用于承载 V2-PX External Brain Productization 的原型增量、真实 Chrome 验收证据和 anti-false-green 说明。当前只有文档占位，不能作为 PX-1 或 PX 完成证据。
+本目录用于承载 V2-PX External Brain Productization 的原型增量、合同 fixture、真实 Chrome 验收证据和 anti-false-green 说明。`fixtures/` 已提供 PX-0 结构与语义合同正反例，但还没有 PX-1 浏览器原型，不能作为真实 Chrome 或 V2-PX 完成证据。
+
+## PX-0 fixture
+
+运行：
+
+```bash
+npm --prefix backend run test:v2-px-semantic-contract
+```
+
+当前 fixture 覆盖 unknown intent、入口来源矛盾、secret-like 字段、假 Chrome URL、文件缺失、哈希不一致、生命周期乱序、PX-2 越级和幂等冲突。正例仅是合同数据，不包含或冒充生产证据。
 
 ## 后续必须补齐的原型范围
 
