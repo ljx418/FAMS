@@ -171,8 +171,9 @@ FAMS ChatBox、每日复盘和任务中心增加统一的“在外部大脑打�
 2. PX background 只拥有 route、correlation、idempotency、容器和恢复状态；Ask 结果的业务真相继续属于 FAMS Chat 会话。
 3. `chrome.storage.local` 只保存最小恢复索引，不保存原始截图、cookie、token 或完整账户数据。
 4. 安装时不默认请求主机权限；用户点击“连接本地 FAMS”后，只能授予后端 `localhost/127.0.0.1:4000`。前端 3000 只用于 Host App 外部消息 allowlist，不属于扩展 host permission。
-5. PX-1 仅验证本地单用户开发环境，不宣称生产身份与远程安全已经完成。
-6. PX Core 保持领域无关；FAMS adapter 继续执行研究与交易边界。
+5. Background 调用 External Brain API 必须发送公开的 `X-FAMS-Extension-Id=browser.runtime.id`；无 Origin 时仅按配置 ID 放行，有 Origin 时还必须是同 ID 的 extension Origin，任何 Web Origin 均拒绝。该 ID 不是 secret，也不宣称能认证本机进程。
+6. PX-1～PX-3 仅验证本地单用户开发环境，不宣称生产身份、本机恶意进程防护与远程安全已经完成。
+7. PX Core 保持领域无关；FAMS adapter 继续执行研究与交易边界。
 
 ## 10. 质量需求
 
@@ -188,6 +189,7 @@ FAMS ChatBox、每日复盘和任务中心增加统一的“在外部大脑打�
 - CSP 只允许 self，禁止远程可执行代码。
 - 禁止 `<all_urls>`、cookie 复制、token 写入证据。
 - host app 外部消息校验 sender origin、schema、permission 和 payload。
+- External Brain API 拒绝缺 caller ID、错误 ID、Web Origin+伪造 ID 与 Origin/ID 不一致；不能因 MV3 请求缺 Origin 而默认放行。
 - evidence collector 输出到 Git 忽略的私有目录。
 
 ### 10.3 可维护性

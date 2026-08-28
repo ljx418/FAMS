@@ -419,16 +419,28 @@ secretLikeFieldCount=0
 
 外部消息在 1 秒内返回 accepted/blocked ack。最终 tab 打开结果通过 correlationId 可追溯；Host 不直接写 WorkspaceState。
 
-### 7.3 后端 origin 与本地身份
+### 7.3 后端调用方 ID、origin 与本地身份
 
-目标 External Brain route pre-handler 只接受 `Origin=chrome-extension://<id>` 且 `<id>` 位于 `FAMS_V2_PX_EXTENSION_IDS` 逗号分隔 allowlist。未配置 allowlist 时该 facade 返回 `PX_EXTENSION_ALLOWLIST_NOT_CONFIGURED`，不得默认接受任意扩展 origin。
+真实 Chrome 152 已证明 MV3 Background 的跨 origin GET 可以不携带 `Origin`。因此 External Brain route pre-handler 不再把“存在 extension Origin”当作唯一调用方事实，而使用下列唯一判定：
+
+```text
+callerHeaderName=X-FAMS-Extension-Id
+callerHeaderValue=<browser.runtime.id；严格 32 位 [a-p]>
+configuredAllowlist=FAMS_V2_PX_EXTENSION_IDS
+headerRequiredForEveryExternalBrainRequest=true
+if Origin exists: Origin must be chrome-extension://<same header id>
+if Origin missing: allow only when header id is configured
+if any Web Origin exists: deny even when header spoofs an allowed id
+```
+
+未配置 allowlist 时 facade 返回 `PX_EXTENSION_ALLOWLIST_NOT_CONFIGURED`。缺失/畸形/未配置的 header ID 返回 `PX_EXTENSION_CALLER_BLOCKED`；存在 Web Origin 或 Origin/header 不同 ID 返回 `PX_ORIGIN_BLOCKED`。header 是公开扩展 ID，不是 secret，也不是本机进程身份认证；本地进程可以伪造它。V2-PX 在本阶段解决的是“普通网页不能借 CORS 调用只读 facade”，生产身份、远程调用和本机恶意进程防护仍不在本阶段范围。
 
 现有全局 CORS `origin:true` 是当前仓库事实，不得被文档误写为生产安全。V2-PX 的 route-level origin policy 是新增目标；远程 origin、JWT、多用户和 Chrome Store 发布另立安全里程碑。
 
 PX2-01 的 CORS 切换窗口固定为：
 
-1. 先新增 External Brain route pre-handler，未配置 allowlist 或 origin 不匹配时必须在业务 handler 前拒绝；此时暂不移除现有全局 `origin:true`，但它只负责响应头，不能绕过 route pre-handler。
-2. 在同一候选构建中完成 allowed extension、错误 extension、缺 allowlist、Host 3000 origin 四组 contract test；任一失败即停止，不进入切换。
+1. 先新增 External Brain route pre-handler，未配置 allowlist、caller header 不匹配、Web Origin 存在或 extension Origin/header 不一致时必须在业务 handler 前拒绝；全局 CORS 只负责响应头，不能绕过 route pre-handler。
+2. 在同一候选构建中完成“无 Origin+正确 header”“匹配 extension Origin+header”两组正例，以及缺 header、错误 header、错误 extension Origin、Origin/header 不一致、缺 allowlist、Host 3000 Origin+伪造 header 八组负例；任一失败即停止。
 3. 测试通过后，把全局 `origin:true` 收紧为现有 FAMS 本地 Web origin 与 `FAMS_V2_PX_EXTENSION_IDS` 派生的 extension origin；route pre-handler 继续保留双重校验。
 4. 切换前后配置、测试命令、退出码和回退点写入 `.verification/private/v2-px/<commitSha>/PX2/cors-switch-audit.json`。切换失败回 PX2-01，不得退回“任意 origin 即身份”。
 
@@ -449,6 +461,8 @@ PX2-01 的 CORS 切换窗口固定为：
 | `PX_NOT_CONNECTED` | 本地权限未授权 | 未连接 | 连接、查看隐私说明 |
 | `PX_PERMISSION_DENIED` | Chrome permission 拒绝 | blocked | 重新授权、保持只读离线索引 |
 | `PX_EXTENSION_ALLOWLIST_NOT_CONFIGURED` | 503 | blocked | 按本地配置指南填 extension ID |
+| `PX_EXTENSION_CALLER_BLOCKED` | 403 | blocked | 从已配置扩展重新连接，不接受缺失或伪造 ID |
+| `PX_ORIGIN_BLOCKED` | 403 | blocked | 关闭网页调用，必须从扩展 Background 发起 |
 | `PX_FAMS_UNAVAILABLE` | 503/网络 | disconnected | 重试、保留最近任务索引 |
 | `PX_RESOURCE_NOT_FOUND` | 404 | empty/blocked | 回来源库、保留失效 ref |
 | `PX_SCHEMA_INVALID` | 400/422 | blocked | 返回入口、导出脱敏诊断 |

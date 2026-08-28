@@ -509,7 +509,7 @@ Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和
 
 | 场景 | 前置条件 | 人类/自动化操作 | 量化通过阈值 | 必须证据 | 失败打回 |
 | --- | --- | --- | --- | --- | --- |
-| AC-PX-01 首次连接 | extension 已安装，FAMS 3000/4000 已启动，未授予主机权限 | 打开 Side Panel，点击连接，只确认后端 4000 origin | 安装默认 host 权限为空；未授权请求=0；授权后 `/health` 200；3000 只在 external connect；无 `<all_urls>` | permission/manifest audit、截图、network log | PX-1 |
+| AC-PX-01 首次连接 | extension 已安装，FAMS 3000/4000 已启动，未授予主机权限 | 打开 Side Panel，点击连接，只确认后端 4000；授权后读取来源 | 安装默认 host 权限为空；未授权请求=0；授权后 `/health` 200；API 请求含实际 extension ID header；Web Origin+伪造 header=403；无 `<all_urls>` | permission/manifest/caller audit、截图、network log | PX-1/PX-3 |
 | AC-PX-02 快速提问 | 已连接，存在可查询的本地数据 | Side Panel 输入问题并发送，再重放同一 key | 点击后 1 秒内显示 ack；35 秒内显示含结论/依据/时间/下一步的最终结果，或明确 `failed/blocked/unknown_result` 与人工复核动作；同 key 后端 dispatch=1；POST 自动重试=0；原始异常=0 | 360/420 截图、command/API trace、ack/final 时间戳 | PX-2/PX-3/PX-4 |
 | AC-PX-03 打开工作台 | Side Panel 有当前 workspace | 连续点击 20 次“在完整工作台打开” | 同 workspace tab=1；重复 operation=0；1 秒内聚焦 | multi-window tab trace | PX-4 |
 | AC-PX-04 Host App 跳转 | FAMS ChatBox、Daily Review、Operations 可访问且 extension ID 已配置 | 分别点击“在外部大脑打开”；再移除 ID 验证降级 | 三入口业务对象、canonical key/correlation 一致且 routeId 各自可追溯；Host 查看来源进入 Workspace；缺扩展时有配置说明 | entry matrix、三处截图、bridge audit | PX-3/PX-4 |
@@ -599,7 +599,7 @@ docs/prototypes/v2-px/fixtures/real-chrome-evidence-v2.negative.json
 | PX1-03 权限与连接 | optional 4000、external connect 3000、ConnectionGate、background `/health` | PX1-02 | permission/manifest/network 负例 | 人类明确看到访问地址与拒绝后果 | 未授权请求非 0 或需扩权即 RETURN_TO_ADR |
 | PX1-04 最小路由/标签 | background、intentRouter、workspaceTabManager、最小 WorkspaceState | PX1-02 | 入口 route、20 次 tab reuse、canonical URL | Side Panel 能打开/聚焦真实 Workspace 空壳 | 重复 tab 或错误窗口为 PX-1 fail |
 | PX1-05 真实 Chrome 证据 | lifecycle/2→3、Chrome evidence/1→2；Playwright + CDP collector、trace/event/hash/stage manifest | PX1-01～04 | extension `verify:real-chrome`；少视口、重复视口、字段尺寸与图像实际尺寸不一致均必须失败 | extension URL/ID/version/build、恰好 360/420/768/1280、manifest/network/console 可核查 | 任一 target evidence consumer 漂移不得进入 PX-2 |
-| PX2-01 API 类型与 policy | `externalBrainTypes.ts`、deny-by-default route pre-handler、local user、origin allowlist、错误 envelope、交易四锁；先验证 pre-handler，再把全局 `origin:true` 收紧为本地 Web + 配置 extension origins | M1 人工通过 | backend `test:v2-px-policy`；allowed/错误 extension、缺 allowlist、Host 3000 四组 origin 负例 | blocked 文案无交易解锁/原始错误；核查 `PX2/cors-switch-audit.json` 的切换前后与回退点 | 任一 policy 旁路或 CORS 切换证据缺失均停止 PX-2 |
+| PX2-01/PX3-R1 API caller policy | `externalBrainTypes.ts`、deny-by-default route pre-handler、`FamsApiClient.ts` extension ID header、local user、caller allowlist、错误 envelope、交易四锁；全局 CORS 收紧为本地 Web + 配置 extension origins | M1 + 方案 A 用户批准 | backend policy/API：两正例+八负例；真实 Chrome Background 请求 header 与 server 决策 | blocked 文案无交易解锁/原始错误；核查 PX2 CORS 与 PX3 reentry/Chrome 证据 | 缺 Origin 默认放行、Web Origin+伪造 header 放行或 caller header 缺失均停止 PX3 |
 | PX2-02 Read/Ask facade | `externalBrainReadService`、`externalBrainAskService`、五端点、分页、同源映射 | PX2-01 | backend `test:v2-px-api-contract` | 与 FAMS Chat/Review/Operation 同一对象对照 | 字段缺失则修 facade；禁止复制计算 |
 | PX2-03 Extension adapter | `FamsApiClient`、`FamsDomainAdapter`、GET 有限重试、POST 0 自动重试 | PX2-02 | adapter contract + network fault tests | 断连/超时不出现伪 success | 无法满足则回 API 合同评审 |
 | PX2-04 Workspace 垂直切片 | WorkspaceApp/Router、五 View、RecoveryBanner、EvidenceDrawer、768/1280 | PX2-03 | extension `test:workspace` + real Chrome | 五视图信息层级、六状态、来源/证据一致 | M2 仅在真实 read model 下出门 |

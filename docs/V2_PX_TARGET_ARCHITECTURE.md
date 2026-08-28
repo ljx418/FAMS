@@ -244,13 +244,13 @@ allUrlsForbidden=true
 remoteExecutableCodeAllowed=false
 ```
 
-“hostPermissions 为空”指安装时不默认获得主机访问权；运行时只允许用户主动授予 manifest 中列出的精确后端地址。3000 只允许向扩展发送受控 intent route，不授予扩展访问前端页面内容的权限。External Brain route 还必须以 `FAMS_V2_PX_EXTENSION_IDS` 验证 extension origin；现有全局 `origin:true` 不能冒充该目标已实现。
+“hostPermissions 为空”指安装时不默认获得主机访问权；运行时只允许用户主动授予 manifest 中列出的精确后端地址。3000 只允许向扩展发送受控 intent route，不授予扩展访问前端页面内容的权限。External Brain Background 每次请求必须发送公开的 `X-FAMS-Extension-Id=browser.runtime.id`；route pre-handler 以 `FAMS_V2_PX_EXTENSION_IDS` 验证该 ID。若存在 Origin，只允许与 header 同 ID 的 `chrome-extension://` Origin；任何 Web Origin 即使伪造 header 也拒绝。现有全局 CORS 不能冒充该 route policy 已实现。
 
-PX2-01 先启用 deny-by-default route pre-handler 并完成 extension allowlist 正负测试，再把全局 `origin:true` 收紧到 FAMS 本地 Web origin 与配置的 extension origin；整个切换过程记录到 `PX2/cors-switch-audit.json`。切换失败必须留在 PX2-01，不能让全局 CORS 回退成为身份旁路。
+PX2-01/PX3 重入先启用 deny-by-default route pre-handler，并完成“无 Origin+正确 header”和“匹配 extension Origin+header”正例，以及缺失/错误 header、Web Origin+伪造 header、Origin/header 不一致、缺 allowlist负例。全局 CORS 继续收紧到 FAMS 本地 Web origin 与配置的 extension origin；切换与重入证据分别记录到 `PX2/cors-switch-audit.json` 和 `PX3/`。失败必须停在 PX3，不能让缺 Origin默认放行成为旁路。
 
 ### 7.2 身份边界
 
-PX-1 仅验证本地单用户连接和路由，不把当前默认 JWT secret 或 query userId 当作生产安全能力。生产多用户身份、Chrome Web Store 发布和远程 origin 必须另立里程碑并重新安全评审。
+PX-1～PX-3 仅验证本地单用户连接和路由，不把公开 extension ID header、当前默认 JWT secret 或 query userId 当作生产身份安全能力。生产多用户身份、本机恶意进程防护、Chrome Web Store 发布和远程 origin 必须另立里程碑并重新安全评审。
 
 ### 7.3 交易边界
 
