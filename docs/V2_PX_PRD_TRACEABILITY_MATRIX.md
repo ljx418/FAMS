@@ -7,9 +7,9 @@
 ```text
 traceabilityMatrixReady=DOCUMENTATION_20_OF_20
 runtimeDecisionChecks=40/40
-implementationMappingStatus=PX1_ENTRY_AUDIT_IN_PROGRESS
+implementationMappingStatus=PX1_ACCEPTED_PX2_ENTRY_AUDIT
 prototypeDesignCoverage=DOCUMENTED_NOT_INTERACTIVE
-realChromeEvidencePresent=false
+realChromeEvidencePresent=true
 px1FeasibilitySpikeAllowed=true
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 externalIndependentAuditStatus=CONDITIONAL_PASS
@@ -76,10 +76,10 @@ documentationDecisionChecks=40/40
 interactivePrototypePresent=false
 extensionPackagePresent=false
 implementationFileMappingPresentInDocs=true
-px1BrowserTestsImplemented=false
-realChromeEvidencePresent=false
-targetRuntimeContractImplemented=false
+px1BrowserTestsImplemented=true
+realChromeEvidencePresent=true
+targetRuntimeContractImplemented=PARTIAL_PX1_CONTRACTS_ONLY
 explicitUserApprovalForImplementation=true
 ```
 
-因此当前应停留在文档评审，不进入实际开发。
+PX1 技术基座已经通过目标合同、真实 Chrome 与 PRD 阶段复核；当前允许进入 PX2。完整 External Brain API、五视图、Side Panel 业务体验、Host Bridge、恢复和最终验收仍不得提前声明完成。

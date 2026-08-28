@@ -1,7 +1,7 @@
 # V2-PX PX1 入场与验收审计
 
 日期：2026-08-28
-当前结论：ENTRY_PASS_IMPLEMENTATION_PENDING
+当前结论：PASS_PX2_ENTRY_ALLOWED
 
 ## 入场三轮审计
 
@@ -30,6 +30,28 @@
 - 真实 Chrome 证据缺失、只有 shell/root 节点、截图不可复核或 manifest 自报均为 FAIL。
 - 任一失败自动回到本阶段计划；出现权限、交易、真实数据或架构偏移则停止请求用户确认。
 
-## 实施后结果
+## 实施后自动验收结果
 
-尚未执行。代码、命令、真实 Chrome 证据和 PRD 复核将在本文件后续章节追加，未追加前不得声明 PX1 通过。
+| 项目 | 结果 |
+| --- | --- |
+| WXT 0.21.4 MV3 构建 | PASS；background/sidepanel/workspace 三 entrypoint 均进入真实 build |
+| 目标合同与八个 fixture | PASS；4 个正例通过、4 个负例按预期失败；PX0 回归继续通过 |
+| 扩展单元/合同测试 | PASS；5 个测试文件、18 个断言场景 |
+| 3×3 路由与 20 次标签复用 | PASS；Host view_source→Workspace，重复打开 tab=1 |
+| at-most-once 故障分流 | PASS；prepared 写失败请求=0；结果后写失败 unknown_result；同 key 重放请求=1 |
+| 真实 Chrome | PASS；Chrome for Testing 152.0.7977.64、真实 extension ID、实际 Side Panel target |
+| 四视口与视觉复核 | PASS；360/420 Side Panel、768/1280 Workspace，PNG 实际像素一致，根级横向溢出=0 |
+| 隐私与交易边界 | PASS；console error=0、secret/cookie/token/账户原图=0、broker order=0、四锁=false |
+
+真实证据：`.verification/private/v2-px/74ef3c82fc9896575db4c065060fd6575232c116/PX1/`。
+
+普通 Google Chrome 151 因 Chrome 137 起移除品牌版 `--load-extension` 而未加载 unpacked extension；验收没有降级为静态网页，改用 Chrome 官方提供的 Chrome for Testing 152，在 `--headless=new` 下完成真实扩展与 Side Panel 验证。
+
+## PRD 阶段规格检视
+
+- PX-REQ-006、010、015 的 PX1 技术门槛已实现并有真实证据。
+- PX-REQ-001/002/003/008/009/012/014/018/020 已实现合同或基础实体，但仍需后续阶段完整集成，不提前标记全需求完成。
+- PX-REQ-004/005/007/011/013/016/017/019 的完整业务/UI 门槛仍属于 PX2～PX6。
+- Side Panel 和 Workspace 截图清晰、可读、无假数据；页面明确说明 PX2 才接入真实 read model，因此不存在把空壳冒充完整业务的风险。
+
+致命问题：0。重大规格偏差：0。新增假绿风险：0。PX1 出门，允许进入 PX2。
