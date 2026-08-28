@@ -1,7 +1,7 @@
 # V2-PX PX2 入场与验收审计
 
 日期：2026-08-28
-当前结论：STOPPED_SPEC_REENTRY_REQUIRED
+当前结论：R2_PASS_PX3_ENTRY_ALLOWED（历史 STOP 已由 PX1 重签闭环）
 
 > 重入更新：PX1 已由 `fe3faaf...` 重签，以下 R2 标准在实质开发前重新审查；旧的 `STOPPED_SPEC_REENTRY_REQUIRED` 作为历史停止记录保留，不能覆盖本节的新结论。
 
@@ -46,4 +46,20 @@
 
 ## 实施后结果
 
-尚未执行。未追加真实 API/Chrome 证据和 PRD 复核前不得声明 PX2 通过。
+| 项目 | 结果 |
+| --- | --- |
+| common envelope/error | PASS；五端点统一 `fams.external-brain.response.v1`；成功八字段精确，error 内外 requestId 一致，researchOnly+四锁齐全 |
+| 真实来源 | PASS；Operation.artifactRefsJson 与 DailyReviewRun.report evidenceRefs 逐条生成 canonical sourceRef，详情反查成员关系 |
+| keyset/freshness/trust | PASS；cursor 仅 snapshotAt/lastAsOf/lastSourceRef；按 asOf desc/sourceRef asc；24h 与状态映射在服务中固定 |
+| strict Ask | PASS；五必填+conversation optional，additional/userId/非法 context 均 400；真实 Ask POST=1，最终约 5.0 秒 |
+| Policy/CORS | PASS；独立 policy 先验通过；缺 permission fail closed、confirm blocked、permanent hard fail；四 Origin 与缺 allowlist 均符合合同 |
+| 错误分类 | PASS；显式资源不存在=404；注入的数据库故障=503，响应不泄露测试路径 |
+| 真实数据不变 | PASS；验收时真实 Operation=227、Review=28、Transaction=0；每次请求前后计数一致 |
+| 交易边界 | PASS；confirmation endpoint=0、broker/order=0、trade mutation=0、researchOnly=true、四锁=false |
+
+实现提交：`246e09af1703af36e876c5265f32b43ae60f08c2`。
+证据：`.verification/private/v2-px/246e09af1703af36e876c5265f32b43ae60f08c2/PX2/api-contract-evidence.json` 与同目录 `cors-switch-audit.json`。
+
+## R2 PRD 规格检视
+
+PX-REQ-004/005/007/011/013/016/017/019 的后端读模型、证据、问答、追踪/图谱和交易边界基础已实现；Workspace DOM 与用户可见七状态尚属 R3，不能因 API 通过而提前标记完整体验。R2 fatal=0、major=0、fake-green=0；允许进入 R3。
