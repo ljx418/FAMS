@@ -83,6 +83,26 @@ async function waitForSidePanelTarget(rootSession, extensionId) {
   throw new Error('Real Chrome did not expose an actual Side Panel target after a user-gesture click')
 }
 
+async function waitForFamsWorker(context) {
+  const deadline = Date.now() + 15_000
+  while (Date.now() < deadline) {
+    for (const candidate of context.serviceWorkers()) {
+      if (!candidate.url().startsWith('chrome-extension://')) continue
+      try {
+        const manifest = await candidate.evaluate(() => chrome.runtime.getManifest())
+        if (manifest?.name === 'FAMS External Brain' && manifest?.version === '0.1.0') return candidate
+      } catch {
+        // A built-in extension worker may terminate while it is inspected.
+      }
+    }
+    await Promise.race([
+      context.waitForEvent('serviceworker', { timeout: 500 }).catch(() => undefined),
+      new Promise((resolveWait) => setTimeout(resolveWait, 500)),
+    ])
+  }
+  throw new Error('Chrome did not load the FAMS External Brain service worker')
+}
+
 async function captureRawTarget(rootSession, targetInfo, viewport, filename, routeId) {
   const { sessionId } = await rootSession.send('Target.attachToTarget', { targetId: targetInfo.targetId, flatten: false })
   const target = targetMessenger(rootSession, sessionId)
@@ -168,8 +188,7 @@ try {
   assert.ok(context, 'Chrome CDP default context is missing')
   const rootSession = await browser.newBrowserCDPSession()
 
-  let worker = context.serviceWorkers().find((candidate) => candidate.url().startsWith('chrome-extension://') && candidate.url().endsWith('/background.js'))
-  if (!worker) worker = await context.waitForEvent('serviceworker', { predicate: (candidate) => candidate.url().startsWith('chrome-extension://') && candidate.url().endsWith('/background.js'), timeout: 15_000 })
+  const worker = await waitForFamsWorker(context)
   const extensionId = new URL(worker.url()).host
   assert.match(extensionId, /^[a-p]{32}$/)
 
