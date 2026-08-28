@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { access, readFile, realpath, stat } from 'node:fs/promises'
+import { access, readFile, readdir, realpath, stat } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { relative, resolve, sep } from 'node:path'
 
@@ -56,6 +56,7 @@ const repoRoot = resolve(process.cwd(), '..')
 const schemaRoot = resolve(repoRoot, 'docs/schemas')
 const fixtureRoot = resolve(repoRoot, 'docs/prototypes/v2-px/fixtures')
 const fixturesPath = resolve(fixtureRoot, 'semantic-contract-fixtures.json')
+const privateEvidenceRoot = resolve(repoRoot, '.verification/private/v2-px')
 
 function issue(code: string, message: string): ValidationIssue {
   return { code, message }
@@ -133,6 +134,85 @@ async function verifyArtifact(ref: ArtifactRef): Promise<ValidationIssue[]> {
 async function verifyArtifactRefs(refs: ArtifactRef[]): Promise<ValidationIssue[]> {
   const results = await Promise.all(refs.map(verifyArtifact))
   return results.flat()
+}
+
+async function verifyPrivateEvidenceArtifact(ref: ArtifactRef): Promise<ValidationIssue[]> {
+  const candidate = resolve(repoRoot, ref.path)
+  const allowedPrefix = `${privateEvidenceRoot}${sep}`
+  if (!candidate.startsWith(allowedPrefix)) {
+    return [issue('artifact_path_escape', `Real Chrome artifact is outside private evidence root: ${ref.path}`)]
+  }
+  try {
+    const file = await readFile(candidate)
+    if (file.length === 0) return [issue('artifact_empty', `Artifact is empty: ${ref.path}`)]
+    const digest = createHash('sha256').update(file).digest('hex')
+    return digest === ref.sha256 ? [] : [issue('hash_mismatch', `SHA-256 mismatch for ${ref.path}`)]
+  } catch {
+    return [issue('artifact_missing', `Artifact does not exist: ${ref.path}`)]
+  }
+}
+
+async function latestPx1Evidence(): Promise<{ evidence: Record<string, unknown>; manifest: Record<string, unknown>; path: string } | null> {
+  try {
+    const commits = await readdir(privateEvidenceRoot, { withFileTypes: true })
+    const candidates: Array<{ evidence: Record<string, unknown>; manifest: Record<string, unknown>; path: string; endedAt: number }> = []
+    for (const commit of commits) {
+      if (!commit.isDirectory() || !/^[a-f0-9]{40}$/.test(commit.name)) continue
+      const stageDir = resolve(privateEvidenceRoot, commit.name, 'PX1')
+      try {
+        const [manifest, evidence] = await Promise.all([
+          readFile(resolve(stageDir, 'stage-manifest.json'), 'utf8').then(JSON.parse) as Promise<Record<string, unknown>>,
+          readFile(resolve(stageDir, 'real-chrome-evidence.json'), 'utf8').then(JSON.parse) as Promise<Record<string, unknown>>,
+        ])
+        if (manifest.status === 'passed' && manifest.commitSha === commit.name && evidence.commitSha === commit.name) {
+          candidates.push({ evidence, manifest, path: relative(repoRoot, stageDir), endedAt: Date.parse(String(manifest.endedAt ?? '')) || 0 })
+        }
+      } catch {
+        // Failed/partial evidence directories are intentionally ignored.
+      }
+    }
+    return candidates.sort((left, right) => right.endedAt - left.endedAt)[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+async function verifyTargetChromeEvidence(document: Record<string, unknown>): Promise<ValidationIssue[]> {
+  const issues = findSecretKeys(document)
+  const extensionId = String(document.extensionId ?? '')
+  const pageUrls = Array.isArray(document.pageUrls) ? document.pageUrls.map(String) : []
+  if (!pageUrls.every((url) => url.startsWith(`chrome-extension://${extensionId}/`))) {
+    issues.push(issue('fake_chrome_url', 'Target Chrome page URL is not owned by the recorded extension'))
+  }
+  const viewports = Array.isArray(document.viewports) ? document.viewports.map(objectValue) : []
+  const widths = viewports.map((item) => Number(item.width)).sort((left, right) => left - right)
+  if (stableJson(widths) !== stableJson([360, 420, 768, 1280])) issues.push(issue('viewport_set_invalid', 'Target evidence must contain exactly 360/420/768/1280'))
+
+  const screenshots = Array.isArray(document.screenshots) ? document.screenshots.map(objectValue) : []
+  for (const screenshot of screenshots) {
+    if (stableJson(screenshot.viewport) !== stableJson(screenshot.imageContentSizePixels)) {
+      issues.push(issue('image_size_mismatch', `Declared screenshot pixels differ from viewport: ${String(screenshot.path)}`))
+    }
+    if (screenshot.rootHorizontalOverflowPx !== 0) issues.push(issue('root_overflow', `Root overflow is non-zero: ${String(screenshot.path)}`))
+    const path = resolve(repoRoot, String(screenshot.path ?? ''))
+    try {
+      const png = await readFile(path)
+      if (png.toString('ascii', 1, 4) !== 'PNG') throw new Error('not PNG')
+      const actual = { width: png.readUInt32BE(16), height: png.readUInt32BE(20) }
+      if (stableJson(actual) !== stableJson(screenshot.imageContentSizePixels)) {
+        issues.push(issue('image_size_mismatch', `PNG header size differs from evidence: ${String(screenshot.path)}`))
+      }
+    } catch {
+      issues.push(issue('artifact_missing', `Screenshot is missing or invalid: ${String(screenshot.path)}`))
+    }
+  }
+  const refs = [
+    ...screenshots.map((item) => ({ path: String(item.path ?? ''), sha256: String(item.sha256 ?? '') })),
+    ...(Array.isArray(document.traceRefs) ? document.traceRefs.map(objectValue) : []).map((item) => ({ path: String(item.path ?? ''), sha256: String(item.sha256 ?? '') })),
+    ...['networkRef', 'consoleRef'].map((key) => objectValue(document[key])).map((item) => ({ path: String(item.path ?? ''), sha256: String(item.sha256 ?? '') })),
+  ]
+  issues.push(...(await Promise.all(refs.map(verifyPrivateEvidenceArtifact))).flat())
+  return issues
 }
 
 function semanticIntentRoute(document: Record<string, unknown>): ValidationIssue[] {
@@ -301,6 +381,33 @@ async function main() {
     assert.ok(validator, `Schema validator was not compiled: ${name}`)
   }
 
+  const targetContracts = [
+    ['v2-px-intent-route-v3.schema.json', 'intent-route-v3.positive.json', 'intent-route-v3.negative.json'],
+    ['v2-px-operation-command-v2.schema.json', 'operation-command-v2.positive.json', 'operation-command-v2.negative.json'],
+    ['v2-px-dual-container-lifecycle-v3.schema.json', 'dual-container-lifecycle-v3.positive.json', 'dual-container-lifecycle-v3.negative.json'],
+    ['v2-px-real-chrome-evidence-v2.schema.json', 'real-chrome-evidence-v2.positive.json', 'real-chrome-evidence-v2.negative.json'],
+  ] as const
+  const targetAjv = new Ajv2020({ allErrors: true, strict: true, validateFormats: false })
+  const targetResults: Array<{ schema: string; positivePassed: boolean; negativeRejected: boolean }> = []
+  let validateTargetChrome: { (document: unknown): boolean; errors?: unknown } | undefined
+  for (const [schemaName, positiveName, negativeName] of targetContracts) {
+    const targetSchema = JSON.parse(await readFile(resolve(schemaRoot, schemaName), 'utf8'))
+    const validate = targetAjv.compile(targetSchema)
+    const positivePassed = Boolean(validate(JSON.parse(await readFile(resolve(fixtureRoot, positiveName), 'utf8'))))
+    const negativeRejected = !validate(JSON.parse(await readFile(resolve(fixtureRoot, negativeName), 'utf8')))
+    assert.equal(positivePassed, true, `${schemaName} target positive fixture failed`)
+    assert.equal(negativeRejected, true, `${schemaName} target negative fixture was accepted`)
+    if (schemaName === 'v2-px-real-chrome-evidence-v2.schema.json') validateTargetChrome = validate
+    targetResults.push({ schema: schemaName, positivePassed, negativeRejected })
+  }
+
+  const realChrome = await latestPx1Evidence()
+  assert.ok(realChrome, 'PX1 real Chrome evidence is missing')
+  assert.ok(validateTargetChrome, 'Target Chrome validator was not compiled')
+  assert.equal(Boolean(validateTargetChrome(realChrome.evidence)), true, `PX1 Chrome evidence schema invalid: ${JSON.stringify(validateTargetChrome.errors)}`)
+  const realChromeIssues = await verifyTargetChromeEvidence(realChrome.evidence)
+  assert.deepEqual(realChromeIssues, [], `PX1 Chrome evidence semantic validation failed: ${JSON.stringify(realChromeIssues)}`)
+
   const fixtureCollection = JSON.parse(await readFile(fixturesPath, 'utf8')) as {
     schemaVersion: string
     fixtures: Fixture[]
@@ -365,6 +472,8 @@ async function main() {
     status: 'passed',
     authority: AUTHORITY,
     schemaCount: schemas.length,
+    targetSchemaCount: targetContracts.length,
+    targetContractResults: targetResults,
     fixturePath: relative(repoRoot, fixturesPath),
     positiveFixturePassed: positiveFixtures.every((fixture) => fixture.actual === 'pass'),
     negativeFixtureFailed: negativeFixtures.every((fixture) => fixture.actual === 'fail'),
@@ -377,9 +486,10 @@ async function main() {
     idempotencyConflictRejected: results.some((result) => result.issueCodes.includes('idempotency_conflict')),
     semanticValidatorImplemented: true,
     antiFalseGreenAcceptanceContractPassed: true,
-    realChromeAcceptanceClaimed: false,
-    px1SpikePassed: false,
-    px2PlusProductionImplementationAllowed: false,
+    realChromeAcceptanceClaimed: true,
+    realChromeEvidencePath: realChrome.path,
+    px1SpikePassed: true,
+    px2PlusProductionImplementationAllowed: true,
     fixtures: results,
   }, null, 2))
 }

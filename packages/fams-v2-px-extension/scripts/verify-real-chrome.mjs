@@ -257,7 +257,9 @@ try {
     schemaVersion: 'v2-px-stage-manifest/1', stage: stageName, status: 'passed', commitSha,
     startedAt, endedAt: new Date().toISOString(), chromeVersion, extensionId, extensionVersion: manifest.version, buildDigest,
     command: 'npm run verify:real-chrome', exitCode: 0,
-    artifacts: (await walkFiles(evidenceDir)).filter((path) => !path.includes('chrome-profile-')).map((path) => ({ path: relative(repoRoot, path).replaceAll('\\', '/'), sha256: sha256(readFileSync(path)) })),
+    artifacts: (await walkFiles(evidenceDir))
+      .filter((path) => !path.includes('chrome-profile-') && !path.endsWith('/stage-manifest.json'))
+      .map((path) => ({ path: relative(repoRoot, path).replaceAll('\\', '/'), sha256: sha256(readFileSync(path)) })),
     negativeChecks: {
       headlessProbeStatus: automationMode === 'headed_cdp' ? 'fallback_after_headless_failure' : 'passed',
       browserDistribution: usingChromeForTesting ? 'chrome_for_testing' : 'installed_google_chrome',
