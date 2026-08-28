@@ -76,6 +76,18 @@ function runtimeRoute(routeIntent, routePayload) {
   }
 }
 
+async function sendRuntimeRoute(page, routeIntent, routePayload) {
+  const message = runtimeRoute(routeIntent, routePayload)
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await page.evaluate((input) => chrome.runtime.sendMessage(input), message)
+    } catch (error) {
+      if (!String(error).includes('Execution context was destroyed') || attempt === 2) throw error
+      await page.waitForLoadState('domcontentloaded').catch(() => undefined)
+    }
+  }
+}
+
 async function apiJson(extensionId, path) {
   const response = await fetch(`http://127.0.0.1:4000${path}`, { headers: { Origin: `chrome-extension://${extensionId}`, 'X-FAMS-Extension-Id': extensionId } })
   const body = await response.json()
@@ -215,11 +227,22 @@ try {
   assert.deepEqual('error' in workerProbe ? workerProbe : { health: workerProbe.health, sources: workerProbe.sources }, { health: 200, sources: 200 }, `worker fetch probe failed: ${JSON.stringify(workerProbe)}`)
 
   const workspacePromise = context.waitForEvent('page', { timeout: 10_000 })
-  await sidepanel.getByRole('button', { name: '打开完整工作台' }).click()
-  const workspace = await workspacePromise
+  await sidepanel.getByRole('button', { name: '完整工作台' }).click()
+  let workspace
+  try {
+    workspace = await workspacePromise
+  } catch (error) {
+    const pageText = await sidepanel.locator('body').innerText().catch(() => '')
+    throw new Error(`workspace tab did not open; sidepanel=${JSON.stringify(pageText)}; console=${JSON.stringify(consoleEntries)}; network=${JSON.stringify(networkEntries.slice(-20))}`, { cause: error })
+  }
   await workspace.waitForLoadState('domcontentloaded')
   try {
-    await workspace.getByTestId('view-source_library').waitFor({ timeout: 20_000 })
+    const openedView = new URL(workspace.url()).searchParams.get('view')
+    await workspace.getByTestId(openedView === 'source_detail' ? 'view-source_detail' : 'view-source_library').waitFor({ timeout: 20_000 })
+    if (openedView === 'source_detail') {
+      await workspace.getByRole('button', { name: '来源库' }).click()
+      await workspace.getByTestId('view-source_library').waitFor({ timeout: 20_000 })
+    }
   } catch (error) {
     const pageText = await workspace.locator('body').innerText().catch(() => '')
     const workerErrors = consoleEntries.filter((entry) => entry.type === 'error' || entry.type === 'pageerror')
@@ -244,19 +267,19 @@ try {
   await workspace.getByTestId('view-trace').waitFor({ timeout: 20_000 })
   screenshots.push(...await captureBoth(workspace, 'trace'))
 
-  await workspace.evaluate((message) => chrome.runtime.sendMessage(message), runtimeRoute('graph', { workspaceId, graphScope: 'operation', graphId: operationId }))
+  await sendRuntimeRoute(workspace, 'graph', { workspaceId, graphScope: 'operation', graphId: operationId })
   await workspace.getByTestId('view-graph').waitFor({ timeout: 20_000 })
   screenshots.push(...await captureBoth(workspace, 'graph', '-operation'))
 
   const reviewPage = await apiJson(extensionId, '/api/v1/external-brain/sources?kind=daily_review_evidence&limit=1')
   const reviewSource = reviewPage.data.items[0]
   assert.ok(reviewSource?.sourceRef && reviewSource?.reviewId, 'real review evidence is required')
-  await workspace.evaluate((message) => chrome.runtime.sendMessage(message), runtimeRoute('source_detail', { workspaceId, sourceRef: reviewSource.sourceRef }))
+  await sendRuntimeRoute(workspace, 'source_detail', { workspaceId, sourceRef: reviewSource.sourceRef })
   await workspace.getByTestId('view-source_detail').waitFor({ timeout: 20_000 })
   await workspace.getByTestId('view-source_detail').locator('article').getByText(rawSourceRef(reviewSource.sourceRef), { exact: true }).waitFor()
   screenshots.push(...await captureBoth(workspace, 'source_detail', '-review'))
 
-  await workspace.evaluate((message) => chrome.runtime.sendMessage(message), runtimeRoute('graph', { workspaceId, graphScope: 'daily-review', graphId: reviewSource.reviewId }))
+  await sendRuntimeRoute(workspace, 'graph', { workspaceId, graphScope: 'daily-review', graphId: reviewSource.reviewId })
   await workspace.getByTestId('view-graph').waitFor({ timeout: 20_000 })
   screenshots.push(...await captureBoth(workspace, 'graph', '-review'))
 
