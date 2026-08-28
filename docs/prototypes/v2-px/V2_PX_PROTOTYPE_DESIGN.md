@@ -1,15 +1,15 @@
 # V2-PX 双容器原型设计规格
 
-更新时间：2026-08-27
+更新时间：2026-08-29
 
 ## 1. 文档状态
 
-本文件是开发前目标原型规格，不是可运行 HTML，不是 Chrome evidence，也不表示 PX-1 已实现。
+本文件仍是目标体验权威规格；对应 Side Panel 与 Workspace 已有真实实现和私有 Chrome evidence，但本 Markdown 本身不充当运行证据或最终人类验收。
 
 ```text
-prototypeDesignStatus=APPROVED_GOAL_DOCUMENTED_NOT_IMPLEMENTED
-interactivePrototypePresent=false
-realChromeEvidencePresent=false
+prototypeDesignStatus=IMPLEMENTED_TWO_CONTAINER_AUTOMATED_ACCEPTANCE_PASSED
+interactivePrototypePresent=true
+realChromeEvidencePresent=true
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 uiToLifecycleStateMapping=docs/V2_PX_TARGET_ARCHITECTURE.md#6-状态与数据所有权
 ```

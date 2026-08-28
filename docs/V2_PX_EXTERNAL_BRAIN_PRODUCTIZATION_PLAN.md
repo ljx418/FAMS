@@ -498,7 +498,7 @@ Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和
 | M0 Documentation Review Ready | 无 | 20/20 traceability；40/40 决策检查；8 页图；状态一致 | 能评估目标体验、架构/规格/出门风险 | 已完成；独立审计意见已定向闭环并获用户批准实施 |
 | M1 Route A Technically Validated | M0 + 用户批准 | 目标合同迁移、六项 spike、真实 Chrome、权限和负例全部通过 | Side Panel/Workspace 空壳真实可运行 | 自动化 PASS；真实 Chrome 证据已生成 |
 | M2 Bounded API + Workspace Accepted | M1 + 人工确认 | 五端点 DTO/同源/policy；768/1280、五视图、六状态、刷新恢复 | 完整工作台可读真实结果并受控提问 | 自动化核心切片 PASS（commit `6c8714e`）；正式权限点击留最终人类门槛，深度生命周期留 PX-5 |
-| M3 Side Panel Entry Accepted | M2 | 360/420、简明摘要、连接、跳转和 host app 入口通过 | 随时快速提问并进入完整页 | 未开始 |
+| M3 Side Panel Entry Accepted | M2 | 360/420、简明摘要、连接、跳转和 host app 入口通过 | 随时快速提问并进入完整页 | PX4-A Side Panel 自动化 PASS（`bc7cc5a`）；Host App 入口待 PX4-B，故 M3 总体未关闭 |
 | M4 Intent & FAMS Adapter Accepted | M3 | 三入口、五 intent、20 次 tab/idempotency、交易边界通过 | 同一任务不重复，结果来自现有 FAMS | 未开始 |
 | M5 Lifecycle Accepted | M4 | 必测 lifecycle 场景 100% 可推导 | 刷新、重开、断连可恢复或明确阻断 | 未开始 |
 | M6 Productization Candidate | M5 | G1～G7、四视口、隐私、HTML、人工体验通过 | 可作为本地浏览器产品化候选使用 | 未开始 |

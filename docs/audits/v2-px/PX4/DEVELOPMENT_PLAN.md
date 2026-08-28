@@ -2,7 +2,7 @@
 
 日期：2026-08-29
 
-状态：ENTRY_AUDIT_PASSED_READY_FOR_TDD
+状态：IMPLEMENTED_AUTOMATED_ACCEPTANCE_PASSED
 
 ## 完成后的目标体验
 
@@ -27,3 +27,5 @@
 ## 出门声明上限
 
 本子阶段通过后最多声明 `sidePanelEntryAutomatedAccepted=true`。不得声明 Host 三入口、完整生命周期、最终候选、人类授权或交易能力完成。
+
+实现提交：`bc7cc5a45f16538da0d2192d1bb0347bd73576f5`。真实 Chrome 证据位于 `.verification/private/v2-px/bc7cc5a45f16538da0d2192d1bb0347bd73576f5/PX4A`；详细结论见 `ACCEPTANCE_AUDIT.md` 与 `PRD_SPEC_REVIEW.md`。

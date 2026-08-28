@@ -82,7 +82,7 @@ PX-1～PX-6 runtime acceptance commands
 | --- | --- | --- | --- |
 | 待新增 | `packages/fams-v2-px-extension/wxt.config.ts` | MV3 manifest、CSP、Side Panel、可选本地权限 | 输出 `.output/chrome-mv3` |
 | 待新增 | `entrypoints/background.ts` | 唯一消息入口和状态写入者 | 接收三个入口；调用 router/store/adapter |
-| 待新增 | `entrypoints/sidepanel/index.html`、`main.tsx` | 360/420 轻量入口 | 只向 background 发命令并订阅状态 |
+| 已实现 | `entrypoints/sidepanel/index.html`、`main.tsx`、`SidePanelApp.tsx` | 360/420 轻量入口、真实摘要、Quick Ask、最近任务 | 只向 background 发命令；PX4A Chrome 自动验收 PASS |
 | 待新增 | `entrypoints/workspace/index.html`、`main.tsx` | 768/1280 完整工作台宿主 | 只向 background 发命令并订阅状态 |
 
 ### 4.2 PX Core 路由与状态层
@@ -103,7 +103,7 @@ PX-1～PX-6 runtime acceptance commands
 
 | 状态 | 目标实体 | 用户结果 |
 | --- | --- | --- |
-| 待新增 | `src/sidepanel/SidePanelApp.tsx` | 快速提问、最近任务、连接状态、打开工作台 |
+| 已实现 | `entrypoints/sidepanel/SidePanelApp.tsx` | 快速提问、最近任务、连接状态、打开/定位工作台；问题与回答只在 React memory |
 | 待新增 | `src/sidepanel/ConnectionGate.tsx` | 解释权限用途并由用户主动连接本地 FAMS |
 | 待新增 | `src/workspace/WorkspaceApp.tsx` | 完整 External Brain 页面框架 |
 | 待新增 | `src/workspace/WorkspaceRouter.tsx` | 映射 source library/detail/ask/trace/graph |
@@ -149,7 +149,7 @@ GET  /api/v1/external-brain/graphs/:scope/:id
 | 待修改 | acceptance manifest/report/1→2 | PX-6 增加 20 requirements、AC01～10、stage manifests 和人工证据 |
 | 待新增 | `packages/fams-v2-px-extension/tests/intent-route.spec.ts` | 三入口和五 intent 路由 |
 | 待新增 | `tests/workspace-host.spec.ts` | 独立宿主、视口、刷新恢复 |
-| 待新增 | `tests/sidepanel-entry.spec.ts` | 360/420 Side Panel |
+| 已实现 | `tests/sidepanel.test.ts`、`scripts/verify-sidepanel-chrome.mjs` | 360/420 Side Panel 单元与真实 Chrome/DB/API/LLM 证据 |
 | 待新增 | `tests/tab-idempotency.spec.ts` | 多窗口复用和重复点击 |
 | 待新增 | `tests/lifecycle-recovery.spec.ts` | 断连、reload、reconnect、close |
 | 待新增 | `scripts/collect-real-chrome-evidence.mjs` | Playwright + Chrome CDP 真实证据 |
