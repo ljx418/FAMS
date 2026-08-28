@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser'
 import { FamsDomainAdapter } from '../adapters/fams/FamsDomainAdapter'
+import { FamsApiClient } from '../adapters/fams/FamsApiClient'
 import { FamsApiError, type BackgroundCommandResponse, type WorkspaceViewData } from '../adapters/fams/types'
 import type { CommandResult, IntentRoute, OperationCommand, RuntimeMessage, WorkspaceStateV1 } from '../contracts/types'
 import { validateRuntimeMessage } from '../contracts/validation'
@@ -11,7 +12,7 @@ import { buildWorkspacePath } from './intentRouter'
 import { openOrFocusWorkspace } from './workspaceTabManager'
 
 const ALLOWED_HOST_ORIGINS = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
-const adapter = new FamsDomainAdapter()
+const adapter = new FamsDomainAdapter(new FamsApiClient(browser.runtime.id))
 
 type RuntimeResponse = CommandResult | BackgroundCommandResponse
 

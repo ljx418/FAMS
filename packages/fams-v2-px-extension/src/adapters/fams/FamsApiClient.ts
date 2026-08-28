@@ -1,5 +1,5 @@
 import { BACKEND_ORIGINS } from '../../background/connection'
-import { isSourceRef } from '../../contracts/validation'
+import { isConversationId, isSourceRef } from '../../contracts/validation'
 import {
   FamsApiError,
   type AskResult,
@@ -16,6 +16,8 @@ type RequestMethod = 'GET' | 'POST'
 type Validator<T> = (value: unknown) => value is T
 
 const sleep = (delayMs: number) => new Promise((resolve) => setTimeout(resolve, delayMs))
+const EXTENSION_ID_PATTERN = /^[a-p]{32}$/
+const EXTENSION_ID_HEADER = 'X-FAMS-Extension-Id'
 const isObject = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const exactKeys = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).sort().join(',') === [...keys].sort().join(',')
 const isStringArray = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string')
@@ -60,7 +62,7 @@ const isSourceDetail: Validator<SourceDetail> = (value): value is SourceDetail =
   && Array.isArray(value.displaySections)
 
 const isAskResult: Validator<AskResult> = (value): value is AskResult => isObject(value)
-  && /^chat-[0-9a-f-]{36}$/.test(String(value.conversationId))
+  && isConversationId(value.conversationId)
   && typeof value.messageId === 'string'
   && typeof value.summary === 'string'
   && isStringArray(value.keyEvidence)
@@ -90,7 +92,15 @@ const isGraph: Validator<GraphResult> = (value): value is GraphResult => isObjec
 export class FamsApiClient {
   private activeOrigin: string | null = null
 
-  constructor(private readonly fetcher: Fetcher = fetch, private readonly origins: readonly string[] = BACKEND_ORIGINS) {}
+  constructor(
+    private readonly extensionId: string,
+    private readonly fetcher: Fetcher = fetch,
+    private readonly origins: readonly string[] = BACKEND_ORIGINS,
+  ) {
+    if (!EXTENSION_ID_PATTERN.test(extensionId)) {
+      throw new FamsApiError('PX_EXTENSION_ID_INVALID', '当前扩展 ID 无效，已阻止本地 FAMS 请求。', false)
+    }
+  }
 
   listSources(input: { cursor?: string; limit?: number; kind?: 'all' | 'operation_artifact' | 'daily_review_evidence' } = {}) {
     const query = new URLSearchParams()
@@ -133,9 +143,12 @@ export class FamsApiClient {
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), method === 'POST' ? 35_000 : 8_000)
         try {
-          const response = await this.fetcher(`${origin}${path}`, {
+          const response = await this.fetcher.call(globalThis, `${origin}${path}`, {
             method,
-            headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+            headers: {
+              [EXTENSION_ID_HEADER]: this.extensionId,
+              ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+            },
             body: body === undefined ? undefined : JSON.stringify(body),
             signal: controller.signal,
             cache: 'no-store',
@@ -170,7 +183,11 @@ export class FamsApiClient {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 3_000)
       try {
-        const response = await this.fetcher(`${origin}/health`, { signal: controller.signal, cache: 'no-store' })
+        const response = await this.fetcher.call(globalThis, `${origin}/health`, {
+          headers: { [EXTENSION_ID_HEADER]: this.extensionId },
+          signal: controller.signal,
+          cache: 'no-store',
+        })
         if (response.ok) { this.activeOrigin = origin; return origin }
       } catch {
         // Only the second frozen local origin may be attempted.

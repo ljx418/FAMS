@@ -77,7 +77,7 @@ function runtimeRoute(routeIntent, routePayload) {
 }
 
 async function apiJson(extensionId, path) {
-  const response = await fetch(`http://127.0.0.1:4000${path}`, { headers: { Origin: `chrome-extension://${extensionId}` } })
+  const response = await fetch(`http://127.0.0.1:4000${path}`, { headers: { Origin: `chrome-extension://${extensionId}`, 'X-FAMS-Extension-Id': extensionId } })
   const body = await response.json()
   assert.equal(response.ok, true, `real API failed ${response.status}: ${JSON.stringify(body)}`)
   return body
@@ -181,7 +181,9 @@ try {
   const networkEntries = []
   const consoleEntries = []
   worker.on('console', (entry) => consoleEntries.push({ type: entry.type(), text: entry.text(), url: worker.url() }))
-  context.on('request', (request) => networkEntries.push({ phase: 'request', method: request.method(), url: request.url(), at: new Date().toISOString() }))
+  context.on('request', (request) => networkEntries.push({
+    phase: 'request', method: request.method(), url: request.url(), callerExtensionId: request.headers()['x-fams-extension-id'] ?? null, at: new Date().toISOString(),
+  }))
   context.on('response', (response) => networkEntries.push({ phase: 'response', status: response.status(), url: response.url(), at: new Date().toISOString() }))
   context.on('page', (page) => {
     page.on('console', (entry) => consoleEntries.push({ type: entry.type(), text: entry.text(), url: page.url() }))
@@ -202,8 +204,9 @@ try {
   }
   const workerProbe = await worker.evaluate(async () => {
     try {
-      const health = await fetch('http://localhost:4000/health', { cache: 'no-store' })
-      const sources = await fetch('http://localhost:4000/api/v1/external-brain/sources?limit=1', { cache: 'no-store' })
+      const headers = { 'X-FAMS-Extension-Id': chrome.runtime.id }
+      const health = await fetch('http://localhost:4000/health', { headers, cache: 'no-store' })
+      const sources = await fetch('http://localhost:4000/api/v1/external-brain/sources?limit=1', { headers, cache: 'no-store' })
       return { health: health.status, healthBody: await health.text(), sources: sources.status, body: await sources.text() }
     } catch (error) {
       return { error: error instanceof Error ? `${error.name}:${error.message}` : String(error) }
@@ -250,7 +253,7 @@ try {
   assert.ok(reviewSource?.sourceRef && reviewSource?.reviewId, 'real review evidence is required')
   await workspace.evaluate((message) => chrome.runtime.sendMessage(message), runtimeRoute('source_detail', { workspaceId, sourceRef: reviewSource.sourceRef }))
   await workspace.getByTestId('view-source_detail').waitFor({ timeout: 20_000 })
-  await workspace.getByText(rawSourceRef(reviewSource.sourceRef), { exact: true }).waitFor()
+  await workspace.getByTestId('view-source_detail').locator('article').getByText(rawSourceRef(reviewSource.sourceRef), { exact: true }).waitFor()
   screenshots.push(...await captureBoth(workspace, 'source_detail', '-review'))
 
   await workspace.evaluate((message) => chrome.runtime.sendMessage(message), runtimeRoute('graph', { workspaceId, graphScope: 'daily-review', graphId: reviewSource.reviewId }))
@@ -278,6 +281,9 @@ try {
   assert.equal(storageText.includes('结论摘要'), false, 'answer body leaked into extension storage')
   const askPosts = networkEntries.filter((entry) => entry.phase === 'request' && entry.method === 'POST' && entry.url.includes('/api/v1/external-brain/ask'))
   assert.equal(askPosts.length, 1, `Ask POST count must be one, got ${askPosts.length}`)
+  const externalBrainRequests = networkEntries.filter((entry) => entry.phase === 'request' && ['GET', 'POST'].includes(entry.method) && entry.url.includes('/api/v1/external-brain/'))
+  assert.ok(externalBrainRequests.length >= 7, `expected real API traffic for five views, got ${externalBrainRequests.length}`)
+  assert.equal(externalBrainRequests.every((entry) => entry.callerExtensionId === extensionId), true, 'real API request caller header drift')
   const forbiddenRequests = networkEntries.filter((entry) => /broker|order-create|\/orders(?:\?|$)|auto-trade/i.test(entry.url))
   assert.deepEqual(forbiddenRequests, [], `forbidden trading requests: ${JSON.stringify(forbiddenRequests)}`)
   assert.equal(countTransactions(), countsBefore.transactions, 'External Brain must not mutate Transaction')
@@ -295,6 +301,7 @@ try {
     review: { sourceRef: reviewSource.sourceRef, reviewId: reviewSource.reviewId, rawRef: rawSourceRef(reviewSource.sourceRef), databaseStatus: reviewDb.status },
     screenshots: screenshots.map(({ bodyText: _bodyText, ...item }) => item),
     postAskRequestCount: askPosts.length, brokerOrderRequestCount: forbiddenRequests.length, transactionMutationCount: 0,
+    callerHeaderMatchesExtensionId: true,
     storageContainsQuestionOrAnswer: false, consoleErrorCount: consoleErrors.length,
     executionBoundary: { researchOnly: true, formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false },
     trace: { path: relative(repoRoot, tracePath).replaceAll('\\', '/'), sha256: sha256(await readFile(tracePath)) },

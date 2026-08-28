@@ -16,7 +16,7 @@ function viewData<TView extends WorkspaceViewData['view'], TValue>(view: TView, 
 }
 
 export class FamsDomainAdapter {
-  constructor(private readonly api: FamsApiClient = new FamsApiClient()) {}
+  constructor(private readonly api: FamsApiClient) {}
 
   async loadWorkspaceView(state: WorkspaceStateV1): Promise<WorkspaceViewData | null> {
     if (state.currentView === 'source_library') return viewData('source_library', await this.api.listSources({ limit: 50 }))

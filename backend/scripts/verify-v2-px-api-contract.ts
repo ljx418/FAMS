@@ -28,7 +28,8 @@ const countsBefore = {
 assert.ok(countsBefore.operations > 0, 'real Operation records are required')
 assert.ok(countsBefore.reviews > 0, 'real DailyReviewRun records are required')
 
-const inject = (input: Parameters<typeof app.inject>[0]) => app.inject({ ...input, headers: { origin: extensionOrigin, ...(input.headers || {}) } })
+const callerHeader = { 'x-fams-extension-id': extensionId }
+const inject = (input: Parameters<typeof app.inject>[0]) => app.inject({ ...input, headers: { origin: extensionOrigin, ...callerHeader, ...(input.headers || {}) } })
 const boundary = {
   researchOnly: true,
   formalTradingUnlocked: false,
@@ -46,15 +47,26 @@ function assertErrorEnvelope(response: Awaited<ReturnType<typeof app.inject>>) {
   assert.equal('stack' in body, false)
 }
 
-const missingOrigin = await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources' })
-const webOrigin = await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { origin: 'http://localhost:3000' } })
-const wrongExtension = await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { origin: 'chrome-extension://pppppppppppppppppppppppppppppppp' } })
+const missingOriginAllowed = await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources?limit=1', headers: callerHeader })
+assert.equal(missingOriginAllowed.statusCode, 200)
+const callerNegatives = [
+  await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources' }),
+  await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { 'x-fams-extension-id': 'not-an-extension' } }),
+  await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { 'x-fams-extension-id': 'pppppppppppppppppppppppppppppppp' } }),
+  await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { origin: 'http://localhost:3000', ...callerHeader } }),
+  await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { origin: 'http://127.0.0.1:3000', ...callerHeader } }),
+  await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { origin: 'chrome-extension://pppppppppppppppppppppppppppppppp', ...callerHeader } }),
+  await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { origin: extensionOrigin, 'x-fams-extension-id': 'pppppppppppppppppppppppppppppppp' } }),
+  await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { origin: extensionOrigin } }),
+]
+assert.deepEqual(callerNegatives.map((response) => response.statusCode), Array(8).fill(403))
+callerNegatives.forEach(assertErrorEnvelope)
 const userInjection = await inject({ method: 'GET', url: '/api/v1/external-brain/sources?userId=other' })
-assert.deepEqual([missingOrigin.statusCode, webOrigin.statusCode, wrongExtension.statusCode, userInjection.statusCode], [403, 403, 403, 400])
-;[missingOrigin, webOrigin, wrongExtension, userInjection].forEach(assertErrorEnvelope)
+assert.equal(userInjection.statusCode, 400)
+assertErrorEnvelope(userInjection)
 
 delete process.env.FAMS_V2_PX_EXTENSION_IDS
-const missingAllowlist = await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: { origin: extensionOrigin } })
+const missingAllowlist = await app.inject({ method: 'GET', url: '/api/v1/external-brain/sources', headers: callerHeader })
 assert.equal(missingAllowlist.statusCode, 503)
 assert.equal(missingAllowlist.json().error.code, 'PX_EXTENSION_ALLOWLIST_NOT_CONFIGURED')
 assertErrorEnvelope(missingAllowlist)
@@ -190,6 +202,8 @@ const report = {
   postAskRequestCount: 1,
   databaseFailureMappedTo503: true,
   explicitNotFoundMappedTo404: true,
+  callerIdentityPositiveCount: 2,
+  callerIdentityNegativeCount: 8,
   brokerOrderRequestCount: 0,
   tradeMutationCount: 0,
 }

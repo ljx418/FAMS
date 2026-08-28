@@ -74,8 +74,17 @@ export async function externalBrainRoutes(app: FastifyInstance) {
       return sendError(request, reply, 503, 'PX_EXTENSION_ALLOWLIST_NOT_CONFIGURED', '尚未配置获准的 External Brain 扩展 ID。', false)
     }
     const origin = typeof request.headers.origin === 'string' ? request.headers.origin : undefined
-    if (!externalBrainPolicyService.isExternalBrainOriginAllowed(origin)) {
-      return sendError(request, reply, 403, 'PX_ORIGIN_BLOCKED', '该调用方未获 External Brain API 授权。', false)
+    const caller = externalBrainPolicyService.inspectExternalBrainCaller(origin, request.headers['x-fams-extension-id'])
+    if (!caller.allowed) {
+      const originBlocked = caller.disposition === 'origin_blocked'
+      return sendError(
+        request,
+        reply,
+        403,
+        originBlocked ? 'PX_ORIGIN_BLOCKED' : 'PX_EXTENSION_CALLER_BLOCKED',
+        originBlocked ? '该网页或扩展 Origin 未获 External Brain API 授权。' : '该扩展 ID 未获 External Brain API 授权。',
+        false,
+      )
     }
     if (externalBrainPolicyService.requestContainsUserId(request)) {
       return sendError(request, reply, 400, 'PX_USER_SCOPE_FIXED', 'External Brain API 固定读取本地默认用户，不接受 userId。', false)

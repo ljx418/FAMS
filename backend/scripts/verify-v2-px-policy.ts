@@ -13,6 +13,22 @@ assert.equal(externalBrainPolicyService.isExternalBrainOriginAllowed(`chrome-ext
 assert.equal(externalBrainPolicyService.isExternalBrainOriginAllowed('http://localhost:3000'), false)
 assert.equal(externalBrainPolicyService.isExternalBrainOriginAllowed('chrome-extension://pppppppppppppppppppppppppppppppp'), false)
 
+const callerMatrix = [
+  { name: 'missing-origin-valid-header', origin: undefined, header: allowedId, allowed: true, disposition: 'allowed' },
+  { name: 'matching-extension-origin', origin: `chrome-extension://${allowedId}`, header: allowedId, allowed: true, disposition: 'allowed' },
+  { name: 'missing-header', origin: undefined, header: undefined, allowed: false, disposition: 'extension_caller_blocked' },
+  { name: 'malformed-header', origin: undefined, header: 'not-an-extension', allowed: false, disposition: 'extension_caller_blocked' },
+  { name: 'unconfigured-header', origin: undefined, header: 'pppppppppppppppppppppppppppppppp', allowed: false, disposition: 'extension_caller_blocked' },
+  { name: 'web-origin-spoof', origin: 'http://localhost:3000', header: allowedId, allowed: false, disposition: 'origin_blocked' },
+  { name: 'wrong-extension-origin', origin: 'chrome-extension://pppppppppppppppppppppppppppppppp', header: allowedId, allowed: false, disposition: 'origin_blocked' },
+  { name: 'origin-header-mismatch', origin: `chrome-extension://${allowedId}`, header: 'pppppppppppppppppppppppppppppppp', allowed: false, disposition: 'extension_caller_blocked' },
+] as const
+for (const item of callerMatrix) {
+  const decision = externalBrainPolicyService.inspectExternalBrainCaller(item.origin, item.header)
+  assert.equal(decision.allowed, item.allowed, item.name)
+  assert.equal(decision.disposition, item.disposition, item.name)
+}
+
 const missingPermission = externalBrainPolicyService.inspectAskResult({})
 assert.equal(missingPermission.disposition, 'blocked')
 assert.ok(missingPermission.reasons.includes('permission_type_missing'))
@@ -52,5 +68,6 @@ console.log(JSON.stringify({
   confirmationBlocked: true,
   permanentHardFail: true,
   prohibitedActionLeakBlocked: true,
+  callerIdentityMatrixPassed: true,
   tradingBoundaryLocked: true,
 }, null, 2))

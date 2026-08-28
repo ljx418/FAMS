@@ -7,6 +7,7 @@ import {
 
 const WEB_ORIGINS = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
 const READ_PERMISSIONS = new Set(['read_only_direct', 'compute_quick_run'])
+const EXTENSION_ID_PATTERN = /^[a-p]{32}$/
 
 function configuredValues(name: string): string[] {
   return String(process.env[name] || '')
@@ -20,9 +21,15 @@ function extensionIdFromOrigin(origin: string): string | null {
   return match?.[1] || null
 }
 
+export type ExternalBrainCallerDecision = {
+  allowed: boolean
+  disposition: 'allowed' | 'extension_caller_blocked' | 'origin_blocked'
+  extensionId?: string
+}
+
 class ExternalBrainPolicyService {
   configuredExtensionIds(): string[] {
-    return configuredValues('FAMS_V2_PX_EXTENSION_IDS')
+    return configuredValues('FAMS_V2_PX_EXTENSION_IDS').filter((value) => EXTENSION_ID_PATTERN.test(value))
   }
 
   isExternalBrainOriginAllowed(origin: string | undefined): boolean {
@@ -37,6 +44,23 @@ class ExternalBrainPolicyService {
     return WEB_ORIGINS.has(origin)
       || extraWebOrigins.has(origin)
       || this.isExternalBrainOriginAllowed(origin)
+  }
+
+  inspectExternalBrainCaller(origin: string | undefined, extensionIdHeader: string | string[] | undefined): ExternalBrainCallerDecision {
+    if (typeof extensionIdHeader !== 'string' || !EXTENSION_ID_PATTERN.test(extensionIdHeader)) {
+      return { allowed: false, disposition: 'extension_caller_blocked' }
+    }
+    if (!this.configuredExtensionIds().includes(extensionIdHeader)) {
+      return { allowed: false, disposition: 'extension_caller_blocked' }
+    }
+    if (origin === undefined) {
+      return { allowed: true, disposition: 'allowed', extensionId: extensionIdHeader }
+    }
+    const originExtensionId = extensionIdFromOrigin(origin)
+    if (!originExtensionId || originExtensionId !== extensionIdHeader) {
+      return { allowed: false, disposition: 'origin_blocked' }
+    }
+    return { allowed: true, disposition: 'allowed', extensionId: extensionIdHeader }
   }
 
   requestContainsUserId(request: FastifyRequest): boolean {
