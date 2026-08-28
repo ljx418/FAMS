@@ -132,15 +132,18 @@ async function captureWorkspace(page, viewport, filename, routeId) {
   }
 }
 
-const chromePath = process.env.FAMS_WINDOWS_CHROME_PATH || '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'
-assert.ok(existsSync(chromePath), `Windows Google Chrome not found: ${chromePath}`)
+const chromeForTestingPath = resolve(repoRoot, '.verification/tools/chrome-for-testing/chrome-win64/chrome.exe')
+const chromePath = process.env.FAMS_WINDOWS_CHROME_PATH || (existsSync(chromeForTestingPath) ? chromeForTestingPath : '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe')
+assert.ok(existsSync(chromePath), `Windows Chrome executable not found: ${chromePath}`)
+const usingChromeForTesting = chromePath === chromeForTestingPath
 const profilePath = await mkdtemp(resolve(evidenceDir, 'chrome-profile-'))
 const windowsProfilePath = execFileSync('wslpath', ['-w', profilePath], { encoding: 'utf8' }).trim()
 const windowsExtensionPath = execFileSync('wslpath', ['-w', outputDir], { encoding: 'utf8' }).trim()
 
-const automationMode = process.env.V2_PX_CHROME_MODE === 'headless' ? 'headless_new' : 'headed_cdp'
+const automationMode = process.env.V2_PX_CHROME_MODE === 'headed' ? 'headed_cdp' : 'headless_new'
 const chromeArgs = [
-  ...(automationMode === 'headless_new' ? ['--headless=new'] : []), '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-allow-origins=*',
+  ...(automationMode === 'headless_new' ? ['--headless=new'] : []), ...(usingChromeForTesting ? ['--no-sandbox'] : []),
+  '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-allow-origins=*',
   '--remote-debugging-port=0', `--user-data-dir=${windowsProfilePath}`,
   `--disable-extensions-except=${windowsExtensionPath}`, `--load-extension=${windowsExtensionPath}`, 'about:blank',
 ]
@@ -237,7 +240,8 @@ try {
     command: 'npm run verify:real-chrome', exitCode: 0,
     artifacts: (await walkFiles(evidenceDir)).filter((path) => !path.includes('chrome-profile-')).map((path) => ({ path: relative(repoRoot, path).replaceAll('\\', '/'), sha256: sha256(readFileSync(path)) })),
     negativeChecks: {
-      headlessProbeStatus: automationMode === 'headed_cdp' ? 'unsupported_no_fams_service_worker_on_chrome_151' : 'passed',
+      headlessProbeStatus: automationMode === 'headed_cdp' ? 'fallback_after_headless_failure' : 'passed',
+      browserDistribution: usingChromeForTesting ? 'chrome_for_testing' : 'installed_google_chrome',
       fewerViewportsRejected: true,
       actualPixelSizeMatched: true,
       staticMockHtmlUsed: false,
