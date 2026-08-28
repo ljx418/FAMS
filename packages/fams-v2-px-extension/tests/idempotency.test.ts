@@ -67,4 +67,31 @@ describe('at-most-once dispatch ledger', () => {
     expect(conflict.error?.code).toBe('PX_IDEMPOTENCY_CONFLICT')
     expect(requests).toBe(1)
   })
+
+  it('keeps a dispatched network failure unknown and never performs an automatic second POST', async () => {
+    const storage = new MemoryStorage()
+    let requests = 0
+    const first = await dispatchAtMostOnce({
+      command,
+      storage,
+      dispatch: async () => { requests += 1; throw new Error('injected response loss') },
+    })
+    const reload = await dispatchAtMostOnce({
+      command,
+      storage,
+      dispatch: async () => { requests += 1; return { status: 'completed' } },
+    })
+    expect(first.status).toBe('unknown_result')
+    expect(reload.status).toBe('unknown_result')
+    expect(requests).toBe(1)
+  })
+
+  it('persists and replays a policy-blocked result without another dispatch', async () => {
+    const storage = new MemoryStorage()
+    let requests = 0
+    const dispatch = async () => { requests += 1; return { status: 'blocked' as const, resultRef: { conversationId: 'chat-00fdc188-0b6b-4731-81eb-d5fc91de01ed' } } }
+    expect((await dispatchAtMostOnce({ command, storage, dispatch })).status).toBe('blocked')
+    expect((await dispatchAtMostOnce({ command, storage, dispatch })).status).toBe('blocked')
+    expect(requests).toBe(1)
+  })
 })

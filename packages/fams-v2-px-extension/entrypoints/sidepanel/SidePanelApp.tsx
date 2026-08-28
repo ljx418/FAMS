@@ -82,7 +82,7 @@ export function SidePanelApp() {
         <h2>本阶段能做什么</h2>
         <p><strong>查看：</strong>确认扩展、权限和工作台路径真实可用。</p>
         <p><strong>不会做：</strong>不会自动下单、不会复制账户截图、不会读取 cookie 或 token。</p>
-        <p className="px-muted">完整来源库和快速问答会在后续阶段接入真实 FAMS 结果。</p>
+        <p className="px-muted">连接后可在完整工作台查看真实来源、简明问答、任务追踪和关系图谱。</p>
       </section>
     </main>
   )

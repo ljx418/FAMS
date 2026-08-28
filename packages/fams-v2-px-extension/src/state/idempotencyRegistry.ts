@@ -7,6 +7,7 @@ export type LedgerRecord = {
   payloadDigest: string
   dispatchState: DispatchState
   resultRef?: CommandResult['resultRef']
+  resultStatus?: 'completed' | 'empty' | 'blocked'
   createdAt: string
   expiresAt: string
   lastAccessedAt: string
@@ -48,7 +49,7 @@ function baseResult(command: OperationCommand): Pick<CommandResult, 'schemaVersi
 export async function dispatchAtMostOnce(input: {
   command: OperationCommand
   storage: LedgerStorage
-  dispatch: () => Promise<{ status: 'completed' | 'empty'; resultRef?: CommandResult['resultRef'] }>
+  dispatch: () => Promise<{ status: 'completed' | 'empty' | 'blocked'; resultRef?: CommandResult['resultRef'] }>
   now?: Date
 }): Promise<CommandResult> {
   const now = input.now ?? new Date()
@@ -63,7 +64,7 @@ export async function dispatchAtMostOnce(input: {
     }
   }
   if (existing?.dispatchState === 'completed') {
-    return { ...baseResult(input.command), status: 'completed', ...(existing.resultRef ? { resultRef: existing.resultRef } : {}) }
+    return { ...baseResult(input.command), status: existing.resultStatus ?? 'completed', ...(existing.resultRef ? { resultRef: existing.resultRef } : {}) }
   }
   if (existing?.dispatchState === 'dispatched') {
     return {
@@ -95,11 +96,21 @@ export async function dispatchAtMostOnce(input: {
     }
   }
 
-  const backend = await input.dispatch()
+  let backend: Awaited<ReturnType<typeof input.dispatch>>
+  try {
+    backend = await input.dispatch()
+  } catch {
+    return {
+      ...baseResult(input.command),
+      status: 'unknown_result',
+      error: { code: 'PX_UNKNOWN_DISPATCH_RESULT', userMessage: '请求已发出但未取得可核对结果；请到 FAMS 手动复核，系统不会自动重试。', recoverable: false },
+    }
+  }
   const completed: LedgerRecord = {
     ...prepared,
     dispatchState: 'completed',
     ...(backend.resultRef ? { resultRef: backend.resultRef } : {}),
+    resultStatus: backend.status,
     lastAccessedAt: new Date().toISOString(),
   }
   records = [...records.filter((record) => record.idempotencyKey !== prepared.idempotencyKey), completed]

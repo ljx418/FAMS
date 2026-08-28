@@ -148,6 +148,7 @@ export type WorkspaceStateV1 = {
   selectedRef?: string
   conversationId?: string
   activeOperationId?: string
+  activeGraph?: { scope: 'daily-review' | 'operation'; id: string; focusNodeId?: string }
   connection: {
     status: 'not_connected' | 'connecting' | 'connected' | 'disconnected' | 'blocked'
     lastHealthAt?: string

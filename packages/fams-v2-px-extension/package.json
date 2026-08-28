@@ -17,6 +17,7 @@
     "test:sidepanel": "vitest run tests/sidepanel.test.ts",
     "test:host-bridge": "vitest run tests/host-bridge.test.ts",
     "verify:real-chrome": "node scripts/verify-real-chrome.mjs",
+    "verify:workspace-chrome": "node scripts/verify-workspace-chrome.mjs",
     "verify:acceptance": "node scripts/verify-acceptance.mjs"
   },
   "dependencies": {

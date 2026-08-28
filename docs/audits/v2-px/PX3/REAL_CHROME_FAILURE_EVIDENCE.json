@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "fams.v2_px.px3_failure_evidence.v1",
+  "observedAt": "2026-08-28T19:18:00+08:00",
+  "status": "blocked",
+  "commitSha": "40a36a0c6a710024aae5014a54eeaef2d6cc3168",
+  "browser": "Chrome for Testing 152.0.7977.64",
+  "automationMode": "headless_new",
+  "productionPermissionGesture": {
+    "attempted": true,
+    "permissionGranted": false,
+    "backendRequestSent": false
+  },
+  "acceptanceCopy": {
+    "productionManifestMutated": false,
+    "temporaryHostPermissionPregranted": true,
+    "healthStatus": 200,
+    "healthObservedRequestOrigin": null,
+    "sourcesStatus": 403,
+    "sourcesErrorCode": "PX_ORIGIN_BLOCKED"
+  },
+  "acceptanceImpact": {
+    "realWorkspaceFiveViewsPassed": false,
+    "askPostRequestCount": 0,
+    "brokerOrderRequestCount": 0,
+    "falsePassPrevented": true,
+    "requiredAction": "spec_reentry_for_extension_caller_identification"
+  }
+}
