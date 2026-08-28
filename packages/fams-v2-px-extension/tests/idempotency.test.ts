@@ -14,7 +14,7 @@ const command: OperationCommand = {
   sourceContainer: 'workspace_page',
   targetContainer: 'background',
   permissionType: 'compute_quick_run',
-  payload: { workspaceId: 'default_workspace', question: '真实问题', contextRefs: [] },
+  payload: { workspaceId: 'px-ws-00000000-0000-4000-8000-000000000001', question: '真实问题', contextRefs: [] },
   requestedAt: '2026-08-28T00:00:00.000Z',
 }
 

@@ -31,3 +31,19 @@
 | 权限/交易边界 | PASS；未修改 permission/intent，交易四锁仍为 false |
 
 命令：`cd backend && npm run test:v2-px-semantic-contract`。R0 fatal=0、major=0；允许进入 R1，但 PX2 仍被阻断。
+
+## R1 实施前 PRD 规格检视与验收标准
+
+R1 只修复 PX-REQ-006/010/015/020 的合同与运行时基座，不提前宣称五视图业务完成。
+
+| 场景 | 操作 | 出门门槛 |
+| --- | --- | --- |
+| 真实 ID/ref 往返 | 从实际 Prisma Operation/Review 各取一个 UUID 与原始 ref，生成并反解 sourceRef | 数字起首 UUID 可通过；反解值逐字节一致；SHA-256 证据落盘 |
+| 严格边界 | 输入 malformed/non-v4/uppercase UUID、unknown prefix、padding/noncanonical/empty/oversize sourceRef、任意字段 | 全部拒绝；不得以 `.+` 或任意 string 代替 |
+| 默认工作区迁移 | 读取含 `default_workspace` 的旧状态并启动 | 原子迁移到保留 ID，产生 `state_migrated`；未知版本进入 blocked |
+| 多工作区 lifecycle | 交错写入两个 workspace event stream | sequence 各自从 1 连续；gap、mixed workspace、previous-state drift 全部拒绝 |
+| 编译与合同 | 跑 extension typecheck/build/test 与 backend semantic test | 0 TypeScript 错误；target 正负 fixture、3×3、20 tab 全绿 |
+| 真实 Chrome | 真实 unpacked extension 四视口运行 | 360/420/768/1280、真实 extension URL、PNG/hash/overflow 可复核 |
+| 边界复核 | 扫描 manifest/network/state | 不增权限、不传正文/secret、broker/order=0、四锁=false |
+
+实施前独立规格检查：fatal=0、major=0；R0 已冻结全部开发者不能自行决定的格式，允许进入 R1 实质开发。

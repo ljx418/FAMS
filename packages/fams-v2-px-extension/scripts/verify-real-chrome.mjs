@@ -207,7 +207,7 @@ try {
   workspacePage.on('response', (response) => networkEntries.push({ phase: 'response', status: response.status(), url: response.url() }))
 
   const routeId = 'px-route-realchrome00000001'
-  const workspaceUrl = `chrome-extension://${extensionId}/workspace.html?workspaceId=default_workspace&view=source_library&routeId=${routeId}`
+  const workspaceUrl = `chrome-extension://${extensionId}/workspace.html?workspaceId=px-ws-00000000-0000-4000-8000-000000000001&view=source_library&routeId=${routeId}`
   await context.tracing.start({ screenshots: true, snapshots: true, sources: false })
   await workspacePage.goto(workspaceUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 })
   await workspacePage.getByTestId('workspace-app').waitFor({ timeout: 10_000 })

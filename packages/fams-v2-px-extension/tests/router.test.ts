@@ -24,7 +24,7 @@ class FakeBrowser implements TabsApi {
 
 describe('canonical workspace tab management', () => {
   it('ignores view/ref in the canonical key', () => {
-    expect(canonicalWorkspaceKey('default_workspace')).toBe('workspace:default_workspace')
+    expect(canonicalWorkspaceKey('px-ws-00000000-0000-4000-8000-000000000001')).toBe('workspace:px-ws-00000000-0000-4000-8000-000000000001')
   })
 
   it('keeps one tab after 20 repeated opens and focuses its window', async () => {
@@ -35,8 +35,8 @@ describe('canonical workspace tab management', () => {
         tabs: fake,
         windows,
         canonicalBaseUrl: 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workspace.html',
-        desiredUrl: `chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workspace.html?workspaceId=default_workspace&view=source_library&ref=${index}`,
-        workspaceId: 'default_workspace',
+        desiredUrl: `chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workspace.html?workspaceId=px-ws-00000000-0000-4000-8000-000000000001&view=source_library&ref=${index}`,
+        workspaceId: 'px-ws-00000000-0000-4000-8000-000000000001',
       })
     }
     expect(fake.tabs).toHaveLength(1)

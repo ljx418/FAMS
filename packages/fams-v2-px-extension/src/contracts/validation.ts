@@ -15,7 +15,11 @@ const ENTRY_ACTIONS = ['view_source', 'open_workspace', 'open_in_workspace'] as 
 const ROUTE_INTENTS = ['source_library', 'source_detail', 'ask', 'trace', 'graph'] as const
 const PERMISSIONS = ['read_only_direct', 'compute_quick_run', 'confirm_before_operation', 'permanently_blocked'] as const
 const SECRET_KEYS = /^(authorization|cookie|token|secret|password|accountimage|rawscreenshot)$/i
-const ID_PATTERN = /^[a-z][a-z0-9_-]{2,80}$/
+export const DEFAULT_WORKSPACE_ID = 'px-ws-00000000-0000-4000-8000-000000000001' as const
+const FAMS_ENTITY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+const WORKSPACE_ID_PATTERN = /^px-ws-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+const SOURCE_REF_PATTERN = /^(op-artifact|review-evidence):([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):([A-Za-z0-9_-]{2,686})$/
+const FOCUS_NODE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 const ROUTE_ID_PATTERN = /^px-route-[a-z0-9][a-z0-9-]{7,80}$/
 const CORRELATION_PATTERN = /^px-corr-[a-z0-9][a-z0-9-]{7,80}$/
 const IDEMPOTENCY_PATTERN = /^px-idem-[a-z0-9][a-z0-9-]{7,120}$/
@@ -38,6 +42,50 @@ function isOneOf<T extends readonly string[]>(value: unknown, allowed: T): value
 
 function isDateTime(value: unknown): value is string {
   return typeof value === 'string' && Number.isFinite(Date.parse(value))
+}
+
+function decodeCanonicalBase64Url(value: string): Uint8Array | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(value) || value.includes('=') || value.length % 4 === 1) return null
+  try {
+    const standard = value.replaceAll('-', '+').replaceAll('_', '/')
+    const binary = atob(`${standard}${'='.repeat((4 - standard.length % 4) % 4)}`)
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0))
+    const canonical = btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
+    return canonical === value ? bytes : null
+  } catch {
+    return null
+  }
+}
+
+export function isFamsEntityId(value: unknown): value is string {
+  return typeof value === 'string' && FAMS_ENTITY_ID_PATTERN.test(value)
+}
+
+export function isWorkspaceId(value: unknown): value is string {
+  return typeof value === 'string' && WORKSPACE_ID_PATTERN.test(value)
+}
+
+export function parseSourceRef(value: unknown): { kind: 'op-artifact' | 'review-evidence'; entityId: string; rawRef: string } | null {
+  if (typeof value !== 'string' || value.length > 768) return null
+  const matched = SOURCE_REF_PATTERN.exec(value)
+  if (!matched) return null
+  const bytes = decodeCanonicalBase64Url(matched[3]!)
+  if (!bytes || bytes.length < 1 || bytes.length > 512) return null
+  try {
+    const rawRef = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    if (new TextEncoder().encode(rawRef).length !== bytes.length) return null
+    return { kind: matched[1] as 'op-artifact' | 'review-evidence', entityId: matched[2]!, rawRef }
+  } catch {
+    return null
+  }
+}
+
+export function isSourceRef(value: unknown): value is string {
+  return parseSourceRef(value) !== null
+}
+
+export function isContextRef(value: unknown): value is string {
+  return isFamsEntityId(value) || isSourceRef(value)
 }
 
 function scanSecretLike(value: unknown, path = '$', issues: string[] = []): string[] {
@@ -64,7 +112,7 @@ function validateRoutePayload(intent: RouteIntent, value: unknown, issues: strin
     return
   }
   const workspaceId = value.workspaceId
-  if (typeof workspaceId !== 'string' || !ID_PATTERN.test(workspaceId)) issues.push('workspaceId is invalid')
+  if (!isWorkspaceId(workspaceId)) issues.push('workspaceId is invalid')
 
   const specs: Record<RouteIntent, { required: string[]; optional: string[] }> = {
     source_library: { required: ['workspaceId'], optional: ['filter'] },
@@ -76,9 +124,11 @@ function validateRoutePayload(intent: RouteIntent, value: unknown, issues: strin
   const spec = specs[intent]
   if (!hasExactKeys(value, spec.required, spec.optional)) issues.push(`routePayload keys do not match ${intent}`)
   if ('question' in value) issues.push('question is forbidden in intent route')
-  for (const key of ['sourceRef', 'conversationId', 'operationId', 'graphId', 'focusNodeId']) {
-    if (key in value && (typeof value[key] !== 'string' || !ID_PATTERN.test(value[key]))) issues.push(`${key} is invalid`)
+  if ('sourceRef' in value && !isSourceRef(value.sourceRef)) issues.push('sourceRef is invalid')
+  for (const key of ['conversationId', 'operationId', 'graphId']) {
+    if (key in value && !isFamsEntityId(value[key])) issues.push(`${key} is invalid`)
   }
+  if ('focusNodeId' in value && (typeof value.focusNodeId !== 'string' || !FOCUS_NODE_ID_PATTERN.test(value.focusNodeId))) issues.push('focusNodeId is invalid')
   if ('filter' in value && (typeof value.filter !== 'string' || value.filter.length > 120)) issues.push('filter is invalid')
   if (intent === 'graph' && !['daily-review', 'operation'].includes(String(value.graphScope))) issues.push('graphScope is invalid')
 }
@@ -129,14 +179,14 @@ function validateCommandPayload(commandType: OperationCommand['commandType'], va
   } satisfies Record<OperationCommand['commandType'], { required: string[]; optional: string[] }>
   const spec = specs[commandType]
   if (!hasExactKeys(value, spec.required, spec.optional)) issues.push(`payload keys do not match ${commandType}`)
-  if (typeof value.workspaceId !== 'string' || !ID_PATTERN.test(value.workspaceId)) issues.push('workspaceId is invalid')
+  if (!isWorkspaceId(value.workspaceId)) issues.push('workspaceId is invalid')
   if (commandType === 'query') {
     if (typeof value.question !== 'string' || value.question.trim().length === 0 || value.question.length > 1000) issues.push('question is invalid')
-    if (!Array.isArray(value.contextRefs) || value.contextRefs.some((ref) => typeof ref !== 'string' || !ID_PATTERN.test(ref))) issues.push('contextRefs are invalid')
-    if ('conversationId' in value && (typeof value.conversationId !== 'string' || !ID_PATTERN.test(value.conversationId))) issues.push('conversationId is invalid')
+    if (!Array.isArray(value.contextRefs) || value.contextRefs.length > 20 || value.contextRefs.some((ref) => !isContextRef(ref))) issues.push('contextRefs are invalid')
+    if ('conversationId' in value && !isFamsEntityId(value.conversationId)) issues.push('conversationId is invalid')
   }
   if (commandType === 'ingest_source') {
-    if (typeof value.sourceRef !== 'string' || !ID_PATTERN.test(value.sourceRef)) issues.push('sourceRef is invalid')
+    if (!isSourceRef(value.sourceRef)) issues.push('sourceRef is invalid')
     if (typeof value.contentDigest !== 'string' || !SHA_PATTERN.test(value.contentDigest)) issues.push('contentDigest is invalid')
   }
 }

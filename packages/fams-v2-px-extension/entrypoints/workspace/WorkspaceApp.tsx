@@ -13,7 +13,7 @@ const VIEW_LABELS: Record<RouteIntent, string> = {
 export function WorkspaceApp() {
   const params = useMemo(() => new URLSearchParams(window.location.search), [])
   const currentView = (params.get('view') ?? 'source_library') as RouteIntent
-  const workspaceId = params.get('workspaceId') ?? 'default_workspace'
+  const workspaceId = params.get('workspaceId') ?? 'px-ws-00000000-0000-4000-8000-000000000001'
 
   async function openSidePanel() {
     const current = await browser.windows.getCurrent()

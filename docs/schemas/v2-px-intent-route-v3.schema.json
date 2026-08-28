@@ -45,11 +45,14 @@
     { "if": { "properties": { "routeIntent": { "const": "graph" } }, "required": ["routeIntent"] }, "then": { "properties": { "routePayload": { "$ref": "#/$defs/graphPayload" } } } }
   ],
   "$defs": {
-    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{2,80}$" },
-    "sourceLibraryPayload": { "type": "object", "required": ["workspaceId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/id" }, "filter": { "type": "string", "maxLength": 120 } } },
-    "sourceDetailPayload": { "type": "object", "required": ["workspaceId", "sourceRef"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/id" }, "sourceRef": { "$ref": "#/$defs/id" } } },
-    "askPayload": { "type": "object", "required": ["workspaceId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/id" }, "conversationId": { "$ref": "#/$defs/id" } } },
-    "tracePayload": { "type": "object", "required": ["workspaceId", "operationId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/id" }, "operationId": { "$ref": "#/$defs/id" }, "sourceRef": { "$ref": "#/$defs/id" } } },
-    "graphPayload": { "type": "object", "required": ["workspaceId", "graphScope", "graphId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/id" }, "graphScope": { "enum": ["daily-review", "operation"] }, "graphId": { "$ref": "#/$defs/id" }, "focusNodeId": { "$ref": "#/$defs/id" } } }
+    "famsEntityId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "workspaceId": { "type": "string", "pattern": "^px-ws-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "sourceRef": { "type": "string", "minLength": 56, "maxLength": 768, "pattern": "^(op-artifact|review-evidence):[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[A-Za-z0-9_-]{2,686}$" },
+    "focusNodeId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "sourceLibraryPayload": { "type": "object", "required": ["workspaceId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "filter": { "type": "string", "maxLength": 120 } } },
+    "sourceDetailPayload": { "type": "object", "required": ["workspaceId", "sourceRef"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "sourceRef": { "$ref": "#/$defs/sourceRef" } } },
+    "askPayload": { "type": "object", "required": ["workspaceId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "conversationId": { "$ref": "#/$defs/famsEntityId" } } },
+    "tracePayload": { "type": "object", "required": ["workspaceId", "operationId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "operationId": { "$ref": "#/$defs/famsEntityId" }, "sourceRef": { "$ref": "#/$defs/sourceRef" } } },
+    "graphPayload": { "type": "object", "required": ["workspaceId", "graphScope", "graphId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "graphScope": { "enum": ["daily-review", "operation"] }, "graphId": { "$ref": "#/$defs/famsEntityId" }, "focusNodeId": { "$ref": "#/$defs/focusNodeId" } } }
   }
 }

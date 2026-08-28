@@ -11,7 +11,7 @@
   "correlationId": "px-corr-positive00000001",
   "idempotencyKey": "px-idem-positive00000001",
   "permissionType": "read_only_direct",
-  "routePayload": { "workspaceId": "default_workspace", "sourceRef": "source_example" },
+  "routePayload": { "workspaceId": "px-ws-00000000-0000-4000-8000-000000000001", "sourceRef": "op-artifact:3d292179-cd6d-4e73-9a35-0097b6809436:b3BlcmF0aW9uX2FydGlmYWN0OjNkMjkyMTc5LWNkNmQtNGU3My05YTM1LTAwOTdiNjgwOTQzNjowMV9yZXF1ZXN0X2FuZF9zdHJhdGVneV9kZWZpbml0aW9ucy5qc29u" },
   "audit": {
     "createdAt": "2026-08-28T00:00:00.000Z",
     "sourceContainer": "host_app",

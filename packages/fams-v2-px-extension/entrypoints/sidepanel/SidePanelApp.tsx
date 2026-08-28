@@ -19,7 +19,7 @@ export function SidePanelApp() {
       setMessage('扩展尚未获得本地 FAMS 访问权限。只有你点击连接后才会请求 4000 端口。')
       return
     }
-    const command = await createOperationCommand({ sourceContainer: 'sidepanel', commandType: 'refresh_index', payload: { workspaceId: 'default_workspace' } })
+    const command = await createOperationCommand({ sourceContainer: 'sidepanel', commandType: 'refresh_index', payload: { workspaceId: 'px-ws-00000000-0000-4000-8000-000000000001' } })
     const result = await sendCommand(command)
     setConnection(result.status === 'completed' ? 'connected' : 'failed')
     setMessage(result.status === 'completed' ? '本地 FAMS 已连接，可以打开研究工作台。' : result.error?.userMessage ?? '连接失败。')
@@ -46,7 +46,7 @@ export function SidePanelApp() {
       entryContainer: 'sidepanel',
       entryAction: 'open_workspace',
       routeIntent: 'source_library',
-      routePayload: { workspaceId: 'default_workspace' },
+      routePayload: { workspaceId: 'px-ws-00000000-0000-4000-8000-000000000001' },
     })
     const result: CommandResult = await sendRoute(route)
     setMessage(result.status === 'accepted' ? '已打开或聚焦现有工作台。' : result.error?.userMessage ?? '无法打开工作台。')

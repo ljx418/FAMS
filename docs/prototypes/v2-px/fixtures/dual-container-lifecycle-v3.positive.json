@@ -3,7 +3,7 @@
   "productId": "fams-v2-px",
   "repository": "https://github.com/ljx418/FAMS.git",
   "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "workspaceId": "default_workspace",
+  "workspaceId": "px-ws-00000000-0000-4000-8000-000000000001",
   "routeId": "px-route-lifecycle00000001",
   "correlationId": "px-corr-lifecycle00000001",
   "events": [
@@ -11,7 +11,7 @@
       "schemaVersion": "v2-px-lifecycle-event/3",
       "eventId": "px-event-lifecycle00000001",
       "sequence": 1,
-      "workspaceId": "default_workspace",
+      "workspaceId": "px-ws-00000000-0000-4000-8000-000000000001",
       "routeId": "px-route-lifecycle00000001",
       "correlationId": "px-corr-lifecycle00000001",
       "container": "background",

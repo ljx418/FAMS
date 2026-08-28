@@ -10,7 +10,7 @@ export function canonicalWorkspaceKey(workspaceId: string): string {
   return `workspace:${encodeURIComponent(workspaceId)}`
 }
 
-export function buildWorkspacePath(route: IntentRoute): string {
+export function buildWorkspacePath(route: IntentRoute): `/workspace.html?${string}` {
   const payload = route.routePayload as Record<string, unknown>
   const params = new URLSearchParams({
     workspaceId: String(payload.workspaceId),

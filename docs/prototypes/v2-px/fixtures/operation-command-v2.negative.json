@@ -10,6 +10,6 @@
   "sourceContainer": "host_app",
   "targetContainer": "background",
   "permissionType": "read_only_direct",
-  "payload": { "workspaceId": "default_workspace", "question": "Host 不得提交命令", "contextRefs": [] },
+  "payload": { "workspaceId": "px-ws-00000000-0000-4000-8000-000000000001", "question": "Host 不得提交命令", "contextRefs": [] },
   "requestedAt": "2026-08-28T00:00:00.000Z"
 }

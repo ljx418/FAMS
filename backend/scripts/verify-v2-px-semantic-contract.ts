@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto'
 import { access, readFile, readdir, realpath, stat } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { relative, resolve, sep } from 'node:path'
+import { prisma } from '../src/db/prisma.js'
+import { createSourceRef, parseSourceRef } from '../src/services/external-brain/sourceRef.js'
 
 type FixtureKind =
   | 'intent_route'
@@ -76,6 +78,21 @@ function stableJson(value: unknown): string {
     return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`
   }
   return JSON.stringify(value)
+}
+
+function collectEvidenceRefs(value: unknown, refs: string[] = []): string[] {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectEvidenceRefs(item, refs))
+    return refs
+  }
+  if (!value || typeof value !== 'object') return refs
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    if (/evidenceRefs$/i.test(key) && Array.isArray(nested)) {
+      refs.push(...nested.filter((item): item is string => typeof item === 'string'))
+    }
+    collectEvidenceRefs(nested, refs)
+  }
+  return refs
 }
 
 function findSecretKeys(value: unknown, path = '$'): ValidationIssue[] {
@@ -401,6 +418,8 @@ async function main() {
   const targetAjv = new Ajv2020({ allErrors: true, strict: true, validateFormats: false })
   const targetResults: Array<{ schema: string; positivePassed: boolean; negativeRejected: boolean }> = []
   let validateTargetChrome: { (document: unknown): boolean; errors?: unknown } | undefined
+  let validateTargetIntent: { (document: unknown): boolean; errors?: unknown } | undefined
+  let validateTargetCommand: { (document: unknown): boolean; errors?: unknown } | undefined
   for (const [schemaName, positiveName, negativeName] of targetContracts) {
     const targetSchema = JSON.parse(await readFile(resolve(schemaRoot, schemaName), 'utf8'))
     const validate = targetAjv.compile(targetSchema)
@@ -409,7 +428,58 @@ async function main() {
     assert.equal(positivePassed, true, `${schemaName} target positive fixture failed`)
     assert.equal(negativeRejected, true, `${schemaName} target negative fixture was accepted`)
     if (schemaName === 'v2-px-real-chrome-evidence-v2.schema.json') validateTargetChrome = validate
+    if (schemaName === 'v2-px-intent-route-v3.schema.json') validateTargetIntent = validate
+    if (schemaName === 'v2-px-operation-command-v2.schema.json') validateTargetCommand = validate
     targetResults.push({ schema: schemaName, positivePassed, negativeRejected })
+  }
+
+  const realOperation = await prisma.operation.findFirst({
+    where: { NOT: { artifactRefsJson: '[]' } },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, artifactRefsJson: true },
+  })
+  assert.ok(realOperation, 'A real Operation with artifactRefsJson is required')
+  const operationRefs = JSON.parse(realOperation.artifactRefsJson) as unknown
+  assert.ok(Array.isArray(operationRefs) && typeof operationRefs[0] === 'string', 'Real Operation artifactRefsJson is invalid')
+  const operationRawRef = operationRefs[0]
+  const operationSourceRef = createSourceRef('op-artifact', realOperation.id, operationRawRef)
+  assert.deepEqual(parseSourceRef(operationSourceRef), { kind: 'op-artifact', entityId: realOperation.id, rawRef: operationRawRef })
+
+  const realReview = await prisma.dailyReviewRun.findFirst({ orderBy: { createdAt: 'desc' }, select: { id: true, reportJson: true } })
+  assert.ok(realReview, 'A real DailyReviewRun is required')
+  const reviewEvidenceRefs = [...new Set(collectEvidenceRefs(JSON.parse(realReview.reportJson)))]
+  assert.ok(reviewEvidenceRefs.length > 0, 'A real DailyReviewRun evidenceRef is required')
+  const reviewRawRef = reviewEvidenceRefs[0]!
+  const reviewSourceRef = createSourceRef('review-evidence', realReview.id, reviewRawRef)
+  assert.deepEqual(parseSourceRef(reviewSourceRef), { kind: 'review-evidence', entityId: realReview.id, rawRef: reviewRawRef })
+  const invalidSourceRefs = [
+    `unknown:${realOperation.id}:YQ`,
+    `op-artifact:${realOperation.id}:YQ=`,
+    `op-artifact:${realOperation.id}:YR`,
+    `op-artifact:${realOperation.id.toUpperCase()}:YQ`,
+    `op-artifact:${realOperation.id.replace('-4', '-1')}:YQ`,
+    `op-artifact:${realOperation.id}:${Buffer.from('x'.repeat(513)).toString('base64url')}`,
+  ]
+  assert.ok(invalidSourceRefs.every((sourceRef) => parseSourceRef(sourceRef) === null), 'Malformed sourceRef was accepted')
+  assert.throws(() => createSourceRef('op-artifact', realOperation.id, ''), /LENGTH_INVALID/)
+
+  const intentFixture = JSON.parse(await readFile(resolve(fixtureRoot, 'intent-route-v3.positive.json'), 'utf8')) as Record<string, unknown>
+  intentFixture.routePayload = { workspaceId: 'px-ws-00000000-0000-4000-8000-000000000001', sourceRef: operationSourceRef }
+  assert.equal(Boolean(validateTargetIntent?.(intentFixture)), true, `Real Operation sourceRef rejected: ${JSON.stringify(validateTargetIntent?.errors)}`)
+  const commandFixture = JSON.parse(await readFile(resolve(fixtureRoot, 'operation-command-v2.positive.json'), 'utf8')) as Record<string, unknown>
+  commandFixture.payload = {
+    workspaceId: 'px-ws-00000000-0000-4000-8000-000000000001',
+    question: '验证真实来源引用',
+    contextRefs: [realOperation.id, realReview.id, operationSourceRef, reviewSourceRef],
+  }
+  assert.equal(Boolean(validateTargetCommand?.(commandFixture)), true, `Real contextRefs rejected: ${JSON.stringify(validateTargetCommand?.errors)}`)
+  const realDataContractEvidence = {
+    operationId: realOperation.id,
+    reviewId: realReview.id,
+    operationRawRef,
+    reviewRawRef,
+    operationSourceRef,
+    reviewSourceRef,
   }
 
   const realChrome = await latestPx1Evidence()
@@ -503,8 +573,12 @@ async function main() {
     px2PlusProductionImplementationAllowed: v2State.px2PlusAllowed === true,
     contractReentryInProgress,
     promotionBlockedDuringReentry: contractReentryInProgress && v2State.px2PlusAllowed === false,
+    realDataSourceRefRoundTripPassed: true,
+    realDataSourceRefEvidenceSha256: createHash('sha256').update(stableJson(realDataContractEvidence)).digest('hex'),
+    realDataSourceRefEvidence: realDataContractEvidence,
     fixtures: results,
   }, null, 2))
+  await prisma.$disconnect()
 }
 
 main().catch((error) => {

@@ -7,6 +7,7 @@
     "prepare": "wxt prepare",
     "dev": "wxt",
     "build": "wxt build",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:contracts": "vitest run tests/contracts.test.ts",
     "test:px1-spike": "vitest run tests/px1-spike.test.ts tests/router.test.ts tests/idempotency.test.ts",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
+    "@types/node": "^22.15.3",
     "@types/react": "18.2.79",
     "@types/react-dom": "18.2.25",
     "typescript": "5.9.2",

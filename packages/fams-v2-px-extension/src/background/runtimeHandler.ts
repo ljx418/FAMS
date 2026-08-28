@@ -5,7 +5,7 @@ import { openOrFocusWorkspace } from './workspaceTabManager'
 import { validateRuntimeMessage } from '../contracts/validation'
 import type { CommandResult, IntentRoute, RuntimeMessage, WorkspaceStateV1 } from '../contracts/types'
 import { appendLifecycleEvent } from '../state/lifecycleAuditStore'
-import { readLifecycleEvents, readWorkspaceStates, writeLifecycleEvents, writeWorkspaceStates } from './chromeStorage'
+import { PxStorageMigrationBlockedError, readLifecycleEvents, readWorkspaceStates, writeLifecycleEvents, writeWorkspaceStates } from './chromeStorage'
 
 const ALLOWED_HOST_ORIGINS = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
 
@@ -66,8 +66,12 @@ async function handleIntent(route: IntentRoute): Promise<CommandResult> {
     const workspaceId = String((route.routePayload as Record<string, unknown>).workspaceId)
     const canonicalBaseUrl = browser.runtime.getURL('/workspace.html')
     await openOrFocusWorkspace({
-      tabs: browser.tabs,
-      windows: browser.windows,
+      tabs: {
+        query: (queryInfo) => browser.tabs.query(queryInfo),
+        create: (createProperties) => browser.tabs.create(createProperties),
+        update: async (tabId, updateProperties) => await browser.tabs.update(tabId, updateProperties) ?? {},
+      },
+      windows: { update: (windowId, updateInfo) => browser.windows.update(windowId, updateInfo) },
       canonicalBaseUrl,
       desiredUrl: browser.runtime.getURL(buildWorkspacePath(route)),
       workspaceId,
@@ -117,7 +121,19 @@ export async function handleRuntimeMessage(input: unknown, options: { external?:
   const validated = validateRuntimeMessage(input, options.external)
   if (!validated.ok) return blocked(null, `消息合同无效：${validated.issues.join('；')}`)
   const message = validated.value
-  if (message.messageType === 'intent_route') return handleIntent(message.payload as IntentRoute)
+  if (message.messageType === 'intent_route') {
+    try {
+      return await handleIntent(message.payload as IntentRoute)
+    } catch (error) {
+      if (error instanceof PxStorageMigrationBlockedError) {
+        return {
+          ...blocked(message, '检测到未知或冲突的旧版工作区状态，已阻止自动迁移。请导出诊断后清理扩展状态。'),
+          error: { code: 'PX_STORAGE_VERSION_BLOCKED', userMessage: '检测到未知或冲突的旧版工作区状态，已阻止自动迁移。请导出诊断后清理扩展状态。', recoverable: false },
+        }
+      }
+      throw error
+    }
+  }
   const command = message.payload
   if ('commandType' in command && command.commandType === 'refresh_index') return handleRefresh(message)
   return {

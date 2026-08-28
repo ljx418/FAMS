@@ -34,7 +34,10 @@ export function appendLifecycleEvent(input: {
   reasonCode?: LifecycleEvent['reasonCode']
   now?: string
 }): LifecycleEvent {
-  const sequence = (input.events.at(-1)?.sequence ?? 0) + 1
+  const workspaceEvents = input.events.filter((event) => event.workspaceId === input.workspaceId)
+  const derivedState = deriveLifecycleState(workspaceEvents)
+  if (derivedState !== input.previousState) throw new Error('PX lifecycle previous state drift')
+  const sequence = (workspaceEvents.at(-1)?.sequence ?? 0) + 1
   const nextState = nextLifecycleState(input.previousState, input.eventType)
   return {
     schemaVersion: 'v2-px-lifecycle-event/3',
@@ -57,8 +60,11 @@ export function appendLifecycleEvent(input: {
 export function deriveLifecycleState(events: LifecycleEvent[], initial: WorkspaceLifecycleStatus = 'uninitialized'): WorkspaceLifecycleStatus {
   let current = initial
   let expectedSequence = 1
+  const workspaceId = events[0]?.workspaceId
   for (const event of events) {
-    if (event.sequence !== expectedSequence || event.previousState !== current) throw new Error('PX lifecycle event order is invalid')
+    if (event.workspaceId !== workspaceId) throw new Error('PX lifecycle stream mixes workspaces')
+    if (event.sequence !== expectedSequence) throw new Error('PX lifecycle sequence has a gap')
+    if (event.previousState !== current) throw new Error('PX lifecycle previous state drift')
     current = event.nextState
     expectedSequence += 1
   }
