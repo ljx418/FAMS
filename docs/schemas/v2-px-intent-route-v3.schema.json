@@ -47,11 +47,12 @@
   "$defs": {
     "famsEntityId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "workspaceId": { "type": "string", "pattern": "^px-ws-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "conversationId": { "type": "string", "pattern": "^chat-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "sourceRef": { "type": "string", "minLength": 56, "maxLength": 768, "pattern": "^(op-artifact|review-evidence):[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[A-Za-z0-9_-]{2,686}$" },
     "focusNodeId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
     "sourceLibraryPayload": { "type": "object", "required": ["workspaceId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "filter": { "type": "string", "maxLength": 120 } } },
     "sourceDetailPayload": { "type": "object", "required": ["workspaceId", "sourceRef"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "sourceRef": { "$ref": "#/$defs/sourceRef" } } },
-    "askPayload": { "type": "object", "required": ["workspaceId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "conversationId": { "$ref": "#/$defs/famsEntityId" } } },
+    "askPayload": { "type": "object", "required": ["workspaceId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "conversationId": { "$ref": "#/$defs/conversationId" } } },
     "tracePayload": { "type": "object", "required": ["workspaceId", "operationId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "operationId": { "$ref": "#/$defs/famsEntityId" }, "sourceRef": { "$ref": "#/$defs/sourceRef" } } },
     "graphPayload": { "type": "object", "required": ["workspaceId", "graphScope", "graphId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "graphScope": { "enum": ["daily-review", "operation"] }, "graphId": { "$ref": "#/$defs/famsEntityId" }, "focusNodeId": { "$ref": "#/$defs/focusNodeId" } } }
   }

@@ -81,8 +81,9 @@ runtimeContractImplemented=false
 
 | 语义类型 | 冻结格式 | 长度/规范化 |
 | --- | --- | --- |
-| FAMS entity ID（operationId/reviewId/conversationId/graphId） | 小写 RFC 4122 UUID v4：`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$` | 固定 36 字符；大写、非 v4、缺连字符均拒绝 |
+| FAMS entity ID（operationId/reviewId/graphId） | 小写 RFC 4122 UUID v4：`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$` | 固定 36 字符；大写、非 v4、缺连字符均拒绝 |
 | Workspace ID | `^px-ws-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$` | 固定 42 字符；默认工作区只使用上述保留 UUID |
+| conversationId | `^chat-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$` | 绑定现有 `famsChatService` 生成格式；禁止路径字符和任意用户串 |
 | sourceRef | `^(op-artifact|review-evidence):<lowercase UUID v4>:<canonical-base64url>$` | 编码后的整体最多 768 字符；解码后的原始 ref 必须为 1..512 UTF-8 bytes；无 `=` padding；解码后重新编码必须逐字节相同 |
 | focusNodeId | `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$` | 仅表示现有 DAG 节点键，不得承载正文或 URL |
 | route/correlation/command token | 分别保持 `px-route-`/`px-corr-`/`px-command-` 命名空间 | 仅作为运行时 opaque token，不得被当作 FAMS entity ID |

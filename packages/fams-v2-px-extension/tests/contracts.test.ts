@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import Ajv2020 from 'ajv/dist/2020.js'
 import addFormats from 'ajv-formats'
 import { describe, expect, it } from 'vitest'
-import { expectedTargetContainer, isContextRef, isLifecycleEventType, isSourceRef, parseSourceRef, validateIntentRoute, validateOperationCommand } from '../src/contracts/validation'
+import { expectedTargetContainer, isContextRef, isConversationId, isLifecycleEventType, isSourceRef, parseSourceRef, validateIntentRoute, validateOperationCommand } from '../src/contracts/validation'
 
 const root = resolve(import.meta.dirname, '../../..')
 const schemaDir = resolve(root, 'docs/schemas')
@@ -66,6 +66,8 @@ describe('V2-PX target JSON contracts', () => {
     })
     expect(isContextRef('00fdc188-0b6b-4731-81eb-d5fc91de01ed')).toBe(true)
     expect(isContextRef(route.routePayload.sourceRef)).toBe(true)
+    expect(isConversationId('chat-00fdc188-0b6b-4731-81eb-d5fc91de01ed')).toBe(true)
+    expect(isConversationId('00fdc188-0b6b-4731-81eb-d5fc91de01ed')).toBe(false)
   })
 
   it.each([

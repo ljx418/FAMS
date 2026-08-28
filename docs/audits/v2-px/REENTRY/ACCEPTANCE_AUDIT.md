@@ -65,3 +65,7 @@ R1 只修复 PX-REQ-006/010/015/020 的合同与运行时基座，不提前宣�
 真实证据：`.verification/private/v2-px/fe3faaf00201e152b09824b4e81559bc38759709/PX1/`。
 
 PRD 检视结论：PX-REQ-006/010/015 的 PX1 技术基线重新满足；PX-REQ-020 的 at-most-once 完整网络接线仍留 R3，不提前宣称完成。fatal=0、major=0、fake-green=0；允许进入 R2。
+
+## R1.1 会话标识二次重入
+
+R2 接线发现真实 `famsChatService` 生成 `chat-<UUIDv4>`，而 R1 schema 把 conversationId 误用裸 entity UUID。该问题会使真实 Ask 会话无法回填，属于 major；已立即把 PX1/PX2 门禁重新置 false，没有沿用上一次 PASS。修复范围冻结为 Markdown/schema/runtime validator/fixture/test/Chrome 证据，不改变任何权限或业务范围。

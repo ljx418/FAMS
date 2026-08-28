@@ -10,6 +10,6 @@
   "sourceContainer": "workspace_page",
   "targetContainer": "background",
   "permissionType": "compute_quick_run",
-  "payload": { "workspaceId": "px-ws-00000000-0000-4000-8000-000000000001", "question": "总结最近一次真实复盘", "contextRefs": ["00fdc188-0b6b-4731-81eb-d5fc91de01ed", "review-evidence:a39d4ba3-e272-46a7-ba5f-e3a495d499be:ZmluYW5jaWFsLXJlcG9ydDo2MDExMjc6MjAyNi0wNi0zMCAwMDowMDowMA"] },
+  "payload": { "workspaceId": "px-ws-00000000-0000-4000-8000-000000000001", "question": "总结最近一次真实复盘", "contextRefs": ["00fdc188-0b6b-4731-81eb-d5fc91de01ed", "review-evidence:a39d4ba3-e272-46a7-ba5f-e3a495d499be:ZmluYW5jaWFsLXJlcG9ydDo2MDExMjc6MjAyNi0wNi0zMCAwMDowMDowMA"], "conversationId": "chat-00fdc188-0b6b-4731-81eb-d5fc91de01ed" },
   "requestedAt": "2026-08-28T00:00:00.000Z"
 }

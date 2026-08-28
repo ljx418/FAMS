@@ -28,9 +28,10 @@
   "$defs": {
     "famsEntityId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "workspaceId": { "type": "string", "pattern": "^px-ws-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "conversationId": { "type": "string", "pattern": "^chat-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "sourceRef": { "type": "string", "minLength": 56, "maxLength": 768, "pattern": "^(op-artifact|review-evidence):[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[A-Za-z0-9_-]{2,686}$" },
     "contextRef": { "oneOf": [{ "$ref": "#/$defs/famsEntityId" }, { "$ref": "#/$defs/sourceRef" }] },
-    "queryPayload": { "type": "object", "required": ["workspaceId", "question", "contextRefs"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "question": { "type": "string", "minLength": 1, "maxLength": 1000 }, "contextRefs": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/contextRef" } }, "conversationId": { "$ref": "#/$defs/famsEntityId" } } },
+    "queryPayload": { "type": "object", "required": ["workspaceId", "question", "contextRefs"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "question": { "type": "string", "minLength": 1, "maxLength": 1000 }, "contextRefs": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/contextRef" } }, "conversationId": { "$ref": "#/$defs/conversationId" } } },
     "refreshPayload": { "type": "object", "required": ["workspaceId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" } } },
     "ingestPayload": { "type": "object", "required": ["workspaceId", "sourceRef", "contentDigest"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/workspaceId" }, "sourceRef": { "$ref": "#/$defs/sourceRef" }, "contentDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" } } }
   }
