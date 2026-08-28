@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "v2-px-dual-container-lifecycle/3",
+  "productId": "fams-v2-px",
+  "repository": "https://github.com/ljx418/FAMS.git",
+  "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "workspaceId": "default_workspace",
+  "routeId": "px-route-lifecycle00000002",
+  "correlationId": "px-corr-lifecycle00000002",
+  "events": [
+    {
+      "schemaVersion": "v2-px-lifecycle-event/3",
+      "eventId": "px-event-lifecycle00000002",
+      "sequence": 1,
+      "workspaceId": "default_workspace",
+      "routeId": "px-route-lifecycle00000002",
+      "correlationId": "px-corr-lifecycle00000002",
+      "container": "background",
+      "containerInstanceId": "background-single-writer",
+      "eventType": "disconnected",
+      "previousState": "ready",
+      "nextState": "disconnected",
+      "storageVersion": 1,
+      "at": "2026-08-28T00:00:00.000Z"
+    }
+  ],
+  "derivedResult": { "state": "ready", "stateDerivedFromEvents": true, "recoverable": true },
+  "antiFalseGreen": { "staticMockHtmlUsed": false, "prototypeScreenshotOnly": false, "semanticValidatorRequired": true }
+}

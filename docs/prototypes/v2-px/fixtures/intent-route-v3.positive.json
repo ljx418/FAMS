@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "v2-px-intent-route/3",
+  "productId": "fams-v2-px",
+  "repository": "https://github.com/ljx418/FAMS.git",
+  "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "entryContainer": "host_app",
+  "entryAction": "view_source",
+  "routeIntent": "source_detail",
+  "targetContainer": "workspace_page",
+  "routeId": "px-route-positive00000001",
+  "correlationId": "px-corr-positive00000001",
+  "idempotencyKey": "px-idem-positive00000001",
+  "permissionType": "read_only_direct",
+  "routePayload": { "workspaceId": "default_workspace", "sourceRef": "source_example" },
+  "audit": {
+    "createdAt": "2026-08-28T00:00:00.000Z",
+    "sourceContainer": "host_app",
+    "schemaValidated": true,
+    "semanticValidationRequired": true
+  }
+}

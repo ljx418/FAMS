@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-real-chrome-evidence-v2.schema.json",
+  "title": "V2-PX Real Chrome Evidence Contract v2",
+  "type": "object",
+  "required": ["schemaVersion", "mode", "automationMode", "chromeVersion", "extensionId", "extensionVersion", "buildDigest", "commitSha", "routeId", "pageUrls", "viewports", "screenshots", "traceRefs", "networkRef", "consoleRef"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "v2-px-real-chrome-evidence/2" },
+    "mode": { "const": "real_chrome" },
+    "automationMode": { "enum": ["headless_new", "headed_cdp"] },
+    "chromeVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "extensionId": { "type": "string", "pattern": "^[a-p]{32}$" },
+    "extensionVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "buildDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "routeId": { "type": "string", "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$" },
+    "pageUrls": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "type": "string", "pattern": "^chrome-extension://[a-p]{32}/.+" } },
+    "viewports": {
+      "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/viewport" },
+      "allOf": [
+        { "contains": { "type": "object", "properties": { "width": { "const": 360 } }, "required": ["width"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "type": "object", "properties": { "width": { "const": 420 } }, "required": ["width"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "type": "object", "properties": { "width": { "const": 768 } }, "required": ["width"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "type": "object", "properties": { "width": { "const": 1280 } }, "required": ["width"] }, "minContains": 1, "maxContains": 1 }
+      ]
+    },
+    "screenshots": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/screenshot" } },
+    "traceRefs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/artifactRef" } },
+    "networkRef": { "$ref": "#/$defs/artifactRef" },
+    "consoleRef": { "$ref": "#/$defs/artifactRef" }
+  },
+  "$defs": {
+    "viewport": { "type": "object", "required": ["width", "height"], "additionalProperties": false, "properties": { "width": { "enum": [360, 420, 768, 1280] }, "height": { "type": "integer", "minimum": 480, "maximum": 1600 } } },
+    "artifactRef": { "type": "object", "required": ["path", "sha256"], "additionalProperties": false, "properties": { "path": { "type": "string", "minLength": 1 }, "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } } },
+    "screenshot": { "type": "object", "required": ["path", "sha256", "capturedAt", "container", "viewport", "imageContentSizePixels", "rootHorizontalOverflowPx", "routeId"], "additionalProperties": false, "properties": { "path": { "type": "string", "pattern": "^.+\\.png$" }, "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "capturedAt": { "type": "string", "format": "date-time" }, "container": { "enum": ["sidepanel", "workspace_page"] }, "viewport": { "$ref": "#/$defs/viewport" }, "imageContentSizePixels": { "$ref": "#/$defs/viewport" }, "rootHorizontalOverflowPx": { "const": 0 }, "routeId": { "type": "string", "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$" } } }
+  }
+}

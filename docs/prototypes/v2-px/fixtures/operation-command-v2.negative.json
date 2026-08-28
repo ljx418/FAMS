@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "v2-px-operation-command/2",
+  "productId": "fams-v2-px",
+  "commandId": "px-command-negative00000001",
+  "idempotencyKey": "px-idem-commandnegative00000001",
+  "payloadDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "routeId": "px-route-commandnegative00000001",
+  "correlationId": "px-corr-commandnegative00000001",
+  "commandType": "query",
+  "sourceContainer": "host_app",
+  "targetContainer": "background",
+  "permissionType": "read_only_direct",
+  "payload": { "workspaceId": "default_workspace", "question": "Host 不得提交命令", "contextRefs": [] },
+  "requestedAt": "2026-08-28T00:00:00.000Z"
+}

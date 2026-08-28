@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-operation-command-v2.schema.json",
+  "title": "V2-PX Operation Command Contract v2",
+  "type": "object",
+  "required": ["schemaVersion", "productId", "commandId", "idempotencyKey", "payloadDigest", "routeId", "correlationId", "commandType", "sourceContainer", "targetContainer", "permissionType", "payload", "requestedAt"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "v2-px-operation-command/2" },
+    "productId": { "const": "fams-v2-px" },
+    "commandId": { "type": "string", "pattern": "^px-command-[a-z0-9][a-z0-9-]{7,80}$" },
+    "idempotencyKey": { "type": "string", "pattern": "^px-idem-[a-z0-9][a-z0-9-]{7,120}$" },
+    "payloadDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "routeId": { "type": "string", "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$" },
+    "correlationId": { "type": "string", "pattern": "^px-corr-[a-z0-9][a-z0-9-]{7,80}$" },
+    "commandType": { "enum": ["query", "refresh_index", "ingest_source"] },
+    "sourceContainer": { "enum": ["sidepanel", "workspace_page"] },
+    "targetContainer": { "const": "background" },
+    "permissionType": { "enum": ["read_only_direct", "compute_quick_run"] },
+    "payload": { "type": "object" },
+    "requestedAt": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    { "if": { "properties": { "commandType": { "const": "query" } }, "required": ["commandType"] }, "then": { "properties": { "permissionType": { "const": "compute_quick_run" }, "payload": { "$ref": "#/$defs/queryPayload" } } } },
+    { "if": { "properties": { "commandType": { "const": "refresh_index" } }, "required": ["commandType"] }, "then": { "properties": { "permissionType": { "const": "read_only_direct" }, "payload": { "$ref": "#/$defs/refreshPayload" } } } },
+    { "if": { "properties": { "commandType": { "const": "ingest_source" } }, "required": ["commandType"] }, "then": { "properties": { "permissionType": { "const": "read_only_direct" }, "payload": { "$ref": "#/$defs/ingestPayload" } } } }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{2,80}$" },
+    "queryPayload": { "type": "object", "required": ["workspaceId", "question", "contextRefs"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/id" }, "question": { "type": "string", "minLength": 1, "maxLength": 1000 }, "contextRefs": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/id" } }, "conversationId": { "$ref": "#/$defs/id" } } },
+    "refreshPayload": { "type": "object", "required": ["workspaceId"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/id" } } },
+    "ingestPayload": { "type": "object", "required": ["workspaceId", "sourceRef", "contentDigest"], "additionalProperties": false, "properties": { "workspaceId": { "$ref": "#/$defs/id" }, "sourceRef": { "$ref": "#/$defs/id" }, "contentDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" } } }
+  }
+}

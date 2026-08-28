@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "v2-px-operation-command/2",
+  "productId": "fams-v2-px",
+  "commandId": "px-command-positive00000001",
+  "idempotencyKey": "px-idem-commandpositive00000001",
+  "payloadDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "routeId": "px-route-commandpositive00000001",
+  "correlationId": "px-corr-commandpositive00000001",
+  "commandType": "query",
+  "sourceContainer": "workspace_page",
+  "targetContainer": "background",
+  "permissionType": "compute_quick_run",
+  "payload": { "workspaceId": "default_workspace", "question": "总结最近一次真实复盘", "contextRefs": ["review_example"] },
+  "requestedAt": "2026-08-28T00:00:00.000Z"
+}

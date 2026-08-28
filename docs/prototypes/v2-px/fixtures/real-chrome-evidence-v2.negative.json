@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "v2-px-real-chrome-evidence/2",
+  "mode": "real_chrome",
+  "automationMode": "headless_new",
+  "chromeVersion": "151.0.7922.174",
+  "extensionId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "extensionVersion": "0.1.0",
+  "buildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "routeId": "px-route-evidence00000002",
+  "pageUrls": ["http://localhost:3000/mock.html"],
+  "viewports": [{ "width": 360, "height": 720 }, { "width": 420, "height": 800 }],
+  "screenshots": [],
+  "traceRefs": [],
+  "networkRef": { "path": "network.json", "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" },
+  "consoleRef": { "path": "console.json", "sha256": "abababababababababababababababababababababababababababababababab" }
+}

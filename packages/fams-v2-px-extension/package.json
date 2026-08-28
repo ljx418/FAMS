@@ -1,0 +1,36 @@
+{
+  "name": "@fams/v2-px-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "wxt prepare",
+    "dev": "wxt",
+    "build": "wxt build",
+    "test": "vitest run",
+    "test:contracts": "vitest run tests/contracts.test.ts",
+    "test:px1-spike": "vitest run tests/px1-spike.test.ts tests/router.test.ts tests/idempotency.test.ts",
+    "test:router": "vitest run tests/router.test.ts tests/idempotency.test.ts",
+    "test:lifecycle": "vitest run tests/lifecycle.test.ts tests/idempotency.test.ts",
+    "test:workspace": "vitest run tests/workspace.test.ts",
+    "test:sidepanel": "vitest run tests/sidepanel.test.ts",
+    "test:host-bridge": "vitest run tests/host-bridge.test.ts",
+    "verify:real-chrome": "node scripts/verify-real-chrome.mjs",
+    "verify:acceptance": "node scripts/verify-acceptance.mjs"
+  },
+  "dependencies": {
+    "@wxt-dev/module-react": "1.2.2",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "wxt": "0.21.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/react": "18.2.79",
+    "@types/react-dom": "18.2.25",
+    "typescript": "5.9.2",
+    "vitest": "4.1.11"
+  }
+}
