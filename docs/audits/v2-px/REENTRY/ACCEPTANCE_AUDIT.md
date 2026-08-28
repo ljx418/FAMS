@@ -1,7 +1,7 @@
 # V2-PX 合同重入验收审计
 
 日期：2026-08-28
-当前结论：R0_PASS_R1_ENTRY_ALLOWED_PX2_BLOCKED
+当前结论：R1_PASS_PX1_REISSUED_PX2_ENTRY_ALLOWED
 
 ## R0 入场与反假绿检查
 
@@ -47,3 +47,21 @@ R1 只修复 PX-REQ-006/010/015/020 的合同与运行时基座，不提前宣�
 | 边界复核 | 扫描 manifest/network/state | 不增权限、不传正文/secret、broker/order=0、四锁=false |
 
 实施前独立规格检查：fatal=0、major=0；R0 已冻结全部开发者不能自行决定的格式，允许进入 R1 实质开发。
+
+## R1 实施后结果与 PRD 复核
+
+| 项目 | 结果 |
+| --- | --- |
+| schema/types/runtime validator | PASS；不再存在跨语义 `$defs.id`，workspace/entity/source/focus token 分离 |
+| 真实数据往返 | PASS；真实 Operation/Review 的 UUID 与 ref 生成、反解、target schema 验证一致；本次 SHA-256=`8ee7d0c471a54cec594cf009ef51e7c9bf2665bf07d40d801af441bc4302865b` |
+| 非法边界 | PASS；malformed/non-v4/uppercase UUID、unknown prefix、padding/noncanonical/empty/513-byte ref 均拒绝 |
+| storage/lifecycle | PASS；legacy 默认工作区迁移并发出 `state_migrated`；未知版本阻断；两个 workspace 各自 sequence，mixed/gap/drift 拒绝 |
+| 编译/单测 | PASS；extension typecheck 0 错误，6 files/28 tests；backend build 与 semantic contract 通过 |
+| 路由/标签 | PASS；3×3=9/9，重复打开 20 次保持单 workspace tab |
+| 真实 Chrome | PASS；Chrome for Testing 152，extension ID=`bclafjpdabgnnamhggddnbecdpfllhci`；四视口实际像素/hash/overflow 合格 |
+| 权限与交易 | PASS；权限未扩大，broker/order=0，四锁=false |
+
+新 PX1 合同提交：`fe3faaf00201e152b09824b4e81559bc38759709`。
+真实证据：`.verification/private/v2-px/fe3faaf00201e152b09824b4e81559bc38759709/PX1/`。
+
+PRD 检视结论：PX-REQ-006/010/015 的 PX1 技术基线重新满足；PX-REQ-020 的 at-most-once 完整网络接线仍留 R3，不提前宣称完成。fatal=0、major=0、fake-green=0；允许进入 R2。

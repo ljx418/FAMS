@@ -1,7 +1,9 @@
 # V2-PX PX1 入场与验收审计
 
 日期：2026-08-28
-当前结论：PASS_PX2_ENTRY_ALLOWED
+当前结论：SUPERSEDED_BY_REISSUED_PX1_PASS_PX2_ENTRY_ALLOWED
+
+> 2026-08-28 合同重入后，原提交 `74ef3c8...` 的证据只保留 shell feasibility 效力。新的 target contract 与真实 Chrome 基线为 `fe3faaf00201e152b09824b4e81559bc38759709`，详见 `docs/audits/v2-px/REENTRY/ACCEPTANCE_AUDIT.md`；不得继续引用旧提交证明标识符合同。
 
 ## 入场三轮审计
 
