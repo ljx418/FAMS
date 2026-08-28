@@ -1,7 +1,26 @@
 # V2-PX PX2 入场与验收审计
 
 日期：2026-08-28
-当前结论：ENTRY_PASS_IMPLEMENTATION_PENDING
+当前结论：STOPPED_SPEC_REENTRY_REQUIRED
+
+> 重入更新：PX1 已由 `fe3faaf...` 重签，以下 R2 标准在实质开发前重新审查；旧的 `STOPPED_SPEC_REENTRY_REQUIRED` 作为历史停止记录保留，不能覆盖本节的新结论。
+
+## R2 重入后的实施前计划与审计
+
+当前 R2 入场结论：`ENTRY_PASS_IMPLEMENTATION_ALLOWED`。
+
+| 子项 | 开发计划 | 验收门槛 |
+| --- | --- | --- |
+| Envelope | 五端点统一 `fams.external-brain.response.v1` | requestId/status/data/evidenceRefs/warnings/researchOnly+四锁逐字段精确；error 含同 requestId |
+| 来源映射 | Operation.artifactRefsJson 与 Review report evidenceRefs 逐条映射 | kind 仅两值；sourceRef 可反解且必须属于父实体；无 Operation/Review 聚合项冒充来源 |
+| 分页/新鲜度 | snapshotAt+lastAsOf+lastSourceRef keyset | 插入/刷新不造成跨页重复；24h 边界和 trust 映射可测试 |
+| Ask | 严格五必填字段、无 additional/userId | contextRefs 合法；POST=1；35 秒内完成或诚实终态；不调用 confirmation/order |
+| Policy/CORS | 缺 permission fail closed；confirm blocked；permanent hard fail；四 Origin | standalone policy 先通过，再做 API；数据库故障=503，只有明确 not-found=404 |
+| 真实数据 | 原 DB、service、API 同 ID/ref/time/status | 真实 Operation/Review 均存在；读/Ask 前后 Operation/Review/Transaction 不变；broker/order=0 |
+
+重入前规格检查：PX1 证据有效；字段、错误、来源、分页、策略和停止条件均有唯一口径。fatal=0、major=0，允许开始 R2。
+
+> 2026-08-28 实施中发现真实 FAMS UUID/opaque sourceRef 与 PX1 target schema 共用 ID 正则冲突。详见 `SPEC_REENTRY_AUDIT.md`。PX2 未通过，禁止把首轮 API build/真实读取结果作为出门结论。
 
 ## 入场三轮审计
 

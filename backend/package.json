@@ -116,6 +116,8 @@
     "test:ftr-frontend-runtime": "node node_modules/tsx/dist/cli.mjs scripts/verify-ftr-formal-release-frontend-runtime.ts",
     "test:ftr-human-checklist": "node node_modules/tsx/dist/cli.mjs scripts/verify-formal-release-human-checklist.ts",
     "test:v2-px-semantic-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-v2-px-semantic-contract.ts",
+    "test:v2-px-policy": "node node_modules/tsx/dist/cli.mjs scripts/verify-v2-px-policy.ts",
+    "test:v2-px-api-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-v2-px-api-contract.ts",
     "test:next-stage-documentation-baseline": "node node_modules/tsx/dist/cli.mjs scripts/verify-next-stage-documentation-baseline.ts",
     "test:portfolio-asset-sample-revalidation": "node node_modules/tsx/dist/cli.mjs scripts/verify-portfolio-asset-sample-revalidation.ts",
     "test:fams-data-governance": "node node_modules/tsx/dist/cli.mjs scripts/verify-fams-data-governance.ts && node node_modules/tsx/dist/cli.mjs scripts/verify-ftr-formal-data-service.ts",

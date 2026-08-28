@@ -28,6 +28,8 @@ import { operationRoutes } from './routes/operation.js'
 import { strategyRoutes } from './routes/strategy.js'
 import { formalReleaseRoutes } from './routes/formalRelease.js'
 import { relativeRotationRoutes } from './routes/relativeRotation.js'
+import { externalBrainRoutes } from './routes/externalBrain.js'
+import { externalBrainPolicyService } from './services/external-brain/externalBrainPolicyService.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { operationService } from './services/operation/operationService.js'
 import { factsetRefreshScheduler } from './services/operation/factsetRefreshScheduler.js'
@@ -37,13 +39,15 @@ import { captureRoutes } from './routes/capture.js'
 import { dailyReviewScheduler } from './services/review/dailyReviewScheduler.js'
 import { dailyReviewService } from './services/review/dailyReviewService.js'
 
-const app = Fastify({ logger: true })
+const app = Fastify({ logger: true, maxParamLength: 1024 })
 const configuredPort = Number(process.env.PORT || 4000)
 const appPort = Number.isInteger(configuredPort) && configuredPort > 0 ? configuredPort : 4000
 
 // 初始化Fastify插件
 async function initPlugins() {
-  await app.register(cors, { origin: true })
+  await app.register(cors, {
+    origin: (origin, callback) => callback(null, externalBrainPolicyService.isCorsOriginAllowed(origin)),
+  })
   await app.register(multipart, {
     limits: {
       fileSize: 10 * 1024 * 1024, // 10MB
@@ -143,6 +147,7 @@ async function registerRoutes() {
   await app.register(stockRoutes, { prefix: '/api/v1/stocks' })
   await app.register(strategyRoutes, { prefix: '/api/v1/strategy' })
   await app.register(relativeRotationRoutes, { prefix: '/api/v1/relative-rotation' })
+  await app.register(externalBrainRoutes, { prefix: '/api/v1/external-brain' })
   await app.register(fundRoutes, { prefix: '/api/v1/fund' })
   await app.register(tagRoutes, { prefix: '/api/v1/tags' })
   await app.register(dailyReviewRoutes, { prefix: '/api/v1/daily-reviews' })
