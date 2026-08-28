@@ -9,13 +9,14 @@
 ```text
 prdStatus=APPROVED_PRODUCT_SCOPE_DOCUMENTATION_REVIEW
 productGoalApproval=APPROVED_BY_USER
-documentationPhase=INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
-externalChatGptAuditStatus=PENDING
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
+documentationPhase=EXTERNAL_AUDIT_CONDITIONAL_PASS_REMEDIATION_APPLIED_PENDING_REAUDIT
+externalIndependentAuditStatus=CONDITIONAL_PASS
+externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 px0GithubReviewGate=PASS
 px1PlanningAllowed=true
 px1FeasibilitySpikeEligible=true
-px1FeasibilitySpikeAllowed=false
+px1FeasibilitySpikeAllowed=true
 px2PlusAllowed=false
 v2PxComplete=NO_GO
 ```
@@ -30,6 +31,7 @@ v2PxComplete=NO_GO
 - 架构图：`docs/v2-px-target-architecture-gap.drawio`
 - 文档验收：`docs/V2_PX_DOCUMENTATION_ACCEPTANCE.md`
 - 外部审计包：`docs/V2_PX_CHATGPT_AUDIT_PACKET.md`
+- 独立审计证据：`docs/V2_PX_INDEPENDENT_AUDIT_REPORT.md`
 
 ## 2. 产品问题
 
@@ -233,7 +235,7 @@ prototypeStateMatrixComplete=true
 drawioPages<=8
 drawioChinese=true
 acceptanceScenariosHavePreconditionStepsThresholdEvidenceOwner=true
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 productionCodeChanged=false
 ```
 

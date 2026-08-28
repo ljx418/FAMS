@@ -2,12 +2,13 @@
 
 更新时间：2026-08-27
 
-> 权威字段仍保持冻结；但用户已要求在实际开发前完成新一轮文档与架构评审。`ACCEPTED_FOR_SPIKE` 只表示技术路线可作为 spike 候选，不表示代码开发已获授权。当前 `implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL`、`px1FeasibilitySpikeAllowed=false`。
+> 产品权威字段继续冻结；架构路线仍为 `ACCEPTED_FOR_SPIKE`。用户已于 2026-08-28 明确批准 PX1～PX6 按硬门槛顺序自动开发，`implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION`、`px1FeasibilitySpikeAllowed=true`。该批准不等于技术验证完成、正式发布或交易解锁。
 
 ## 1. 当前结论
 
 ```text
 authorityBaselineStatus=FROZEN
+productAuthorityStatus=FROZEN
 fatalDocumentationBaselineIssueCount=0
 px0GithubReviewGate=PASS
 px1CodeSpikeAllowed=false
@@ -67,7 +68,7 @@ PX 核心浏览器合同不内置投资交易 gate；交易边界继续由 FAMS 
 
 ```text
 Commit 1: 提交 PX-0 schema、semantic validator、fixtures 与待封印权威基线
-Commit 2: 将 Commit 1 的 40 位 SHA 写入 commitSha，并把状态切换到 FROZEN / ACCEPTED_FOR_SPIKE
+Commit 2: 将 Commit 1 的 40 位 SHA 写入 commitSha，并把 productAuthorityStatus 切换到 FROZEN、routeAAdrStatus 切换到 ACCEPTED_FOR_SPIKE
 ```
 
 `commitSha` 始终指向 Commit 1；Commit 2 是只包含封印字段和阶段状态的 seal commit。
@@ -78,13 +79,14 @@ Commit 2: 将 Commit 1 的 40 位 SHA 写入 commitSha，并把状态切换到 F
 
 ```text
 Step 1 authorityBaselineStatus=FROZEN
-Step 2 routeAAdrStatus=ACCEPTED_FOR_SPIKE
-Step 3 target runtime contract schema/validator/fixtures/types migrated atomically in PX-1
-Step 4 routeAAdrStatus=TECHNICALLY_VALIDATED after PX-1
-Step 5 routeAAdrStatus=PRODUCTION_APPROVED before PX-2+ production implementation
+Step 2 productAuthorityStatus=FROZEN（FAMS 产品/仓库/宿主归属）
+Step 3 routeAAdrStatus=ACCEPTED_FOR_SPIKE（Route A 架构路线）
+Step 4 target runtime contract schema/validator/fixtures/types migrated atomically in PX-1
+Step 5 routeAAdrStatus=TECHNICALLY_VALIDATED after PX-1
+Step 6 routeAAdrStatus=PRODUCTION_APPROVED before PX-2+ production implementation
 ```
 
-`authorityBaselineStatus=FROZEN` 不依赖 Route A ADR 已接受；它只冻结产品、仓库、branch、commit 和宿主。
+`authorityBaselineStatus/productAuthorityStatus=FROZEN` 不依赖 Route A ADR 已接受；它只冻结产品、仓库、branch、commit 和宿主。禁止使用无命名空间的 `routeAStatus` 表示产品权威归属。
 
 ## 6. 出门门槛
 

@@ -10,7 +10,8 @@
 prototypeDesignStatus=APPROVED_GOAL_DOCUMENTED_NOT_IMPLEMENTED
 interactivePrototypePresent=false
 realChromeEvidencePresent=false
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
+uiToLifecycleStateMapping=docs/V2_PX_TARGET_ARCHITECTURE.md#6-状态与数据所有权
 ```
 
 ## 2. 体验原则
@@ -20,6 +21,7 @@ implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
 3. 普通用户默认看到简短摘要，高级字段放入证据抽屉。
 4. 未连接、加载、空、失败和恢复状态必须有独立界面，禁止用空白页或原始异常代替。
 5. 所有投资内容保持研究与人工计划草案定位，不展示“立即买入”“创建订单”等动作。
+6. 七个用户可见状态与十个内部 lifecycle state 的唯一映射见目标架构 §6；`closed` 没有活动容器，不得渲染成仍可操作的正常页面。
 
 ## 3. Side Panel：360 / 420px
 

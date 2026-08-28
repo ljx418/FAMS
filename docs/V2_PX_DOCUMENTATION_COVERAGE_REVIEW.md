@@ -6,7 +6,7 @@
 
 本轮不能沿用上一版“20/20 即 100/100”的结论。20/20 只代表 PRD requirement 都被提到，不能证明 API、状态、权限、错误和阶段执行无需开发者自行猜测。
 
-本轮从权威 PRD/架构重新开始，按四个相互独立的审计视角检查。修订前结论为：`结构追踪 PASS，实施决策完整性 FAIL（23/40）`。修订后，40 个实现关键决策已有唯一落点，已知跨文档阻断冲突为 0；因此在“本地单用户 V2-PX、PX-1～PX-6、无正式交易/远程发布”的批准范围内，文档可以完整支撑受控分阶段开发和验收。
+本轮从权威 PRD/架构重新开始，按四个相互独立的审计视角检查。修订前结论为：`结构追踪 PASS，实施决策完整性 FAIL（23/40）`。内部修订后 40 个实现关键决策已有唯一落点；随后独立审计给出 `CONDITIONAL_PASS`，登记 BLK-01～03、HR-01～08 与三项 Draw.io 补强。本版已把这些意见写回目标合同、计划、ADR、状态源和图纸，当前结论是“定向修订完成，等待独立复审”，不是把原 CONDITIONAL_PASS 自动改成外部 PASS。
 
 ```text
 structuralRequirementTraceability=20/20 PASS
@@ -17,8 +17,10 @@ documentationSupportsControlledPx1ToPx6=true
 documentationSupportsUnattendedGatePromotion=false
 runtimeImplementationProgress=0/20
 realChromeEvidencePresent=false
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 externalIndependentAuditRecommended=true
+externalIndependentAuditResult=CONDITIONAL_PASS
+externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
 ```
 
 “完整支撑”不等于路线已被 Chrome 事实证明可行。WXT/Chrome、optional permission/CORS 和五类 read model 的真实兼容性是 PX-1/PX-2 必须实测的架构风险，不是可以靠文档宣称通过的事项。
@@ -67,18 +69,18 @@ externalIndependentAuditRecommended=true
 | DEC-S02 | Background 状态和网络单写者 | 目标架构 §6；运行时合同 §4 | PASS |
 | DEC-S03 | session 内容、20 workspace、1000 events | 运行时合同 §5.2 | PASS |
 | DEC-S04 | local recovery index 20 条/30 天 | 运行时合同 §5.2 | PASS |
-| DEC-S05 | dispatch ledger 500 条/24 小时与 at-most-once | 运行时合同 §5.2～5.3 | PASS |
-| DEC-S06 | 生命周期迁移和 5 秒状态可见口径 | 运行时合同 §5.4/6.3 | PASS |
+| DEC-S05 | dispatch ledger 500 条/24 小时、写入/回读顺序与副作用前后 storage 失败分流 | 运行时合同 §5.2～5.3 | PASS |
+| DEC-S06 | lifecycle/3 封闭 eventType、用户/实现状态映射、5 秒恢复与 35 秒 Ask 口径 | 运行时合同 §5.4/6.3；目标架构 §6 | PASS |
 | DEC-S07 | 已知版本显式迁移、未知 major blocked | 运行时合同 §5.4 | PASS |
 | DEC-X01 | required/optional host/external connect/CSP 清单 | 运行时合同 §7.1 | PASS |
 | DEC-X02 | Host bridge extension ID、sender、payload 与 fallback | 运行时合同 §7.2 | PASS |
-| DEC-X03 | Backend extension origin allowlist 与 local identity | 运行时合同 §7.3 | PASS |
+| DEC-X03 | Backend extension origin allowlist、local identity 与全局 CORS 收紧顺序 | 运行时合同 §7.3 | PASS |
 | DEC-X04 | secret/cookie/token/截图/问题的存储和证据禁区 | PRD §9～10；运行时合同 §5/7 | PASS |
 | DEC-X05 | 禁止自动确认、订单请求=0、四锁 false | PRD PX-REQ-018；运行时合同 §6/7 | PASS |
 | DEC-D01 | PX-1～PX-6 依赖、用户效果和停止规则 | 计划 §8～9/13 | PASS |
 | DEC-D02 | backend/frontend/extension 计划命令归属 | 计划 §11；运行时合同 §9 | PASS |
-| DEC-D03 | message/lifecycle/Chrome/acceptance target schema 分批迁移 | 运行时合同 §10.1；计划 PX1/PX6 | PASS |
-| DEC-D04 | AC-PX-01～10 的前置/操作/阈值/证据/失败归属 | 计划 §10；draw.io 第 8 页 | PASS |
+| DEC-D03 | message/lifecycle/Chrome/acceptance target schema 分批迁移与八个 target fixture 文件 | 运行时合同 §10.1；计划 PX1/PX6 | PASS |
+| DEC-D04 | AC-PX-01～10 的前置/操作/阈值/证据/失败归属，含 Ask 1 秒/35 秒双门槛 | 计划 §10；draw.io 第 8 页 | PASS |
 | DEC-D05 | G1～G7、负例、stage manifest、外部/人工门禁 | 计划 §3～4/14；审计包 | PASS |
 
 ## 3. 修订前发现与关闭结果
@@ -100,6 +102,23 @@ externalIndependentAuditRecommended=true
 | AUD-GAP-13 | 高 | current v2/v1 schema 与目标体验存在差异却被称为 ready | 明示历史基线；PX-1 必须原子迁移 schema/validator/fixtures/types | CLOSED |
 | AUD-GAP-14 | 高 | current lifecycle/Chrome/acceptance schema 不足以单独证明四视口、网络、人工场景和 target 版本 | 冻结 lifecycle/3、Chrome evidence/2、acceptance manifest/report/2 的分批迁移 | CLOSED |
 | AUD-GAP-15 | 中 | 没有给外部 ChatGPT 一个受控、小于 20 文件的审计入口 | 新增 `V2_PX_CHATGPT_AUDIT_PACKET.md`，固定 19 个文件 | CLOSED |
+
+### 3.1 独立审计 CONDITIONAL_PASS 修订登记
+
+| ID | 修订内容 | 权威落点 | 当前复审状态 |
+| --- | --- | --- | --- |
+| BLK-01 | target intent/3 不再继承 current `/2` 的全局 view_source→Side Panel；按三入口矩阵生成条件约束 | 运行时合同 §2/§4.2；plan PX1-02 | 文档 CLOSED，待 target 实现与外部复审 |
+| BLK-02 | target intent ask 只允许 workspaceId/conversationId，question 仅属于 command/2 | 运行时合同 §4.2；validator plan §4 | 文档 CLOSED，待 target 实现与外部复审 |
+| BLK-03 | 产品权威与架构路线分为 `productAuthorityStatus` / `routeAAdrStatus` | ADR、authority baseline、target architecture、状态源 | 文档 CLOSED，待外部复审 |
+| HR-01 | evidence/2 恰好四视口，并补少项/重复/像素不符负例 | 运行时合同 §10.1；plan PX1-05；validator plan | 文档 CLOSED，待 PX-1 实现 |
+| HR-02 | lifecycle/3 eventType 封闭集合与 state 字段分离 | 运行时合同 §5.4 | 文档 CLOSED，待 PX-1 实现 |
+| HR-03 | Markdown 状态值显式服从 `current-stage-state.json` 的完整后缀格式 | 运行时合同 §1；状态源 | 文档 CLOSED |
+| HR-04 | storage 失败按后端副作用前/后分流；结果后写失败为 unknown_result，禁止安全重试假象 | 运行时合同 §5.2/§5.3 | 文档 CLOSED，待 PX-4 故障注入 |
+| HR-05 | `ackVisible<=1s`、`finalResultVisible<=35s`、`reconnectResultVisible<=5s` 分开计时 | 运行时合同 §6.3；AC-PX-02 | 文档 CLOSED，待 PX-2/3 验收 |
+| HR-06 | 七个 UI 状态显式映射十个 lifecycle state；closed 不渲染活动 UI | 目标架构 §6 | 文档 CLOSED，待 UI/状态测试 |
+| HR-07 | route pre-handler 测试通过后再收紧全局 CORS，保留切换证据与回退 | 运行时合同 §7.3；plan PX2-01 | 文档 CLOSED，待 PX-2 实施 |
+| HR-08 | 四类 target contract 各固定 positive/negative fixture 文件 | 运行时合同 §10.1；plan PX1-02；validator plan §3 | 文档 CLOSED，待 PX-1 创建 |
+| DRAWIO-01～03 | contract 失败回 ADR、storage 写入顺序、R3 修 facade/回合同路径 | draw.io 第 3/5/7 页与 summary | 文档 CLOSED，待人类查看 |
 
 ## 4. 第一轮：产品与用户体验审计
 
@@ -169,7 +188,7 @@ externalIndependentAuditRecommended=true
 | 存储/恢复 | session/local、TTL/LRU、迁移、unknown result 一致 | PASS |
 | 计划命令 | backend/frontend/extension 归属明确且标为计划 | PASS |
 | Evidence target | lifecycle/3、Chrome evidence/2、acceptance/2 的字段/迁移阶段唯一 | PASS，目标已冻结、代码未实现 |
-| Draw.io | 8 页中文、目标实体/合同/阶段/验收均可见 | PASS，待外部内容审查 |
+| Draw.io | 8 页中文、目标实体/合同/阶段/验收均可见；第 3/5/7 页补失败/写入/回退路径 | PASS，待外部复审 |
 | 当前状态 | 代码 0%、Chrome 0、PX-1 false、四交易锁 false | PASS |
 | 本轮变更边界 | 无 frontend/src、backend/src、packages、schema/validator/fixture 变更 | PASS |
 
@@ -185,27 +204,28 @@ externalIndependentAuditRecommended=true
 
 因此最终措辞必须是：`文档在批准范围内完整支撑受控 PX-1～PX-6 开发；实现与真实验收尚未开始`。不得简写成“V2-PX 100% 完成”。
 
-## 9. 是否需要 ChatGPT 外部审计
+## 9. 是否需要再次外部复审
 
-结论：`有必要，建议作为批准 PX-1 前的独立审查门，但不把 ChatGPT 当成实施批准人。`
+结论：`有必要做一次定向复审；原独立审计已完成并给出 CONDITIONAL_PASS，本轮作者不能自行把修订结果升级为外部 PASS。`
 
 理由：
 
-1. 本轮作者同时负责修订和内部复审，仍存在同源偏差风险。
-2. target v3/v2 与已提交 current v2/v1 合同之间存在明确迁移，需要外部检查是否仍有遗漏或倒置。
-3. Chrome Side Panel、externally connectable、optional permission、CORS allowlist 和本地身份跨越浏览器/前端/后端四个信任边界。
-4. 该阶段过去出现过“结构覆盖 100% 被误当成决策完整”的判断，值得增加独立反例审查。
+1. 本轮修订者同时完成了意见映射和内部复核，仍存在同源偏差。
+2. HR-04 的审计建议若把“后端结果已发生后的 storage 失败”也命名为 `failed_before_effect` 会造成错误安全重试；本版按副作用事实拆成两类，需要独立确认其正确性。
+3. CORS 切换同时影响现有 FAMS Web 与 extension origin，需要复核是否仍有旁路或不可逆窗口。
+4. Draw.io 的新增路径必须由人类实际打开确认可读，不能只依赖 XML 文本命中。
 
 待 ChatGPT 审查的不是“代码是否完成”，而是：目标合同是否内部一致、开发顺序是否能关闭风险、验收是否能抓住假绿、draw.io 是否足以判断规格偏移与出门风险。具体问题和 19 个文件见 `docs/V2_PX_CHATGPT_AUDIT_PACKET.md`。
 
 ## 10. 当前门禁
 
 ```text
-internalDocumentationAudit=PASS_FOR_EXTERNAL_AND_USER_REVIEW
-externalChatGptAuditStatus=PENDING
+internalDocumentationAudit=PASS_AFTER_CONDITIONAL_PASS_REMEDIATION
+externalIndependentAuditStatus=CONDITIONAL_PASS
+externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
 humanArchitectureReviewStatus=PENDING
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
-px1FeasibilitySpikeAllowed=false
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
+px1FeasibilitySpikeAllowed=true
 px2PlusAllowed=false
 productionCodeChangedInThisPhase=false
 ```

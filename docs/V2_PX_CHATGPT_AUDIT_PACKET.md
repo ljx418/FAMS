@@ -4,7 +4,7 @@
 
 ## 1. 审计目的
 
-请只审查文档，不编写或修改代码。当前用户已认可 V2-PX draw.io 的开发方向，但尚未批准实际开发。
+本包保留 2026-08-27 文档审计上下文；当时只允许审查文档。用户已于 2026-08-28 另行批准 PX1～PX6 按阶段硬门槛顺序自动开发，原审计报告仍作为不可改写的历史证据。
 
 需要独立判断：
 
@@ -14,7 +14,7 @@
 4. 分阶段计划是否在最早阶段验证高风险假设，是否存在“空壳先通过、集成后补”的假绿。
 5. 验收是否具备用户场景、操作步骤、量化阈值、原始证据、失败归属和出门条件。
 
-ChatGPT 的审查结论不是实施批准。无论结论如何，`implementationApprovalStatus` 均保持 pending，直到用户明确批准。
+ChatGPT 的审查结论本身不是实施批准；本包形成时状态应保持 pending，直到用户另行明确批准。该批准已在 2026-08-28 的用户指令与 `current-stage-state.json` 中登记。
 
 ## 2. 当前内部结论（请质疑，不要直接采信）
 
@@ -22,23 +22,42 @@ ChatGPT 的审查结论不是实施批准。无论结论如何，`implementation
 prdTraceability=20/20
 decisionCompleteness=40/40
 knownBlockingCrossDocumentConflicts=0
-internalDocumentationAudit=PASS_FOR_EXTERNAL_AND_USER_REVIEW
-targetIntentRoute=v2-px-intent-route/3 PLANNED_NOT_IMPLEMENTED
-currentIntentRoute=v2-px-intent-route/2 PX0_BASELINE
-targetOperationCommand=v2-px-operation-command/2 PLANNED_NOT_IMPLEMENTED
-currentOperationCommand=v2-px-operation-command/1 PX0_BASELINE
-targetLifecycleAudit=v2-px-dual-container-lifecycle/3 PLANNED_NOT_IMPLEMENTED
-currentLifecycleAudit=v2-px-dual-container-lifecycle/2 PX0_BASELINE
-targetRealChromeEvidence=v2-px-real-chrome-evidence/2 PLANNED_NOT_IMPLEMENTED
-currentRealChromeEvidence=v2-px-real-chrome-evidence/1 PX0_BASELINE
-targetAcceptanceManifestReport=/2 PLANNED_NOT_IMPLEMENTED
-currentAcceptanceManifestReport=/1 PX0_BASELINE
+statusSourcePolicy=docs/current-stage-state.json
+internalDocumentationAudit=PASS_AFTER_CONDITIONAL_PASS_REMEDIATION
+targetIntentRouteContract=v2-px-intent-route/3_planned_not_implemented
+currentIntentRouteContract=v2-px-intent-route/2_px0_baseline
+targetOperationCommandContract=v2-px-operation-command/2_planned_not_implemented
+currentOperationCommandContract=v2-px-operation-command/1_px0_baseline
+targetLifecycleAuditContract=v2-px-dual-container-lifecycle/3_planned_not_implemented
+currentLifecycleAuditContract=v2-px-dual-container-lifecycle/2_px0_baseline
+targetRealChromeEvidenceContract=v2-px-real-chrome-evidence/2_planned_not_implemented
+currentRealChromeEvidenceContract=v2-px-real-chrome-evidence/1_px0_baseline
+targetAcceptanceContracts=manifest/2_report/2_planned_not_implemented
+currentAcceptanceContracts=manifest/1_report/1_px0_baseline
+externalIndependentAuditResult=CONDITIONAL_PASS
+externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
 px1PlusImplementation=0/20
 realChromeEvidence=0
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 ```
 
 请重点查找内部作者可能遗漏的冲突，而不是只验证文件是否存在。
+
+### 2.1 CONDITIONAL_PASS 后的定向修订
+
+`docs/V2_PX_INDEPENDENT_AUDIT_REPORT.md` 登记的 3 个阻断项、8 个高风险项和 Draw.io 三项补强已进入文档修订；本包请求复核“修订是否真正闭环”，不得把“已修改文字”直接当成关闭：
+
+| 审计项 | 本轮修订落点 | 复核问题 |
+| --- | --- | --- |
+| BLK-01/02 | runtime contract §2/§4.2、plan PX1-02、validator plan §3/§4 | target v3 是否明确允许 Host view_source→Workspace，并严格拒绝 intent ask question；current /2 是否仍被保留为 baseline |
+| BLK-03 | ADR 状态、authority baseline §5、target architecture §1、current-stage-state | `productAuthorityStatus` 与 `routeAAdrStatus` 是否再无概念混用 |
+| HR-01/02/08 | runtime contract §5.4/§10.1、plan PX1-02/PX1-05、validator fixture 清单 | 四视口、eventType 与八个 fixture 文件是否有唯一 target 定义 |
+| HR-03/06 | current-stage-state、target architecture §6 | current/target 状态字符串与用户状态映射是否唯一 |
+| HR-04/05 | runtime contract §5.2/§5.3/§6.3、AC-PX-02 | storage 失败是否按副作用前后诚实分流；1 秒 ack 与 35 秒终态是否可验收 |
+| HR-07 | runtime contract §7.3、plan PX2-01 | route pre-handler、全局 CORS 收紧、证据与回退顺序是否无旁路窗口 |
+| Draw.io | 第 3、5、7 页 | contract 失败返回 ADR、storage 写入顺序、R3 回退路径是否可直接从图判断 |
+
+本次修订仍不修改 current schema/validator/fixture。若复核者认为必须直接修改 current `/2`、`/1` 才能通过，请先判断这是否会破坏 current→target 迁移证据链。
 
 ## 3. 剩余开发大纲
 
@@ -63,7 +82,7 @@ implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
 6. PX-2 是否确实是 API + Workspace 真实 read model 垂直切片，而非 mock 空壳出门。
 7. 计划命令、证据路径、manifest/hash/commit 和真实 extension URL 是否足以阻断假绿。
 8. current lifecycle/Chrome/acceptance schema 与 target 版本的分批迁移是否足够完整，是否仍可用“结构合法”冒充“体验已验收”。
-9. Draw.io 8 页是否与 Markdown 同口径，能否判断当前/目标状态、规格漂移和出门风险。
+9. Draw.io 8 页是否与 Markdown 同口径，能否判断当前/目标状态、规格漂移和出门风险，尤其是第 3、5、7 页新增的失败/写入/回退路径。
 
 ## 5. 请输出的结论格式
 

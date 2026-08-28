@@ -3,15 +3,15 @@
 ## 状态
 
 ```text
-status=accepted_for_spike
+adrStatus=accepted_for_spike
 px0GithubReviewGate=PASS
-px1FeasibilitySpikeAllowed=false
+px1FeasibilitySpikeAllowed=true
 px1FeasibilitySpikeEligible=true
 productGoalApproval=APPROVED_BY_USER
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
-routeAStatus=ACCEPTED_FOR_SPIKE
-routeAImplementationReadiness=DOCUMENTATION_INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
+routeAImplementationReadiness=DOCUMENTATION_EXTERNAL_AUDIT_CONDITIONAL_PASS_REMEDIATION_APPLIED_PENDING_REAUDIT
 routeAAdrStatus=ACCEPTED_FOR_SPIKE
+productAuthorityStatus=FROZEN
 routeATechnicallyValidated=false
 routeAProductionApproved=false
 ```
@@ -49,8 +49,12 @@ Route A.1 保留 Route A 的双容器目标，并关闭旧合同中的数据接�
 Route A 状态必须按以下顺序推进：
 
 ```text
-PROPOSED -> ACCEPTED_FOR_SPIKE -> TECHNICALLY_VALIDATED -> PRODUCTION_APPROVED
+productAuthorityStatus: UNRESOLVED -> FROZEN（FAMS；只描述产品/仓库/宿主归属）
+routeAAdrStatus: PROPOSED -> ACCEPTED_FOR_SPIKE -> TECHNICALLY_VALIDATED -> PRODUCTION_APPROVED
+routeAAdrStatus: 任一关键可行性失败 -> RETURN_TO_ADR
 ```
+
+两条状态线彼此独立：`productAuthorityStatus=FROZEN` 不证明 Route A 技术可行，`routeAAdrStatus=ACCEPTED_FOR_SPIKE` 也不重新选择产品归属。所有 target manifest/report 禁止生成无命名空间的 `routeAStatus`。
 
 以下内容是文档基线必须冻结的条件，现已完成文档定义；真实可行性仍待 PX-1：
 
@@ -70,7 +74,7 @@ PROPOSED -> ACCEPTED_FOR_SPIKE -> TECHNICALLY_VALIDATED -> PRODUCTION_APPROVED
 | 幂等 | duplicate ingest 的 `idempotencyKey` 规则 |
 | 证据 | 真实 Chrome screenshot、trace、event log、SHA-256 和 commitSha |
 
-上述 PX-1 spike 合同与 authority baseline SHA 已建立文档基线；本轮新增的权限与 FAMS adapter 设计需要接受人类架构评审。当前不是 `TECHNICALLY_VALIDATED` 或 `PRODUCTION_APPROVED`，且用户尚未批准进入代码开发。
+上述 PX-1 spike 合同与 authority baseline SHA 已建立文档基线；用户已于 2026-08-28 批准按阶段门槛实施 PX1～PX6。当前仍不是 `TECHNICALLY_VALIDATED` 或 `PRODUCTION_APPROVED`，只有 PX1 真实 Chrome spike 通过后才能更新技术验证状态，PX6 仍需最终人工体验确认。
 
 ### Entrypoint 与构建合同
 

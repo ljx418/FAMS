@@ -7,11 +7,12 @@
 V2-PX 采用 Route A.1：`独立 Workspace Page + 轻量 Side Panel + Background 单写者 + FAMS 有界查询/问答适配层`。该设计优先复用现有 FAMS 的 Chat、Daily Review、Operation 与 workflow 能力，不复制投资计算逻辑，不引入第二套业务数据库，也不改变交易锁。GET 类 intent 是只读查询；Quick Ask 可以写入现有 FAMS Chat 会话，但只允许 `read_only_direct/compute_quick_run`，不允许扩展自动确认操作。
 
 ```text
-architectureReviewStatus=INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
+architectureReviewStatus=EXTERNAL_AUDIT_CONDITIONAL_PASS_REMEDIATION_APPLIED_PENDING_REAUDIT
 implementationStatus=NOT_STARTED
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
-routeAStatus=ACCEPTED_FOR_SPIKE
-routeAImplementationReadiness=DOCUMENTATION_INTERNAL_AUDIT_PASS_AWAITING_EXTERNAL_AND_USER_REVIEW
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
+routeAAdrStatus=ACCEPTED_FOR_SPIKE
+productAuthorityStatus=FROZEN
+routeAImplementationReadiness=DOCUMENTATION_EXTERNAL_AUDIT_CONDITIONAL_PASS_REMEDIATION_APPLIED_PENDING_REAUDIT
 routeATechnicallyValidated=false
 routeAProductionApproved=false
 ```
@@ -95,7 +96,7 @@ PX-1～PX-6 runtime acceptance commands
 | 待新增 | `src/background/workspaceTabManager.ts` | query/create/reuse/focus Workspace tab | 重复点击不创建重复标签页 |
 | 待新增 | `src/background/idempotencyRegistry.ts` | local dispatch ledger、同 key 重放、冲突拒绝 | POST dispatch 后不自动重试；未知结果 blocked |
 | 待新增 | `src/state/workspaceStateStore.ts` | session 状态、local 恢复索引 | background 单写；容器只订阅 |
-| 待新增 | `src/state/lifecycleAuditStore.ts` | start/resume/reconnect/close/blocked 事件 | 汇总状态必须由事件推导 |
+| 待新增 | `src/state/lifecycleAuditStore.ts` | 绑定 lifecycle/3 封闭 eventType、previous/next state、sequence 与 reason | 汇总状态必须由事件推导；状态名不得临时充当事件名 |
 | 待新增 | `src/state/workspaceStateMigrator.ts` | WorkspaceState 版本迁移与 TTL/LRU | 未知 major 不静默清空 |
 
 ### 4.3 UI 体验层
@@ -208,6 +209,23 @@ Workspace Refresh
 
 background 是 PX 状态单写者，也是唯一 FAMS 网络访问者。容器不直接轮询后端。仅 background 在存在活动任务时按 2s→4s→8s、最大 10s 做有界轮询，终态停止、容器全部关闭时停止。GET 最多有限重试；POST Ask dispatch 后自动重试次数恒为 0。
 
+用户可见状态与实现状态使用下列唯一映射；UI 不得直接显示内部枚举，`closed` 没有活动容器，因此不可伪造一个仍可操作的页面：
+
+| 用户可见状态 | `WorkspaceState.lifecycleStatus` | 用户必须看到 | 允许动作 |
+| --- | --- | --- | --- |
+| 未连接 | `uninitialized`、`disconnected` | 未连接或连接已断开、保留的 workspace 标识 | 连接、重试、查看隐私说明 |
+| 加载 | `connecting`、`loading` | 正在连接/读取什么，不能只显示无限 spinner | 取消、等待 |
+| 正常 | `ready` | 简明摘要、数据时间、下一步 | 查看、切换、刷新只读数据 |
+| 空 | `empty` | 为空原因和可获得数据的 FAMS 入口 | 回来源库、打开对应 FAMS 页面 |
+| 失败 | `failed` | 可读原因、已保留内容、重试边界 | 重试 GET 或导出脱敏诊断 |
+| 恢复中 | `recovering` | 恢复对象、当前步骤、5 秒状态结论门槛 | 取消恢复、等待结论 |
+| 已阻断 | `blocked` | 阻断原因、证据和解除条件；不得显示 success | 人工配置/复核；交易阻断无解锁动作 |
+| 不渲染 | `closed` | 无活动容器；下次打开先进入 connecting/recovering 再渲染 | 无 |
+
+目标 lifecycle/3 的 eventType 集合以运行时合同 §5.4 为唯一来源。`connection_lost -> disconnected`、`reconnect -> recovering`、`connected -> ready`、`lease_expired/close -> closed` 等状态转换必须同时保留 previous/next state 与 reasonCode。
+
+local 写入依赖顺序为：dispatch ledger 清理/写入/回读 → recoveryIndex 清理/写入/回读 → session event/WorkspaceState。后台结果已发生但 `completed` 无法持久化时必须进入 `unknown_result` 并提示“结果已收到但未保存”，不得自动重发或谎称 `failed_before_effect`。
+
 ## 7. 权限、安全与交易边界
 
 ### 7.1 本地权限
@@ -227,6 +245,8 @@ remoteExecutableCodeAllowed=false
 ```
 
 “hostPermissions 为空”指安装时不默认获得主机访问权；运行时只允许用户主动授予 manifest 中列出的精确后端地址。3000 只允许向扩展发送受控 intent route，不授予扩展访问前端页面内容的权限。External Brain route 还必须以 `FAMS_V2_PX_EXTENSION_IDS` 验证 extension origin；现有全局 `origin:true` 不能冒充该目标已实现。
+
+PX2-01 先启用 deny-by-default route pre-handler 并完成 extension allowlist 正负测试，再把全局 `origin:true` 收紧到 FAMS 本地 Web origin 与配置的 extension origin；整个切换过程记录到 `PX2/cors-switch-audit.json`。切换失败必须留在 PX2-01，不能让全局 CORS 回退成为身份旁路。
 
 ### 7.2 身份边界
 
@@ -264,7 +284,7 @@ PX Core schema 保持领域无关；FAMS adapter 只能返回研究、观察、�
 | WXT Side Panel 的 headless 自动化能力不足 | 中 | 高 | PX-1 只做可行性 spike | 必须用 unpacked Chrome + CDP 证明 |
 | optional host permission / CORS 不兼容 | 中 | 高 | 4000 精确 host；3000 external connect；只读 `/health` 起步 | PX-1 连接场景 hard gate |
 | 三入口状态漂移 | 中 | 高 | background 单写者、统一 envelope | 三入口同任务 route matrix 100% |
-| 当前 FAMS API 粒度不适合五 intent | 高 | 中 | 有界 Query/Ask facade，不复制业务服务 | PX-2/PX-4 contract test |
+| 当前 FAMS API 粒度不适合五 intent | 高 | 中 | 有界 Query/Ask facade，不复制业务服务；缺字段先修 facade mapping | PX-2 contract test；仍不满足则回运行时 API 合同/ADR，缩小 read model，禁止改 intent 或用 mock |
 | 当前 v2/v1 schema 与目标动作/问答语义不一致 | 高 | 高 | 目标 v3/v2 已在运行时合同冻结 | PX-1 原子迁移 schema/validator/fixtures/types |
 | current evidence schema 允许结构通过但不足以证明完整体验 | 高 | 高 | target lifecycle/3、Chrome evidence/2、acceptance/2 字段已冻结 | PX-1/PX-6 分批原子迁移全部 producers/consumers |
 | Workspace 复制现有复杂页面 | 中 | 中 | 只复用 read model 与小型 UI 组件 | 原型和四视口人工检查 |
@@ -272,4 +292,4 @@ PX Core schema 保持领域无关；FAMS adapter 只能返回研究、观察、�
 
 ## 10. 实现许可边界
 
-本文完成后只能声明架构文档已通过内部审计并具备外部/用户评审条件。没有用户新的明确批准，不得创建 `packages/fams-v2-px-extension`、不得新增 `externalBrain.ts`、不得修改 `App.tsx/FamsChatBox.tsx`，也不得运行 PX-1 真实扩展 spike。
+用户已于 2026-08-28 明确批准在本文边界内顺序实施 PX1～PX6。批准允许创建 `packages/fams-v2-px-extension`、新增有界 `externalBrain.ts`、修改指定 Host Bridge 集成点并运行真实扩展验收；仍不等于 `TECHNICALLY_VALIDATED`、正式发布或交易解锁。每阶段必须先通过独立入场审计，PX6 最终人工体验验收仍保留。

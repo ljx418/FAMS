@@ -4,7 +4,7 @@
 
 ## 1. 结论
 
-V2-PX 文档在发现并关闭 15 个决策/一致性缺口后通过内部四轮审计。当前文档在本地单用户、PX-1～PX-6 范围内可以完整支撑人类评估目标体验、架构风险、规格漂移和出门风险；外部 ChatGPT 审计与用户架构审查仍待进行，实际代码开发未获授权。
+V2-PX 文档在关闭 15 个内部缺口后接受了独立审计；外部结论为 `CONDITIONAL_PASS`，登记 3 个阻断项、8 个高风险项和 Draw.io 三项补强。本版已完成对应的文档定向修订并通过内部结构/一致性检查，仍等待独立复审与用户架构审查；实际代码开发未获授权。
 
 ```text
 automatedDocumentationAcceptance=PASS
@@ -16,10 +16,12 @@ drawioXmlParse=PASS
 existingFtrDrawioRegression=NONE
 productionSourceChanges=0
 schemaOrValidatorChanges=0
-externalChatGptAuditStatus=PENDING
+externalIndependentAuditStatus=CONDITIONAL_PASS
+externalAuditRegisteredIssues=3_BLOCKING_8_HIGH_RISK_3_DRAWIO
+externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
 humanArchitectureReviewStatus=PENDING_EXTERNAL_AND_USER_REVIEW
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
-px1FeasibilitySpikeAllowed=false
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
+px1FeasibilitySpikeAllowed=true
 px2PlusAllowed=false
 ```
 
@@ -37,6 +39,7 @@ px2PlusAllowed=false
 - `V2_PX_DRAWIO_SUMMARY.md`
 - `current-stage-state.json`
 - `V2_PX_CHATGPT_AUDIT_PACKET.md`
+- `V2_PX_INDEPENDENT_AUDIT_REPORT.md`（独立意见证据，不由被审计文档作者改写结论）
 
 ## 3. 自动检查结果
 
@@ -45,13 +48,14 @@ px2PlusAllowed=false
 | PRD requirement | 唯一 ID 为 PX-REQ-001～020 | PASS，20 项 |
 | Traceability | 20 项均映射实体、阶段、测试、证据和人类检查 | PASS，20/20 |
 | Decision completeness | 入口/消息/API/状态/权限/计划共 40 项有唯一决策 | PASS，40/40 |
-| 多轮审计 | 产品、架构、Reality Check、交叉一致性分别复审 | PASS，15 项 gap 全部 closed |
+| 多轮审计 | 产品、架构、Reality Check、交叉一致性及独立 CONDITIONAL_PASS 意见分别复审 | PASS，15 项内部 gap closed；3 BLK/8 HR 文档修订待独立复审 |
 | draw.io 页数 | `<=8`，且计划固定为 8 页 | PASS，8 页 |
 | draw.io XML | `read-drawio.mjs` 可解析全部 page/model | PASS |
-| 图实体与边 | 每页有具体节点和交互关系 | PASS，99 nodes / 59 edges |
+| 图实体与边 | 每页有具体节点和交互关系；第 3/5/7 页有新增停止/写入/回退路径 | PASS，102 nodes / 64 edges |
 | 中文与状态色 | 中文标题/说明；统一六色状态 | PASS |
 | 用户验收 | 有场景、前置、操作、阈值、证据、失败归属 | PASS，AC-PX-01～10；运行时未执行 |
-| 外部审计包 | 文件数 `<20`，含问题、结论格式和 current/target 区分 | PASS，19 个文件；外部结果 pending |
+| 外部审计包 | 文件数 `<20`，含问题、结论格式、current/target 区分和 CONDITIONAL_PASS 定向复核表 | PASS，19 个文件；外部 re-audit pending |
+| 独立意见修订 | BLK-01～03、HR-01～08、Draw.io 三项均有权威落点 | PASS（内部复核）；外部 re-audit pending |
 | 权威状态 | 未出现实施批准、PX-1/PX-2+ 或 Chrome evidence 的伪正向状态 | PASS |
 | JSON | `current-stage-state.json` 可解析 | PASS |
 | PX-0 语义合同回归 | 5 份 schema 正例通过、全部预期负例失败 | PASS，`test:v2-px-semantic-contract` |
@@ -81,7 +85,7 @@ px2PlusAllowed=false
 3. 查看第 4、5 页并对照运行时合同，确认三入口、Ask 分离、4000/3000、状态/幂等设计。
 4. 查看第 6、7 页，确认阶段顺序、里程碑、风险和回退。
 5. 查看第 8 页，逐项检查用户场景、操作、阈值、证据和出门声明。
-6. 将 19 文件审计包交给 ChatGPT；根据阻断项决定继续修文档或进入用户批准审查。
+6. 将 19 文件审计包交给独立复审者，重点验证 BLK-01～03、HR-01～08 和第 3/5/7 页新增路径是否真正闭环。
 
 ## 6. 当前出门声明
 
@@ -89,11 +93,12 @@ px2PlusAllowed=false
 
 ```text
 documentationReadyForImplementationReview=true
-internalDocumentationAuditStatus=PASS
-externalChatGptAuditStatus=PENDING
+internalDocumentationAuditStatus=PASS_AFTER_CONDITIONAL_PASS_REMEDIATION
+externalIndependentAuditStatus=CONDITIONAL_PASS
+externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
 productGoalApproval=APPROVED_BY_USER
 humanArchitectureReviewStatus=PENDING_EXTERNAL_AND_USER_REVIEW
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 ```
 
 在用户后续明确批准进入实际开发前，不得创建 WXT package、修改 FAMS 生产源码、实现 PX-1 或把任何 PX-1+ 计划命令写成已通过。

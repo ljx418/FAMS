@@ -9,17 +9,18 @@
 ```text
 contractStatus=TARGET_DECISIONS_FROZEN_DOCUMENTATION_ONLY
 implementationStatus=NOT_STARTED
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
-currentIntentRouteSchema=v2-px-intent-route/2
-targetIntentRouteSchema=v2-px-intent-route/3
-currentOperationCommandSchema=v2-px-operation-command/1
-targetOperationCommandSchema=v2-px-operation-command/2
-currentLifecycleAuditSchema=v2-px-dual-container-lifecycle/2
-targetLifecycleAuditSchema=v2-px-dual-container-lifecycle/3
-currentRealChromeEvidenceSchema=v2-px-real-chrome-evidence/1
-targetRealChromeEvidenceSchema=v2-px-real-chrome-evidence/2
-currentAcceptanceSchemas=v2-px-acceptance-manifest/1,v2-px-acceptance-report/1
-targetAcceptanceSchemas=v2-px-acceptance-manifest/2,v2-px-acceptance-report/2
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
+statusSourcePolicy=docs/current-stage-state.json
+currentIntentRouteSchema=v2-px-intent-route/2_px0_baseline
+targetIntentRouteSchema=v2-px-intent-route/3_planned_not_implemented
+currentOperationCommandSchema=v2-px-operation-command/1_px0_baseline
+targetOperationCommandSchema=v2-px-operation-command/2_planned_not_implemented
+currentLifecycleAuditSchema=v2-px-dual-container-lifecycle/2_px0_baseline
+targetLifecycleAuditSchema=v2-px-dual-container-lifecycle/3_planned_not_implemented
+currentRealChromeEvidenceSchema=v2-px-real-chrome-evidence/1_px0_baseline
+targetRealChromeEvidenceSchema=v2-px-real-chrome-evidence/2_planned_not_implemented
+currentAcceptanceSchemas=v2-px-acceptance-manifest/1_px0_baseline,v2-px-acceptance-report/1_px0_baseline
+targetAcceptanceSchemas=v2-px-acceptance-manifest/2_planned_not_implemented,v2-px-acceptance-report/2_planned_not_implemented
 runtimeContractImplemented=false
 ```
 
@@ -45,8 +46,25 @@ runtimeContractImplemented=false
 | CT-GAP-05 | API 只有 URL，没有 DTO、错误、分页、身份和幂等规则 | 本文冻结五端点、统一 envelope、错误码和本地用户策略 | PX-2 |
 | CT-GAP-06 | session/local 存什么、多久、如何迁移没有定论 | 冻结 WorkspaceState、30 天恢复索引、24 小时 dispatch ledger 和未知版本阻断策略 | PX-1/PX-5 |
 | CT-GAP-07 | 计划命令没有明确在哪个 package 执行 | 所有命令按 backend/frontend/extension 三个实际 package 归属 | PX-1～PX-6 |
+| CT-GAP-08 | Route A 架构路线状态与 FAMS 产品权威归属命名混用 | 架构路线只使用 `routeAAdrStatus`；产品归属只使用 `productAuthorityStatus` | D0/PX-6 |
 
 当前 JSON schema 与 semantic validator 是已提交的 PX-0 历史基线，不能被描述为目标 v3/v2 已实现。用户批准实施后，PX-1 必须把 schema、validator、正负 fixture 和类型绑定作为一个原子变更完成；任一部分缺失则 G2/G3 失败。
+
+用户批准 PX-1 前，以下审计约束必须保持为不可省略的实施前置；这里冻结的是 target 草案和负例，不修改 current PX-0 schema：
+
+| 审计项 | 冻结的 target 决策 | 启动/出门约束 |
+| --- | --- | --- |
+| BLK-01 | `intent-route/3` 按入口动作矩阵决定 `view_source` 目标，Host/Workspace 合法目标为 `workspace_page` | PX1-02 必须有 Host 正例和错误落到 Side Panel 的负例 |
+| BLK-02 | `intent-route/3 askPayload` 只允许 `workspaceId/conversationId?`，严格拒绝 `question` | PX1-02 必须有 `ask` 携带 question 的负例 |
+| BLK-03 | `routeAAdrStatus` 与 `productAuthorityStatus` 分列，禁止继续生成无命名空间的 `routeAStatus` | PX-6 manifest/report target 也必须分列 |
+| HR-01 | Chrome evidence/2 恰好覆盖 360/420/768/1280 四视口 | 少一个、重复一个或伪造尺寸均失败 |
+| HR-02 | lifecycle/3 使用本节 §5.4 的封闭 eventType 集合 | schema/types/validator/fixture 同批迁移 |
+| HR-03 | 所有状态文本以 `current-stage-state.json` 的 `_px0_baseline/_planned_not_implemented` 值为准 | 自动化禁止从 Markdown 推断 target 已实现 |
+| HR-04 | storage 写入失败按“副作用前/副作用后”诚实分流 | 任何分支都禁止自动重复 POST |
+| HR-05 | Quick Ask 点击后 35 秒内显示最终摘要或明确终态错误 | 与 5 秒恢复状态可见门槛分开计时 |
+| HR-06 | 七个用户可见状态与十个实现状态按目标架构 §6 显式映射 | UI 文案/状态机不一致即失败 |
+| HR-07 | route pre-handler 验证后再收紧全局 CORS，切换日志留 PX-2 私有证据 | 任一 allowlist 负例失败不得切换/出门 |
+| HR-08 | 四组 target fixture 的文件名、正负例和失效基线在计划 §13 固定 | fixture 缺失视为原子迁移失败 |
 
 ## 3. 标识与规范化规则
 
@@ -128,6 +146,19 @@ Background 的处理顺序必须固定为：sender 校验 → envelope schema �
 
 Host App 不要求自动打开 Side Panel。原因是 Chrome 对 `sidePanel.open()` 的用户手势传递存在可行性风险；PX-1 可以验证能力，但产品正确 fallback 已冻结为 Workspace Page，不得让 Host 操作静默无响应。
 
+目标 `intent-route/3` 的条件约束必须按下列规则生成，不能沿用 current `/2` 的全局 `view_source -> sidepanel`：
+
+```text
+action=view_source AND sourceContainer=sidepanel       => targetContainer=sidepanel
+action=view_source AND sourceContainer=workspace_page => targetContainer=workspace_page
+action=view_source AND sourceContainer=host_app       => targetContainer=workspace_page
+action IN {open_workspace,open_in_workspace}           => targetContainer=workspace_page
+askPayload.required=[workspaceId]
+askPayload.optional=[conversationId]
+askPayload.additionalProperties=false
+questionInIntentRoute=false
+```
+
 ### 4.3 `operation-command/2` 负责真实动作
 
 目标 v2 命令保持三个 command type，但重新冻结其边界：
@@ -197,17 +228,28 @@ WorkspaceState 不保存问题文本、回答正文、持仓值、截图或完�
 
 任何存储项都不得包含 cookie、token、Authorization、账户原图或原始网页正文。`question` 只存在于命令内存和 FAMS Chat 的既有本地会话文件中，dispatch ledger 只存 digest。
 
+每次 local 写入顺序固定为：读取当前记录 → 按 `expiresAt` 升序删除过期项 → 若仍超上限则按 `lastAccessedAt/updatedAt` 最旧优先 LRU → 写入新记录 → 立即回读校验。命令路径必须先持久化并校验 dispatch ledger，再写 recoveryIndex，最后写 session event/WorkspaceState；cleanup 不能与新命令 dispatch 并行。`recoveryIndex` 与 `dispatchLedger` 分别清理，不能因一方 TTL 到期删除另一方仍有效记录。
+
 ### 5.3 at-most-once dispatch
 
 对 `query/ingest_source` 执行：
 
-1. 计算 digest 并先以 `prepared` 原子写入 local ledger。
-2. 写入 `dispatched` 后发起一次后端请求；POST 在 dispatch 后禁止自动重试。
-3. 成功写 `completed + resultRef`；安全失败写 `failed_before_effect`。
-4. reload 后遇到 `prepared` 可安全重试；遇到 `dispatched` 且无结果必须返回 `unknown_result`，不得自动二次调用。
+1. 计算 digest，完成过期/LRU 清理，以 `prepared` 写入 local ledger并回读校验。
+2. 将记录写为 `dispatched` 并回读校验后，才发起一次后端请求；POST 在 dispatch 后禁止自动重试。
+3. 后端成功后写 `completed + resultRef` 并回读校验；只有该校验成功，UI 才可显示可恢复的 `completed`。
+4. reload 后遇到 `prepared` 可安全重试；遇到 `dispatched` 且无可核对结果必须返回 `unknown_result`，不得自动二次调用。
 5. 同 key 同 digest 且 completed 返回 resultRef；同 key 不同 digest hard fail。
 
 这保证系统不会为了隐藏不确定性而重复创建 Chat/Operation。用户明确发起一个新动作会生成新 key，不属于自动重试。
+
+storage 写入失败必须按副作用边界诚实分流：
+
+| 失败时点 | ledger/网络事实 | UI 与事件 | 后续 |
+| --- | --- | --- | --- |
+| `prepared` 或 `dispatched` 持久化/回读失败，且网络尚未调用 | 后端副作用确定未发生 | CommandResult=`failed`，reason=`PX_STORAGE_WRITE_FAILED_BEFORE_EFFECT`；提示“请求未发出，状态未保存，可重新提交” | 人工重新提交可生成新动作 |
+| 后端结果已返回，但 `completed` 持久化/回读失败 | 后端副作用可能已发生，ledger 保持 `dispatched` | 当前容器可暂时展示结果，同时必须显示“结果已收到但未保存；刷新后需到 FAMS 手动复核”，记录 `storage_write_failed`，CommandResult=`unknown_result` | 禁止自动重试；reload 后按 unknown_result 处理 |
+
+不得把第二种情况写成 `failed_before_effect`，因为这会错误暗示后端未产生结果并诱导重复提交。
 
 ### 5.4 状态迁移与版本
 
@@ -222,6 +264,16 @@ any live state -> closed (由 lease 失效事件推导)
 - 已知旧 minor 版本使用显式 migrator 并产生 `state_migrated` event。
 - 未知 major 版本进入 `PX_STORAGE_VERSION_UNSUPPORTED` blocked；禁止静默清空。
 - 当前无生产 PX 数据，因此 v1 首次上线没有业务数据迁移；仍必须提供旧/未知版本负例测试。
+
+目标 `v2-px-dual-container-lifecycle/3` 的 `eventType` 是封闭集合，状态名不得冒充事件名：
+
+```text
+start | resume | route_intent | connected | load_succeeded | load_empty |
+load_failed | connection_lost | reconnect | state_migrated | lease_expired |
+storage_write_failed | dispatch_result_unknown | close | blocked
+```
+
+`previousState/nextState` 承载十种 `lifecycleStatus`；`eventType` 只描述触发事实。`disconnected/recovering/closed` 因此只能出现在 state 字段中，不能被实现者临时扩成未登记 eventType。target `/3` 的 schema、类型、validator 与 fixtures 必须同时绑定上述集合。
 
 ## 6. FAMS External Brain API v1
 
@@ -319,6 +371,8 @@ Response data：`conversationId/messageId/summary/keyEvidence[]/dataAsOf/confide
 
 “5 秒恢复目标”表示 5 秒内必须显示 restored 或带原因的 blocked/recovering 结论，不表示外部 LLM 或长任务必须在 5 秒完成。
 
+Quick Ask 的体验计时从用户点击发送开始：`ackVisible <= 1s`；`finalResultVisible <= 35s`。35 秒内必须出现包含结论/依据/数据时间/下一步的最终摘要，或明确的 `failed/blocked/unknown_result` 终态与人工复核动作，不能继续只显示 ack 或无限 loading。`reconnectResultVisible <= 5s` 只衡量重连状态是否可见，两者不得混用。
+
 ## 7. 权限、Host Bridge、CORS 与配置
 
 ### 7.1 Manifest
@@ -358,6 +412,13 @@ secretLikeFieldCount=0
 
 现有全局 CORS `origin:true` 是当前仓库事实，不得被文档误写为生产安全。V2-PX 的 route-level origin policy 是新增目标；远程 origin、JWT、多用户和 Chrome Store 发布另立安全里程碑。
 
+PX2-01 的 CORS 切换窗口固定为：
+
+1. 先新增 External Brain route pre-handler，未配置 allowlist 或 origin 不匹配时必须在业务 handler 前拒绝；此时暂不移除现有全局 `origin:true`，但它只负责响应头，不能绕过 route pre-handler。
+2. 在同一候选构建中完成 allowed extension、错误 extension、缺 allowlist、Host 3000 origin 四组 contract test；任一失败即停止，不进入切换。
+3. 测试通过后，把全局 `origin:true` 收紧为现有 FAMS 本地 Web origin 与 `FAMS_V2_PX_EXTENSION_IDS` 派生的 extension origin；route pre-handler 继续保留双重校验。
+4. 切换前后配置、测试命令、退出码和回退点写入 `.verification/private/v2-px/<commitSha>/PX2/cors-switch-audit.json`。切换失败回 PX2-01，不得退回“任意 origin 即身份”。
+
 配置项：
 
 | 位置 | 配置 | 允许值 |
@@ -381,6 +442,8 @@ secretLikeFieldCount=0
 | `PX_ROUTE_CONFLICT` | 409 | blocked | 聚焦 canonical workspace、重新发起 |
 | `PX_IDEMPOTENCY_CONFLICT` | 409 | blocked | 不自动重试，生成新的人类动作 |
 | `PX_UNKNOWN_DISPATCH_RESULT` | timeout/reload | unknown_result | 查看 FAMS 任务/会话，不自动二次调用 |
+| `PX_STORAGE_WRITE_FAILED_BEFORE_EFFECT` | local storage | failed | 请求未发出；修复存储后由用户重新提交 |
+| `PX_RESULT_NOT_PERSISTED` | local storage after response | unknown_result | 当前结果可临时查看；刷新前记录引用，之后到 FAMS 手动复核 |
 | `PX_STORAGE_VERSION_UNSUPPORTED` | local state | blocked | 导出索引后清理，不静默迁移 |
 | `PX_POLICY_BLOCKED` | 403 | blocked | 回 FAMS 处理需确认操作 |
 | `PX_TRADE_ACTION_FORBIDDEN` | 403 | blocked | 无解锁动作；保持研究模式 |
@@ -423,14 +486,27 @@ extension: test:contracts, test:px1-spike, test:workspace, test:sidepanel,
 
 | Target schema | 迁移阶段 | 相比 current 必须新增/收紧 |
 | --- | --- | --- |
-| `v2-px-dual-container-lifecycle/3` | PX-1 | eventId、单调 sequence、workspaceId、previous/next state、reasonCode、containerInstanceId、storageVersion、逐场景 derived result |
-| `v2-px-real-chrome-evidence/2` | PX-1 | extensionVersion/buildDigest、headless/CDP mode、四个必需 viewport、manifest/CSP/permission audit、console/network/order request audit |
-| `v2-px-acceptance-manifest/2` | PX-6 | target contract versions、逐阶段 manifest、真实命令/exit code、20 requirement 状态、G1～G7 唯一集合、人工状态引用 |
+| `v2-px-dual-container-lifecycle/3` | PX-1 | eventId、单调 sequence、workspaceId、previous/next state、reasonCode、containerInstanceId、storageVersion、§5.4 封闭 eventType、逐场景 derived result |
+| `v2-px-real-chrome-evidence/2` | PX-1 | extensionVersion/buildDigest、headless/CDP mode、恰好覆盖四个必需 viewport、图像实际像素尺寸/hash、manifest/CSP/permission audit、console/network/order request audit |
+| `v2-px-acceptance-manifest/2` | PX-6 | target contract versions、逐阶段 manifest、真实命令/exit code、20 requirement 状态、G1～G7 唯一集合、人工状态引用、`routeAAdrStatus` 五态与 `productAuthorityStatus=frozen` 分列 |
 | `v2-px-acceptance-report/2` | PX-6 | AC-PX-01～10 结果/截图/备注、known blockers、外部审计结论、可声明/禁止声明分离 |
 
 每次迁移必须同步 JSON schema、semantic validator、正负 fixtures、生成器和 consumer types。PX-1 只迁移 message/lifecycle/Chrome evidence；acceptance manifest/report 留在 PX-6，避免 feasibility spike 被错误要求产出最终候选报告。
 
 `real-chrome-evidence/2` 的四视口必须恰好覆盖宽度 `{360,420,768,1280}`，不是 current v1 的“至少两个”。证据还必须记录 `unexpectedConsoleErrors=0`、`unexpectedFailedRequests=0`、`brokerOrderEndpointCalls=0`；这些不能只存在于 Markdown 自述。
+
+PX1-02 的 target fixtures 固定为下列文件；current PX-0 fixtures 保留为 baseline 回归，不得就地改写：
+
+```text
+docs/prototypes/v2-px/fixtures/intent-route-v3.positive.json
+docs/prototypes/v2-px/fixtures/intent-route-v3.negative.json
+docs/prototypes/v2-px/fixtures/operation-command-v2.positive.json
+docs/prototypes/v2-px/fixtures/operation-command-v2.negative.json
+docs/prototypes/v2-px/fixtures/dual-container-lifecycle-v3.positive.json
+docs/prototypes/v2-px/fixtures/dual-container-lifecycle-v3.negative.json
+docs/prototypes/v2-px/fixtures/real-chrome-evidence-v2.positive.json
+docs/prototypes/v2-px/fixtures/real-chrome-evidence-v2.negative.json
+```
 
 ### 10.2 合同—实现—测试绑定
 
@@ -469,8 +545,8 @@ extension: test:contracts, test:px1-spike, test:workspace, test:sidepanel,
 
 ```text
 documentationDecisionCompleteness=TARGET_SCOPE_COMPLETE
-implementationApprovalStatus=PENDING_EXPLICIT_USER_APPROVAL
-px1FeasibilitySpikeAllowed=false
+implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
+px1FeasibilitySpikeAllowed=true
 productionSourceChangesAllowed=false
 schemaValidatorChangesAllowed=false
 ```
