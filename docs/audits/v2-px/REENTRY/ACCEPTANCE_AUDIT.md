@@ -69,3 +69,5 @@ PRD 检视结论：PX-REQ-006/010/015 的 PX1 技术基线重新满足；PX-REQ-
 ## R1.1 会话标识二次重入
 
 R2 接线发现真实 `famsChatService` 生成 `chat-<UUIDv4>`，而 R1 schema 把 conversationId 误用裸 entity UUID。该问题会使真实 Ask 会话无法回填，属于 major；已立即把 PX1/PX2 门禁重新置 false，没有沿用上一次 PASS。修复范围冻结为 Markdown/schema/runtime validator/fixture/test/Chrome 证据，不改变任何权限或业务范围。
+
+R1.1 修复结果：文档/schema/runtime/fixture/test 已原子改为 `chat-<lowercase UUIDv4>`；typecheck、28 tests、build、semantic contract 与四视口 Chrome 均通过。新证据提交=`0e34a1f5bb706632b187dff1de3b899c18c27ada`，路径 `.verification/private/v2-px/0e34a1f5bb706632b187dff1de3b899c18c27ada/PX1/`。fatal=0、major=0，PX2 重新开放。
