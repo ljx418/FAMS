@@ -57,6 +57,7 @@ const schemaRoot = resolve(repoRoot, 'docs/schemas')
 const fixtureRoot = resolve(repoRoot, 'docs/prototypes/v2-px/fixtures')
 const fixturesPath = resolve(fixtureRoot, 'semantic-contract-fixtures.json')
 const privateEvidenceRoot = resolve(repoRoot, '.verification/private/v2-px')
+const stageStatePath = resolve(repoRoot, 'docs/current-stage-state.json')
 
 function issue(code: string, message: string): ValidationIssue {
   return { code, message }
@@ -355,6 +356,16 @@ function semanticOperationBatch(documents: Record<string, unknown>[]): Validatio
 }
 
 async function main() {
+  const stageState = JSON.parse(await readFile(stageStatePath, 'utf8')) as {
+    featureTracks?: { v2PxExternalBrain?: Record<string, unknown> }
+  }
+  const v2State = stageState.featureTracks?.v2PxExternalBrain ?? {}
+  const contractReentryInProgress = v2State.currentPhase === 'px1_contract_reentry'
+  if (contractReentryInProgress) {
+    assert.equal(v2State.px1TargetContractsImplemented, false, 'PX1 target contract cannot be complete during contract reentry')
+    assert.equal(v2State.px2PlusAllowed, false, 'PX2+ promotion must be blocked during PX1 contract reentry')
+    assert.ok(Number(v2State.knownBlockingCrossDocumentConflicts) >= 1, 'Contract reentry must disclose the blocking conflict')
+  }
   const schemaNames = [
     'v2-px-intent-route.schema.json',
     'v2-px-real-chrome-evidence.schema.json',
@@ -488,8 +499,10 @@ async function main() {
     antiFalseGreenAcceptanceContractPassed: true,
     realChromeAcceptanceClaimed: true,
     realChromeEvidencePath: realChrome.path,
-    px1SpikePassed: true,
-    px2PlusProductionImplementationAllowed: true,
+    px1SpikePassed: v2State.px1TargetContractsImplemented === true,
+    px2PlusProductionImplementationAllowed: v2State.px2PlusAllowed === true,
+    contractReentryInProgress,
+    promotionBlockedDuringReentry: contractReentryInProgress && v2State.px2PlusAllowed === false,
     fixtures: results,
   }, null, 2))
 }

@@ -70,12 +70,24 @@ runtimeContractImplemented=false
 
 | 字段 | 目标格式 | 生成者 | 稳定性 |
 | --- | --- | --- | --- |
-| `workspaceId` | `px-ws-<uuid>` | Background | 同一研究任务跨 route、刷新和重开保持不变 |
+| `workspaceId` | `px-ws-<lowercase UUID v4>`；保留默认值 `px-ws-00000000-0000-4000-8000-000000000001` | Background | 同一研究任务跨 route、刷新和重开保持不变；旧 `default_workspace` 只能迁移为保留默认值，不能继续写入 |
 | `routeId` | `px-route-<uuid>` | 每次路由动作的接收方 Background | 每次新动作生成，重放同一动作不生成第二个 |
 | `correlationId` | `px-corr-<uuid>` | 首个入口或继承父任务 | 一条跨入口因果链保持不变 |
 | `commandId` | `px-command-<uuid>` | 命令发起容器 | 单次命令唯一 |
 | `idempotencyKey` | `px-idem-<base64url>` | 命令发起容器 | 同一用户动作重试必须复用 |
-| `sourceRef` | `op-artifact:<operationId>:<base64url(ref)>` 或 `review-evidence:<reviewId>:<base64url(ref)>` | Query Facade | opaque；UI 不解析业务内容 |
+| `sourceRef` | `op-artifact:<operationUuid>:<canonical-base64url(ref)>` 或 `review-evidence:<reviewUuid>:<canonical-base64url(ref)>` | Query Facade | opaque；UI 不解析业务内容；后端必须反解并验证 ref 属于对应 Operation/Review |
+
+标识符约束在 schema、运行时 validator、fixture、数据库适配器和测试中必须逐字段复用同一命名定义，禁止再使用跨语义的通用 `$defs.id`：
+
+| 语义类型 | 冻结格式 | 长度/规范化 |
+| --- | --- | --- |
+| FAMS entity ID（operationId/reviewId/conversationId/graphId） | 小写 RFC 4122 UUID v4：`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$` | 固定 36 字符；大写、非 v4、缺连字符均拒绝 |
+| Workspace ID | `^px-ws-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$` | 固定 42 字符；默认工作区只使用上述保留 UUID |
+| sourceRef | `^(op-artifact|review-evidence):<lowercase UUID v4>:<canonical-base64url>$` | 编码后的整体最多 768 字符；解码后的原始 ref 必须为 1..512 UTF-8 bytes；无 `=` padding；解码后重新编码必须逐字节相同 |
+| focusNodeId | `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$` | 仅表示现有 DAG 节点键，不得承载正文或 URL |
+| route/correlation/command token | 分别保持 `px-route-`/`px-corr-`/`px-command-` 命名空间 | 仅作为运行时 opaque token，不得被当作 FAMS entity ID |
+
+`contextRefs[]` 的每一项只能是 FAMS entity UUID v4 或合法 sourceRef。sourceRef 的第三段按 RFC 4648 URL-safe Base64 无 padding 规范生成；空 ref、非 UTF-8、非规范编码、未知 prefix、错误 UUID、超长 ref 和字段注入必须在边界处拒绝。
 
 `canonicalRouteKey` 是下列稳定 JSON 经字段名排序、UTF-8 编码和 SHA-256 后得到的十六进制摘要：
 
