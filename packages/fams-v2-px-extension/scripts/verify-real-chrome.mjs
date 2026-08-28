@@ -138,8 +138,9 @@ const profilePath = await mkdtemp(resolve(evidenceDir, 'chrome-profile-'))
 const windowsProfilePath = execFileSync('wslpath', ['-w', profilePath], { encoding: 'utf8' }).trim()
 const windowsExtensionPath = execFileSync('wslpath', ['-w', outputDir], { encoding: 'utf8' }).trim()
 
+const automationMode = process.env.V2_PX_CHROME_MODE === 'headless' ? 'headless_new' : 'headed_cdp'
 const chromeArgs = [
-  '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-allow-origins=*',
+  ...(automationMode === 'headless_new' ? ['--headless=new'] : []), '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-allow-origins=*',
   '--remote-debugging-port=0', `--user-data-dir=${windowsProfilePath}`,
   `--disable-extensions-except=${windowsExtensionPath}`, `--load-extension=${windowsExtensionPath}`, 'about:blank',
 ]
@@ -209,7 +210,7 @@ try {
   const chromeVersion = browser.version().replace(/^Chrome\//, '')
   const buildDigest = await digestDirectory(outputDir)
   const evidence = {
-    schemaVersion: 'v2-px-real-chrome-evidence/2', mode: 'real_chrome', automationMode: 'headless_new', chromeVersion,
+    schemaVersion: 'v2-px-real-chrome-evidence/2', mode: 'real_chrome', automationMode, chromeVersion,
     extensionId, extensionVersion: manifest.version, buildDigest, commitSha, routeId,
     pageUrls: [`chrome-extension://${extensionId}/sidepanel.html`, workspaceUrl],
     viewports: [{ width: 360, height: 720 }, { width: 420, height: 800 }, { width: 768, height: 900 }, { width: 1280, height: 900 }],
@@ -235,7 +236,12 @@ try {
     startedAt, endedAt: new Date().toISOString(), chromeVersion, extensionId, extensionVersion: manifest.version, buildDigest,
     command: 'npm run verify:real-chrome', exitCode: 0,
     artifacts: (await walkFiles(evidenceDir)).filter((path) => !path.includes('chrome-profile-')).map((path) => ({ path: relative(repoRoot, path).replaceAll('\\', '/'), sha256: sha256(readFileSync(path)) })),
-    negativeChecks: { fewerViewportsRejected: true, actualPixelSizeMatched: true, staticMockHtmlUsed: false },
+    negativeChecks: {
+      headlessProbeStatus: automationMode === 'headed_cdp' ? 'unsupported_no_fams_service_worker_on_chrome_151' : 'passed',
+      fewerViewportsRejected: true,
+      actualPixelSizeMatched: true,
+      staticMockHtmlUsed: false,
+    },
     tradeBoundary: { formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false, brokerOrderRequestCount: 0 },
     humanAcceptanceStatus: 'not_performed',
   }
