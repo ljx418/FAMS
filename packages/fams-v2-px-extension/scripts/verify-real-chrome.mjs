@@ -164,8 +164,8 @@ try {
   assert.ok(context, 'Chrome CDP default context is missing')
   const rootSession = await browser.newBrowserCDPSession()
 
-  let worker = context.serviceWorkers().find((candidate) => candidate.url().startsWith('chrome-extension://'))
-  if (!worker) worker = await context.waitForEvent('serviceworker', { predicate: (candidate) => candidate.url().startsWith('chrome-extension://'), timeout: 15_000 })
+  let worker = context.serviceWorkers().find((candidate) => candidate.url().startsWith('chrome-extension://') && candidate.url().endsWith('/background.js'))
+  if (!worker) worker = await context.waitForEvent('serviceworker', { predicate: (candidate) => candidate.url().startsWith('chrome-extension://') && candidate.url().endsWith('/background.js'), timeout: 15_000 })
   const extensionId = new URL(worker.url()).host
   assert.match(extensionId, /^[a-p]{32}$/)
 
