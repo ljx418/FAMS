@@ -1,6 +1,6 @@
 # V2-PX 目标架构 gap 图说明与防退化检查
 
-更新时间：2026-08-27
+更新时间：2026-08-29
 
 ## 1. 文档定位
 
@@ -10,9 +10,9 @@
 drawioFile=docs/v2-px-target-architecture-gap.drawio
 pageCount=8
 language=zh-CN
-implementationStatus=DOCUMENTATION_ONLY
+implementationStatus=PX1_THROUGH_PRODUCT_PX4_ROUTER_IDEMPOTENCY_AUTOMATED_ACCEPTED
 externalIndependentAuditStatus=CONDITIONAL_PASS
-externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
+externalAuditRemediationStatus=APPLIED_INTERNAL_REAUDIT_PASSED
 ```
 
 ## 2. 页级职责
@@ -81,7 +81,7 @@ externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
 v2PxDrawioDocumentationReady=true
 documentationReadyForImplementationReview=true
 externalIndependentAuditStatus=CONDITIONAL_PASS
-externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
+externalAuditRemediationStatus=APPLIED_INTERNAL_REAUDIT_PASSED
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 px1FeasibilitySpikeAllowed=true
 ```

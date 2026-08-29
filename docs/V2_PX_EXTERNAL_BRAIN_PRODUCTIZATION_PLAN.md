@@ -4,16 +4,16 @@
 
 ## 1. 阶段定位
 
-V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。文档阶段已经完成且用户已批准方案 A 顺序实施；PX1 技术基座、PX2 Workspace、PX3 Side Panel 与 PX4-B Host Bridge 已通过自动化验收。当前只允许从 PX5 Router/幂等入口审计继续，不得跳过该阶段直接声明恢复或产品化候选完成。
+V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。文档阶段已经完成且用户已批准方案 A 顺序实施；PX1 技术基座、PX2 Workspace、PX3 Side Panel/Host 与产品 PX4 Router/at-most-once 已通过自动化验收。当前只允许进入产品 PX5 生命周期/恢复的文档准入，不得跳过该阶段直接声明产品化候选完成。
 
 ```text
-currentStage=PX5_ROUTER_IDEMPOTENCY_CONTROLLED_IMPLEMENTATION
+currentStage=PRODUCT_PX5_LIFECYCLE_RECOVERY_ENTRY_DOCUMENTATION
 px0GithubReviewGate=PASS
 authorityBaselineStatus=FROZEN
 productAuthorityStatus=FROZEN
 productGoalApproval=APPROVED_BY_USER
 routeAAdrStatus=TECHNICALLY_VALIDATED
-routeAImplementationReadiness=PX1_THROUGH_PX4B_AUTOMATED_ACCEPTED
+routeAImplementationReadiness=PX1_THROUGH_PRODUCT_PX4_ROUTER_IDEMPOTENCY_AUTOMATED_ACCEPTED
 externalIndependentAuditStatus=CONDITIONAL_PASS
 externalAuditRemediationStatus=APPLIED_INTERNAL_REAUDIT_PASSED_REPORT_RETAINED
 semanticValidatorImplemented=true
@@ -23,10 +23,11 @@ px1PlanningAllowed=true
 px1SixSpikesPassed=true
 px2PlusAllowed=true
 px4BHostBridgeAutomatedAccepted=true
-px5RouterIdempotencyStatus=ENTRY_AUDIT_PASSED_CONTROLLED_IMPLEMENTATION_ALLOWED
+px5RouterIdempotencyStatus=AUTOMATED_ACCEPTANCE_PASSED
+productPx5LifecycleStatus=ENTRY_DOCUMENTATION_REQUIRED_BEFORE_IMPLEMENTATION
 v2PxComplete=false
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-productionCodeChangesAllowedInCurrentPhase=PX5_APPROVED_SCOPE_ONLY
+productionCodeChangesAllowedInCurrentPhase=NONE_UNTIL_PRODUCT_PX5_ENTRY_AUDIT_PASSES
 ```
 
 本计划的架构、运行时合同、原型、追踪和图形入口分别为 `V2_PX_TARGET_ARCHITECTURE.md`、`V2_PX_API_RUNTIME_CONTRACT.md`、`prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`、`V2_PX_PRD_TRACEABILITY_MATRIX.md` 和 `v2-px-target-architecture-gap.drawio`；自动文档验收记录在 `V2_PX_DOCUMENTATION_ACCEPTANCE.md`。
@@ -35,7 +36,7 @@ productionCodeChangesAllowedInCurrentPhase=PX5_APPROVED_SCOPE_ONLY
 
 用户已于 2026-08-28 明确批准本计划 PX1～PX6 的顺序自动实施。每阶段仍须先落盘开发计划与验收审计，致命/重大问题清零后才可修改生产代码；自动通过中间门槛不替代 PX6 最终人工体验确认。
 
-独立审计登记的 3 个阻断项和 8 个高风险项已经转化为实现硬约束，并在 PX1～PX4-B 的合同、代码和阶段证据中逐项闭环；原始审计报告作为历史证据保留，其 `CONDITIONAL_PASS` 不被篡改。PX5 仍须重新验证这些边界没有回归：
+独立审计登记的 3 个阻断项和 8 个高风险项已经转化为实现硬约束，并在 PX1～产品 PX4 的合同、代码和阶段证据中逐项闭环；原始审计报告作为历史证据保留，其 `CONDITIONAL_PASS` 不被篡改。产品 PX5 仍须重新验证这些边界没有回归：
 
 ```text
 BLK-01 host/workspace view_source target draft + positive/negative fixtures specified
@@ -51,7 +52,7 @@ HR-07 CORS switch sequence and evidence path frozen
 HR-08 eight target fixture filenames frozen
 ```
 
-上述任一条在 PX5 的 schema、validator、fixture、types、真实 Chrome 或 storage fault 证据中回归，均视为相应工作包失败；不得靠历史阶段通过获得绿灯。
+上述任一条在产品 PX5 的 schema、validator、fixture、types、真实 Chrome 或 storage fault 证据中回归，均视为相应工作包失败；不得靠历史阶段通过获得绿灯。
 
 ## 1.1 PX-0 允许和禁止的代码类型
 
@@ -357,7 +358,7 @@ manual_experience_review_checklist.md
 | G6 | 双容器生命周期 | target lifecycle/3、Chrome evidence/2、storage migration | extension `test:lifecycle`（计划） | sequence/state/reason、TTL/未知版本均可推导 | PX-5 |
 | G7 | Anti-false-green | target acceptance manifest/report/2 + semantic validator | extension `verify:acceptance`（计划） | 20 requirements、AC01～10、正例/负例、artifact/commit 可复核 | PX-6 |
 
-当前 PX1～PX4-B 已形成可复核实现和私有证据；PX5 Router/幂等、生命周期恢复与 PX6 G1..G7 仍是未完成计划，不允许越级或提前出门。
+当前 PX1～产品 PX4 Router/at-most-once 已形成可复核实现和私有证据；产品 PX5 生命周期恢复与 PX6 G1..G7 仍是未完成计划，不允许越级或提前出门。
 
 ## 4. Anti-False-Green 验收合同
 
@@ -503,7 +504,7 @@ Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和
 | M1 Route A Technically Validated | M0 + 用户批准 | 目标合同迁移、六项 spike、真实 Chrome、权限和负例全部通过 | Side Panel/Workspace 空壳真实可运行 | 自动化 PASS；真实 Chrome 证据已生成 |
 | M2 Bounded API + Workspace Accepted | M1 + 人工确认 | 五端点 DTO/同源/policy；768/1280、五视图、六状态、刷新恢复 | 完整工作台可读真实结果并受控提问 | 自动化核心切片 PASS（commit `6c8714e`）；正式权限点击留最终人类门槛，深度生命周期留 PX-5 |
 | M3 Side Panel Entry Accepted | M2 | 360/420、简明摘要、连接、跳转和 host app 入口通过 | 随时快速提问并进入完整页 | 自动化 PASS；Side Panel=`bc7cc5a`，Host Bridge=`a0758b4`；正式 permission 点击留最终人类门槛 |
-| M4 Intent & FAMS Adapter Accepted | M3 | 三入口、五 intent、20 次 tab/idempotency、交易边界通过 | 同一任务不重复，结果来自现有 FAMS | 未开始 |
+| M4 Intent & FAMS Adapter Accepted | M3 | 三入口、五 intent、20 次 tab/idempotency、交易边界通过 | 同一任务不重复，结果来自现有 FAMS | 自动化 PASS（commit `4e752a6`）；3×3、五 intent、20 串行/并发/多窗口与 storage fault 全部重签 |
 | M5 Lifecycle Accepted | M4 | 必测 lifecycle 场景 100% 可推导 | 刷新、重开、断连可恢复或明确阻断 | 未开始 |
 | M6 Productization Candidate | M5 | G1～G7、四视口、隐私、HTML、人工体验通过 | 可作为本地浏览器产品化候选使用 | 未开始 |
 
@@ -609,9 +610,9 @@ docs/prototypes/v2-px/fixtures/real-chrome-evidence-v2.negative.json
 | PX2-04 Workspace 垂直切片 | WorkspaceApp/Router、五 View、RecoveryBanner、EvidenceDrawer、768/1280 | PX2-03 | extension `test:workspace` + real Chrome | 五视图信息层级、六状态、来源/证据一致 | M2 仅在真实 read model 下出门 |
 | PX3-01 Side Panel | SidePanelApp、QuickAsk、摘要、最近任务、ConnectionGate、360/420 | M2 | extension `test:sidepanel`；真实 extension DOM 必须包含摘要/时间/下一步/主动作且 `body` 非空，禁止只验 shell/root 节点 | ack 与最终回答可区分；首屏不拥挤 | 空 DOM/骨架、完整图/DAG 挤入侧栏均 fail |
 | PX3-02 Host Bridge | bridge/button 接入 ChatBox、Daily Review、Operations；extension ID 配置与降级 | PX3-01 | frontend `verify:v2-px-host-bridge` | 三页入口、Host view_source→Workspace、缺扩展提示 | 发送 question/完整对象即 hard fail |
-| PX4-01 Router 完整集成 | 3×3 动作、五 intent、canonical key、correlation/route chain | M3 | extension `test:router` | 三入口同对象落在相同工作区/视图 | 语义漂移 G3 fail |
-| PX4-02 at-most-once | idempotency registry、local dispatch ledger、prepared/dispatched/completed/unknown；固定 cleanup→ledger 回读→recoveryIndex→session 顺序；覆盖副作用前/后 storage 写失败 | PX4-01 | 重放、冲突、reload、timeout、prepared/dispatched 写失败、结果后 completed 写失败负例 | 结果后写失败显示“已收到但未保存，刷新后到 FAMS 复核”，不得提示安全重试 | 重复 operation、POST retry 非 0、结果后误报 failed_before_effect 均 fail |
-| PX4-03 边界集成 | FAMS adapter/policy、证据脱敏、订单 endpoint 监测 | PX4-02 | policy/redaction/trade boundary audits | 所有页面保持研究/人工计划措辞 | secret 或 order request 任一非 0 即 hard fail |
+| PX4-01 Router 完整集成（已验收） | 3×3 动作、五 intent、canonical key、correlation/route chain | M3 | extension `test:router` + `verify:router-idempotency-chrome` | 三入口同对象落在相同工作区/视图 | 自动化 PASS；证据见 PX5 阶段审计 |
+| PX4-02 at-most-once（已验收） | idempotency registry、local dispatch ledger、prepared/dispatched/completed/unknown；固定 cleanup→ledger 回读→recoveryIndex→session 顺序；覆盖副作用前/后 storage 写失败 | PX4-01 | 重放、冲突、restart、timeout、prepared/dispatched 写失败、结果后 completed 写失败负例 | 结果后写失败显示“已收到但未保存，刷新后到 FAMS 复核”，不得提示安全重试 | 自动化 PASS；同 key 并发 20 次 POST=1，unknown 重放新增 POST=0 |
+| PX4-03 边界集成（已验收） | FAMS adapter/policy、证据脱敏、订单 endpoint 监测 | PX4-02 | policy/redaction/trade boundary audits | 所有页面保持研究/人工计划措辞 | 自动化 PASS；secret 正文=0、order/broker=0、交易表差分=0、四锁=false |
 | PX5-01 恢复与迁移 | Back/Forward/Refresh、关闭重开、TTL/LRU、已知/未知 storage version | M4 | extension `test:lifecycle` | 5 秒内进入 restored/recovering/blocked | 静默清空或自报成功即 fail |
 | PX5-02 中断生命周期 | FAMS 断连、background suspend/reconnect、extension reload/update、轮询停止 | PX5-01 | lifecycle event/Chrome trace | 上次任务仍可识别，恢复失败有下一步 | 事件不可推导则 fail |
 | PX6-01 全量自动验收 | acceptance manifest/report/1→2；G1～G7、20 requirements、四视口、API、可访问性、隐私、负例、commit/hash | M5 | extension `verify:acceptance` | HTML 汇总能从结论钻取 AC01～10 和原始证据 | 任一 target schema/consumer/gate 非绿不生成候选声明 |

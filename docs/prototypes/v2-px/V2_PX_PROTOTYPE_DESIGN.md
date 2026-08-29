@@ -11,6 +11,8 @@ prototypeDesignStatus=IMPLEMENTED_TWO_CONTAINER_AUTOMATED_ACCEPTANCE_PASSED
 interactivePrototypePresent=true
 realChromeEvidencePresent=true
 hostBridgeThreeEntryAutomatedAccepted=true
+routerIdempotencyAutomatedAccepted=true
+lifecycleRecoveryStatus=NEXT_STAGE_DOCUMENTATION_ENTRY_REQUIRED
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 uiToLifecycleStateMapping=docs/V2_PX_TARGET_ARCHITECTURE.md#6-状态与数据所有权
 ```
@@ -129,7 +131,7 @@ Side Panel 禁止：
 
 三入口传递同一业务对象时，`workspaceId / canonicalRouteKey / correlationId` 的语义必须一致；允许新的操作生成新 `routeId`，但不能丢失关联链。Host App 不以自动唤起 Side Panel 为正确性前提；Chrome 能力不支持时必须可靠进入 Workspace。Intent route 只负责进入 Ask View，问题正文由扩展内部 operation command 提交。
 
-PX4-B 已按本节实现并由真实 Chrome 验证：ChatBox→Ask、每日复盘→Graph、任务中心→Trace；缺 extension ID 有中文配置说明，3001/Host command/Ask-question 负例均无副作用。最终人工体验和完整 3×3×5 压力矩阵仍按后续阶段执行。
+Host Bridge 与产品 PX4 Router 已按本节实现并由真实 Chrome 验证：ChatBox→Ask、每日复盘→Graph、任务中心→Trace，三入口 3×3=9/9、五 intent=5/5、20 次串行/并发/多窗口 tab=1；缺 extension ID、3001/Host command/Ask-question 负例均无副作用。最终人工体验与生命周期恢复仍按 PX5/PX6 执行。
 
 ## 8. 可视性和可访问性门槛
 

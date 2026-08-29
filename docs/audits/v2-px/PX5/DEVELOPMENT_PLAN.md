@@ -2,7 +2,11 @@
 
 日期：2026-08-29
 
-状态：ENTRY_AUDIT_PASSED_READY_FOR_IMPLEMENTATION
+状态：IMPLEMENTED_AND_AUTOMATED_ACCEPTED
+
+实现提交：`4e752a652afb63cacc89f42638e66307b2ca13be`
+
+验收结论：见 `ACCEPTANCE_AUDIT.md` 与 `PRD_SPEC_REVIEW.md`；本计划五个实施步骤均已完成，下一阶段仍需重新执行产品 PX5 生命周期/恢复准入。
 
 ## 1. 用户完成后能看到的效果
 

@@ -8,11 +8,11 @@ V2-PX 采用 Route A.1：`独立 Workspace Page + 轻量 Side Panel + Background
 
 ```text
 architectureReviewStatus=EXTERNAL_AUDIT_REMEDIATION_APPLIED_INTERNAL_REAUDIT_PASSED
-implementationStatus=PX1_THROUGH_PX4B_AUTOMATED_ACCEPTED
+implementationStatus=PX1_THROUGH_PRODUCT_PX4_ROUTER_IDEMPOTENCY_AUTOMATED_ACCEPTED
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 routeAAdrStatus=TECHNICALLY_VALIDATED_SCHEME_A_IMPLEMENTED
 productAuthorityStatus=FROZEN
-routeAImplementationReadiness=ROUTER_IDEMPOTENCY_LIFECYCLE_FINAL_ACCEPTANCE_REMAIN
+routeAImplementationReadiness=LIFECYCLE_RECOVERY_AND_FINAL_ACCEPTANCE_REMAIN
 routeATechnicallyValidated=true
 routeAProductionApproved=false
 ```
@@ -45,7 +45,7 @@ routeAProductionApproved=false
 
 ### 2.2 已实现基座与剩余差距
 
-PX1～PX4-B 已实现 WXT package、Background、Side Panel、Workspace、target contracts、tab manager、状态/ledger 基础、External Brain Read/Ask facade、FAMS adapter、Host Bridge 和真实 unpacked Chrome evidence。当前仍未完成的生产目标只有：完整跨 reload/storage fault 的 at-most-once 集成、三入口压力矩阵、Back/Forward/Refresh/关闭重开与断连恢复、target acceptance evidence/2 汇总。正式 optional permission 点击与最终体验结论仍由人类完成。
+PX1～产品 PX4 已实现 WXT package、Background、Side Panel、Workspace、target contracts、External Brain Read/Ask facade、FAMS adapter、Host Bridge、完整三入口 Router、tab 并发/多窗口收敛、at-most-once ledger、最小 recoveryIndex 和真实 unpacked Chrome evidence。当前仍未完成的生产目标只有：Back/Forward/Refresh/关闭重开、断连/reconnect/update/migration 的完整生命周期恢复，以及 target acceptance evidence/2 汇总。正式 optional permission 点击与最终体验结论仍由人类完成。
 
 ## 3. 方案选择与取舍
 
@@ -74,10 +74,10 @@ PX1～PX4-B 已实现 WXT package、Background、Side Panel、Workspace、target
 | 状态 | 目标实体 | 责任 | 关键不变量 |
 | --- | --- | --- | --- |
 | 已实现 | `src/contracts/types.ts`、`validation.ts`、`factories.ts` | 合并承载 intent-route/3、operation-command/2、runtime/result/error 类型与严格验证 | route 只导航；ask route 不携带 question；Host command 拒绝 |
-| 已实现 | `src/background/intentRouter.ts` | 规范化三入口、三动作、五 intent | 生成 canonical Workspace path 与受控 ref |
-| 已实现 | `src/background/workspaceTabManager.ts` | query/create/reuse/focus Workspace tab | Side Panel/Host 重复点击保持单 tab；20 次多窗口压力待下一阶段 |
-| 已实现（待完整 fault 验收） | `src/state/idempotencyRegistry.ts` | local dispatch ledger、同 key 重放、冲突拒绝 | POST dispatch 后不自动重试；unknown_result 诚实返回 |
-| 已实现（PX5 需补强） | `src/background/chromeStorage.ts` | session WorkspaceState、local ledger、旧状态迁移基础 | background 单写；完整 recoveryIndex TTL/LRU/reload 矩阵待 PX5 |
+| 已实现（产品 PX4 已验收） | `src/background/intentRouter.ts` | 规范化三入口、三动作、五 intent，稳定 SHA-256 canonical key | 真实 3×3=9/9；URL 仅 workspaceId/view/ref |
+| 已实现（产品 PX4 已验收） | `src/background/workspaceTabManager.ts` | query/create/reuse/focus Workspace tab，按 workspace 排队与去重 | 20 串行、20 并发、多窗口均 tab=1；GET 导航仅有限重试 |
+| 已实现（产品 PX4 已验收） | `src/state/idempotencyRegistry.ts` | local dispatch ledger、同 key 重放、冲突拒绝、完整回读 | 并发 20 次 POST=1；restart/fault/unknown 不自动重试 |
+| 已实现（恢复待产品 PX5） | `src/background/chromeStorage.ts` | session WorkspaceState、local ledger、20 条/30 天 recoveryIndex | 固定写序与正文零落盘已验收；启动恢复、TTL/migration 全矩阵待产品 PX5 |
 | 已实现（PX5 需补强） | `src/state/lifecycleAuditStore.ts` | lifecycle/3 封闭 eventType、sequence/reason 与状态迁移 | 当前 route/load/blocked 可追溯；断连/reload/close 全矩阵待 PX5 |
 
 ### 4.3 UI 体验层
@@ -112,7 +112,7 @@ GET  /api/v1/external-brain/traces/:operationId
 GET  /api/v1/external-brain/graphs/:scope/:id
 ```
 
-请求/响应 DTO、分页、错误、身份、超时和重试规则见 `V2_PX_API_RUNTIME_CONTRACT.md`。上述 API/Adapter 已由 PX2 API contract 与 PX3/PX4A/PX4B 真实 Chrome 证据验证；生命周期恢复和最终汇总仍不得提前声明完成。
+请求/响应 DTO、分页、错误、身份、超时和重试规则见 `V2_PX_API_RUNTIME_CONTRACT.md`。上述 API/Adapter 已由 PX2 API contract 与 PX3/PX4A/PX4B/PX5 真实 Chrome 证据验证；生命周期恢复和最终汇总仍不得提前声明完成。
 
 ### 4.5 验收与证据层
 
@@ -124,10 +124,10 @@ GET  /api/v1/external-brain/graphs/:scope/:id
 | 已实现 | `tests/contracts.test.ts`、`router.test.ts`、`host-bridge.test.ts` | 三入口/动作/intent、tab 与 Host 严格边界 |
 | 已实现（恢复待 PX5） | `tests/workspace.test.ts`、`scripts/verify-workspace-chrome.mjs` | 独立宿主、五视图、768/1280 与真实数据；完整刷新恢复后续 |
 | 已实现 | `tests/sidepanel.test.ts`、`scripts/verify-sidepanel-chrome.mjs` | 360/420 Side Panel 单元与真实 Chrome/DB/API/LLM 证据 |
-| 已实现（待压力矩阵） | `tests/idempotency.test.ts`、`storage.test.ts`、`workspaceTabManager.ts` | 同 key/冲突/unknown/storage 基础与单 tab；20 次多窗口/fault reload 后续 |
+| 已实现（产品 PX4 已验收） | `tests/router.test.ts`、`idempotency.test.ts`、`storage.test.ts`、`runtime-handler.test.ts`、`scripts/verify-router-idempotency-chrome.mjs` | 3×3、五 intent、20 次/并发/多窗口、restart/storage fault、固定写序与交易零副作用 |
 | 待新增（PX5） | lifecycle recovery Chrome verifier | 断连、reload、reconnect、close、TTL/LRU |
 | 已实现（分阶段） | `verify-real-chrome.mjs`、`verify-workspace-chrome.mjs`、`verify-sidepanel-chrome.mjs`、frontend Host verifier | Playwright + Chrome CDP 分阶段真实证据 |
-| 已实现（本地私有） | `.verification/private/v2-px/**` | PX1/PX2/PX3/PX4A/PX4B 截图、trace、事件、network 与哈希 |
+| 已实现（本地私有） | `.verification/private/v2-px/**` | PX1/PX2/PX3/PX4A/PX4B/PX5 截图、trace、事件、network 与哈希 |
 
 ## 5. 关键交互关系
 
