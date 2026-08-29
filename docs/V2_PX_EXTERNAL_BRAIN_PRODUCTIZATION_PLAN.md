@@ -7,7 +7,7 @@
 V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。文档阶段已经完成且用户已批准方案 A 顺序实施；PX1 技术基座、PX2 Workspace、PX3 Side Panel/Host 与产品 PX4 Router/at-most-once 已通过自动化验收。当前只允许进入产品 PX5 生命周期/恢复的文档准入，不得跳过该阶段直接声明产品化候选完成。
 
 ```text
-currentStage=PRODUCT_PX5_LIFECYCLE_RECOVERY_ENTRY_DOCUMENTATION
+currentStage=PRODUCT_PX5_LIFECYCLE_RECOVERY_SPEC_REENTRY_BLOCKED
 px0GithubReviewGate=PASS
 authorityBaselineStatus=FROZEN
 productAuthorityStatus=FROZEN
@@ -24,11 +24,13 @@ px1SixSpikesPassed=true
 px2PlusAllowed=true
 px4BHostBridgeAutomatedAccepted=true
 px5RouterIdempotencyStatus=AUTOMATED_ACCEPTANCE_PASSED
-productPx5LifecycleStatus=ENTRY_DOCUMENTATION_REQUIRED_BEFORE_IMPLEMENTATION
+productPx5LifecycleStatus=BLOCKED_PENDING_HUMAN_RUNTIME_ENVELOPE_CHOICE
 v2PxComplete=false
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-productionCodeChangesAllowedInCurrentPhase=NONE_UNTIL_PRODUCT_PX5_ENTRY_AUDIT_PASSES
+productionCodeChangesAllowedInCurrentPhase=NONE_UNTIL_LC_A_OR_LC_B_APPROVED_AND_MAJOR_FINDINGS_CLOSED
 ```
+
+产品 PX5 入场审计在 `docs/audits/v2-px/PX6/ENTRY_AUDIT.md` 登记了 3 个开放重大规格冲突：权威 Markdown 与生产 runtime envelope 形状不一致、storage unknown-major 错误码不一致、合同 metadata 与 current state 互斥且未被 semantic validator 阻断。详细闭环选项见 `docs/audits/v2-px/PX6/SPEC_REENTRY_DECISION.md`；在人类选择 LC-A 或 LC-B 前，自动化必须停止，现有 `test:lifecycle` 或 semantic PASS 不得冒充生命周期出门。
 
 本计划的架构、运行时合同、原型、追踪和图形入口分别为 `V2_PX_TARGET_ARCHITECTURE.md`、`V2_PX_API_RUNTIME_CONTRACT.md`、`prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`、`V2_PX_PRD_TRACEABILITY_MATRIX.md` 和 `v2-px-target-architecture-gap.drawio`；自动文档验收记录在 `V2_PX_DOCUMENTATION_ACCEPTANCE.md`。
 
