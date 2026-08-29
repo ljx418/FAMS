@@ -1,12 +1,27 @@
 import { browser } from 'wxt/browser'
 import type { LedgerRecord, LedgerStorage } from '../state/idempotencyRegistry'
 import type { LifecycleEvent, WorkspaceStateV1 } from '../contracts/types'
-import { DEFAULT_WORKSPACE_ID } from '../contracts/validation'
+import type { RouteIntent } from '../contracts/types'
+import { DEFAULT_WORKSPACE_ID, isConversationId, isFamsEntityId, isSourceRef, isWorkspaceId } from '../contracts/validation'
+import { stableJson } from '../contracts/stableJson'
 import { appendLifecycleEvent } from '../state/lifecycleAuditStore'
 
 const LEDGER_KEY = 'dispatchLedger'
 const EVENTS_KEY = 'lifecycleEvents'
 const WORKSPACES_KEY = 'workspaceStates'
+const RECOVERY_INDEX_KEY = 'recoveryIndex'
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+
+export type RecoveryIndexRecord = {
+  schemaVersion: 'v2-px-recovery-index/1'
+  workspaceId: string
+  currentView: RouteIntent
+  selectedRef?: string
+  conversationId?: string
+  operationId?: string
+  updatedAt: string
+  expiresAt: string
+}
 
 export class PxStorageMigrationBlockedError extends Error {
   readonly code = 'PX_STORAGE_VERSION_BLOCKED'
@@ -27,6 +42,52 @@ export const chromeLedgerStorage: LedgerStorage = {
   },
 }
 
+function validRecoveryRecord(value: unknown): value is RecoveryIndexRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  const required = ['schemaVersion', 'workspaceId', 'currentView', 'updatedAt', 'expiresAt']
+  const optional = ['selectedRef', 'conversationId', 'operationId']
+  const allowed = new Set([...required, ...optional])
+  if (!required.every((key) => key in record) || Object.keys(record).some((key) => !allowed.has(key))) return false
+  if (record.schemaVersion !== 'v2-px-recovery-index/1' || !isWorkspaceId(record.workspaceId)) return false
+  if (!['source_library', 'source_detail', 'ask', 'trace', 'graph'].includes(String(record.currentView))) return false
+  if (!Number.isFinite(Date.parse(String(record.updatedAt))) || !Number.isFinite(Date.parse(String(record.expiresAt)))) return false
+  if ('selectedRef' in record && !isSourceRef(record.selectedRef)) return false
+  if ('conversationId' in record && !isConversationId(record.conversationId)) return false
+  if ('operationId' in record && !isFamsEntityId(record.operationId)) return false
+  return true
+}
+
+export async function readRecoveryIndex(): Promise<RecoveryIndexRecord[]> {
+  const value = await browser.storage.local.get(RECOVERY_INDEX_KEY)
+  const raw = value[RECOVERY_INDEX_KEY]
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.some((record) => !validRecoveryRecord(record))) {
+    throw new PxStorageMigrationBlockedError('Unknown recovery index storage version or shape')
+  }
+  return raw as RecoveryIndexRecord[]
+}
+
+export async function writeRecoveryIndexRecord(
+  input: Omit<RecoveryIndexRecord, 'schemaVersion' | 'expiresAt'>,
+  now = new Date(),
+): Promise<void> {
+  const records = (await readRecoveryIndex())
+    .filter((record) => Date.parse(record.expiresAt) > now.getTime() && record.workspaceId !== input.workspaceId)
+    .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
+    .slice(-19)
+  const expected: RecoveryIndexRecord = {
+    schemaVersion: 'v2-px-recovery-index/1',
+    ...input,
+    expiresAt: new Date(now.getTime() + THIRTY_DAYS_MS).toISOString(),
+  }
+  if (!validRecoveryRecord(expected)) throw new PxStorageMigrationBlockedError('Recovery index record is invalid')
+  await browser.storage.local.set({ [RECOVERY_INDEX_KEY]: [...records, expected] })
+  const readback = await readRecoveryIndex()
+  const actual = readback.find((record) => record.workspaceId === expected.workspaceId)
+  if (!actual || stableJson(actual) !== stableJson(expected)) throw new Error('PX recovery index readback verification failed')
+}
+
 export async function readLifecycleEvents(): Promise<LifecycleEvent[]> {
   const value = await browser.storage.session.get(EVENTS_KEY)
   return Array.isArray(value[EVENTS_KEY]) ? value[EVENTS_KEY] as LifecycleEvent[] : []
@@ -34,6 +95,19 @@ export async function readLifecycleEvents(): Promise<LifecycleEvent[]> {
 
 export async function writeLifecycleEvents(events: LifecycleEvent[]): Promise<void> {
   await browser.storage.session.set({ [EVENTS_KEY]: events.slice(-1000) })
+}
+
+export async function writeWorkspaceStateAndEvents(
+  states: Record<string, WorkspaceStateV1>,
+  events: LifecycleEvent[],
+): Promise<void> {
+  const entries = Object.entries(states)
+    .sort(([, left], [, right]) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
+    .slice(-20)
+  await browser.storage.session.set({
+    [EVENTS_KEY]: events.slice(-1000),
+    [WORKSPACES_KEY]: Object.fromEntries(entries),
+  })
 }
 
 export async function readWorkspaceStates(): Promise<Record<string, WorkspaceStateV1>> {

@@ -21,8 +21,15 @@ const command: OperationCommand = {
 class MemoryStorage implements LedgerStorage {
   records: LedgerRecord[] = []
   writes = 0
+  reads = 0
   failAtWrite: number | null = null
-  async readAll() { return structuredClone(this.records) }
+  mutateAtRead: { read: number; mutate: (records: LedgerRecord[]) => void } | null = null
+  async readAll() {
+    this.reads += 1
+    const records = structuredClone(this.records)
+    if (this.mutateAtRead?.read === this.reads) this.mutateAtRead.mutate(records)
+    return records
+  }
   async writeAll(records: LedgerRecord[]) {
     this.writes += 1
     if (this.failAtWrite === this.writes) throw new Error('injected storage failure')
@@ -53,6 +60,80 @@ describe('at-most-once dispatch ledger', () => {
     expect(result.status).toBe('unknown_result')
     expect(result.error?.code).toBe('PX_RESULT_NOT_PERSISTED')
     expect(requests).toBe(1)
+  })
+
+  it('serializes 20 concurrent replays so the backend dispatch happens once', async () => {
+    const storage = new MemoryStorage()
+    let requests = 0
+    const results = await Promise.all(Array.from({ length: 20 }, () => dispatchAtMostOnce({
+      command,
+      storage,
+      dispatch: async () => {
+        requests += 1
+        await new Promise((resolve) => setTimeout(resolve, 2))
+        return { status: 'completed' as const, resultRef: { conversationId: 'chat-00fdc188-0b6b-4731-81eb-d5fc91de01ed' } }
+      },
+    })))
+    expect(requests).toBe(1)
+    expect(results.every((result) => result.status === 'completed')).toBe(true)
+  })
+
+  it('rejects a completed readback whose resultRef drifted instead of returning false success', async () => {
+    const storage = new MemoryStorage()
+    storage.mutateAtRead = { read: 4, mutate: (records) => { delete records[0]?.resultRef } }
+    let requests = 0
+    const result = await dispatchAtMostOnce({
+      command,
+      storage,
+      dispatch: async () => { requests += 1; return { status: 'completed', resultRef: { conversationId: 'chat-00fdc188-0b6b-4731-81eb-d5fc91de01ed' } } },
+    })
+    expect(requests).toBe(1)
+    expect(result.status).toBe('unknown_result')
+    expect(result.error?.code).toBe('PX_RESULT_NOT_PERSISTED')
+  })
+
+  it('does not dispatch when dispatched persistence fails', async () => {
+    const storage = new MemoryStorage()
+    storage.failAtWrite = 2
+    let requests = 0
+    const result = await dispatchAtMostOnce({ command, storage, dispatch: async () => { requests += 1; return { status: 'completed' } } })
+    expect(result.error?.code).toBe('PX_STORAGE_WRITE_FAILED_BEFORE_EFFECT')
+    expect(requests).toBe(0)
+  })
+
+  it.each([2, 3])('does not dispatch when ledger readback %s is inconsistent', async (read) => {
+    const storage = new MemoryStorage()
+    storage.mutateAtRead = { read, mutate: (records) => { if (records[0]) records[0].payloadDigest = 'b'.repeat(64) } }
+    let requests = 0
+    const result = await dispatchAtMostOnce({ command, storage, dispatch: async () => { requests += 1; return { status: 'completed' } } })
+    expect(result.error?.code).toBe('PX_STORAGE_WRITE_FAILED_BEFORE_EFFECT')
+    expect(requests).toBe(0)
+  })
+
+  it('cleans expired records and enforces the 500-record LRU cap inside the dispatch queue', async () => {
+    const storage = new MemoryStorage()
+    const base = Date.parse('2026-08-29T00:00:00.000Z')
+    storage.records = Array.from({ length: 501 }, (_, index) => ({
+      idempotencyKey: `px-idem-existing-${String(index).padStart(4, '0')}`,
+      payloadDigest: String(index).padStart(64, '0'),
+      dispatchState: 'completed' as const,
+      resultStatus: 'completed' as const,
+      createdAt: new Date(base - 1000).toISOString(),
+      expiresAt: new Date(index === 0 ? base - 1 : base + 86_400_000).toISOString(),
+      lastAccessedAt: new Date(base + index).toISOString(),
+    }))
+    let requests = 0
+    const result = await dispatchAtMostOnce({
+      command,
+      storage,
+      now: new Date(base),
+      dispatch: async () => { requests += 1; return { status: 'completed' } },
+    })
+    expect(result.status).toBe('completed')
+    expect(requests).toBe(1)
+    expect(storage.records).toHaveLength(500)
+    expect(storage.records.some((record) => record.idempotencyKey === 'px-idem-existing-0000')).toBe(false)
+    expect(storage.records.some((record) => record.idempotencyKey === command.idempotencyKey)).toBe(true)
   })
 
   it('replays completed result and blocks a digest conflict without a second dispatch', async () => {

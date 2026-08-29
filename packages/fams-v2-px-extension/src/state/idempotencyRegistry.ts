@@ -1,4 +1,5 @@
 import type { CommandResult, OperationCommand } from '../contracts/types'
+import { stableJson } from '../contracts/stableJson'
 
 export type DispatchState = 'prepared' | 'dispatched' | 'completed'
 
@@ -31,8 +32,25 @@ async function persistAndVerify(storage: LedgerStorage, records: LedgerRecord[],
   await storage.writeAll(records)
   const readback = await storage.readAll()
   const actual = readback.find((item) => item.idempotencyKey === expected.idempotencyKey)
-  if (!actual || actual.payloadDigest !== expected.payloadDigest || actual.dispatchState !== expected.dispatchState) {
+  if (!actual || stableJson(actual) !== stableJson(expected)) {
     throw new Error('PX ledger readback verification failed')
+  }
+}
+
+const storageQueues = new WeakMap<LedgerStorage, Promise<void>>()
+
+async function serializeStorage<T>(storage: LedgerStorage, task: () => Promise<T>): Promise<T> {
+  const previous = storageQueues.get(storage) ?? Promise.resolve()
+  let release: () => void = () => {}
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  const tail = previous.catch(() => undefined).then(() => gate)
+  storageQueues.set(storage, tail)
+  await previous.catch(() => undefined)
+  try {
+    return await task()
+  } finally {
+    release()
+    if (storageQueues.get(storage) === tail) storageQueues.delete(storage)
   }
 }
 
@@ -47,6 +65,19 @@ function baseResult(command: OperationCommand): Pick<CommandResult, 'schemaVersi
 }
 
 export async function dispatchAtMostOnce(input: {
+  command: OperationCommand
+  storage: LedgerStorage
+  dispatch: () => Promise<{ status: 'completed' | 'empty' | 'blocked'; resultRef?: CommandResult['resultRef'] }>
+  finalize?: (result: CommandResult) => Promise<CommandResult>
+  now?: Date
+}): Promise<CommandResult> {
+  return serializeStorage(input.storage, async () => {
+    const result = await dispatchAtMostOnceLocked(input)
+    return input.finalize ? input.finalize(result) : result
+  })
+}
+
+async function dispatchAtMostOnceLocked(input: {
   command: OperationCommand
   storage: LedgerStorage
   dispatch: () => Promise<{ status: 'completed' | 'empty' | 'blocked'; resultRef?: CommandResult['resultRef'] }>

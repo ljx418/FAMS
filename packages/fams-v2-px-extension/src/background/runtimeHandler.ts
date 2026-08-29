@@ -7,14 +7,37 @@ import { validateRuntimeMessage } from '../contracts/validation'
 import { dispatchAtMostOnce } from '../state/idempotencyRegistry'
 import { appendLifecycleEvent } from '../state/lifecycleAuditStore'
 import { checkBackendHealth, hasBackendPermission } from './connection'
-import { chromeLedgerStorage, PxStorageMigrationBlockedError, readLifecycleEvents, readWorkspaceStates, writeLifecycleEvents, writeWorkspaceStates } from './chromeStorage'
+import {
+  chromeLedgerStorage,
+  PxStorageMigrationBlockedError,
+  readLifecycleEvents,
+  readWorkspaceStates,
+  writeRecoveryIndexRecord,
+  writeWorkspaceStateAndEvents,
+} from './chromeStorage'
 import { buildWorkspacePath } from './intentRouter'
 import { openOrFocusWorkspace } from './workspaceTabManager'
 
 const ALLOWED_HOST_ORIGINS = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
 const adapter = new FamsDomainAdapter(new FamsApiClient(browser.runtime.id))
+const workspaceStateQueues = new Map<string, Promise<void>>()
 
 type RuntimeResponse = CommandResult | BackgroundCommandResponse
+
+async function serializeWorkspaceState<T>(workspaceId: string, task: () => Promise<T>): Promise<T> {
+  const previous = workspaceStateQueues.get(workspaceId) ?? Promise.resolve()
+  let release: () => void = () => {}
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  const tail = previous.catch(() => undefined).then(() => gate)
+  workspaceStateQueues.set(workspaceId, tail)
+  await previous.catch(() => undefined)
+  try {
+    return await task()
+  } finally {
+    release()
+    if (workspaceStateQueues.get(workspaceId) === tail) workspaceStateQueues.delete(workspaceId)
+  }
+}
 
 function blocked(message: RuntimeMessage | null, userMessage: string): CommandResult {
   const payload = message?.payload
@@ -35,72 +58,182 @@ function backgroundResponse(commandResult: CommandResult, viewData?: WorkspaceVi
 
 async function recordRoute(route: IntentRoute): Promise<void> {
   const workspaceId = String((route.routePayload as Record<string, unknown>).workspaceId)
-  const states = await readWorkspaceStates()
-  const current = states[workspaceId]
-  const events = await readLifecycleEvents()
-  const event = appendLifecycleEvent({
-    events,
-    workspaceId,
-    routeId: route.routeId,
-    correlationId: route.correlationId,
-    container: 'background',
-    containerInstanceId: 'background-single-writer',
-    eventType: 'route_intent',
-    previousState: current?.lifecycleStatus ?? 'uninitialized',
-    reasonCode: 'USER_ACTION',
+  return serializeWorkspaceState(workspaceId, async () => {
+    const states = await readWorkspaceStates()
+    const current = states[workspaceId]
+    const events = await readLifecycleEvents()
+    const event = appendLifecycleEvent({
+      events,
+      workspaceId,
+      routeId: route.routeId,
+      correlationId: route.correlationId,
+      container: 'background',
+      containerInstanceId: 'background-single-writer',
+      eventType: 'route_intent',
+      previousState: current?.lifecycleStatus ?? 'uninitialized',
+      reasonCode: 'USER_ACTION',
+    })
+    const payload = route.routePayload as Record<string, unknown>
+    const next: WorkspaceStateV1 = {
+      schemaVersion: 'v2-px-workspace-state/1',
+      workspaceId,
+      lifecycleStatus: event.nextState,
+      currentView: route.routeIntent,
+      routeId: route.routeId,
+      correlationId: route.correlationId,
+      ...(typeof payload.sourceRef === 'string' ? { selectedRef: payload.sourceRef } : {}),
+      ...(typeof payload.conversationId === 'string' ? { conversationId: payload.conversationId } : {}),
+      ...(typeof payload.operationId === 'string' ? { activeOperationId: payload.operationId } : {}),
+      ...(route.routeIntent === 'graph' && (payload.graphScope === 'daily-review' || payload.graphScope === 'operation') && typeof payload.graphId === 'string'
+        ? { activeGraph: { scope: payload.graphScope, id: payload.graphId, ...(typeof payload.focusNodeId === 'string' ? { focusNodeId: payload.focusNodeId } : {}) } }
+        : {}),
+      connection: current?.connection ?? { status: 'not_connected' },
+      recovery: current?.recovery ?? { status: 'not_needed' },
+      containerLeases: current?.containerLeases ?? [],
+      lastEventSeq: event.sequence,
+      updatedAt: event.at,
+    }
+    await writeWorkspaceStateAndEvents({ ...states, [workspaceId]: next }, [...events, event])
   })
-  const payload = route.routePayload as Record<string, unknown>
-  const next: WorkspaceStateV1 = {
-    schemaVersion: 'v2-px-workspace-state/1',
-    workspaceId,
-    lifecycleStatus: event.nextState,
-    currentView: route.routeIntent,
-    routeId: route.routeId,
-    correlationId: route.correlationId,
-    ...(typeof payload.sourceRef === 'string' ? { selectedRef: payload.sourceRef } : {}),
-    ...(typeof payload.conversationId === 'string' ? { conversationId: payload.conversationId } : {}),
-    ...(typeof payload.operationId === 'string' ? { activeOperationId: payload.operationId } : {}),
-    ...(route.routeIntent === 'graph' && (payload.graphScope === 'daily-review' || payload.graphScope === 'operation') && typeof payload.graphId === 'string'
-      ? { activeGraph: { scope: payload.graphScope, id: payload.graphId, ...(typeof payload.focusNodeId === 'string' ? { focusNodeId: payload.focusNodeId } : {}) } }
-      : {}),
-    connection: current?.connection ?? { status: 'not_connected' },
-    recovery: current?.recovery ?? { status: 'not_needed' },
-    containerLeases: current?.containerLeases ?? [],
-    lastEventSeq: event.sequence,
-    updatedAt: event.at,
-  }
-  await writeLifecycleEvents([...events, event])
-  await writeWorkspaceStates({ ...states, [workspaceId]: next })
 }
 
 async function recordLoadResult(workspaceId: string, outcome: 'ready' | 'empty' | 'failed'): Promise<void> {
-  const states = await readWorkspaceStates()
-  const current = states[workspaceId]
-  if (!current) return
-  const events = await readLifecycleEvents()
-  const event = appendLifecycleEvent({
-    events,
-    workspaceId,
-    routeId: current.routeId,
-    correlationId: current.correlationId,
-    container: 'background',
-    containerInstanceId: 'background-single-writer',
-    eventType: outcome === 'ready' ? 'load_succeeded' : outcome === 'empty' ? 'load_empty' : 'load_failed',
-    previousState: current.lifecycleStatus,
-    ...(outcome === 'empty' ? { reasonCode: 'EMPTY_RESULT' as const } : {}),
+  return serializeWorkspaceState(workspaceId, async () => {
+    const states = await readWorkspaceStates()
+    const current = states[workspaceId]
+    if (!current) return
+    const events = await readLifecycleEvents()
+    const event = appendLifecycleEvent({
+      events,
+      workspaceId,
+      routeId: current.routeId,
+      correlationId: current.correlationId,
+      container: 'background',
+      containerInstanceId: 'background-single-writer',
+      eventType: outcome === 'ready' ? 'load_succeeded' : outcome === 'empty' ? 'load_empty' : 'load_failed',
+      previousState: current.lifecycleStatus,
+      ...(outcome === 'empty' ? { reasonCode: 'EMPTY_RESULT' as const } : {}),
+    })
+    const next: WorkspaceStateV1 = {
+      ...current,
+      lifecycleStatus: event.nextState,
+      connection: outcome === 'failed' ? { status: 'disconnected' } : { status: 'connected', lastHealthAt: event.at },
+      lastEventSeq: event.sequence,
+      updatedAt: event.at,
+    }
+    await writeWorkspaceStateAndEvents({ ...states, [workspaceId]: next }, [...events, event])
   })
-  const next: WorkspaceStateV1 = {
-    ...current,
-    lifecycleStatus: event.nextState,
-    connection: outcome === 'failed' ? { status: 'disconnected' } : { status: 'connected', lastHealthAt: event.at },
-    lastEventSeq: event.sequence,
-    updatedAt: event.at,
-  }
-  await writeLifecycleEvents([...events, event])
-  await writeWorkspaceStates({ ...states, [workspaceId]: next })
 }
 
-async function handleIntent(route: IntentRoute): Promise<CommandResult> {
+function emptyWorkspaceState(command: OperationCommand): WorkspaceStateV1 {
+  return {
+    schemaVersion: 'v2-px-workspace-state/1',
+    workspaceId: command.payload.workspaceId,
+    lifecycleStatus: 'uninitialized',
+    currentView: 'ask',
+    routeId: command.routeId,
+    correlationId: command.correlationId,
+    connection: { status: 'not_connected' },
+    recovery: { status: 'not_needed' },
+    containerLeases: [],
+    lastEventSeq: 0,
+    updatedAt: command.requestedAt,
+  }
+}
+
+async function recordQueryEvents(command: OperationCommand, result: CommandResult): Promise<void> {
+  const workspaceId = command.payload.workspaceId
+  return serializeWorkspaceState(workspaceId, async () => {
+    const states = await readWorkspaceStates()
+    const current = states[workspaceId] ?? emptyWorkspaceState(command)
+    let events = await readLifecycleEvents()
+    let previousState = current.lifecycleStatus
+    const eventTypes = result.status === 'unknown_result'
+      ? [
+          ...(result.error?.code === 'PX_RESULT_NOT_PERSISTED' ? ['storage_write_failed' as const] : []),
+          'dispatch_result_unknown' as const,
+        ]
+      : result.status === 'failed' && result.error?.code === 'PX_STORAGE_WRITE_FAILED_BEFORE_EFFECT'
+        ? ['storage_write_failed' as const]
+        : result.status === 'blocked'
+          ? ['blocked' as const]
+          : result.status === 'empty'
+            ? ['load_empty' as const]
+            : ['load_succeeded' as const]
+    let lastEvent = null as ReturnType<typeof appendLifecycleEvent> | null
+    for (const eventType of eventTypes) {
+      const event = appendLifecycleEvent({
+        events,
+        workspaceId,
+        routeId: command.routeId,
+        correlationId: command.correlationId,
+        container: 'background',
+        containerInstanceId: 'background-single-writer',
+        eventType,
+        previousState,
+        ...(result.error?.code ? { reasonCode: result.error.code } : {}),
+      })
+      events = [...events, event]
+      previousState = event.nextState
+      lastEvent = event
+    }
+    if (!lastEvent) return
+    const next: WorkspaceStateV1 = {
+      ...current,
+      lifecycleStatus: lastEvent.nextState,
+      currentView: 'ask',
+      routeId: command.routeId,
+      correlationId: command.correlationId,
+      ...(result.resultRef?.conversationId ? { conversationId: result.resultRef.conversationId } : {}),
+      ...(result.resultRef?.operationId ? { activeOperationId: result.resultRef.operationId } : {}),
+    connection: ['completed', 'empty', 'blocked'].includes(result.status) || result.error?.code === 'PX_RESULT_NOT_PERSISTED'
+      ? { status: 'connected', lastHealthAt: lastEvent.at }
+      : current.connection,
+    recovery: result.status === 'unknown_result'
+      ? { status: 'blocked', reasonCode: result.error?.code ?? 'PX_UNKNOWN_DISPATCH_RESULT' }
+      : result.status === 'blocked'
+        ? { status: 'blocked' }
+        : result.status === 'completed' || result.status === 'empty'
+          ? { status: current.recovery.status === 'not_needed' ? 'not_needed' : 'restored' }
+          : current.recovery,
+      lastEventSeq: lastEvent.sequence,
+      updatedAt: lastEvent.at,
+    }
+    await writeWorkspaceStateAndEvents({ ...states, [workspaceId]: next }, events)
+  })
+}
+
+async function finalizeQueryResult(command: OperationCommand, result: CommandResult): Promise<CommandResult> {
+  if (!['completed', 'empty', 'blocked'].includes(result.status)) {
+    await recordQueryEvents(command, result).catch(() => undefined)
+    return result
+  }
+  try {
+    await writeRecoveryIndexRecord({
+      workspaceId: command.payload.workspaceId,
+      currentView: 'ask',
+      ...(result.resultRef?.conversationId ? { conversationId: result.resultRef.conversationId } : {}),
+      ...(result.resultRef?.operationId ? { operationId: result.resultRef.operationId } : {}),
+      updatedAt: result.completedAt,
+    })
+    await recordQueryEvents(command, result)
+    return result
+  } catch {
+    const unknown: CommandResult = {
+      ...result,
+      status: 'unknown_result',
+      error: {
+        code: 'PX_RESULT_NOT_PERSISTED',
+        userMessage: '结果已收到但工作区恢复状态未完整保存；刷新后请到 FAMS 手动复核，系统不会自动重试。',
+        recoverable: false,
+      },
+    }
+    await recordQueryEvents(command, unknown).catch(() => undefined)
+    return unknown
+  }
+}
+
+async function handleIntent(route: IntentRoute, preferredTabId?: number): Promise<CommandResult> {
   await recordRoute(route)
   if (route.targetContainer === 'workspace_page') {
     const workspaceId = String((route.routePayload as Record<string, unknown>).workspaceId)
@@ -109,11 +242,13 @@ async function handleIntent(route: IntentRoute): Promise<CommandResult> {
         query: (queryInfo) => browser.tabs.query(queryInfo),
         create: (createProperties) => browser.tabs.create(createProperties),
         update: async (tabId, updateProperties) => await browser.tabs.update(tabId, updateProperties) ?? {},
+        remove: (tabIds) => browser.tabs.remove(tabIds),
       },
       windows: { update: (windowId, updateInfo) => browser.windows.update(windowId, updateInfo) },
       canonicalBaseUrl: browser.runtime.getURL('/workspace.html'),
       desiredUrl: browser.runtime.getURL(buildWorkspacePath(route)),
       workspaceId,
+      ...(route.entryContainer === 'workspace_page' && typeof preferredTabId === 'number' ? { preferredTabId } : {}),
     })
   }
   return {
@@ -196,22 +331,35 @@ async function handleQuery(command: OperationCommand): Promise<BackgroundCommand
         },
       }
     },
+    finalize: (result) => finalizeQueryResult(command, result),
   })
   return backgroundResponse(commandResult, viewData)
 }
 
-export async function handleRuntimeMessage(input: unknown, options: { external?: boolean; senderUrl?: string } = {}): Promise<RuntimeResponse> {
+export async function handleRuntimeMessage(input: unknown, options: { external?: boolean; senderUrl?: string; senderTabId?: number } = {}): Promise<RuntimeResponse> {
   if (options.external) {
     let origin = ''
     try { origin = new URL(options.senderUrl ?? '').origin } catch { origin = '' }
     if (!ALLOWED_HOST_ORIGINS.has(origin)) return blocked(null, 'Host 来源未获允许。')
+  } else {
+    let sender: URL | null = null
+    try { sender = new URL(options.senderUrl ?? '') } catch { sender = null }
+    const declaredSource = input && typeof input === 'object' && !Array.isArray(input)
+      ? (input as Record<string, unknown>).sourceContainer
+      : undefined
+    const expectedPath = declaredSource === 'sidepanel' ? '/sidepanel.html'
+      : declaredSource === 'workspace_page' ? '/workspace.html'
+        : null
+    if (!sender || sender.protocol !== 'chrome-extension:' || sender.host !== browser.runtime.id || !expectedPath || sender.pathname !== expectedPath) {
+      return blocked(null, '内部消息来源与声明容器不一致，已阻止执行。')
+    }
   }
   const validated = validateRuntimeMessage(input, options.external)
   if (!validated.ok) return blocked(null, `消息合同无效：${validated.issues.join('；')}`)
   const message = validated.value
   if (message.messageType === 'intent_route') {
     try {
-      return await handleIntent(message.payload as IntentRoute)
+      return await handleIntent(message.payload as IntentRoute, options.senderTabId)
     } catch (error) {
       if (error instanceof PxStorageMigrationBlockedError) {
         return { ...blocked(message, '检测到未知或冲突的旧版工作区状态，已阻止自动迁移。请导出诊断后清理扩展状态。'), error: { code: 'PX_STORAGE_VERSION_BLOCKED', userMessage: '检测到未知或冲突的旧版工作区状态，已阻止自动迁移。请导出诊断后清理扩展状态。', recoverable: false } }

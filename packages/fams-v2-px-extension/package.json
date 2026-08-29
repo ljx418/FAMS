@@ -19,6 +19,7 @@
     "verify:real-chrome": "node scripts/verify-real-chrome.mjs",
     "verify:workspace-chrome": "node scripts/verify-workspace-chrome.mjs",
     "verify:sidepanel-chrome": "node scripts/verify-sidepanel-chrome.mjs",
+    "verify:router-idempotency-chrome": "node scripts/verify-router-idempotency-chrome.mjs",
     "verify:acceptance": "node scripts/verify-acceptance.mjs"
   },
   "dependencies": {
