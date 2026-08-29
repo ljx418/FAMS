@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { execFileSync, spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { createServer } from 'node:net'
+import { createServer as createHttpServer } from 'node:http'
+import { createServer as createNetServer } from 'node:net'
 import { existsSync, readFileSync } from 'node:fs'
 import { cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
@@ -81,10 +82,23 @@ async function waitForHttp(url, label, timeoutMs = 30_000) {
 
 async function portIsFree(port) {
   return new Promise((resolveFree) => {
-    const server = createServer()
+    const server = createNetServer()
     server.once('error', () => resolveFree(false))
     server.listen(port, '0.0.0.0', () => server.close(() => resolveFree(true)))
   })
+}
+
+async function startOriginProbeServer() {
+  await requireFreePort(3001, 'PX4-B disallowed-origin probe')
+  const server = createHttpServer((_request, response) => {
+    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+    response.end('<!doctype html><meta charset="utf-8"><title>PX4-B origin probe</title><p>disallowed origin probe</p>')
+  })
+  await new Promise((resolveListen, reject) => {
+    server.once('error', reject)
+    server.listen(3001, '0.0.0.0', resolveListen)
+  })
+  return server
 }
 
 async function requireFreePort(port, label) {
@@ -191,6 +205,15 @@ async function capturedMessages(page) {
   return page.evaluate(() => globalThis.__famsPxCapturedMessages ?? [])
 }
 
+async function sendExternalProbe(page, extensionId, message) {
+  return page.evaluate(({ targetExtensionId, runtimeMessage }) => new Promise((resolveProbe) => {
+    chrome.runtime.sendMessage(targetExtensionId, runtimeMessage, (response) => {
+      const failed = Boolean(chrome.runtime.lastError)
+      resolveProbe({ failed, response })
+    })
+  }), { targetExtensionId: extensionId, runtimeMessage: message })
+}
+
 function assertSafeRoute(message, expectedIntent, expectedContextId) {
   assert.equal(message.schemaVersion, 'v2-px-runtime-message/1')
   assert.equal(message.messageType, 'intent_route')
@@ -290,6 +313,7 @@ let browser
 let backend
 let frontend
 let tracingActive = false
+let originProbeServer
 try {
   browser = await chromium.connectOverCDP(endpoint, { timeout: 30_000 })
   const context = browser.contexts()[0]
@@ -358,6 +382,41 @@ try {
   let workspace = await waitForWorkspace(context, extensionId, 'ask')
   assert.equal((await workspaceTabs(worker)).length, 1)
   screenshots.push(await capture(host, 'host-chatbox-accepted.png'))
+
+  const negativeStorageBefore = await worker.evaluate(async () => ({ local: await chrome.storage.local.get(null), session: await chrome.storage.session.get(null) }))
+  const askWithQuestion = structuredClone(chatMessage)
+  askWithQuestion.payload.routePayload.question = 'Host route 禁止携带问题'
+  const hostCommand = JSON.parse(readFileSync(resolve(repoRoot, 'docs/prototypes/v2-px/fixtures/operation-command-v2.negative.json'), 'utf8'))
+  const commandEnvelope = {
+    schemaVersion: 'v2-px-runtime-message/1',
+    messageType: 'operation_command',
+    routeId: hostCommand.routeId,
+    correlationId: hostCommand.correlationId,
+    idempotencyKey: hostCommand.idempotencyKey,
+    sourceContainer: 'host_app',
+    targetContainer: 'background',
+    sentAt: new Date().toISOString(),
+    payload: hostCommand,
+  }
+  const questionProbe = await sendExternalProbe(host, extensionId, askWithQuestion)
+  const commandProbe = await sendExternalProbe(host, extensionId, commandEnvelope)
+  assert.equal(questionProbe.failed, false)
+  assert.equal(questionProbe.response?.status, 'blocked')
+  assert.equal(commandProbe.failed, false)
+  assert.equal(commandProbe.response?.status, 'blocked')
+  const negativeStorageAfter = await worker.evaluate(async () => ({ local: await chrome.storage.local.get(null), session: await chrome.storage.session.get(null) }))
+  assert.deepEqual(negativeStorageAfter, negativeStorageBefore, 'blocked Host messages must not mutate extension storage or lifecycle')
+  assert.equal((await workspaceTabs(worker)).length, 1, 'blocked Host messages must not create another tab')
+
+  originProbeServer = await startOriginProbeServer()
+  const disallowedOriginPage = await context.newPage()
+  await disallowedOriginPage.goto('http://localhost:3001/', { waitUntil: 'domcontentloaded' })
+  const disallowedOriginMessagingVisible = await disallowedOriginPage.evaluate(() => typeof globalThis.chrome?.runtime?.sendMessage === 'function')
+  assert.equal(disallowedOriginMessagingVisible, false, '3001 origin must not receive externally-connectable messaging')
+  assert.equal((await workspaceTabs(worker)).length, 1, 'disallowed origin must not create a Workspace tab')
+  await disallowedOriginPage.close()
+  await new Promise((resolveClose) => originProbeServer.close(resolveClose))
+  originProbeServer = undefined
 
   await host.goto(`http://localhost:3000/daily-reviews/${reviewId}`, { waitUntil: 'domcontentloaded' })
   await host.getByTestId('daily-review-workbench').waitFor({ timeout: 30_000 })
@@ -441,6 +500,7 @@ try {
     dailyReview: { ...reviewResult, reviewId, routeIntent: 'graph', databaseMatched: true },
     operation: { ...operationResult, operationId, routeIntent: 'trace', databaseMatched: true },
     repeatedRoute: { routeId: repeatedResult.routeId, correlationId: repeatedResult.correlationId, workspaceTabCount: 1 },
+    negativeHostBoundary: { askQuestionBlocked: true, operationCommandBlocked: true, disallowedOrigin3001Blocked: true, storageMutationCount: 0, tabMutationCount: 0 },
     lifecycleRouteEventCount: hostRouteEvents.length,
     screenshots,
     storageContainsQuestionOrSecret: false,
@@ -458,6 +518,7 @@ try {
   console.log(JSON.stringify({ evidenceDir, ...report }, null, 2))
 } finally {
   if (tracingActive && browser?.contexts()[0]) await browser.contexts()[0].tracing.stop().catch(() => undefined)
+  if (originProbeServer) await new Promise((resolveClose) => originProbeServer.close(resolveClose)).catch(() => undefined)
   if (browser?.contexts()[0]) await Promise.all(browser.contexts()[0].pages().map((page) => page.close().catch(() => undefined)))
   await stopChild(frontend?.child)
   await stopChild(backend?.child)
