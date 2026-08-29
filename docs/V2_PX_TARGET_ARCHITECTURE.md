@@ -1,19 +1,19 @@
 # V2-PX 目标架构与当前架构差异
 
-更新时间：2026-08-27
+更新时间：2026-08-29
 
 ## 1. 架构结论
 
 V2-PX 采用 Route A.1：`独立 Workspace Page + 轻量 Side Panel + Background 单写者 + FAMS 有界查询/问答适配层`。该设计优先复用现有 FAMS 的 Chat、Daily Review、Operation 与 workflow 能力，不复制投资计算逻辑，不引入第二套业务数据库，也不改变交易锁。GET 类 intent 是只读查询；Quick Ask 可以写入现有 FAMS Chat 会话，但只允许 `read_only_direct/compute_quick_run`，不允许扩展自动确认操作。
 
 ```text
-architectureReviewStatus=EXTERNAL_AUDIT_CONDITIONAL_PASS_REMEDIATION_APPLIED_PENDING_REAUDIT
-implementationStatus=NOT_STARTED
+architectureReviewStatus=EXTERNAL_AUDIT_REMEDIATION_APPLIED_INTERNAL_REAUDIT_PASSED
+implementationStatus=PX1_THROUGH_PX4B_AUTOMATED_ACCEPTED
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-routeAAdrStatus=ACCEPTED_FOR_SPIKE
+routeAAdrStatus=TECHNICALLY_VALIDATED_SCHEME_A_IMPLEMENTED
 productAuthorityStatus=FROZEN
-routeAImplementationReadiness=DOCUMENTATION_EXTERNAL_AUDIT_CONDITIONAL_PASS_REMEDIATION_APPLIED_PENDING_REAUDIT
-routeATechnicallyValidated=false
+routeAImplementationReadiness=ROUTER_IDEMPOTENCY_LIFECYCLE_FINAL_ACCEPTANCE_REMAIN
+routeATechnicallyValidated=true
 routeAProductionApproved=false
 ```
 
@@ -43,25 +43,9 @@ routeAProductionApproved=false
 | 数据与审计 | Prisma Operation、Daily Review、artifactRefs | 持久业务结果与证据引用 | extension 只保存路由/恢复索引，不复制业务事实 |
 | PX 合同 | `docs/schemas/v2-px-*.schema.json`、`backend/scripts/verify-v2-px-semantic-contract.ts` | PX-0 结构与语义防假绿 | 作为后续实现的合同门禁，不冒充运行能力 |
 
-### 2.2 当前不存在
+### 2.2 已实现基座与剩余差距
 
-以下实体当前均为 `未开发`：
-
-```text
-packages/fams-v2-px-extension
-WXT background entrypoint
-Side Panel production UI
-Workspace Page production UI
-Background intent router
-Workspace tab reuse manager
-PX workspace state store
-FAMS host app bridge
-FAMS External Brain read facade
-FAMS External Brain bounded Ask facade
-intent-route/3 与 operation-command/2 runtime 绑定
-真实 unpacked Chrome PX evidence
-PX-1～PX-6 runtime acceptance commands
-```
+PX1～PX4-B 已实现 WXT package、Background、Side Panel、Workspace、target contracts、tab manager、状态/ledger 基础、External Brain Read/Ask facade、FAMS adapter、Host Bridge 和真实 unpacked Chrome evidence。当前仍未完成的生产目标只有：完整跨 reload/storage fault 的 at-most-once 集成、三入口压力矩阵、Back/Forward/Refresh/关闭重开与断连恢复、target acceptance evidence/2 汇总。正式 optional permission 点击与最终体验结论仍由人类完成。
 
 ## 3. 方案选择与取舍
 
@@ -80,53 +64,43 @@ PX-1～PX-6 runtime acceptance commands
 
 | 状态 | 目标实体 | 责任 | 上下游 |
 | --- | --- | --- | --- |
-| 待新增 | `packages/fams-v2-px-extension/wxt.config.ts` | MV3 manifest、CSP、Side Panel、可选本地权限 | 输出 `.output/chrome-mv3` |
-| 待新增 | `entrypoints/background.ts` | 唯一消息入口和状态写入者 | 接收三个入口；调用 router/store/adapter |
+| 已实现 | `packages/fams-v2-px-extension/wxt.config.ts` | MV3 manifest、CSP、Side Panel、可选本地权限 | production `host_permissions=[]`；3000 external connect；4000 optional |
+| 已实现 | `entrypoints/background.ts` | 唯一消息入口和状态写入者 | 接收三个入口；调用 runtime handler/router/store/adapter |
 | 已实现 | `entrypoints/sidepanel/index.html`、`main.tsx`、`SidePanelApp.tsx` | 360/420 轻量入口、真实摘要、Quick Ask、最近任务 | 只向 background 发命令；PX4A Chrome 自动验收 PASS |
-| 待新增 | `entrypoints/workspace/index.html`、`main.tsx` | 768/1280 完整工作台宿主 | 只向 background 发命令并订阅状态 |
+| 已实现 | `entrypoints/workspace/index.html`、`main.tsx`、`WorkspaceApp.tsx` | 768/1280 完整工作台宿主与五视图 | 只向 background 发命令；PX3 Chrome 5 视图自动验收 PASS |
 
 ### 4.2 PX Core 路由与状态层
 
 | 状态 | 目标实体 | 责任 | 关键不变量 |
 | --- | --- | --- | --- |
-| 待新增 | `src/contracts/intentRoute.ts` | 绑定目标 `v2-px-intent-route/3` 类型和校验 | route 只导航；ask route 不携带 question |
-| 待新增 | `src/contracts/operationCommand.ts` | 绑定目标 `v2-px-operation-command/2` | query/refresh/ingest；所有潜在副作用带 idempotencyKey |
-| 待新增 | `src/contracts/runtimeMessage.ts`、`commandResult.ts`、`errors.ts` | 内部 envelope、结果与错误分类 | Host 外部消息只允许 intent route |
-| 待新增 | `src/background/intentRouter.ts` | 规范化三入口、三动作、五 intent | 同语义产生相同 canonicalRouteKey |
-| 待新增 | `src/background/workspaceTabManager.ts` | query/create/reuse/focus Workspace tab | 重复点击不创建重复标签页 |
-| 待新增 | `src/background/idempotencyRegistry.ts` | local dispatch ledger、同 key 重放、冲突拒绝 | POST dispatch 后不自动重试；未知结果 blocked |
-| 待新增 | `src/state/workspaceStateStore.ts` | session 状态、local 恢复索引 | background 单写；容器只订阅 |
-| 待新增 | `src/state/lifecycleAuditStore.ts` | 绑定 lifecycle/3 封闭 eventType、previous/next state、sequence 与 reason | 汇总状态必须由事件推导；状态名不得临时充当事件名 |
-| 待新增 | `src/state/workspaceStateMigrator.ts` | WorkspaceState 版本迁移与 TTL/LRU | 未知 major 不静默清空 |
+| 已实现 | `src/contracts/types.ts`、`validation.ts`、`factories.ts` | 合并承载 intent-route/3、operation-command/2、runtime/result/error 类型与严格验证 | route 只导航；ask route 不携带 question；Host command 拒绝 |
+| 已实现 | `src/background/intentRouter.ts` | 规范化三入口、三动作、五 intent | 生成 canonical Workspace path 与受控 ref |
+| 已实现 | `src/background/workspaceTabManager.ts` | query/create/reuse/focus Workspace tab | Side Panel/Host 重复点击保持单 tab；20 次多窗口压力待下一阶段 |
+| 已实现（待完整 fault 验收） | `src/state/idempotencyRegistry.ts` | local dispatch ledger、同 key 重放、冲突拒绝 | POST dispatch 后不自动重试；unknown_result 诚实返回 |
+| 已实现（PX5 需补强） | `src/background/chromeStorage.ts` | session WorkspaceState、local ledger、旧状态迁移基础 | background 单写；完整 recoveryIndex TTL/LRU/reload 矩阵待 PX5 |
+| 已实现（PX5 需补强） | `src/state/lifecycleAuditStore.ts` | lifecycle/3 封闭 eventType、sequence/reason 与状态迁移 | 当前 route/load/blocked 可追溯；断连/reload/close 全矩阵待 PX5 |
 
 ### 4.3 UI 体验层
 
 | 状态 | 目标实体 | 用户结果 |
 | --- | --- | --- |
 | 已实现 | `entrypoints/sidepanel/SidePanelApp.tsx` | 快速提问、最近任务、连接状态、打开/定位工作台；问题与回答只在 React memory |
-| 待新增 | `src/sidepanel/ConnectionGate.tsx` | 解释权限用途并由用户主动连接本地 FAMS |
-| 待新增 | `src/workspace/WorkspaceApp.tsx` | 完整 External Brain 页面框架 |
-| 待新增 | `src/workspace/WorkspaceRouter.tsx` | 映射 source library/detail/ask/trace/graph |
-| 待新增 | `src/workspace/views/SourceLibraryView.tsx` | 按时间和类型浏览研究证据 |
-| 待新增 | `src/workspace/views/SourceDetailView.tsx` | 查看单个来源、时间、关联任务 |
-| 待新增 | `src/workspace/views/AskView.tsx` | 显示简明摘要、关键依据、下一步和高级详情 |
-| 待新增 | `src/workspace/views/TraceView.tsx` | 显示 Operation 时间线或复盘节点链 |
-| 待新增 | `src/workspace/views/GraphView.tsx` | 显示复盘 DAG / evidence 关系，不计算新策略 |
-| 待新增 | `src/workspace/components/RecoveryBanner.tsx` | 断连、恢复失败和重试说明 |
-| 待新增 | `src/workspace/components/EvidenceDrawer.tsx` | 折叠展示 artifactRefs、route 与浏览器证据 |
+| 已实现（合并实体） | `entrypoints/sidepanel/SidePanelApp.tsx` | 连接说明、当前摘要、Quick Ask、最近任务与完整工作台入口 |
+| 已实现（合并实体） | `entrypoints/workspace/WorkspaceApp.tsx` | 页面框架、source library/detail/ask/trace/graph 五视图、证据折叠与失败动作 |
+| 已实现 | `frontend/src/components/external-brain/OpenInExternalBrainButton.tsx` | Host 三页统一按钮、ack、配置/阻断中文状态 |
+| 需补强（PX5） | `WorkspaceApp.tsx`、`SidePanelApp.tsx` 的 recovery UI | 断连、reload、close、未知 storage 版本的完整恢复提示和动作 |
 
 ### 4.4 FAMS 领域适配层
 
 | 状态 | 目标实体 | 责任 | 复用实体 |
 | --- | --- | --- | --- |
-| 需修改 | `frontend/src/services/pxExternalBrainBridge.ts` | host app 向 extension 发受控 intent route | 读取 `VITE_FAMS_PX_EXTENSION_ID`；缺扩展时普通话降级；禁止 operation command |
-| 需修改 | `frontend/src/components/external-brain/OpenInExternalBrainButton.tsx` | ChatBox/复盘/任务中心统一入口 | 传递 workspaceId/sourceRef/reviewId/operationId，不传原始账户数据 |
-| 待新增 | `backend/src/routes/externalBrain.ts`、`externalBrainTypes.ts` | 五 intent 的有界 API 与 DTO | 注册在 `/api/v1/external-brain`；服务端固定 local user `default` |
-| 待新增 | `backend/src/services/external-brain/externalBrainReadService.ts` | source/detail/trace/graph 统一 read model | 不创建第二份投资计算 |
-| 待新增 | `backend/src/services/external-brain/externalBrainAskService.ts` | 将 Quick Ask 委托 `famsChatService` | 只允许 read/quick compute；不自动确认 |
-| 待新增 | `backend/src/services/external-brain/externalBrainPolicyService.ts` | origin/本地用户/权限/交易策略 | 继续保持四项交易权限 false |
-| 待新增 | `src/adapters/fams/FamsApiClient.ts` | background 唯一网络访问者 | 用户授权 origin、超时、退避、取消 |
-| 待新增 | `src/adapters/fams/FamsDomainAdapter.ts` | PX core query/ask 到 FAMS API 映射 | PX core 不出现交易域字段 |
+| 已实现 | `frontend/src/services/pxExternalBrainBridge.ts` | Host 构造/验证/发送严格 intent route | 读取 extension ID；缺失/非法/未安装/超时中文降级；禁止 operation command |
+| 已实现 | `frontend/src/components/external-brain/OpenInExternalBrainButton.tsx`、ChatBox/DailyReviews/Operations 集成点 | 三页统一入口 | 只传 workspaceId/reviewId→graphId/operationId；不传问题或原始对象 |
+| 已实现 | `backend/src/routes/externalBrain.ts`、`services/external-brain/externalBrainTypes.ts` | 五 intent 的有界 API 与 DTO | 固定 local user `default`；统一 envelope 与四锁 |
+| 已实现 | `backend/src/services/external-brain/externalBrainReadService.ts` | source/detail/trace/graph 统一 read model | 复用 Operation/DailyReview，不创建第二份投资计算 |
+| 已实现 | `backend/src/services/external-brain/externalBrainAskService.ts` | 将 Quick Ask 委托 `famsChatService` | 只允许 read/quick compute；不自动确认 |
+| 已实现 | `backend/src/services/external-brain/externalBrainPolicyService.ts` | caller ID/origin/local user/权限/交易策略 | 方案 A 两正八负与四锁通过 |
+| 已实现 | `src/adapters/fams/FamsApiClient.ts`、`FamsDomainAdapter.ts` | background 唯一网络调用与 read model/Ask 映射 | GET 有界重试、POST 不自动重试；caller header 每次携带 |
 
 首期有界 API 计划：
 
@@ -138,22 +112,22 @@ GET  /api/v1/external-brain/traces/:operationId
 GET  /api/v1/external-brain/graphs/:scope/:id
 ```
 
-请求/响应 DTO、分页、错误、身份、超时和重试规则见 `V2_PX_API_RUNTIME_CONTRACT.md`。这些是计划实体，当前不存在。PX-1 可只使用 `/health` 完成连接可行性验证，不得提前把完整 API 写成已通过。
+请求/响应 DTO、分页、错误、身份、超时和重试规则见 `V2_PX_API_RUNTIME_CONTRACT.md`。上述 API/Adapter 已由 PX2 API contract 与 PX3/PX4A/PX4B 真实 Chrome 证据验证；生命周期恢复和最终汇总仍不得提前声明完成。
 
 ### 4.5 验收与证据层
 
 | 状态 | 目标实体 | 责任 |
 | --- | --- | --- |
-| 已开发 | `backend/scripts/verify-v2-px-semantic-contract.ts` | PX-0 current schema/语义正反例；不代表 target 版本已验证 |
-| 待修改 | lifecycle/2→3、Chrome evidence/1→2 | PX-1 增加 sequence/state/reason、四视口、manifest/network/console |
+| 已实现 | `backend/scripts/verify-v2-px-semantic-contract.ts`、target schemas/fixtures | target 合同正反例、sourceRef round-trip 与防假绿门禁 |
+| 已实现（待 PX6 汇总） | lifecycle/3、Chrome evidence/2 schemas | sequence/state/reason、四视口、manifest/network/console 约束已迁移 |
 | 待修改 | acceptance manifest/report/1→2 | PX-6 增加 20 requirements、AC01～10、stage manifests 和人工证据 |
-| 待新增 | `packages/fams-v2-px-extension/tests/intent-route.spec.ts` | 三入口和五 intent 路由 |
-| 待新增 | `tests/workspace-host.spec.ts` | 独立宿主、视口、刷新恢复 |
+| 已实现 | `tests/contracts.test.ts`、`router.test.ts`、`host-bridge.test.ts` | 三入口/动作/intent、tab 与 Host 严格边界 |
+| 已实现（恢复待 PX5） | `tests/workspace.test.ts`、`scripts/verify-workspace-chrome.mjs` | 独立宿主、五视图、768/1280 与真实数据；完整刷新恢复后续 |
 | 已实现 | `tests/sidepanel.test.ts`、`scripts/verify-sidepanel-chrome.mjs` | 360/420 Side Panel 单元与真实 Chrome/DB/API/LLM 证据 |
-| 待新增 | `tests/tab-idempotency.spec.ts` | 多窗口复用和重复点击 |
-| 待新增 | `tests/lifecycle-recovery.spec.ts` | 断连、reload、reconnect、close |
-| 待新增 | `scripts/collect-real-chrome-evidence.mjs` | Playwright + Chrome CDP 真实证据 |
-| 待新增 | `.verification/private/v2-px/**` | 本地私有截图、trace、事件和哈希 |
+| 已实现（待压力矩阵） | `tests/idempotency.test.ts`、`storage.test.ts`、`workspaceTabManager.ts` | 同 key/冲突/unknown/storage 基础与单 tab；20 次多窗口/fault reload 后续 |
+| 待新增（PX5） | lifecycle recovery Chrome verifier | 断连、reload、reconnect、close、TTL/LRU |
+| 已实现（分阶段） | `verify-real-chrome.mjs`、`verify-workspace-chrome.mjs`、`verify-sidepanel-chrome.mjs`、frontend Host verifier | Playwright + Chrome CDP 分阶段真实证据 |
+| 已实现（本地私有） | `.verification/private/v2-px/**` | PX1/PX2/PX3/PX4A/PX4B 截图、trace、事件、network 与哈希 |
 
 ## 5. 关键交互关系
 

@@ -2,7 +2,7 @@
 
 日期：2026-08-29
 
-状态：APPROVED_FOR_CONTROLLED_IMPLEMENTATION
+状态：IMPLEMENTED_AUTOMATED_ACCEPTANCE_PASSED
 
 ## 完成后的目标体验
 
@@ -48,3 +48,5 @@
 ## 出门声明上限
 
 本子阶段通过后最多声明 `hostBridgeAutomatedAccepted=true`、PX4 三入口自动化验收闭环。完整生命周期恢复、最终候选、人类 optional permission 手势和交易解锁仍保持未完成/false。
+
+实现提交：`4b4d3a808382c7522c25be1d316889441bd8cf54`；真实边界负例补强提交：`a0758b4980b01739ead5abff0bc2029a66716964`。最终证据位于 `.verification/private/v2-px/a0758b4980b01739ead5abff0bc2029a66716964/PX4B`。

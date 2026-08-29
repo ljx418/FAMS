@@ -1,38 +1,41 @@
 # V2-PX External Brain Productization 开发及验收计划
 
-更新时间：2026-08-27
+更新时间：2026-08-29
 
 ## 1. 阶段定位
 
-V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。用户已认可产品规划和目标，但本轮明确回到文档开发阶段：先补齐 PRD、原型、目标架构、里程碑、验收门槛和 draw.io，再等待用户单独批准实际开发。PX-1 尚未启动，不允许直接进入 PX-2+ 生产实现。
+V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。文档阶段已经完成且用户已批准方案 A 顺序实施；PX1 技术基座、PX2 Workspace、PX3 Side Panel 与 PX4-B Host Bridge 已通过自动化验收。当前只允许从 PX5 Router/幂等入口审计继续，不得跳过该阶段直接声明恢复或产品化候选完成。
 
 ```text
-currentStage=DOCUMENTATION_EXTERNAL_AUDIT_CONDITIONAL_PASS_REMEDIATION_APPLIED_PENDING_REAUDIT
+currentStage=PX5_ROUTER_IDEMPOTENCY_ENTRY_DOCUMENTATION
 px0GithubReviewGate=PASS
 authorityBaselineStatus=FROZEN
 productAuthorityStatus=FROZEN
 productGoalApproval=APPROVED_BY_USER
-routeAAdrStatus=ACCEPTED_FOR_SPIKE
-routeAImplementationReadiness=DOCUMENTATION_EXTERNAL_AUDIT_CONDITIONAL_PASS_REMEDIATION_APPLIED_PENDING_REAUDIT
+routeAAdrStatus=TECHNICALLY_VALIDATED
+routeAImplementationReadiness=PX1_THROUGH_PX4B_AUTOMATED_ACCEPTED
 externalIndependentAuditStatus=CONDITIONAL_PASS
-externalAuditRemediationStatus=APPLIED_PENDING_REAUDIT
+externalAuditRemediationStatus=APPLIED_INTERNAL_REAUDIT_PASSED_REPORT_RETAINED
 semanticValidatorImplemented=true
 px1FeasibilitySpikeAllowed=true
 px1FeasibilitySpikeEligible=true
 px1PlanningAllowed=true
-px2PlusAllowed=false
+px1SixSpikesPassed=true
+px2PlusAllowed=true
+px4BHostBridgeAutomatedAccepted=true
+px5RouterIdempotencyStatus=ENTRY_DOCUMENTATION_REQUIRED_BEFORE_IMPLEMENTATION
 v2PxComplete=false
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-productionCodeChangesAllowedInCurrentPhase=false
+productionCodeChangesAllowedInCurrentPhase=ONLY_AFTER_CURRENT_SUBSTAGE_ENTRY_AUDIT_PASS
 ```
 
 本计划的架构、运行时合同、原型、追踪和图形入口分别为 `V2_PX_TARGET_ARCHITECTURE.md`、`V2_PX_API_RUNTIME_CONTRACT.md`、`prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`、`V2_PX_PRD_TRACEABILITY_MATRIX.md` 和 `v2-px-target-architecture-gap.drawio`；自动文档验收记录在 `V2_PX_DOCUMENTATION_ACCEPTANCE.md`。
 
-### 1.0.1 当前文档阶段硬边界
+### 1.0.1 当前阶段硬边界
 
 用户已于 2026-08-28 明确批准本计划 PX1～PX6 的顺序自动实施。每阶段仍须先落盘开发计划与验收审计，致命/重大问题清零后才可修改生产代码；自动通过中间门槛不替代 PX6 最终人工体验确认。
 
-独立审计登记的 3 个阻断项和 8 个高风险项已转化为下列 PX-1 启动硬约束；“已修订文档”不等于这些 target 实体已实现：
+独立审计登记的 3 个阻断项和 8 个高风险项已经转化为实现硬约束，并在 PX1～PX4-B 的合同、代码和阶段证据中逐项闭环；原始审计报告作为历史证据保留，其 `CONDITIONAL_PASS` 不被篡改。PX5 仍须重新验证这些边界没有回归：
 
 ```text
 BLK-01 host/workspace view_source target draft + positive/negative fixtures specified
@@ -48,7 +51,7 @@ HR-07 CORS switch sequence and evidence path frozen
 HR-08 eight target fixture filenames frozen
 ```
 
-上述任一条在 PX1-02/PX2-01 的 schema、validator、fixture、types 或 contract test 中缺失，均视为相应工作包未开始或失败；不得靠 current PX-0 schema 通过获得绿灯。
+上述任一条在 PX5 的 schema、validator、fixture、types、真实 Chrome 或 storage fault 证据中回归，均视为相应工作包失败；不得靠历史阶段通过获得绿灯。
 
 ## 1.1 PX-0 允许和禁止的代码类型
 
@@ -164,7 +167,7 @@ PX-0 validator 代码越界成生产功能
 
 ### PX-1 Route A 受限 feasibility spike
 
-进入条件：PX-0 全部通过，并经单独启动确认。当前为 eligible，但尚未启动。
+进入条件：PX-0 全部通过，并经单独启动确认。该条件已满足，PX-1 已完成并通过自动化验收。
 
 六项 spike：
 
@@ -354,7 +357,7 @@ manual_experience_review_checklist.md
 | G6 | 双容器生命周期 | target lifecycle/3、Chrome evidence/2、storage migration | extension `test:lifecycle`（计划） | sequence/state/reason、TTL/未知版本均可推导 | PX-5 |
 | G7 | Anti-false-green | target acceptance manifest/report/2 + semantic validator | extension `verify:acceptance`（计划） | 20 requirements、AC01～10、正例/负例、artifact/commit 可复核 | PX-6 |
 
-当前 PX-2..PX-6 与 G1..G7 是文档计划，不允许跳过 PX-1 直接进入实现。
+当前 PX1～PX4-B 已形成可复核实现和私有证据；PX5 Router/幂等、生命周期恢复与 PX6 G1..G7 仍是未完成计划，不允许越级或提前出门。
 
 ## 4. Anti-False-Green 验收合同
 
@@ -420,18 +423,19 @@ manualExperienceReviewPassed=true
 ```text
 px0GithubReviewGate=PASS
 px1FeasibilitySpikeEligible=true
-px1SixSpikesPassed=false
-realChromeEvidencePassed=false
+px1SixSpikesPassed=true
+realChromeEvidencePassed=true
+px4BHostBridgeAutomatedAccepted=true
 v2PxComplete=NO_GO
 ```
 
 ## 7. 实现实体与阶段边界
 
-完整分层和交互关系以 `docs/V2_PX_TARGET_ARCHITECTURE.md` 为准。下表是阶段级变更清单；所有目标实体在用户批准前均保持“未开发”。
+完整分层和交互关系以 `docs/V2_PX_TARGET_ARCHITECTURE.md` 为准。下表是阶段级变更清单；用户已批准顺序实施，实体的当前状态以目标架构和追踪矩阵为准，不再沿用文档阶段的“全部未开发”历史口径。
 
 | 阶段 | 允许触碰的目标实体 | 明确不允许 | 阶段完成后的用户效果 |
 | --- | --- | --- | --- |
-| 当前文档阶段 | PRD、计划、原型规格、ADR、traceability、draw.io、文档状态源 | 任何生产源码、extension package、schema 行为和 runtime test | 人类能正确判断目标、实体、风险、里程碑和验收 |
+| D0 历史文档阶段（已完成） | PRD、计划、原型规格、ADR、traceability、draw.io、文档状态源 | 任何生产源码、extension package、schema 行为和 runtime test | 人类能正确判断目标、实体、风险、里程碑和验收 |
 | PX-1 | 最小 `wxt.config.ts`、三个 entrypoint、目标 v3/v2 合同迁移、最小 router/store、Chrome evidence collector | 五 intent 完整业务 UI、FAMS 业务 facade | 真实 Chrome 证明双容器、连接、路由和证据路线可行 |
 | PX-2 | External Brain API/Types/Read/Ask/Policy、FAMS adapter、`WorkspaceApp/Router`、五视图、RecoveryBanner、EvidenceDrawer | 完整 Side Panel 和跨入口生产化 | 用户可在完整页面读取真实 FAMS 事实、受控提问并刷新恢复 |
 | PX-3 | `SidePanelApp`、ConnectionGate、FAMS host bridge/button | 将复杂图表/DAG 塞入侧栏 | 用户可从轻入口或 FAMS 页面进入同一工作区 |
@@ -441,7 +445,7 @@ v2PxComplete=NO_GO
 
 ## 8. 详细开发顺序与阶段出门
 
-### D0 文档重构（当前阶段）
+### D0 文档重构（历史已完成）
 
 开发内容：
 
@@ -454,11 +458,11 @@ v2PxComplete=NO_GO
 7. 冻结 API/DTO、消息、状态、存储、错误、CORS、Host bridge 与 v2→v3 合同迁移。
 8. 完成产品、架构、反伪完成和交叉一致性四轮独立审计。
 
-出门：文档自动审计通过后只可请求用户批准 PX-1，不自动进入实现。
+出门：已通过；用户已于 2026-08-28 批准方案 A 顺序实施。
 
 ### PX-1 Route A.1 feasibility spike
 
-开始条件：D0 全部通过，且用户在新指令中明确批准进入实际开发。
+开始条件：D0 全部通过，且用户在新指令中明确批准进入实际开发。该条件已满足且 PX-1 已通过。
 
 最小范围：
 
@@ -498,7 +502,7 @@ Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和
 | M0 Documentation Review Ready | 无 | 20/20 traceability；40/40 决策检查；8 页图；状态一致 | 能评估目标体验、架构/规格/出门风险 | 已完成；独立审计意见已定向闭环并获用户批准实施 |
 | M1 Route A Technically Validated | M0 + 用户批准 | 目标合同迁移、六项 spike、真实 Chrome、权限和负例全部通过 | Side Panel/Workspace 空壳真实可运行 | 自动化 PASS；真实 Chrome 证据已生成 |
 | M2 Bounded API + Workspace Accepted | M1 + 人工确认 | 五端点 DTO/同源/policy；768/1280、五视图、六状态、刷新恢复 | 完整工作台可读真实结果并受控提问 | 自动化核心切片 PASS（commit `6c8714e`）；正式权限点击留最终人类门槛，深度生命周期留 PX-5 |
-| M3 Side Panel Entry Accepted | M2 | 360/420、简明摘要、连接、跳转和 host app 入口通过 | 随时快速提问并进入完整页 | PX4-A Side Panel 自动化 PASS（`bc7cc5a`）；Host App 入口待 PX4-B，故 M3 总体未关闭 |
+| M3 Side Panel Entry Accepted | M2 | 360/420、简明摘要、连接、跳转和 host app 入口通过 | 随时快速提问并进入完整页 | 自动化 PASS；Side Panel=`bc7cc5a`，Host Bridge=`a0758b4`；正式 permission 点击留最终人类门槛 |
 | M4 Intent & FAMS Adapter Accepted | M3 | 三入口、五 intent、20 次 tab/idempotency、交易边界通过 | 同一任务不重复，结果来自现有 FAMS | 未开始 |
 | M5 Lifecycle Accepted | M4 | 必测 lifecycle 场景 100% 可推导 | 刷新、重开、断连可恢复或明确阻断 | 未开始 |
 | M6 Productization Candidate | M5 | G1～G7、四视口、隐私、HTML、人工体验通过 | 可作为本地浏览器产品化候选使用 | 未开始 |
@@ -522,7 +526,7 @@ Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和
 
 ## 11. 计划验收命令的真实性规则
 
-PX-1+ 的命令当前只是计划，不得在 package script 不存在时声称可执行：
+下列命令的当前存在性必须以 package script 和测试文件为准；已实现命令也只能按各阶段证据声明其实际覆盖，不得因为命令存在就声称 PX6 完成：
 
 ```text
 npm --prefix backend run test:v2-px-api-contract
