@@ -7,7 +7,7 @@
 V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。文档阶段已经完成且用户已批准方案 A 顺序实施；PX1 技术基座、PX2 Workspace、PX3 Side Panel 与 PX4-B Host Bridge 已通过自动化验收。当前只允许从 PX5 Router/幂等入口审计继续，不得跳过该阶段直接声明恢复或产品化候选完成。
 
 ```text
-currentStage=PX5_ROUTER_IDEMPOTENCY_ENTRY_DOCUMENTATION
+currentStage=PX5_ROUTER_IDEMPOTENCY_CONTROLLED_IMPLEMENTATION
 px0GithubReviewGate=PASS
 authorityBaselineStatus=FROZEN
 productAuthorityStatus=FROZEN
@@ -23,10 +23,10 @@ px1PlanningAllowed=true
 px1SixSpikesPassed=true
 px2PlusAllowed=true
 px4BHostBridgeAutomatedAccepted=true
-px5RouterIdempotencyStatus=ENTRY_DOCUMENTATION_REQUIRED_BEFORE_IMPLEMENTATION
+px5RouterIdempotencyStatus=ENTRY_AUDIT_PASSED_CONTROLLED_IMPLEMENTATION_ALLOWED
 v2PxComplete=false
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-productionCodeChangesAllowedInCurrentPhase=ONLY_AFTER_CURRENT_SUBSTAGE_ENTRY_AUDIT_PASS
+productionCodeChangesAllowedInCurrentPhase=PX5_APPROVED_SCOPE_ONLY
 ```
 
 本计划的架构、运行时合同、原型、追踪和图形入口分别为 `V2_PX_TARGET_ARCHITECTURE.md`、`V2_PX_API_RUNTIME_CONTRACT.md`、`prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`、`V2_PX_PRD_TRACEABILITY_MATRIX.md` 和 `v2-px-target-architecture-gap.drawio`；自动文档验收记录在 `V2_PX_DOCUMENTATION_ACCEPTANCE.md`。
