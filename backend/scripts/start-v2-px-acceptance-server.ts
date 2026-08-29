@@ -3,6 +3,9 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { initializePrisma, prisma } from '../src/db/prisma.js'
 import { externalBrainRoutes } from '../src/routes/externalBrain.js'
+import { dailyReviewRoutes } from '../src/routes/dailyReview.js'
+import { operationRoutes } from '../src/routes/operation.js'
+import { captureRoutes } from '../src/routes/capture.js'
 import { externalBrainPolicyService } from '../src/services/external-brain/externalBrainPolicyService.js'
 
 const extensionIds = externalBrainPolicyService.configuredExtensionIds()
@@ -20,6 +23,11 @@ app.get('/health', async (request) => ({
   requestOrigin: request.headers.origin ?? null,
 }))
 await app.register(externalBrainRoutes, { prefix: '/api/v1/external-brain' })
+// PX4-B Host Bridge acceptance loads the production read-only Host pages against
+// their real route handlers. The verifier never invokes the registered mutation routes.
+await app.register(dailyReviewRoutes, { prefix: '/api/v1/daily-reviews' })
+await app.register(operationRoutes, { prefix: '/api/v1/operations' })
+await app.register(captureRoutes, { prefix: '/api/v1/captures' })
 await app.listen({ port: 4000, host: '0.0.0.0' })
 
 const counts = await Promise.all([

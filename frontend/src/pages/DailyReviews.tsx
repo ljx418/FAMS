@@ -32,6 +32,8 @@ import { ScreenshotCapturePanel } from '../components/capture/ScreenshotCaptureP
 import { DailyReviewWorkflowDag, type ReviewWorkflowEdge, type ReviewWorkflowNode } from '../components/review/DailyReviewWorkflowDag'
 import { DailyReviewAuditDrawer } from '../components/review/DailyReviewAuditDrawer'
 import { DailyReviewDecisionPanel } from '../components/review/DailyReviewDecisionPanel'
+import { OpenInExternalBrainButton } from '../components/external-brain/OpenInExternalBrainButton'
+import { PX_DEFAULT_WORKSPACE_ID } from '../services/pxExternalBrainBridge'
 import { colors } from '../styles/chartTheme'
 
 const USER_ID = 'default'
@@ -387,6 +389,16 @@ export default function DailyReviews() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <OpenInExternalBrainButton
+              entryId="daily-review"
+              label="在外部大脑查看图谱"
+              request={detail?.id ? {
+                entryAction: 'open_in_workspace',
+                routeIntent: 'graph',
+                routePayload: { workspaceId: PX_DEFAULT_WORKSPACE_ID, graphScope: 'daily-review', graphId: detail.id },
+              } : undefined}
+              disabledReason={!detail?.id ? '请先生成或打开一份复盘。' : undefined}
+            />
             <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>历史复盘</Button>
             <Button icon={<CloudDownloadOutlined />} disabled={!workflow} onClick={() => workflow && downloadJson(`daily-review-${workflow.reviewId}.json`, { detail, workflow, localNodeReviews: nodeReviews, localNodeReviewsAreFormalSignoff: false })}>导出审计 JSON</Button>
             <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void refresh()}>刷新</Button>

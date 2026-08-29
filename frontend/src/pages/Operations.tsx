@@ -30,6 +30,8 @@ import RefreshFailureTable, { type RefreshFailureItem } from '../components/comm
 import ReliabilityWarnings from '../components/common/ReliabilityWarnings'
 import OperationTimeline from '../components/common/OperationTimeline'
 import FormalReleaseReviewPanel from '../components/operations/FormalReleaseReviewPanel'
+import { OpenInExternalBrainButton } from '../components/external-brain/OpenInExternalBrainButton'
+import { PX_DEFAULT_WORKSPACE_ID } from '../services/pxExternalBrainBridge'
 
 const USER_ID = 'default'
 
@@ -2938,6 +2940,7 @@ const Operations: React.FC = () => {
     stale: { color: '#ef4444', label: '过旧' },
     unknown: { color: '#94a3b8', label: '未知' },
   }[marketBarFreshness?.status || 'unknown']
+  const externalBrainOperationId = selectedOperation?.id || operations[0]?.id
 
   return (
     <div className="operations-page min-w-0 space-y-6" data-fams-artifact-ref={pendingArtifactRef || ''}>
@@ -2948,6 +2951,16 @@ const Operations: React.FC = () => {
           <p className="fams-muted mb-0">先看异常和进行中任务；需要排查时再展开技术详情。</p>
         </div>
         <Space wrap className="operations-action-bar max-w-full">
+          <OpenInExternalBrainButton
+            entryId="operations"
+            label="在外部大脑追踪"
+            request={externalBrainOperationId ? {
+              entryAction: 'open_in_workspace',
+              routeIntent: 'trace',
+              routePayload: { workspaceId: PX_DEFAULT_WORKSPACE_ID, operationId: externalBrainOperationId },
+            } : undefined}
+            disabledReason={!externalBrainOperationId ? '当前没有可追踪的任务。' : undefined}
+          />
           <Button icon={<RobotOutlined />} onClick={() => askChatBox('请用普通话解释任务中心当前应该先看哪些任务、失败原因和审计证据')}>
             用 ChatBox 解释
           </Button>

@@ -20,6 +20,8 @@ import {
 } from '@ant-design/icons'
 import { API_BASE } from '../../config/api'
 import { ScreenshotCapturePanel, type ScreenshotCaptureEvent } from '../capture/ScreenshotCapturePanel'
+import { OpenInExternalBrainButton } from '../external-brain/OpenInExternalBrainButton'
+import { PX_DEFAULT_WORKSPACE_ID } from '../../services/pxExternalBrainBridge'
 
 const { Text, Paragraph } = Typography
 
@@ -976,6 +978,8 @@ export function FamsChatBox() {
         type="primary"
         icon={<RobotOutlined />}
         tooltip="FAMS 业务助手"
+        aria-label="打开 FAMS ChatBox"
+        data-testid="fams-chatbox-trigger"
         onClick={() => setOpen(true)}
         className="right-5 bottom-5"
       />
@@ -995,13 +999,21 @@ export function FamsChatBox() {
         onClose={() => setOpen(false)}
         afterOpenChange={(visible) => { if (!visible) chatTriggerRef.current?.focus() }}
         extra={(
-          <Button
-            type="text"
-            icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
-            onClick={() => setExpanded((current) => !current)}
-          >
-            {expanded ? '恢复宽度' : '展开工作区'}
-          </Button>
+          <Space wrap align="start">
+            <OpenInExternalBrainButton
+              entryId="chatbox"
+              label="在外部大脑打开"
+              size="small"
+              request={{ entryAction: 'open_workspace', routeIntent: 'ask', routePayload: { workspaceId: PX_DEFAULT_WORKSPACE_ID } }}
+            />
+            <Button
+              type="text"
+              icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
+              onClick={() => setExpanded((current) => !current)}
+            >
+              {expanded ? '恢复宽度' : '展开工作区'}
+            </Button>
+          </Space>
         )}
         styles={{ body: { padding: 18, background: '#f8fafc' }, header: { background: '#ffffff', borderBottomColor: '#e2e8f0' } }}
       >
