@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "v2-px-lifecycle-port-message/1",
+  "messageId": "px-message-contract00000002",
+  "kind": "intent_route",
+  "workspaceId": "px-ws-00000000-0000-4000-8000-000000000001",
+  "routeId": "px-route-contract00000002",
+  "correlationId": "px-corr-contract00000002",
+  "containerInstanceId": "px-container-host00000002",
+  "sourceContainer": "host_app",
+  "targetContainer": "background",
+  "sentAt": "2026-08-31T00:00:00.000Z",
+  "payload": {
+    "question": "this old generic envelope must be rejected"
+  }
+}

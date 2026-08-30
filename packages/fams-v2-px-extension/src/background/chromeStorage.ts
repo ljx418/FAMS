@@ -12,7 +12,7 @@ const WORKSPACES_KEY = 'workspaceStates'
 const RECOVERY_INDEX_KEY = 'recoveryIndex'
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 
-export type RecoveryIndexRecord = {
+type RecoveryIndexRecordV1 = {
   schemaVersion: 'v2-px-recovery-index/1'
   workspaceId: string
   currentView: RouteIntent
@@ -23,8 +23,20 @@ export type RecoveryIndexRecord = {
   expiresAt: string
 }
 
+export type RecoveryIndexRecord = {
+  schemaVersion: 'v2-px-recovery-index/2'
+  workspaceId: string
+  currentView: RouteIntent
+  selectedRef?: string
+  conversationId?: string
+  operationId?: string
+  activeGraph?: { scope: 'daily-review' | 'operation'; id: string; focusNodeId?: string }
+  updatedAt: string
+  expiresAt: string
+}
+
 export class PxStorageMigrationBlockedError extends Error {
-  readonly code = 'PX_STORAGE_VERSION_BLOCKED'
+  readonly code = 'PX_STORAGE_VERSION_UNSUPPORTED'
 
   constructor(message: string) {
     super(message)
@@ -42,30 +54,87 @@ export const chromeLedgerStorage: LedgerStorage = {
   },
 }
 
-function validRecoveryRecord(value: unknown): value is RecoveryIndexRecord {
+function recoveryRecordShape(value: unknown, schemaVersion: string, allowActiveGraph: boolean): value is RecoveryIndexRecord | RecoveryIndexRecordV1 {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const record = value as Record<string, unknown>
   const required = ['schemaVersion', 'workspaceId', 'currentView', 'updatedAt', 'expiresAt']
-  const optional = ['selectedRef', 'conversationId', 'operationId']
+  const optional = ['selectedRef', 'conversationId', 'operationId', ...(allowActiveGraph ? ['activeGraph'] : [])]
   const allowed = new Set([...required, ...optional])
   if (!required.every((key) => key in record) || Object.keys(record).some((key) => !allowed.has(key))) return false
-  if (record.schemaVersion !== 'v2-px-recovery-index/1' || !isWorkspaceId(record.workspaceId)) return false
+  if (record.schemaVersion !== schemaVersion || !isWorkspaceId(record.workspaceId)) return false
   if (!['source_library', 'source_detail', 'ask', 'trace', 'graph'].includes(String(record.currentView))) return false
   if (!Number.isFinite(Date.parse(String(record.updatedAt))) || !Number.isFinite(Date.parse(String(record.expiresAt)))) return false
   if ('selectedRef' in record && !isSourceRef(record.selectedRef)) return false
   if ('conversationId' in record && !isConversationId(record.conversationId)) return false
   if ('operationId' in record && !isFamsEntityId(record.operationId)) return false
+  if ('activeGraph' in record) {
+    if (!record.activeGraph || typeof record.activeGraph !== 'object' || Array.isArray(record.activeGraph)) return false
+    const graph = record.activeGraph as Record<string, unknown>
+    const graphAllowed = new Set(['scope', 'id', 'focusNodeId'])
+    if (Object.keys(graph).some((key) => !graphAllowed.has(key))) return false
+    if (!['daily-review', 'operation'].includes(String(graph.scope)) || !isFamsEntityId(graph.id)) return false
+    if ('focusNodeId' in graph && (typeof graph.focusNodeId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(graph.focusNodeId))) return false
+  }
   return true
 }
 
-export async function readRecoveryIndex(): Promise<RecoveryIndexRecord[]> {
+function validRecoveryRecord(value: unknown): value is RecoveryIndexRecord {
+  return recoveryRecordShape(value, 'v2-px-recovery-index/2', true)
+}
+
+function validRecoveryRecordV1(value: unknown): value is RecoveryIndexRecordV1 {
+  return recoveryRecordShape(value, 'v2-px-recovery-index/1', false)
+}
+
+function migrateRecoveryRecord(record: RecoveryIndexRecordV1): RecoveryIndexRecord {
+  const { schemaVersion: _legacy, ...rest } = record
+  return { schemaVersion: 'v2-px-recovery-index/2', ...rest }
+}
+
+async function loadRecoveryIndex(): Promise<{ records: RecoveryIndexRecord[]; migratedWorkspaceIds: string[] }> {
   const value = await browser.storage.local.get(RECOVERY_INDEX_KEY)
   const raw = value[RECOVERY_INDEX_KEY]
-  if (raw === undefined) return []
-  if (!Array.isArray(raw) || raw.some((record) => !validRecoveryRecord(record))) {
-    throw new PxStorageMigrationBlockedError('Unknown recovery index storage version or shape')
+  if (raw === undefined) return { records: [], migratedWorkspaceIds: [] }
+  if (!Array.isArray(raw)) throw new PxStorageMigrationBlockedError('Unknown recovery index storage version or shape')
+  const records: RecoveryIndexRecord[] = []
+  const migratedWorkspaceIds: string[] = []
+  for (const candidate of raw) {
+    if (validRecoveryRecord(candidate)) records.push(candidate)
+    else if (validRecoveryRecordV1(candidate)) {
+      records.push(migrateRecoveryRecord(candidate))
+      migratedWorkspaceIds.push(candidate.workspaceId)
+    } else {
+      throw new PxStorageMigrationBlockedError('Unknown recovery index storage version or shape')
+    }
   }
-  return raw as RecoveryIndexRecord[]
+  if (migratedWorkspaceIds.length > 0) {
+    await browser.storage.local.set({ [RECOVERY_INDEX_KEY]: records })
+    const readback = await browser.storage.local.get(RECOVERY_INDEX_KEY)
+    if (stableJson(readback[RECOVERY_INDEX_KEY]) !== stableJson(records)) throw new Error('PX recovery migration readback verification failed')
+  }
+  return { records, migratedWorkspaceIds }
+}
+
+export async function readRecoveryIndex(): Promise<RecoveryIndexRecord[]> {
+  return (await loadRecoveryIndex()).records
+}
+
+export async function prepareRecoveryIndexStorage(now = new Date()): Promise<{ records: RecoveryIndexRecord[]; migratedWorkspaceIds: string[] }> {
+  const loaded = await loadRecoveryIndex()
+  const records = loaded.records
+    .filter((record) => Date.parse(record.expiresAt) > now.getTime())
+    .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
+    .slice(-20)
+  if (stableJson(records) !== stableJson(loaded.records)) {
+    await browser.storage.local.set({ [RECOVERY_INDEX_KEY]: records })
+    const readback = await readRecoveryIndex()
+    if (stableJson(readback) !== stableJson(records)) throw new Error('PX recovery cleanup readback verification failed')
+  }
+  return { records, migratedWorkspaceIds: loaded.migratedWorkspaceIds }
+}
+
+export async function findRecoveryIndexRecord(workspaceId: string): Promise<RecoveryIndexRecord | undefined> {
+  return (await readRecoveryIndex()).find((record) => record.workspaceId === workspaceId)
 }
 
 export async function writeRecoveryIndexRecord(
@@ -77,7 +146,7 @@ export async function writeRecoveryIndexRecord(
     .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
     .slice(-19)
   const expected: RecoveryIndexRecord = {
-    schemaVersion: 'v2-px-recovery-index/1',
+    schemaVersion: 'v2-px-recovery-index/2',
     ...input,
     expiresAt: new Date(now.getTime() + THIRTY_DAYS_MS).toISOString(),
   }

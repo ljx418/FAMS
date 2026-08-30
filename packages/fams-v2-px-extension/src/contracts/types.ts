@@ -66,6 +66,51 @@ export type RuntimeMessage = {
   payload: IntentRoute | OperationCommand
 }
 
+export const LIFECYCLE_PORT_NAME = 'v2-px-lifecycle/1' as const
+
+type LifecyclePortCommon = {
+  schemaVersion: 'v2-px-lifecycle-port-message/1'
+  messageId: string
+  workspaceId: string
+  routeId: string
+  correlationId: string
+  containerInstanceId: string
+  sentAt: string
+}
+
+export type LifecyclePortMessage = LifecyclePortCommon & (
+  | {
+      kind: 'state_subscribe'
+      sourceContainer: 'sidepanel' | 'workspace_page'
+      targetContainer: 'background'
+      payload: { currentView: RouteIntent; selectedRef?: string; navigationType: 'open' | 'navigate' | 'reload' | 'back_forward' | 'restore' }
+    }
+  | {
+      kind: 'recover_request'
+      sourceContainer: 'sidepanel' | 'workspace_page'
+      targetContainer: 'background'
+      payload: { reason: 'manual_retry' | 'port_reconnect' | 'session_missing' }
+    }
+  | {
+      kind: 'container_close'
+      sourceContainer: 'sidepanel' | 'workspace_page'
+      targetContainer: 'background'
+      payload: { reason: 'user_close' | 'page_unload' }
+    }
+  | {
+      kind: 'state_snapshot'
+      sourceContainer: 'background'
+      targetContainer: 'sidepanel' | 'workspace_page'
+      payload: { workspaceState: WorkspaceStateV1; recoveryOutcome: 'not_needed' | 'restored' | 'blocked'; snapshotAt: string }
+    }
+  | {
+      kind: 'lifecycle_error'
+      sourceContainer: 'background'
+      targetContainer: 'sidepanel' | 'workspace_page'
+      payload: { code: 'PX_SCHEMA_INVALID' | 'PX_POLICY_BLOCKED' | 'PX_STORAGE_VERSION_UNSUPPORTED' | 'PX_BACKEND_UNAVAILABLE'; userMessage: string; recoverable: boolean }
+    }
+)
+
 export type PxErrorCode =
   | 'PX_SCHEMA_INVALID'
   | 'PX_POLICY_BLOCKED'
@@ -73,7 +118,7 @@ export type PxErrorCode =
   | 'PX_BACKEND_UNAVAILABLE'
   | 'PX_IDEMPOTENCY_CONFLICT'
   | 'PX_STORAGE_WRITE_FAILED_BEFORE_EFFECT'
-  | 'PX_STORAGE_VERSION_BLOCKED'
+  | 'PX_STORAGE_VERSION_UNSUPPORTED'
   | 'PX_RESULT_NOT_PERSISTED'
   | 'PX_UNKNOWN_DISPATCH_RESULT'
   | 'PX_NOT_IMPLEMENTED'

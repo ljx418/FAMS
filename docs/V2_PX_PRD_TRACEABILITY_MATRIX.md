@@ -12,7 +12,7 @@ prototypeDesignCoverage=TWO_CONTAINERS_HOST_THREE_ENTRY_AND_ROUTER_IDEMPOTENCY_A
 realChromeEvidencePresent=true
 px1FeasibilitySpikeAllowed=true
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-lifecycleRecoveryEntryStatus=BLOCKED_PENDING_HUMAN_RUNTIME_ENVELOPE_CHOICE
+lifecycleRecoveryEntryStatus=LC_A_ACCEPTED_PX5_01_ENTRY
 externalIndependentAuditStatus=CONDITIONAL_PASS
 externalAuditRemediationStatus=APPLIED_INTERNAL_REAUDIT_PASSED
 ```
@@ -83,4 +83,4 @@ targetRuntimeContractImplemented=PARTIAL_THROUGH_PRODUCT_PX4_ROUTER_IDEMPOTENCY
 explicitUserApprovalForImplementation=true
 ```
 
-PX1 技术基座、External Brain API、方案 A caller policy、Adapter、Workspace 五视图、Side Panel、Host Bridge 以及跨入口完整 Router/at-most-once 已通过真实 Chrome/DB/API 和 PRD 阶段复核。生命周期入场审计发现 runtime envelope 与 storage error code 两项重大合同漂移，当前等待人类选择 LC-A/LC-B；恢复和 PX6 最终验收仍不得提前声明完成。
+PX1 技术基座、External Brain API、方案 A caller policy、Adapter、Workspace 五视图、Side Panel、Host Bridge 以及跨入口完整 Router/at-most-once 已通过真实 Chrome/DB/API 和 PRD 阶段复核。用户已批准 LC-A：命令 envelope 保持不变，生命周期使用独立 Port，storage unknown-major 使用统一错误码。当前执行 LC-A 合同原子重入；恢复和 PX6 最终验收仍不得提前声明完成。

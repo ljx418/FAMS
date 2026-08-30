@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { OperationCommand } from '../src/contracts/types'
-import { dispatchAtMostOnce, type LedgerRecord, type LedgerStorage } from '../src/state/idempotencyRegistry'
+import { cleanLedgerStorage, dispatchAtMostOnce, type LedgerRecord, type LedgerStorage } from '../src/state/idempotencyRegistry'
 
 const command: OperationCommand = {
   schemaVersion: 'v2-px-operation-command/2',
@@ -134,6 +134,25 @@ describe('at-most-once dispatch ledger', () => {
     expect(storage.records).toHaveLength(500)
     expect(storage.records.some((record) => record.idempotencyKey === 'px-idem-existing-0000')).toBe(false)
     expect(storage.records.some((record) => record.idempotencyKey === command.idempotencyKey)).toBe(true)
+  })
+
+  it('retains exactly the latest 500 live records during independent startup cleanup', async () => {
+    const storage = new MemoryStorage()
+    const base = Date.parse('2026-08-29T00:00:00.000Z')
+    storage.records = Array.from({ length: 502 }, (_, index) => ({
+      idempotencyKey: `px-idem-startup-${String(index).padStart(4, '0')}`,
+      payloadDigest: String(index).padStart(64, '0'),
+      dispatchState: 'completed' as const,
+      resultStatus: 'completed' as const,
+      createdAt: new Date(base - 1000).toISOString(),
+      expiresAt: new Date(index === 0 ? base - 1 : base + 86_400_000).toISOString(),
+      lastAccessedAt: new Date(base + index).toISOString(),
+    }))
+    const cleaned = await cleanLedgerStorage(storage, new Date(base))
+    expect(cleaned).toHaveLength(500)
+    expect(storage.records).toHaveLength(500)
+    expect(storage.records[0]?.idempotencyKey).toBe('px-idem-startup-0002')
+    expect(storage.records.at(-1)?.idempotencyKey).toBe('px-idem-startup-0501')
   })
 
   it('replays completed result and blocks a digest conflict without a second dispatch', async () => {

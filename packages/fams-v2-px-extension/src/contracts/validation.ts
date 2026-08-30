@@ -4,6 +4,7 @@ import {
   type EntryAction,
   type EntryContainer,
   type IntentRoute,
+  type LifecyclePortMessage,
   type OperationCommand,
   type RouteIntent,
   type RuntimeMessage,
@@ -25,6 +26,8 @@ const ROUTE_ID_PATTERN = /^px-route-[a-z0-9][a-z0-9-]{7,80}$/
 const CORRELATION_PATTERN = /^px-corr-[a-z0-9][a-z0-9-]{7,80}$/
 const IDEMPOTENCY_PATTERN = /^px-idem-[a-z0-9][a-z0-9-]{7,120}$/
 const COMMAND_PATTERN = /^px-command-[a-z0-9][a-z0-9-]{7,80}$/
+const MESSAGE_PATTERN = /^px-message-[a-z0-9][a-z0-9-]{7,80}$/
+const CONTAINER_INSTANCE_PATTERN = /^px-container-[a-z0-9][a-z0-9-]{7,100}$/
 const SHA_PATTERN = /^[a-f0-9]{64}$/
 const COMMIT_PATTERN = /^[a-f0-9]{40}$/
 
@@ -246,6 +249,62 @@ export function validateRuntimeMessage(input: unknown, external = false): Valida
     issues.push('external host messages may only navigate to workspace')
   }
   return issues.length ? { ok: false, issues } : { ok: true, value: input as RuntimeMessage }
+}
+
+export function validateLifecyclePortMessage(input: unknown): ValidationResult<LifecyclePortMessage> {
+  const issues = scanSecretLike(input)
+  if (!isObject(input)) return { ok: false, issues: [...issues, 'lifecycle port message must be an object'] }
+  const required = [
+    'schemaVersion', 'messageId', 'kind', 'workspaceId', 'routeId', 'correlationId', 'containerInstanceId',
+    'sourceContainer', 'targetContainer', 'sentAt', 'payload',
+  ]
+  if (!hasExactKeys(input, required)) issues.push('lifecycle port message contains missing or additional fields')
+  if (input.schemaVersion !== 'v2-px-lifecycle-port-message/1') issues.push('lifecycle port schemaVersion is invalid')
+  if (typeof input.messageId !== 'string' || !MESSAGE_PATTERN.test(input.messageId)) issues.push('messageId is invalid')
+  if (!isWorkspaceId(input.workspaceId)) issues.push('workspaceId is invalid')
+  if (typeof input.routeId !== 'string' || !ROUTE_ID_PATTERN.test(input.routeId)) issues.push('routeId is invalid')
+  if (typeof input.correlationId !== 'string' || !CORRELATION_PATTERN.test(input.correlationId)) issues.push('correlationId is invalid')
+  if (typeof input.containerInstanceId !== 'string' || !CONTAINER_INSTANCE_PATTERN.test(input.containerInstanceId)) issues.push('containerInstanceId is invalid')
+  if (!isDateTime(input.sentAt)) issues.push('sentAt is invalid')
+  if (!isObject(input.payload)) issues.push('payload must be an object')
+
+  const clientKinds = ['state_subscribe', 'recover_request', 'container_close'] as const
+  const serverKinds = ['state_snapshot', 'lifecycle_error'] as const
+  if (!isOneOf(input.kind, [...clientKinds, ...serverKinds] as const)) issues.push('kind is invalid')
+  if (isOneOf(input.kind, clientKinds)) {
+    if (!isOneOf(input.sourceContainer, ['sidepanel', 'workspace_page'] as const) || input.targetContainer !== 'background') {
+      issues.push('client lifecycle direction is invalid')
+    }
+  }
+  if (isOneOf(input.kind, serverKinds)) {
+    if (input.sourceContainer !== 'background' || !isOneOf(input.targetContainer, ['sidepanel', 'workspace_page'] as const)) {
+      issues.push('server lifecycle direction is invalid')
+    }
+  }
+
+  const payload = isObject(input.payload) ? input.payload : {}
+  if (input.kind === 'state_subscribe') {
+    if (!hasExactKeys(payload, ['currentView', 'navigationType'], ['selectedRef'])) issues.push('state_subscribe payload keys are invalid')
+    if (!isOneOf(payload.currentView, ROUTE_INTENTS)) issues.push('currentView is invalid')
+    if (!isOneOf(payload.navigationType, ['open', 'navigate', 'reload', 'back_forward', 'restore'] as const)) issues.push('navigationType is invalid')
+    if ('selectedRef' in payload && (typeof payload.selectedRef !== 'string' || payload.selectedRef.length < 1 || payload.selectedRef.length > 768)) issues.push('selectedRef is invalid')
+  } else if (input.kind === 'recover_request') {
+    if (!hasExactKeys(payload, ['reason']) || !isOneOf(payload.reason, ['manual_retry', 'port_reconnect', 'session_missing'] as const)) issues.push('recover_request payload is invalid')
+  } else if (input.kind === 'container_close') {
+    if (!hasExactKeys(payload, ['reason']) || !isOneOf(payload.reason, ['user_close', 'page_unload'] as const)) issues.push('container_close payload is invalid')
+  } else if (input.kind === 'state_snapshot') {
+    if (!hasExactKeys(payload, ['workspaceState', 'recoveryOutcome', 'snapshotAt'])) issues.push('state_snapshot payload keys are invalid')
+    const state = isObject(payload.workspaceState) ? payload.workspaceState : {}
+    if (state.schemaVersion !== 'v2-px-workspace-state/1' || state.workspaceId !== input.workspaceId) issues.push('workspaceState identity is invalid')
+    if (!isOneOf(payload.recoveryOutcome, ['not_needed', 'restored', 'blocked'] as const)) issues.push('recoveryOutcome is invalid')
+    if (!isDateTime(payload.snapshotAt)) issues.push('snapshotAt is invalid')
+  } else if (input.kind === 'lifecycle_error') {
+    if (!hasExactKeys(payload, ['code', 'userMessage', 'recoverable'])) issues.push('lifecycle_error payload keys are invalid')
+    if (!isOneOf(payload.code, ['PX_SCHEMA_INVALID', 'PX_POLICY_BLOCKED', 'PX_STORAGE_VERSION_UNSUPPORTED', 'PX_BACKEND_UNAVAILABLE'] as const)) issues.push('lifecycle error code is invalid')
+    if (typeof payload.userMessage !== 'string' || payload.userMessage.length < 1 || payload.userMessage.length > 300) issues.push('lifecycle userMessage is invalid')
+    if (typeof payload.recoverable !== 'boolean') issues.push('lifecycle recoverable is invalid')
+  }
+  return issues.length ? { ok: false, issues } : { ok: true, value: input as LifecyclePortMessage }
 }
 
 export function isLifecycleEventType(value: unknown): boolean {

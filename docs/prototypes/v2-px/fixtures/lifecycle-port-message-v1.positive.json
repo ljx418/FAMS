@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "v2-px-lifecycle-port-message/1",
+  "messageId": "px-message-contract00000001",
+  "kind": "state_subscribe",
+  "workspaceId": "px-ws-00000000-0000-4000-8000-000000000001",
+  "routeId": "px-route-contract00000001",
+  "correlationId": "px-corr-contract00000001",
+  "containerInstanceId": "px-container-workspace00000001",
+  "sourceContainer": "workspace_page",
+  "targetContainer": "background",
+  "sentAt": "2026-08-31T00:00:00.000Z",
+  "payload": {
+    "currentView": "source_library",
+    "navigationType": "open"
+  }
+}

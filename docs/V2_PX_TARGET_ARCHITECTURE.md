@@ -1,6 +1,6 @@
 # V2-PX 目标架构与当前架构差异
 
-更新时间：2026-08-29
+更新时间：2026-08-31
 
 ## 1. 架构结论
 
@@ -13,7 +13,7 @@ implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_
 routeAAdrStatus=TECHNICALLY_VALIDATED_SCHEME_A_IMPLEMENTED
 productAuthorityStatus=FROZEN
 routeAImplementationReadiness=LIFECYCLE_RECOVERY_AND_FINAL_ACCEPTANCE_REMAIN
-productPx5LifecycleEntryStatus=BLOCKED_PENDING_HUMAN_RUNTIME_ENVELOPE_CHOICE
+productPx5LifecycleEntryStatus=LC_A_ACCEPTED_PX5_01_ENTRY
 routeATechnicallyValidated=true
 routeAProductionApproved=false
 ```
@@ -80,6 +80,10 @@ PX1～产品 PX4 已实现 WXT package、Background、Side Panel、Workspace、t
 | 已实现（产品 PX4 已验收） | `src/state/idempotencyRegistry.ts` | local dispatch ledger、同 key 重放、冲突拒绝、完整回读 | 并发 20 次 POST=1；restart/fault/unknown 不自动重试 |
 | 已实现（恢复待产品 PX5） | `src/background/chromeStorage.ts` | session WorkspaceState、local ledger、20 条/30 天 recoveryIndex | 固定写序与正文零落盘已验收；启动恢复、TTL/migration 全矩阵待产品 PX5 |
 | 已实现（PX5 需补强） | `src/state/lifecycleAuditStore.ts` | lifecycle/3 封闭 eventType、sequence/reason 与状态迁移 | 当前 route/load/blocked 可追溯；断连/reload/close 全矩阵待 PX5 |
+| 合同已冻结、待 PX5-01 | `src/background/lifecyclePortManager.ts` | 验证 `v2-px-lifecycle/1` Port、首包订阅、sender 与 container lease；推送 Background snapshot | 不接收 Host；无 heartbeat/alarms；断开零越权副作用 |
+| 待 PX5-01 | `src/background/lifecycleCoordinator.ts` | startup/update 清理、session/local 恢复、已知 v1→v2 迁移、URL 与状态调和 | 未知 major 保留原始 bytes 并 blocked；Background 单写 |
+| 待 PX5-01 | `src/ui/lifecycleClient.ts` | Side Panel/Workspace 建立 Port、订阅 snapshot、一次有界重连 | UI 不自行宣称 restored；不持续保活 service worker |
+| 待 PX5-02 | `src/background/operationPoller.ts` | 只对已存在的 active GET Operation 做 2/4/8/10 秒有界轮询 | POST 永不轮询/重发；终态、断连或无 lease 立即停止 |
 
 ### 4.3 UI 体验层
 
@@ -126,7 +130,8 @@ GET  /api/v1/external-brain/graphs/:scope/:id
 | 已实现（恢复待 PX5） | `tests/workspace.test.ts`、`scripts/verify-workspace-chrome.mjs` | 独立宿主、五视图、768/1280 与真实数据；完整刷新恢复后续 |
 | 已实现 | `tests/sidepanel.test.ts`、`scripts/verify-sidepanel-chrome.mjs` | 360/420 Side Panel 单元与真实 Chrome/DB/API/LLM 证据 |
 | 已实现（产品 PX4 已验收） | `tests/router.test.ts`、`idempotency.test.ts`、`storage.test.ts`、`runtime-handler.test.ts`、`scripts/verify-router-idempotency-chrome.mjs` | 3×3、五 intent、20 次/并发/多窗口、restart/storage fault、固定写序与交易零副作用 |
-| 待新增（PX5） | lifecycle recovery Chrome verifier | 断连、reload、reconnect、close、TTL/LRU |
+| 待新增（PX5-01） | `scripts/verify-lifecycle-recovery-chrome.mjs` | Back/Forward/Refresh、关闭重开、Chrome 重启、v1/未知 major、TTL/LRU |
+| 待新增（PX5-02） | `scripts/verify-lifecycle-interruption-chrome.mjs` | FAMS 断连恢复、worker suspend、extension update、lease/轮询停止 |
 | 已实现（分阶段） | `verify-real-chrome.mjs`、`verify-workspace-chrome.mjs`、`verify-sidepanel-chrome.mjs`、frontend Host verifier | Playwright + Chrome CDP 分阶段真实证据 |
 | 已实现（本地私有） | `.verification/private/v2-px/**` | PX1/PX2/PX3/PX4A/PX4B/PX5 截图、trace、事件、network 与哈希 |
 

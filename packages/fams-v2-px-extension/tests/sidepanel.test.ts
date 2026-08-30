@@ -73,7 +73,7 @@ describe('Side Panel lightweight product experience', () => {
   })
 
   it('defines honest non-ready states and never renders a trading action', () => {
-    expect(Object.keys(SIDE_PANEL_STATE_COPY).sort()).toEqual(['blocked', 'checking', 'empty', 'failed', 'loading', 'not_connected'])
+    expect(Object.keys(SIDE_PANEL_STATE_COPY).sort()).toEqual(['blocked', 'checking', 'empty', 'failed', 'loading', 'not_connected', 'recovering'])
     expect(Object.values(SIDE_PANEL_STATE_COPY).every((item) => item.title && item.detail && item.action)).toBe(true)
     const html = renderToStaticMarkup(createElement(SidePanelContent, baseProps))
     expect(html).not.toMatch(/创建订单|立即买入|自动交易|解锁交易/)

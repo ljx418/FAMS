@@ -60,6 +60,7 @@ const fixtureRoot = resolve(repoRoot, 'docs/prototypes/v2-px/fixtures')
 const fixturesPath = resolve(fixtureRoot, 'semantic-contract-fixtures.json')
 const privateEvidenceRoot = resolve(repoRoot, '.verification/private/v2-px')
 const stageStatePath = resolve(repoRoot, 'docs/current-stage-state.json')
+const runtimeContractPath = resolve(repoRoot, 'docs/V2_PX_API_RUNTIME_CONTRACT.md')
 
 function issue(code: string, message: string): ValidationIssue {
   return { code, message }
@@ -78,6 +79,11 @@ function stableJson(value: unknown): string {
     return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`
   }
   return JSON.stringify(value)
+}
+
+function contractMetadata(markdown: string): Record<string, string> {
+  const block = markdown.match(/```text\n([\s\S]*?)\n```/)?.[1] ?? ''
+  return Object.fromEntries(block.split('\n').map((line) => line.split('=', 2)).filter((parts) => parts.length === 2))
 }
 
 function collectEvidenceRefs(value: unknown, refs: string[] = []): string[] {
@@ -235,12 +241,11 @@ async function verifyTargetChromeEvidence(document: Record<string, unknown>): Pr
 
 function semanticIntentRoute(document: Record<string, unknown>): ValidationIssue[] {
   const issues = [...assertAuthority(document), ...findSecretKeys(document)]
-  const actionTargets: Record<string, string> = {
-    view_source: 'sidepanel',
-    open_workspace: 'workspace_page',
-    open_in_workspace: 'workspace_page',
-  }
-  const expectedTarget = actionTargets[String(document.entryAction)]
+  const action = String(document.entryAction)
+  const entry = String(document.entryContainer)
+  const expectedTarget = action === 'view_source'
+    ? entry === 'sidepanel' ? 'sidepanel' : 'workspace_page'
+    : ['open_workspace', 'open_in_workspace'].includes(action) ? 'workspace_page' : undefined
   if (!expectedTarget) issues.push(issue('unknown_entry_action', `Unknown entryAction: ${String(document.entryAction)}`))
   if (expectedTarget && document.targetContainer !== expectedTarget) {
     issues.push(issue('target_mismatch', `${String(document.entryAction)} must target ${expectedTarget}`))
@@ -377,11 +382,28 @@ async function main() {
     featureTracks?: { v2PxExternalBrain?: Record<string, unknown> }
   }
   const v2State = stageState.featureTracks?.v2PxExternalBrain ?? {}
+  const runtimeContract = await readFile(runtimeContractPath, 'utf8')
+  const metadata = contractMetadata(runtimeContract)
+  assert.equal(metadata.runtimeContractImplemented, 'true', 'Runtime contract metadata must disclose implemented target command contracts')
+  assert.equal(metadata.runtimeEnvelopeDecision, 'LC_A_COMMAND_MESSAGE_TYPE_AND_DEDICATED_LIFECYCLE_PORT', 'LC-A envelope decision is missing')
+  assert.equal(metadata.currentIntentRouteSchema, v2State.currentIntentRouteContract, 'Intent route metadata/state drift')
+  assert.equal(metadata.currentOperationCommandSchema, v2State.currentOperationCommandContract, 'Operation command metadata/state drift')
+  assert.equal(metadata.currentLifecycleAuditSchema, v2State.currentLifecycleAuditContract, 'Lifecycle metadata/state drift')
+  assert.equal(metadata.currentRealChromeEvidenceSchema, v2State.currentRealChromeEvidenceContract, 'Chrome evidence metadata/state drift')
+  assert.match(runtimeContract, /messageType: 'intent_route' \| 'operation_command'/, 'LC-A command envelope is missing')
+  assert.match(runtimeContract, /chrome\.runtime\.connect\(\{name:'v2-px-lifecycle\/1'\}\)/, 'LC-A lifecycle port is missing')
+  assert.doesNotMatch(runtimeContract, /kind: 'intent_route' \| 'operation_command' \| 'state_subscribe'/, 'Old generic envelope remains authoritative')
   const contractReentryInProgress = v2State.currentPhase === 'px1_contract_reentry'
   if (contractReentryInProgress) {
     assert.equal(v2State.px1TargetContractsImplemented, false, 'PX1 target contract cannot be complete during contract reentry')
     assert.equal(v2State.px2PlusAllowed, false, 'PX2+ promotion must be blocked during PX1 contract reentry')
     assert.ok(Number(v2State.knownBlockingCrossDocumentConflicts) >= 1, 'Contract reentry must disclose the blocking conflict')
+  }
+  const lifecycleContractReentryInProgress = v2State.currentPhase === 'product_px5_lc_a_contract_reentry'
+  if (lifecycleContractReentryInProgress) {
+    assert.equal(v2State.productPx5LifecycleContractDecision, 'LC_A_COMMAND_MESSAGE_TYPE_AND_DEDICATED_LIFECYCLE_PORT')
+    assert.equal(v2State.productPx5LifecycleProductionCodeAllowed, false, 'PX5 production feature code stays blocked until LC-A acceptance')
+    assert.equal(v2State.productPx5LifecycleOpenMajorSpecificationFindings, 0, 'LC-A entry audit must have zero open major findings')
   }
   const schemaNames = [
     'v2-px-intent-route.schema.json',
@@ -414,6 +436,7 @@ async function main() {
     ['v2-px-operation-command-v2.schema.json', 'operation-command-v2.positive.json', 'operation-command-v2.negative.json'],
     ['v2-px-dual-container-lifecycle-v3.schema.json', 'dual-container-lifecycle-v3.positive.json', 'dual-container-lifecycle-v3.negative.json'],
     ['v2-px-real-chrome-evidence-v2.schema.json', 'real-chrome-evidence-v2.positive.json', 'real-chrome-evidence-v2.negative.json'],
+    ['v2-px-lifecycle-port-message-v1.schema.json', 'lifecycle-port-message-v1.positive.json', 'lifecycle-port-message-v1.negative.json'],
   ] as const
   const targetAjv = new Ajv2020({ allErrors: true, strict: true, validateFormats: false })
   const targetResults: Array<{ schema: string; positivePassed: boolean; negativeRejected: boolean }> = []

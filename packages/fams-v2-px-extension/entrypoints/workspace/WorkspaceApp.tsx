@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { browser } from 'wxt/browser'
 import type { WorkspaceViewData } from '../../src/adapters/fams/types'
 import { createIntentRoute, createOperationCommand } from '../../src/contracts/factories'
-import type { IntentRoute, RouteIntent } from '../../src/contracts/types'
+import type { IntentRoute, RouteIntent, WorkspaceStateV1 } from '../../src/contracts/types'
+import { openLifecycleChannel } from '../../src/ui/lifecycleClient'
 import { sendCommandDetailed, sendRoute } from '../../src/ui/runtimeClient'
 
 const VIEW_LABELS: Record<RouteIntent, string> = {
@@ -20,16 +21,30 @@ export const STATE_COPY: Record<Exclude<UiState, 'ready'>, { title: string; deta
 }
 
 const displayTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false })
+const ROUTE_INTENTS: RouteIntent[] = ['source_library', 'source_detail', 'ask', 'trace', 'graph']
+
+function lifecycleUiState(state: WorkspaceStateV1): UiState {
+  if (state.lifecycleStatus === 'ready') return 'ready'
+  if (state.lifecycleStatus === 'empty') return 'empty'
+  if (state.lifecycleStatus === 'failed') return 'failed'
+  if (state.lifecycleStatus === 'blocked') return 'blocked'
+  if (state.lifecycleStatus === 'recovering' || state.recovery.status === 'recovering' || state.lifecycleStatus === 'closed') return 'recovering'
+  if (state.lifecycleStatus === 'uninitialized' || state.lifecycleStatus === 'disconnected') return 'not_connected'
+  return 'loading'
+}
 
 export function WorkspaceApp() {
   const params = useMemo(() => new URLSearchParams(window.location.search), [])
-  const currentView = (params.get('view') ?? 'source_library') as RouteIntent
+  const requestedView = params.get('view')
+  const currentView: RouteIntent = requestedView && ROUTE_INTENTS.includes(requestedView as RouteIntent) ? requestedView as RouteIntent : 'source_library'
   const workspaceId = params.get('workspaceId') ?? 'px-ws-00000000-0000-4000-8000-000000000001'
+  const selectedRef = params.get('ref') ?? undefined
   const [uiState, setUiState] = useState<UiState>('loading')
   const [message, setMessage] = useState('正在连接 Background 单写者…')
   const [viewData, setViewData] = useState<WorkspaceViewData | null>(null)
   const [question, setQuestion] = useState('')
   const [ackVisible, setAckVisible] = useState(false)
+  const [backgroundState, setBackgroundState] = useState<WorkspaceStateV1 | null>(null)
 
   const loadView = useCallback(async (recovering = false) => {
     setUiState(recovering ? 'recovering' : 'loading')
@@ -45,7 +60,24 @@ export function WorkspaceApp() {
     else { setUiState('failed'); setMessage(result.error?.userMessage ?? '读取失败。') }
   }, [workspaceId])
 
-  useEffect(() => { void loadView() }, [loadView])
+  useEffect(() => {
+    const channel = openLifecycleChannel({
+      workspaceId, container: 'workspace_page', currentView, ...(selectedRef ? { selectedRef } : {}),
+      onSnapshot: (state) => {
+        setBackgroundState(state)
+        setUiState(lifecycleUiState(state))
+        if (state.recovery.status === 'restored') setMessage('已由 Background 恢复工作区并重新验证真实 FAMS 数据。')
+        if (state.recovery.status === 'blocked') setMessage('Background 无法安全恢复；原恢复索引仍保留，请按原因处理。')
+      },
+    })
+    void channel.firstSnapshot
+      .then((snapshot) => {
+        const state = snapshot.payload.workspaceState
+        if (state.lifecycleStatus !== 'blocked' && state.recovery.status !== 'blocked') return loadView(state.recovery.status === 'recovering')
+      })
+      .catch(() => { setUiState('blocked'); setMessage('生命周期订阅未通过验证；系统没有自行显示恢复成功。') })
+    return () => channel.disconnect()
+  }, [currentView, loadView, selectedRef, workspaceId])
 
   async function openSidePanel() {
     const current = await browser.windows.getCurrent()
@@ -82,7 +114,7 @@ export function WorkspaceApp() {
   const stateCopy = uiState === 'ready' ? null : STATE_COPY[uiState]
 
   return (
-    <main className="px-shell px-shell--workspace" data-testid="workspace-app" data-view={currentView} data-ui-state={uiState}>
+    <main className="px-shell px-shell--workspace" data-testid="workspace-app" data-view={currentView} data-ui-state={uiState} data-lifecycle-state={backgroundState?.lifecycleStatus ?? 'pending'}>
       <header className="px-header">
         <div>
           <p className="px-eyebrow">FAMS External Brain</p>

@@ -17,27 +17,11 @@ import {
 } from './chromeStorage'
 import { buildWorkspacePath } from './intentRouter'
 import { openOrFocusWorkspace } from './workspaceTabManager'
+import { serializeWorkspaceState } from './workspaceStateQueue'
 
 const ALLOWED_HOST_ORIGINS = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
 const adapter = new FamsDomainAdapter(new FamsApiClient(browser.runtime.id))
-const workspaceStateQueues = new Map<string, Promise<void>>()
-
 type RuntimeResponse = CommandResult | BackgroundCommandResponse
-
-async function serializeWorkspaceState<T>(workspaceId: string, task: () => Promise<T>): Promise<T> {
-  const previous = workspaceStateQueues.get(workspaceId) ?? Promise.resolve()
-  let release: () => void = () => {}
-  const gate = new Promise<void>((resolve) => { release = resolve })
-  const tail = previous.catch(() => undefined).then(() => gate)
-  workspaceStateQueues.set(workspaceId, tail)
-  await previous.catch(() => undefined)
-  try {
-    return await task()
-  } finally {
-    release()
-    if (workspaceStateQueues.get(workspaceId) === tail) workspaceStateQueues.delete(workspaceId)
-  }
-}
 
 function blocked(message: RuntimeMessage | null, userMessage: string): CommandResult {
   const payload = message?.payload
@@ -93,6 +77,15 @@ async function recordRoute(route: IntentRoute): Promise<void> {
       lastEventSeq: event.sequence,
       updatedAt: event.at,
     }
+    await writeRecoveryIndexRecord({
+      workspaceId,
+      currentView: next.currentView,
+      ...(next.selectedRef ? { selectedRef: next.selectedRef } : {}),
+      ...(next.conversationId ? { conversationId: next.conversationId } : {}),
+      ...(next.activeOperationId ? { operationId: next.activeOperationId } : {}),
+      ...(next.activeGraph ? { activeGraph: next.activeGraph } : {}),
+      updatedAt: next.updatedAt,
+    })
     await writeWorkspaceStateAndEvents({ ...states, [workspaceId]: next }, [...events, event])
   })
 }
@@ -118,6 +111,11 @@ async function recordLoadResult(workspaceId: string, outcome: 'ready' | 'empty' 
       ...current,
       lifecycleStatus: event.nextState,
       connection: outcome === 'failed' ? { status: 'disconnected' } : { status: 'connected', lastHealthAt: event.at },
+      recovery: current.recovery.status === 'recovering'
+        ? outcome === 'failed'
+          ? { status: 'blocked', reasonCode: 'PX_BACKEND_UNAVAILABLE' }
+          : { status: 'restored' }
+        : current.recovery,
       lastEventSeq: event.sequence,
       updatedAt: event.at,
     }
@@ -292,7 +290,7 @@ async function handleRefresh(message: RuntimeMessage, command: OperationCommand)
       : commandFailure(command, 'PX_BACKEND_UNAVAILABLE', '本地 FAMS 暂时不可用，请启动后端后重试。', 'failed'))
   }
   try {
-    const viewData = await adapter.loadWorkspaceView(state)
+    const viewData = await adapter.loadWorkspaceView(command.sourceContainer === 'sidepanel' ? { ...state, currentView: 'source_library' } : state)
     const empty = viewData?.status === 'empty'
     await recordLoadResult(workspaceId, empty ? 'empty' : 'ready')
     return backgroundResponse({
@@ -362,7 +360,7 @@ export async function handleRuntimeMessage(input: unknown, options: { external?:
       return await handleIntent(message.payload as IntentRoute, options.senderTabId)
     } catch (error) {
       if (error instanceof PxStorageMigrationBlockedError) {
-        return { ...blocked(message, '检测到未知或冲突的旧版工作区状态，已阻止自动迁移。请导出诊断后清理扩展状态。'), error: { code: 'PX_STORAGE_VERSION_BLOCKED', userMessage: '检测到未知或冲突的旧版工作区状态，已阻止自动迁移。请导出诊断后清理扩展状态。', recoverable: false } }
+        return { ...blocked(message, '检测到未知或冲突的旧版工作区状态，已阻止自动迁移。请导出诊断后清理扩展状态。'), error: { code: 'PX_STORAGE_VERSION_UNSUPPORTED', userMessage: '检测到未知或冲突的旧版工作区状态，已阻止自动迁移。请导出诊断后清理扩展状态。', recoverable: false } }
       }
       throw error
     }

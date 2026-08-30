@@ -1,27 +1,30 @@
 # V2-PX API、消息、状态与安全运行时合同
 
-更新时间：2026-08-27
+更新时间：2026-08-31
 
 ## 1. 文档定位与约束优先级
 
-本文冻结 V2-PX 在本地单用户范围内的实现级合同，解决 PRD、原型、现有 PX-0 schema 与目标架构之间原先存在的技术留白。本文是开发前规格，不是实现文件；当前不得据此创建扩展包或修改前后端代码。
+本文冻结 V2-PX 在本地单用户范围内的实现级合同。PX1 至产品 PX4 已实现并重签命令运行时合同；2026-08-31 用户批准 LC-A，产品 PX5 使用独立生命周期端口，不改写既有 Router/Command 主链。
 
 ```text
-contractStatus=TARGET_DECISIONS_FROZEN_DOCUMENTATION_ONLY
-implementationStatus=NOT_STARTED
+contractStatus=LC_A_RUNTIME_AND_LIFECYCLE_DECISIONS_FROZEN
+implementationStatus=TARGET_RUNTIME_IMPLEMENTED_LIFECYCLE_PORT_CONTRACT_READY
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 statusSourcePolicy=docs/current-stage-state.json
-currentIntentRouteSchema=v2-px-intent-route/2_px0_baseline
-targetIntentRouteSchema=v2-px-intent-route/3_planned_not_implemented
-currentOperationCommandSchema=v2-px-operation-command/1_px0_baseline
-targetOperationCommandSchema=v2-px-operation-command/2_planned_not_implemented
-currentLifecycleAuditSchema=v2-px-dual-container-lifecycle/2_px0_baseline
-targetLifecycleAuditSchema=v2-px-dual-container-lifecycle/3_planned_not_implemented
-currentRealChromeEvidenceSchema=v2-px-real-chrome-evidence/1_px0_baseline
-targetRealChromeEvidenceSchema=v2-px-real-chrome-evidence/2_planned_not_implemented
+currentIntentRouteSchema=v2-px-intent-route/3_runtime_implemented_reissued
+targetIntentRouteSchema=v2-px-intent-route/3_implemented_reissued
+currentOperationCommandSchema=v2-px-operation-command/2_runtime_implemented_reissued
+targetOperationCommandSchema=v2-px-operation-command/2_implemented_reissued
+currentLifecycleAuditSchema=v2-px-dual-container-lifecycle/3_runtime_implemented
+targetLifecycleAuditSchema=v2-px-dual-container-lifecycle/3_implemented
+currentRealChromeEvidenceSchema=v2-px-real-chrome-evidence/2_runtime_implemented
+targetRealChromeEvidenceSchema=v2-px-real-chrome-evidence/2_implemented
+targetLifecyclePortSchema=v2-px-lifecycle-port-message/1_contract_ready
 currentAcceptanceSchemas=v2-px-acceptance-manifest/1_px0_baseline,v2-px-acceptance-report/1_px0_baseline
 targetAcceptanceSchemas=v2-px-acceptance-manifest/2_planned_not_implemented,v2-px-acceptance-report/2_planned_not_implemented
-runtimeContractImplemented=false
+runtimeContractImplemented=true
+lifecyclePortRuntimeImplemented=false
+runtimeEnvelopeDecision=LC_A_COMMAND_MESSAGE_TYPE_AND_DEDICATED_LIFECYCLE_PORT
 ```
 
 发生冲突时按以下顺序处理，不允许开发者静默自行选择：
@@ -48,7 +51,7 @@ runtimeContractImplemented=false
 | CT-GAP-07 | 计划命令没有明确在哪个 package 执行 | 所有命令按 backend/frontend/extension 三个实际 package 归属 | PX-1～PX-6 |
 | CT-GAP-08 | Route A 架构路线状态与 FAMS 产品权威归属命名混用 | 架构路线只使用 `routeAAdrStatus`；产品归属只使用 `productAuthorityStatus` | D0/PX-6 |
 
-当前 JSON schema 与 semantic validator 是已提交的 PX-0 历史基线，不能被描述为目标 v3/v2 已实现。用户批准实施后，PX-1 必须把 schema、validator、正负 fixture 和类型绑定作为一个原子变更完成；任一部分缺失则 G2/G3 失败。
+PX1 已把 intent/3、command/2、lifecycle/3、Chrome evidence/2 的 schema、validator、fixtures 和类型原子迁移并由后续阶段重签。LC-A 再增加 lifecycle port/1，并要求 semantic validator 同时校验本页 metadata、阶段状态和两条互不混用的 envelope；任一部分缺失则 G2/G3 失败。
 
 用户批准 PX-1 前，以下审计约束必须保持为不可省略的实施前置；这里冻结的是 target 草案和负例，不修改 current PX-0 schema：
 
@@ -119,23 +122,47 @@ chrome.runtime.getURL('/workspace.html')
 
 ## 4. 目标运行时消息合同
 
-### 4.1 外层消息 envelope
+### 4.1 Router/Command 消息 envelope（LC-A 保持不变）
 
-所有容器到 Background 的内部消息使用 `v2-px-runtime-message/1`：
+Router/Command 从容器到 Background 继续使用已验收的 `v2-px-runtime-message/1`：
 
 ```ts
 type RuntimeMessage = {
   schemaVersion: 'v2-px-runtime-message/1'
+  messageType: 'intent_route' | 'operation_command'
+  routeId: string
+  correlationId: string
+  idempotencyKey: string
+  sourceContainer: 'sidepanel' | 'workspace_page' | 'host_app'
+  targetContainer: 'sidepanel' | 'workspace_page' | 'background'
+  sentAt: string
+  payload: IntentRouteV3 | OperationCommandV2
+}
+```
+
+Background 的处理顺序必须固定为：sender 校验 → envelope schema → payload schema → secret-like 扫描 → policy → idempotency/route 规范化 → 状态事件 → 网络或 tab 动作 → 直接返回 command result。`command_result` 不伪装为反向 runtime message。任何一步失败都不得继续执行后续副作用。
+
+### 4.1.1 生命周期专用 Port（LC-A）
+
+扩展自有 Side Panel/Workspace 使用 `chrome.runtime.connect({name:'v2-px-lifecycle/1'})`。该端口不承载 Router/Command，Host App 不能连接。消息 schema 为 `v2-px-lifecycle-port-message/1`：
+
+```ts
+type LifecyclePortMessage = {
+  schemaVersion: 'v2-px-lifecycle-port-message/1'
   messageId: `px-message-${string}`
-  kind: 'intent_route' | 'operation_command' | 'state_subscribe' | 'state_snapshot' | 'command_result'
-  sourceContainer: 'sidepanel' | 'workspace_page' | 'host_app' | 'background'
+  kind: 'state_subscribe' | 'recover_request' | 'container_close' | 'state_snapshot' | 'lifecycle_error'
+  workspaceId: string
+  routeId: string
+  correlationId: string
+  containerInstanceId: string
+  sourceContainer: 'sidepanel' | 'workspace_page' | 'background'
   targetContainer: 'sidepanel' | 'workspace_page' | 'background'
   sentAt: string
   payload: unknown
 }
 ```
 
-Background 的处理顺序必须固定为：sender 校验 → envelope schema → payload schema → secret-like 扫描 → policy → idempotency/route 规范化 → 状态事件 → 网络或 tab 动作 → command result。任何一步失败都不得继续执行后续副作用。
+约束：首次 client 消息必须是 `state_subscribe`；其 payload 严格包含 `view/ref?/navigationType`，`navigationType` 仅为 `open|navigate|reload|back_forward|restore`。Background 只返回 `state_snapshot`（WorkspaceState、recovery outcome、snapshotAt）或 `lifecycle_error`。sender/page/字段/secret-like 校验失败立即断开且不得写 storage、调用 FAMS 或创建 tab。端口不发送 heartbeat、不使用 alarm、不以持续消息延长 MV3 service worker 生命周期；只在页面事件、连接事件和用户动作时通信。
 
 ### 4.2 `intent-route/3` 只负责导航
 

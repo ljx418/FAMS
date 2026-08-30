@@ -7,7 +7,7 @@
 V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。文档阶段已经完成且用户已批准方案 A 顺序实施；PX1 技术基座、PX2 Workspace、PX3 Side Panel/Host 与产品 PX4 Router/at-most-once 已通过自动化验收。当前只允许进入产品 PX5 生命周期/恢复的文档准入，不得跳过该阶段直接声明产品化候选完成。
 
 ```text
-currentStage=PRODUCT_PX5_LIFECYCLE_RECOVERY_SPEC_REENTRY_BLOCKED
+currentStage=PRODUCT_PX5_01_RECOVERY_MIGRATION_ENTRY
 px0GithubReviewGate=PASS
 authorityBaselineStatus=FROZEN
 productAuthorityStatus=FROZEN
@@ -24,13 +24,13 @@ px1SixSpikesPassed=true
 px2PlusAllowed=true
 px4BHostBridgeAutomatedAccepted=true
 px5RouterIdempotencyStatus=AUTOMATED_ACCEPTANCE_PASSED
-productPx5LifecycleStatus=BLOCKED_PENDING_HUMAN_RUNTIME_ENVELOPE_CHOICE
+productPx5LifecycleStatus=LC_A_ACCEPTED_PX5_01_ENTRY
 v2PxComplete=false
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-productionCodeChangesAllowedInCurrentPhase=NONE_UNTIL_LC_A_OR_LC_B_APPROVED_AND_MAJOR_FINDINGS_CLOSED
+productionCodeChangesAllowedInCurrentPhase=PX5_01_ONLY
 ```
 
-产品 PX5 入场审计在 `docs/audits/v2-px/PX6/ENTRY_AUDIT.md` 登记了 3 个开放重大规格冲突：权威 Markdown 与生产 runtime envelope 形状不一致、storage unknown-major 错误码不一致、合同 metadata 与 current state 互斥且未被 semantic validator 阻断。详细闭环选项见 `docs/audits/v2-px/PX6/SPEC_REENTRY_DECISION.md`；在人类选择 LC-A 或 LC-B 前，自动化必须停止，现有 `test:lifecycle` 或 semantic PASS 不得冒充生命周期出门。
+产品 PX5 入场审计曾登记 3 个开放重大规格冲突；用户已批准 `LC-A`。当前按 `docs/audits/v2-px/LC_A/DEVELOPMENT_PLAN.md` 执行合同原子重入：保留 Router/Command envelope，新增生命周期 Port，统一 storage error，并补 metadata 防假绿。在 LC-A 验收审计完成前，现有 `test:lifecycle` 或 semantic PASS 仍不得冒充生命周期出门。
 
 本计划的架构、运行时合同、原型、追踪和图形入口分别为 `V2_PX_TARGET_ARCHITECTURE.md`、`V2_PX_API_RUNTIME_CONTRACT.md`、`prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`、`V2_PX_PRD_TRACEABILITY_MATRIX.md` 和 `v2-px-target-architecture-gap.drawio`；自动文档验收记录在 `V2_PX_DOCUMENTATION_ACCEPTANCE.md`。
 
@@ -296,12 +296,14 @@ multi_window_tab_reuse_trace.json
 
 ### PX-5 双容器生命周期与恢复
 
-目标：真实 Chrome 中验证 sidepanel 与 Workspace Page 的 start、resume、reconnect、close、extension reload/update 恢复。
+目标：按 LC-A 在真实 Chrome 中验证 Side Panel 与 Workspace Page 的 start、resume、reconnect、close、extension reload/update 恢复。Router/Command 继续使用既有 `runtime.sendMessage`；状态订阅只使用 `v2-px-lifecycle/1` Port，禁止 heartbeat/alarms 保活。
 
 计划验收命令：
 
 ```text
 npm --prefix packages/fams-v2-px-extension run test:lifecycle
+npm --prefix packages/fams-v2-px-extension run verify:lifecycle-recovery-chrome
+npm --prefix packages/fams-v2-px-extension run verify:lifecycle-interruption-chrome
 ```
 
 验收证据：
@@ -507,7 +509,7 @@ Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和
 | M2 Bounded API + Workspace Accepted | M1 + 人工确认 | 五端点 DTO/同源/policy；768/1280、五视图、六状态、刷新恢复 | 完整工作台可读真实结果并受控提问 | 自动化核心切片 PASS（commit `6c8714e`）；正式权限点击留最终人类门槛，深度生命周期留 PX-5 |
 | M3 Side Panel Entry Accepted | M2 | 360/420、简明摘要、连接、跳转和 host app 入口通过 | 随时快速提问并进入完整页 | 自动化 PASS；Side Panel=`bc7cc5a`，Host Bridge=`a0758b4`；正式 permission 点击留最终人类门槛 |
 | M4 Intent & FAMS Adapter Accepted | M3 | 三入口、五 intent、20 次 tab/idempotency、交易边界通过 | 同一任务不重复，结果来自现有 FAMS | 自动化 PASS（commit `4e752a6`）；3×3、五 intent、20 串行/并发/多窗口与 storage fault 全部重签 |
-| M5 Lifecycle Accepted | M4 | 必测 lifecycle 场景 100% 可推导 | 刷新、重开、断连可恢复或明确阻断 | 未开始 |
+| M5 Lifecycle Accepted | M4 + LC-A 合同验收 | PX5-01/PX5-02 必测 lifecycle 场景 100% 可推导 | 刷新、重开、断连可恢复或明确阻断 | LC-A 合同重入中 |
 | M6 Productization Candidate | M5 | G1～G7、四视口、隐私、HTML、人工体验通过 | 可作为本地浏览器产品化候选使用 | 未开始 |
 
 ## 10. 用户场景验收目录
@@ -615,8 +617,8 @@ docs/prototypes/v2-px/fixtures/real-chrome-evidence-v2.negative.json
 | PX4-01 Router 完整集成（已验收） | 3×3 动作、五 intent、canonical key、correlation/route chain | M3 | extension `test:router` + `verify:router-idempotency-chrome` | 三入口同对象落在相同工作区/视图 | 自动化 PASS；证据见 PX5 阶段审计 |
 | PX4-02 at-most-once（已验收） | idempotency registry、local dispatch ledger、prepared/dispatched/completed/unknown；固定 cleanup→ledger 回读→recoveryIndex→session 顺序；覆盖副作用前/后 storage 写失败 | PX4-01 | 重放、冲突、restart、timeout、prepared/dispatched 写失败、结果后 completed 写失败负例 | 结果后写失败显示“已收到但未保存，刷新后到 FAMS 复核”，不得提示安全重试 | 自动化 PASS；同 key 并发 20 次 POST=1，unknown 重放新增 POST=0 |
 | PX4-03 边界集成（已验收） | FAMS adapter/policy、证据脱敏、订单 endpoint 监测 | PX4-02 | policy/redaction/trade boundary audits | 所有页面保持研究/人工计划措辞 | 自动化 PASS；secret 正文=0、order/broker=0、交易表差分=0、四锁=false |
-| PX5-01 恢复与迁移 | Back/Forward/Refresh、关闭重开、TTL/LRU、已知/未知 storage version | M4 | extension `test:lifecycle` | 5 秒内进入 restored/recovering/blocked | 静默清空或自报成功即 fail |
-| PX5-02 中断生命周期 | FAMS 断连、background suspend/reconnect、extension reload/update、轮询停止 | PX5-01 | lifecycle event/Chrome trace | 上次任务仍可识别，恢复失败有下一步 | 事件不可推导则 fail |
+| PX5-01 恢复与迁移 | `lifecyclePortManager/lifecycleCoordinator/lifecycleClient`；Back/Forward/Refresh、关闭重开、Chrome 重启、RecoveryIndex/2、启动 TTL/LRU、已知 v1/未知 major | LC-A 验收 + M4 | `test:lifecycle` + `verify:lifecycle-recovery-chrome` | 5 秒内进入 restored/recovering/blocked；上次 view/ref 可识别 | 静默清空、自报 success、Host Port 或保活消息即 fail |
+| PX5-02 中断生命周期 | `operationPoller`；FAMS 断连、worker suspend/reconnect、extension 0.1.0→0.2.0 update、lease/轮询停止 | PX5-01 | `verify:lifecycle-interruption-chrome` + lifecycle event/Chrome trace | 5 秒内显示断连结论；恢复失败有下一步；最后容器关闭后无新增 GET | 事件不可推导、POST 被轮询/重发或无容器仍轮询即 fail |
 | PX6-01 全量自动验收 | acceptance manifest/report/1→2；G1～G7、20 requirements、四视口、API、可访问性、隐私、负例、commit/hash | M5 | extension `verify:acceptance` | HTML 汇总能从结论钻取 AC01～10 和原始证据 | 任一 target schema/consumer/gate 非绿不生成候选声明 |
 | PX6-02 人类体验验收 | 按 AC-PX-01～10 逐项操作、记录截图和结论 | PX6-01 | 自动化仅准备页面/证据 | 用户逐项 check：通过/失败/截图/备注 | 未完成人工核查不声明 candidate |
 

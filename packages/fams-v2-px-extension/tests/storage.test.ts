@@ -18,7 +18,8 @@ vi.mock('wxt/browser', () => ({
   },
 }))
 
-import { PxStorageMigrationBlockedError, readLifecycleEvents, readRecoveryIndex, readWorkspaceStates, writeRecoveryIndexRecord } from '../src/background/chromeStorage'
+import { PxStorageMigrationBlockedError, prepareRecoveryIndexStorage, readLifecycleEvents, readRecoveryIndex, readWorkspaceStates, writeRecoveryIndexRecord } from '../src/background/chromeStorage'
+import { initializeLifecycleStorage } from '../src/background/lifecycleCoordinator'
 import { DEFAULT_WORKSPACE_ID } from '../src/contracts/validation'
 
 const legacyState = {
@@ -81,5 +82,20 @@ describe('workspace storage migration', () => {
     expect(await readRecoveryIndex()).toEqual([expect.objectContaining({ currentView: 'source_library' })])
     localValues.recoveryIndex = [{ schemaVersion: 'v2-px-recovery-index/99' }]
     await expect(readRecoveryIndex()).rejects.toBeInstanceOf(PxStorageMigrationBlockedError)
+  })
+
+  it('migrates the only known recovery v1 to v2, emits state_migrated, and preserves unknown major bytes', async () => {
+    localValues.recoveryIndex = [{
+      schemaVersion: 'v2-px-recovery-index/1', workspaceId: DEFAULT_WORKSPACE_ID, currentView: 'trace',
+      operationId: 'cd46818b-4983-4df4-9975-e67fead6ade2', updatedAt: '2026-08-29T00:00:00.000Z', expiresAt: '2026-09-29T00:00:00.000Z',
+    }]
+    await initializeLifecycleStorage(new Date('2026-08-31T00:00:00.000Z'))
+    expect(localValues.recoveryIndex).toEqual([expect.objectContaining({ schemaVersion: 'v2-px-recovery-index/2', currentView: 'trace' })])
+    expect(await readLifecycleEvents()).toEqual([expect.objectContaining({ eventType: 'state_migrated', reasonCode: 'MIGRATION_OK' })])
+
+    const unknown = [{ schemaVersion: 'v2-px-recovery-index/99', opaque: { keep: 'exactly' } }]
+    localValues.recoveryIndex = structuredClone(unknown)
+    await expect(prepareRecoveryIndexStorage()).rejects.toBeInstanceOf(PxStorageMigrationBlockedError)
+    expect(localValues.recoveryIndex).toEqual(unknown)
   })
 })

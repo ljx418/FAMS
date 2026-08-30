@@ -4,9 +4,11 @@ import type { WorkspaceViewData } from '../../src/adapters/fams/types'
 import { hasBackendPermission, requestBackendPermission } from '../../src/background/connection'
 import { createIntentRoute, createOperationCommand } from '../../src/contracts/factories'
 import { sendCommandDetailed, sendRoute } from '../../src/ui/runtimeClient'
+import { openLifecycleChannel } from '../../src/ui/lifecycleClient'
+import type { IntentRoute, WorkspaceStateV1 } from '../../src/contracts/types'
 
 const WORKSPACE_ID = 'px-ws-00000000-0000-4000-8000-000000000001'
-type ConnectionView = 'checking' | 'not_connected' | 'connected' | 'failed'
+type ConnectionView = 'checking' | 'not_connected' | 'connected' | 'failed' | 'recovering'
 type SourceViewData = Extract<WorkspaceViewData, { view: 'source_library' }>
 type AskViewData = Extract<WorkspaceViewData, { view: 'ask' }>
 
@@ -17,6 +19,7 @@ export const SIDE_PANEL_STATE_COPY = {
   empty: { title: '当前没有研究任务', detail: 'FAMS 返回明确 empty，没有使用示例内容填充。', action: '先在 FAMS 运行复盘或研究任务，再重新读取。' },
   failed: { title: '本地摘要读取失败', detail: '当前 workspace 标识仍保留，没有显示旧结果为成功。', action: '确认 FAMS 已启动后重新读取。' },
   blocked: { title: '请求已阻断', detail: '权限、合同或策略检查未通过。', action: '按下方原因处理；需要确认的操作回 FAMS 完成。' },
+  recovering: { title: '正在恢复研究入口', detail: 'Background 正在从最小索引恢复当前工作区。', action: '5 秒内会显示真实摘要或明确阻断。' },
 } as const
 
 const displayTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false })
@@ -30,6 +33,7 @@ export function SidePanelApp() {
   const [question, setQuestion] = useState('')
   const [ackVisible, setAckVisible] = useState(false)
   const [askError, setAskError] = useState<string | null>(null)
+  const [workspaceState, setWorkspaceState] = useState<WorkspaceStateV1 | null>(null)
 
   const refreshConnection = useCallback(async () => {
     const granted = await hasBackendPermission(browser.permissions)
@@ -41,14 +45,8 @@ export function SidePanelApp() {
     setConnection('checking')
     setMessage(SIDE_PANEL_STATE_COPY.loading.detail)
     try {
-      const route = createIntentRoute({
-        entryContainer: 'sidepanel', entryAction: 'view_source', routeIntent: 'source_library', routePayload: { workspaceId: WORKSPACE_ID },
-      })
-      const routeResult = await sendRoute(route)
-      if (routeResult.status !== 'accepted') throw new Error(routeResult.error?.userMessage ?? '来源路由被阻断。')
       const command = await createOperationCommand({
         sourceContainer: 'sidepanel', commandType: 'refresh_index', payload: { workspaceId: WORKSPACE_ID },
-        routeId: route.routeId, correlationId: route.correlationId,
       })
       const response = await sendCommandDetailed(command)
       if (response.viewData?.view === 'source_library') setSourceData(response.viewData)
@@ -65,7 +63,23 @@ export function SidePanelApp() {
     }
   }, [])
 
-  useEffect(() => { void refreshConnection() }, [refreshConnection])
+  useEffect(() => {
+    const channel = openLifecycleChannel({
+      workspaceId: WORKSPACE_ID, container: 'sidepanel', currentView: 'source_library',
+      onSnapshot: (state) => {
+        setWorkspaceState(state)
+        if (state.lifecycleStatus === 'recovering' || state.recovery.status === 'recovering') {
+          setConnection('recovering'); setMessage(SIDE_PANEL_STATE_COPY.recovering.detail)
+        } else if (state.lifecycleStatus === 'blocked') {
+          setConnection('failed'); setMessage('Background 已阻断不安全的恢复；原索引没有被静默清空。')
+        }
+      },
+    })
+    void channel.firstSnapshot.then(() => refreshConnection()).catch(() => {
+      setConnection('failed'); setMessage('生命周期订阅失败；系统没有把入口显示为已连接。')
+    })
+    return () => channel.disconnect()
+  }, [refreshConnection])
 
   async function connect() {
     setBusy(true)
@@ -89,11 +103,20 @@ export function SidePanelApp() {
     setBusy(true)
     try {
       const latest = sourceData?.value.items[0]
-      const route = createIntentRoute(latest ? {
-        entryContainer: 'sidepanel', entryAction: 'open_workspace', routeIntent: 'source_detail', routePayload: { workspaceId: WORKSPACE_ID, sourceRef: latest.sourceRef },
-      } : {
-        entryContainer: 'sidepanel', entryAction: 'open_workspace', routeIntent: 'source_library', routePayload: { workspaceId: WORKSPACE_ID },
-      })
+      let routeIntent: IntentRoute['routeIntent'] = 'source_library'
+      let routePayload: IntentRoute['routePayload'] = { workspaceId: WORKSPACE_ID }
+      if (workspaceState?.currentView === 'source_detail' && workspaceState.selectedRef) {
+        routeIntent = 'source_detail'; routePayload = { workspaceId: WORKSPACE_ID, sourceRef: workspaceState.selectedRef }
+      } else if (workspaceState?.currentView === 'trace' && workspaceState.activeOperationId) {
+        routeIntent = 'trace'; routePayload = { workspaceId: WORKSPACE_ID, operationId: workspaceState.activeOperationId }
+      } else if (workspaceState?.currentView === 'graph' && workspaceState.activeGraph) {
+        routeIntent = 'graph'; routePayload = { workspaceId: WORKSPACE_ID, graphScope: workspaceState.activeGraph.scope, graphId: workspaceState.activeGraph.id, ...(workspaceState.activeGraph.focusNodeId ? { focusNodeId: workspaceState.activeGraph.focusNodeId } : {}) }
+      } else if (workspaceState?.currentView === 'ask') {
+        routeIntent = 'ask'; routePayload = { workspaceId: WORKSPACE_ID, ...(workspaceState.conversationId ? { conversationId: workspaceState.conversationId } : {}) }
+      } else if (latest && !workspaceState) {
+        routeIntent = 'source_detail'; routePayload = { workspaceId: WORKSPACE_ID, sourceRef: latest.sourceRef }
+      }
+      const route = createIntentRoute({ entryContainer: 'sidepanel', entryAction: 'open_workspace', routeIntent, routePayload })
       const result = await sendRoute(route)
       setMessage(result.status === 'accepted' ? '已打开或聚焦现有工作台。' : result.error?.userMessage ?? '无法打开工作台。')
     } catch {

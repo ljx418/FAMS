@@ -28,13 +28,14 @@ await app.register(externalBrainRoutes, { prefix: '/api/v1/external-brain' })
 await app.register(dailyReviewRoutes, { prefix: '/api/v1/daily-reviews' })
 await app.register(operationRoutes, { prefix: '/api/v1/operations' })
 await app.register(captureRoutes, { prefix: '/api/v1/captures' })
-await app.listen({ port: 4000, host: '0.0.0.0' })
+const acceptanceHost = process.env.V2_PX_ACCEPTANCE_HOST || '0.0.0.0'
+await app.listen({ port: 4000, host: acceptanceHost })
 
 const counts = await Promise.all([
   prisma.operation.count({ where: { userId: 'default' } }),
   prisma.dailyReviewRun.count({ where: { userId: 'default' } }),
 ])
-console.log(JSON.stringify({ status: 'ready', port: 4000, extensionIds, operationCount: counts[0], reviewCount: counts[1] }))
+console.log(JSON.stringify({ status: 'ready', host: acceptanceHost, port: 4000, extensionIds, operationCount: counts[0], reviewCount: counts[1] }))
 
 async function stop() {
   await app.close().catch(() => undefined)

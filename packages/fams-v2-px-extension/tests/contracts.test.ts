@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import Ajv2020 from 'ajv/dist/2020.js'
 import addFormats from 'ajv-formats'
 import { describe, expect, it } from 'vitest'
-import { expectedTargetContainer, isContextRef, isConversationId, isLifecycleEventType, isSourceRef, parseSourceRef, validateIntentRoute, validateOperationCommand } from '../src/contracts/validation'
+import { expectedTargetContainer, isContextRef, isConversationId, isLifecycleEventType, isSourceRef, parseSourceRef, validateIntentRoute, validateLifecyclePortMessage, validateOperationCommand } from '../src/contracts/validation'
 
 const root = resolve(import.meta.dirname, '../../..')
 const schemaDir = resolve(root, 'docs/schemas')
@@ -18,6 +18,7 @@ const contracts = [
   ['v2-px-operation-command-v2.schema.json', 'operation-command-v2.positive.json', 'operation-command-v2.negative.json'],
   ['v2-px-dual-container-lifecycle-v3.schema.json', 'dual-container-lifecycle-v3.positive.json', 'dual-container-lifecycle-v3.negative.json'],
   ['v2-px-real-chrome-evidence-v2.schema.json', 'real-chrome-evidence-v2.positive.json', 'real-chrome-evidence-v2.negative.json'],
+  ['v2-px-lifecycle-port-message-v1.schema.json', 'lifecycle-port-message-v1.positive.json', 'lifecycle-port-message-v1.negative.json'],
 ] as const
 
 describe('V2-PX target JSON contracts', () => {
@@ -53,6 +54,14 @@ describe('V2-PX target JSON contracts', () => {
     const invalidCommand = json(resolve(fixtureDir, 'operation-command-v2.negative.json'))
     expect(validateIntentRoute(invalidRoute).ok).toBe(false)
     expect(validateOperationCommand(invalidCommand).ok).toBe(false)
+  })
+
+  it('keeps lifecycle port separate from command messages and rejects Host or secrets', () => {
+    const valid = json(resolve(fixtureDir, 'lifecycle-port-message-v1.positive.json')) as Record<string, unknown>
+    expect(validateLifecyclePortMessage(valid).ok).toBe(true)
+    expect(validateLifecyclePortMessage({ ...valid, sourceContainer: 'host_app' }).ok).toBe(false)
+    expect(validateLifecyclePortMessage({ ...valid, payload: { ...(valid.payload as object), token: 'forbidden' } }).ok).toBe(false)
+    expect(validateLifecyclePortMessage(json(resolve(fixtureDir, 'lifecycle-port-message-v1.negative.json'))).ok).toBe(false)
   })
 
   it('accepts real UUID/sourceRef values and round-trips canonical UTF-8 refs', () => {

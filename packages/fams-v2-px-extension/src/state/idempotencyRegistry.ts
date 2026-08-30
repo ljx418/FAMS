@@ -21,11 +21,22 @@ export type LedgerStorage = {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-function clean(records: LedgerRecord[], nowMs: number): LedgerRecord[] {
+function clean(records: LedgerRecord[], nowMs: number, maxRecords = 499): LedgerRecord[] {
   return records
     .filter((record) => Date.parse(record.expiresAt) > nowMs)
     .sort((left, right) => Date.parse(left.lastAccessedAt) - Date.parse(right.lastAccessedAt))
-    .slice(-499)
+    .slice(-maxRecords)
+}
+
+export async function cleanLedgerStorage(storage: LedgerStorage, now = new Date()): Promise<LedgerRecord[]> {
+  return serializeStorage(storage, async () => {
+    const existing = await storage.readAll()
+    const cleaned = clean(existing, now.getTime(), 500)
+    if (stableJson(cleaned) !== stableJson(existing)) await storage.writeAll(cleaned)
+    const readback = await storage.readAll()
+    if (stableJson(readback) !== stableJson(cleaned)) throw new Error('PX ledger cleanup readback verification failed')
+    return cleaned
+  })
 }
 
 async function persistAndVerify(storage: LedgerStorage, records: LedgerRecord[], expected: LedgerRecord): Promise<void> {

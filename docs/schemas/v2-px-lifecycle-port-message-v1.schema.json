@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-lifecycle-port-message-v1.schema.json",
+  "title": "V2-PX LC-A lifecycle port message",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "messageId", "kind", "workspaceId", "routeId", "correlationId",
+    "containerInstanceId", "sourceContainer", "targetContainer", "sentAt", "payload"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "v2-px-lifecycle-port-message/1" },
+    "messageId": { "type": "string", "pattern": "^px-message-[a-z0-9][a-z0-9-]{7,80}$" },
+    "kind": { "enum": ["state_subscribe", "recover_request", "container_close", "state_snapshot", "lifecycle_error"] },
+    "workspaceId": { "type": "string", "pattern": "^px-ws-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "routeId": { "type": "string", "pattern": "^px-route-[a-z0-9][a-z0-9-]{7,80}$" },
+    "correlationId": { "type": "string", "pattern": "^px-corr-[a-z0-9][a-z0-9-]{7,80}$" },
+    "containerInstanceId": { "type": "string", "pattern": "^px-container-[a-z0-9][a-z0-9-]{7,100}$" },
+    "sourceContainer": { "enum": ["sidepanel", "workspace_page", "background"] },
+    "targetContainer": { "enum": ["sidepanel", "workspace_page", "background"] },
+    "sentAt": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "state_subscribe" } }, "required": ["kind"] },
+      "then": {
+        "properties": {
+          "sourceContainer": { "enum": ["sidepanel", "workspace_page"] },
+          "targetContainer": { "const": "background" },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["currentView", "navigationType"],
+            "properties": {
+              "currentView": { "enum": ["source_library", "source_detail", "ask", "trace", "graph"] },
+              "selectedRef": { "type": "string", "minLength": 1, "maxLength": 768 },
+              "navigationType": { "enum": ["open", "navigate", "reload", "back_forward", "restore"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "recover_request" } }, "required": ["kind"] },
+      "then": {
+        "properties": {
+          "sourceContainer": { "enum": ["sidepanel", "workspace_page"] },
+          "targetContainer": { "const": "background" },
+          "payload": {
+            "type": "object", "additionalProperties": false, "required": ["reason"],
+            "properties": { "reason": { "enum": ["manual_retry", "port_reconnect", "session_missing"] } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "container_close" } }, "required": ["kind"] },
+      "then": {
+        "properties": {
+          "sourceContainer": { "enum": ["sidepanel", "workspace_page"] },
+          "targetContainer": { "const": "background" },
+          "payload": {
+            "type": "object", "additionalProperties": false, "required": ["reason"],
+            "properties": { "reason": { "enum": ["user_close", "page_unload"] } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "state_snapshot" } }, "required": ["kind"] },
+      "then": {
+        "properties": {
+          "sourceContainer": { "const": "background" },
+          "targetContainer": { "enum": ["sidepanel", "workspace_page"] },
+          "payload": {
+            "type": "object", "additionalProperties": false, "required": ["workspaceState", "recoveryOutcome", "snapshotAt"],
+            "properties": {
+              "workspaceState": { "type": "object" },
+              "recoveryOutcome": { "enum": ["not_needed", "restored", "blocked"] },
+              "snapshotAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "lifecycle_error" } }, "required": ["kind"] },
+      "then": {
+        "properties": {
+          "sourceContainer": { "const": "background" },
+          "targetContainer": { "enum": ["sidepanel", "workspace_page"] },
+          "payload": {
+            "type": "object", "additionalProperties": false, "required": ["code", "userMessage", "recoverable"],
+            "properties": {
+              "code": { "enum": ["PX_SCHEMA_INVALID", "PX_POLICY_BLOCKED", "PX_STORAGE_VERSION_UNSUPPORTED", "PX_BACKEND_UNAVAILABLE"] },
+              "userMessage": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "recoverable": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
