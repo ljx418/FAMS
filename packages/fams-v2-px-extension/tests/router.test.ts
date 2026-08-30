@@ -10,6 +10,7 @@ class FakeBrowser implements TabsApi {
   nextId = 1
   focusedWindows: number[] = []
   navigationRejectsRemaining = 0
+  removeOnNextUpdate = false
 
   async query(): Promise<PxTab[]> { return [...this.tabs] }
   async create(input: { url: string }): Promise<PxTab> {
@@ -18,6 +19,11 @@ class FakeBrowser implements TabsApi {
     return tab
   }
   async update(tabId: number, input: { url?: string }): Promise<PxTab> {
+    if (this.removeOnNextUpdate) {
+      this.removeOnNextUpdate = false
+      this.tabs = this.tabs.filter((item) => item.id !== tabId)
+      throw new Error('tab closed during navigation')
+    }
     if (input.url && this.navigationRejectsRemaining > 0) {
       this.navigationRejectsRemaining -= 1
       throw new Error('Navigation rejected.')
@@ -81,6 +87,22 @@ describe('canonical workspace tab management', () => {
     expect(result.action).toBe('focused')
     expect(fake.tabs).toHaveLength(1)
     expect(fake.tabs[0]?.url).toContain('view=trace')
+  })
+
+  it('creates one replacement when the user closes the queried tab before update', async () => {
+    const fake = new FakeBrowser()
+    fake.tabs = [{ id: 7, windowId: 8, url: 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workspace.html?workspaceId=px-ws-00000000-0000-4000-8000-000000000001&view=trace' }]
+    fake.nextId = 8
+    fake.removeOnNextUpdate = true
+    const result = await openOrFocusWorkspace({
+      tabs: fake,
+      windows: { update: async () => ({}) },
+      canonicalBaseUrl: 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workspace.html',
+      desiredUrl: 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workspace.html?workspaceId=px-ws-00000000-0000-4000-8000-000000000001&view=trace',
+      workspaceId: 'px-ws-00000000-0000-4000-8000-000000000001',
+    })
+    expect(result.action).toBe('created')
+    expect(fake.tabs).toEqual([expect.objectContaining({ id: 8 })])
   })
 
   it('converges duplicate tabs across windows and focuses the retained window', async () => {

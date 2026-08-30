@@ -80,13 +80,24 @@ export async function openOrFocusWorkspace(input: {
     }
     const duplicateIds = matching.filter((tab) => tab.id !== existing.id).map((tab) => tab.id).filter((id): id is number => typeof id === 'number')
     if (duplicateIds.length > 0) await input.tabs.remove(duplicateIds)
-    const tab = await updateWorkspaceTab({
-      tabs: input.tabs,
-      canonicalBaseUrl: input.canonicalBaseUrl,
-      tabId: existing.id,
-      currentUrl: existing.url,
-      desiredUrl: input.desiredUrl,
-    })
+    let tab: PxTab
+    try {
+      tab = await updateWorkspaceTab({
+        tabs: input.tabs,
+        canonicalBaseUrl: input.canonicalBaseUrl,
+        tabId: existing.id,
+        currentUrl: existing.url,
+        desiredUrl: input.desiredUrl,
+      })
+    } catch (error) {
+      // A user may close the tab between query() and update(). After the
+      // bounded retries, create only when a fresh query proves it is gone.
+      const remaining = await input.tabs.query({ url: `${input.canonicalBaseUrl}*` })
+      const stillExists = remaining.some((candidate) => readWorkspaceId(candidate.url) === input.workspaceId && typeof candidate.id === 'number')
+      if (stillExists) throw error
+      tab = await input.tabs.create({ url: input.desiredUrl, active: true })
+      return { action: 'created' as const, tab, matchingTabCount: 1 }
+    }
     if (typeof existing.windowId === 'number') await input.windows.update(existing.windowId, { focused: true })
     return { action: 'focused' as const, tab, matchingTabCount: 1 }
   })
