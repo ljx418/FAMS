@@ -24,7 +24,8 @@ if (!process.env.V2_PX_ALLOW_DIRTY) assert.equal(dirtyScope, '', `PX5-01 evidenc
 assert.ok(existsSync(resolve(outputDir, 'manifest.json')), 'WXT build output is missing')
 assert.ok(existsSync(sourceDatabasePath), 'real FAMS SQLite database is missing')
 
-const evidenceDir = resolve(repoRoot, '.verification/private/v2-px', commitSha, process.env.V2_PX_ALLOW_DIRTY ? 'PX5-01-dev' : 'PX5-01')
+const devRun = (process.env.V2_PX_DEV_RUN ?? 'default').replace(/[^a-zA-Z0-9_-]/g, '_')
+const evidenceDir = resolve(repoRoot, '.verification/private/v2-px', commitSha, process.env.V2_PX_ALLOW_DIRTY ? `PX5-01-dev-${devRun}` : 'PX5-01')
 await mkdir(evidenceDir, { recursive: true })
 const extensionLoadDir = resolve(evidenceDir, 'headless-pregranted-extension')
 await cp(outputDir, extensionLoadDir, { recursive: true, force: true })
@@ -223,7 +224,15 @@ try {
   screenshots.push(await capture(workspace, 'workspace-refresh-trace', { width: 768, height: 900 }))
 
   await workspace.close()
-  const reopenPromise = chromeOne.context.waitForEvent('page', { timeout: 10_000 })
+  const reopenPromise = chromeOne.context.waitForEvent('page', { timeout: 10_000 }).catch(async (error) => {
+    const diagnostics = {
+      sidepanelText: await sidepanel.locator('main').innerText().catch(() => 'unavailable'),
+      playwrightPages: chromeOne.context.pages().map((page) => ({ url: page.url(), closed: page.isClosed() })),
+      chromeTabs: await workerOne.evaluate(async () => (await chrome.tabs.query({})).map((tab) => ({ id: tab.id, url: tab.url, status: tab.status }))),
+      server: server?.output(),
+    }
+    throw new Error(`close/reopen did not create a visible Workspace page: ${JSON.stringify(diagnostics)}\n${error.stack}`)
+  })
   await sidepanel.getByRole('button', { name: '在完整工作台打开' }).click()
   const reopened = await reopenPromise
   await reopened.waitForLoadState('domcontentloaded')

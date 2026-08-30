@@ -1,8 +1,9 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { SIDE_PANEL_STATE_COPY, SidePanelContent } from '../entrypoints/sidepanel/SidePanelApp'
+import { SIDE_PANEL_STATE_COPY, SidePanelContent, sidePanelLifecyclePresentation } from '../entrypoints/sidepanel/SidePanelApp'
 import type { WorkspaceViewData } from '../src/adapters/fams/types'
+import type { WorkspaceStateV1 } from '../src/contracts/types'
 
 const generatedAt = '2026-08-29T00:00:00.000Z'
 const sources: Extract<WorkspaceViewData, { view: 'source_library' }> = {
@@ -46,6 +47,12 @@ const baseProps = {
 }
 
 describe('Side Panel lightweight product experience', () => {
+  const lifecycleState: WorkspaceStateV1 = {
+    schemaVersion: 'v2-px-workspace-state/1', workspaceId: 'px-ws-00000000-0000-4000-8000-000000000001',
+    lifecycleStatus: 'recovering', currentView: 'trace', routeId: 'px-route-sidepanelstate0001', correlationId: 'px-corr-sidepanelstate0001',
+    connection: { status: 'connected' }, recovery: { status: 'recovering' }, containerLeases: [], lastEventSeq: 1, updatedAt: generatedAt,
+  }
+
   it('shows a real current summary, time, research mode and at most five recent tasks', () => {
     const html = renderToStaticMarkup(createElement(SidePanelContent, baseProps))
     expect(html).toContain('data-testid="sidepanel-current-summary"')
@@ -77,5 +84,12 @@ describe('Side Panel lightweight product experience', () => {
     expect(Object.values(SIDE_PANEL_STATE_COPY).every((item) => item.title && item.detail && item.action)).toBe(true)
     const html = renderToStaticMarkup(createElement(SidePanelContent, baseProps))
     expect(html).not.toMatch(/创建订单|立即买入|自动交易|解锁交易/)
+  })
+
+  it('returns from transient recovering to an actionable connected presentation', () => {
+    expect(sidePanelLifecyclePresentation(lifecycleState)).toMatchObject({ connection: 'recovering' })
+    expect(sidePanelLifecyclePresentation({
+      ...lifecycleState, lifecycleStatus: 'ready', recovery: { status: 'restored' },
+    })).toMatchObject({ connection: 'connected', message: expect.stringContaining('已恢复') })
   })
 })

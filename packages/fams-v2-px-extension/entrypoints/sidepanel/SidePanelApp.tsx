@@ -24,6 +24,22 @@ export const SIDE_PANEL_STATE_COPY = {
 
 const displayTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false })
 
+export function sidePanelLifecyclePresentation(state: WorkspaceStateV1): { connection: ConnectionView; message: string } | null {
+  if (state.lifecycleStatus === 'blocked' || state.recovery.status === 'blocked') {
+    return { connection: 'failed', message: 'Background 已阻断不安全的恢复；原索引没有被静默清空。' }
+  }
+  if (state.lifecycleStatus === 'recovering' || state.recovery.status === 'recovering' || state.lifecycleStatus === 'closed') {
+    return { connection: 'recovering', message: SIDE_PANEL_STATE_COPY.recovering.detail }
+  }
+  if (state.lifecycleStatus === 'ready' || state.lifecycleStatus === 'empty' || state.recovery.status === 'restored') {
+    return { connection: 'connected', message: state.recovery.status === 'restored' ? '已恢复研究入口，并重新验证本地 FAMS 数据。' : '已从本地 FAMS 读取并验证最新摘要。' }
+  }
+  if (state.lifecycleStatus === 'failed' || state.lifecycleStatus === 'disconnected') {
+    return { connection: 'failed', message: SIDE_PANEL_STATE_COPY.failed.detail }
+  }
+  return null
+}
+
 export function SidePanelApp() {
   const [connection, setConnection] = useState<ConnectionView>('checking')
   const [message, setMessage] = useState<string>(SIDE_PANEL_STATE_COPY.checking.detail)
@@ -68,11 +84,8 @@ export function SidePanelApp() {
       workspaceId: WORKSPACE_ID, container: 'sidepanel', currentView: 'source_library',
       onSnapshot: (state) => {
         setWorkspaceState(state)
-        if (state.lifecycleStatus === 'recovering' || state.recovery.status === 'recovering') {
-          setConnection('recovering'); setMessage(SIDE_PANEL_STATE_COPY.recovering.detail)
-        } else if (state.lifecycleStatus === 'blocked') {
-          setConnection('failed'); setMessage('Background 已阻断不安全的恢复；原索引没有被静默清空。')
-        }
+        const presentation = sidePanelLifecyclePresentation(state)
+        if (presentation) { setConnection(presentation.connection); setMessage(presentation.message) }
       },
     })
     void channel.firstSnapshot.then(() => refreshConnection()).catch(() => {
