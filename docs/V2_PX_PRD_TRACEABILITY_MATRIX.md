@@ -1,18 +1,18 @@
 # V2-PX PRD 需求追踪矩阵
 
-更新时间：2026-08-29
+更新时间：2026-08-31
 
 ## 1. 当前结论
 
 ```text
 traceabilityMatrixReady=DOCUMENTATION_20_OF_20
 runtimeDecisionChecks=40/40
-implementationMappingStatus=PX1_THROUGH_PRODUCT_PX4_ROUTER_IDEMPOTENCY_AUTOMATED_ACCEPTED_NEXT_LIFECYCLE_RECOVERY
+implementationMappingStatus=PX1_THROUGH_PRODUCT_PX5_01_RECOVERY_MIGRATION_AUTOMATED_ACCEPTED_NEXT_INTERRUPTION_LIFECYCLE
 prototypeDesignCoverage=TWO_CONTAINERS_HOST_THREE_ENTRY_AND_ROUTER_IDEMPOTENCY_AUTOMATED_ACCEPTED
 realChromeEvidencePresent=true
 px1FeasibilitySpikeAllowed=true
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-lifecycleRecoveryEntryStatus=LC_A_ACCEPTED_PX5_01_ENTRY
+lifecycleRecoveryEntryStatus=PX5_01_AUTOMATED_ACCEPTED_PX5_02_ENTRY
 externalIndependentAuditStatus=CONDITIONAL_PASS
 externalAuditRemediationStatus=APPLIED_INTERNAL_REAUDIT_PASSED
 ```
@@ -29,17 +29,17 @@ externalAuditRemediationStatus=APPLIED_INTERNAL_REAUDIT_PASSED
 | PX-REQ-004 轻量 Side Panel | 首屏摘要、连接、打开工作台 | `SidePanelApp.tsx` | PX-3 | `test:sidepanel` + `verify:sidepanel-chrome` | PX4A 360/420 screenshot/trace | 是否避免完整工作台挤压 | 自动化 PASS；正式权限点击与最终人类体验待验收 |
 | PX-REQ-005 完整 Workspace | 五视图、摘要、证据抽屉 | `WorkspaceApp.tsx` | PX-2 | `test:workspace` + `verify:workspace-chrome` | PX3 768/1280 截图与 trace | 是否完整且易读 | 自动化 PASS；正式权限点击与最终人类体验待验收 |
 | PX-REQ-006 标签复用 | canonical URL 忽略 view/ref，重复打开聚焦既有 tab | `workspaceTabManager.ts` | PX-1/PX-4 | extension router + Host Chrome | PX3/PX4B/PX5 tab trace | 多窗口聚焦是否符合预期 | 自动化 PASS：20 次串行、20 次并发与多窗口重复均收敛 tab=1，保留窗口被聚焦 |
-| PX-REQ-007 刷新恢复 | Back/Forward/Refresh/关闭重开 | `workspaceStateStore.ts`、`RecoveryBanner.tsx` | PX-2/PX-5 | `test:v2-px-recovery` | `workspace_recovery_audit.json` | 恢复或阻断是否可理解 | 文档完成，代码未开发 |
-| PX-REQ-008 断连重连 | FAMS/extension 中断后恢复 | `lifecycleAuditStore.ts`、`FamsApiClient.ts` | PX-1/PX-5 | `test:v2-px-reconnect` | `reconnect_event_log.json` | 5 秒内是否给结果 | 文档完成，代码未开发 |
+| PX-REQ-007 刷新恢复 | Back/Forward/Refresh/关闭重开 | `lifecycleCoordinator.ts`、`lifecycleClient.ts`、recovery UI | PX-2/PX-5 | extension lifecycle + `verify:lifecycle-recovery-chrome` | PX5-01 lifecycle/storage/Chrome trace | 恢复或阻断是否可理解 | PX5-01 自动化 PASS：Back/Forward/Refresh/关闭重开/Chrome 重启全部恢复同一 view/ref，115～585ms 可见 |
+| PX-REQ-008 断连重连 | FAMS/extension 中断后恢复 | `lifecycleAuditStore.ts`、`FamsApiClient.ts`、`operationPoller.ts` | PX-1/PX-5 | `verify:lifecycle-interruption-chrome` | PX5-02 reconnect/worker/update evidence | 5 秒内是否给结果 | Chrome 全重启恢复已在 PX5-01 PASS；FAMS 断连、worker suspend 与 update 待 PX5-02 |
 | PX-REQ-009 幂等 | 先写/回读 local ledger；同 key 重放、冲突拒绝、未知结果不自动 dispatch；storage 失败按副作用前后分流 | `idempotencyRegistry.ts`、operation-command/2 | PX-1/PX-4 | extension contracts/storage fault + real Ask/Host route | PX5 unit/network/storage/state | 重复/超时/结果后写失败是否无隐式副作用和安全重试假象 | 自动化 PASS：同 key 并发 20 次 POST=1；replay/restart/dispatched unknown/result-after-storage-fault 均新增 POST=0 且无伪成功 |
 | PX-REQ-010 真实 Chrome | unpacked extension URL/ID/version/build、恰好四视口、实际像素尺寸/hash、trace/network/console | collector + target Chrome evidence/2 | PX-1/PX-6 | extension `verify:real-chrome`，少项/重复/尺寸不符负例 | `real_chrome_evidence.json` | URL/ID/四视口/manifest 是否真实 | target evidence/2 与 PX1/PX3/PX4A/PX4B 真实证据已实现；PX6 四视口统一汇总尚未实现 |
 | PX-REQ-011 四视口 | 360/420/768/1280 | 两个容器 UI | PX-2/PX-3/PX-6 | Side Panel + Workspace real Chrome | PX4A 360/420 + PX3 768/1280 | 遮挡、溢出、字号是否合格 | 两容器四宽度自动化 PASS；evidence/2 汇总与人类验收待 PX6 |
 | PX-REQ-012 隐私脱敏 | 证据无 secret/cookie/账户原图 | evidence collector + sanitizer | PX-1/PX-6 | contract + storage/network evidence scan | PX3/PX4A/PX4B/PX5 private evidence | 私有目录是否被 Git 忽略 | 各阶段 runtime 扫描通过；PX5 storage 中 question/answer=0；target evidence/2 全量汇总留 PX6 |
 | PX-REQ-013 FAMS 适配 | Read/Ask 分离，五 intent 复用现有业务事实 | `externalBrainReadService.ts`、`externalBrainAskService.ts`、Policy、Adapter | PX-2/PX-4 | backend API/policy + adapter contract | PX2 API + PX3 Chrome/DB evidence | 与原 FAMS 对象同源且无自动确认 | Read/Ask/五端点/Adapter 已实现并由真实 DB/API/DOM 重签 |
-| PX-REQ-014 单写状态 | background 拥有 route/lifecycle；session/local/TTL/migration 与 lifecycle/3 eventType 明确 | `background.ts`、Stores、`workspaceStateMigrator.ts` | PX-1/PX-5 | extension storage/lifecycle；后续完整 lifecycle | PX5 storage/Chrome；生命周期阶段待生成 | 三入口是否无状态打架/静默清空 | Router/query 三入口竞争已由 Background workspace 队列和真实事件证明；完整 TTL/recovery/migration 仍待产品 PX5 |
+| PX-REQ-014 单写状态 | background 拥有 route/lifecycle；session/local/TTL/migration 与 lifecycle/3 eventType 明确 | `background.ts`、`chromeStorage.ts`、`lifecycleCoordinator.ts` | PX-1/PX-5 | extension storage/lifecycle + real Chrome | PX5-01 storage/Chrome；PX5-02 interruption | 三入口是否无状态打架/静默清空 | PX5-01 自动化 PASS：Background 队列、RecoveryIndex/2、TTL/LRU、v1 migration、unknown-major 原样保留；stale lease 留 PX5-02 |
 | PX-REQ-015 最小权限 | optional host 只含 4000；3000 只 external connect；每次 API 请求带公开 extension ID header；无 Origin+allowlist ID 才放行，Web Origin+伪造 ID拒绝 | `wxt.config.ts`、ConnectionGate、`FamsApiClient.ts`、Policy | PX-1/PX-2/PX-3 | manifest/network/policy/CORS switch + caller identity matrix | PX3 policy/API/Chrome network | 安装/连接/切换文案是否透明且无 Web Origin/缺 header 旁路 | 方案 A 已实现并由真实 Chrome 重签；正式 permission 弹窗点击待最终人类验收 |
 | PX-REQ-016 摘要分层 | 普通话摘要 + 折叠 evidence | `WorkspaceApp.tsx`、`SidePanelApp.tsx` | PX-2/PX-3 | workspace + sidepanel hierarchy | PX3/PX4A real Chrome screenshots | 用户是否无需读原始字段 | 两容器自动化 PASS；高级证据默认折叠，最终人类体验待验收 |
-| PX-REQ-017 降级状态 | 未连接/加载/正常/空/失败/恢复/阻断映射十种 lifecycle state；closed 不渲染活动 UI | Workspace/Side Panel/Host state UI、Recovery | PX-2/PX-3/PX-5 | container/Host state + 后续 lifecycle matrix | PX3/PX4A/PX4B DOM/Chrome；PX5 待生成 | 异常/过渡状态是否都有下一步，正常态是否无冲突 | 两容器与 Host 配置/阻断切片诚实；完整 lifecycle/closed/reload 待 PX5 |
+| PX-REQ-017 降级状态 | 未连接/加载/正常/空/失败/恢复/阻断映射十种 lifecycle state；closed 不渲染活动 UI | Workspace/Side Panel/Host state UI、Recovery | PX-2/PX-3/PX-5 | container/Host state + lifecycle matrix | PX3/PX4A/PX4B + PX5-01 Chrome | 异常/过渡状态是否都有下一步，正常态是否无冲突 | recovering/restored/blocked 与 Side Panel transient 恢复已在 PX5-01 PASS；disconnected/closed/stale lease 留 PX5-02 |
 | PX-REQ-018 交易硬边界 | 无订单入口、四锁恒 false | `externalBrainPolicyService.ts`、`FamsDomainAdapter.ts` | 全阶段 | policy/API/Chrome trade monitors | PX2/PX3 evidence | 页面是否存在误导交易动作 | PX Adapter 与真实 Chrome PASS；broker/order/Transaction 变更=0，四锁=false |
 | PX-REQ-019 可访问性 | 键盘、对比度、点击区、无溢出 | Side Panel/Workspace UI | PX-2/PX-3/PX-6 | `test:v2-px-accessibility` | `accessibility_audit.json` | 键盘走完整核心路径 | 原型门槛完成，代码未开发 |
 | PX-REQ-020 防规格漂移 | PRD/运行时合同/实体/阶段/证据/commit 一致 | semantic validator + target acceptance manifest/report/2 | PX-0/PX-1/PX-6 | 分批 contract migration + extension `verify:acceptance` | `g1_g7_gate_audit.json` | 按 commit、AC01～10 和目标版本复核 | target runtime/evidence 合同已实现并分阶段重签；acceptance manifest/report/2 与 G1-G7 留 PX6 |
@@ -49,8 +49,8 @@ externalAuditRemediationStatus=APPLIED_INTERNAL_REAUDIT_PASSED
 ```text
 existingReusableFamsEntities=16
 existingPxContractOrValidatorEntities=IMPLEMENTED_TARGET_VERSIONS
-targetEntitiesRequiringModification=LIFECYCLE_RECOVERY_AND_FINAL_ACCEPTANCE_REMAIN
-targetProductionEntitiesNotDeveloped=FULL_RECOVERY_AND_FINAL_ACCEPTANCE
+targetEntitiesRequiringModification=INTERRUPTION_LIFECYCLE_AND_FINAL_ACCEPTANCE_REMAIN
+targetProductionEntitiesNotDeveloped=DISCONNECT_WORKER_UPDATE_POLLING_AND_FINAL_ACCEPTANCE
 realChromeEvidenceArtifacts=PX1_PX3_PX4A_PX4B_PX5_PRIVATE_EVIDENCE_PRESENT
 implementedPx1PlusRequirements=SEE_ROW_LEVEL_PARTIAL_STATUS
 documentationMappedRequirements=20/20

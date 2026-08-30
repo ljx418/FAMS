@@ -390,6 +390,8 @@ async function main() {
   assert.equal(metadata.currentOperationCommandSchema, v2State.currentOperationCommandContract, 'Operation command metadata/state drift')
   assert.equal(metadata.currentLifecycleAuditSchema, v2State.currentLifecycleAuditContract, 'Lifecycle metadata/state drift')
   assert.equal(metadata.currentRealChromeEvidenceSchema, v2State.currentRealChromeEvidenceContract, 'Chrome evidence metadata/state drift')
+  assert.equal(metadata.targetLifecyclePortSchema, v2State.productPx5LifecyclePortContract, 'Lifecycle Port metadata/state drift')
+  assert.equal(metadata.lifecyclePortRuntimeImplemented, 'true', 'PX5-01 accepted lifecycle Port runtime must not regress to contract-only')
   assert.match(runtimeContract, /messageType: 'intent_route' \| 'operation_command'/, 'LC-A command envelope is missing')
   assert.match(runtimeContract, /chrome\.runtime\.connect\(\{name:'v2-px-lifecycle\/1'\}\)/, 'LC-A lifecycle port is missing')
   assert.doesNotMatch(runtimeContract, /kind: 'intent_route' \| 'operation_command' \| 'state_subscribe'/, 'Old generic envelope remains authoritative')

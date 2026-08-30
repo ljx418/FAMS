@@ -4,11 +4,11 @@
 
 ## 1. 文档定位与约束优先级
 
-本文冻结 V2-PX 在本地单用户范围内的实现级合同。PX1 至产品 PX4 已实现并重签命令运行时合同；2026-08-31 用户批准 LC-A，产品 PX5 使用独立生命周期端口，不改写既有 Router/Command 主链。
+本文冻结 V2-PX 在本地单用户范围内的实现级合同。PX1 至 PX5-01 已实现并重签命令、恢复与迁移运行时合同；2026-08-31 用户批准 LC-A，产品 PX5 使用独立生命周期端口，不改写既有 Router/Command 主链。
 
 ```text
 contractStatus=LC_A_RUNTIME_AND_LIFECYCLE_DECISIONS_FROZEN
-implementationStatus=TARGET_RUNTIME_IMPLEMENTED_LIFECYCLE_PORT_CONTRACT_READY
+implementationStatus=TARGET_RUNTIME_AND_PX5_01_RECOVERY_IMPLEMENTED_PX5_02_PENDING
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 statusSourcePolicy=docs/current-stage-state.json
 currentIntentRouteSchema=v2-px-intent-route/3_runtime_implemented_reissued
@@ -19,11 +19,11 @@ currentLifecycleAuditSchema=v2-px-dual-container-lifecycle/3_runtime_implemented
 targetLifecycleAuditSchema=v2-px-dual-container-lifecycle/3_implemented
 currentRealChromeEvidenceSchema=v2-px-real-chrome-evidence/2_runtime_implemented
 targetRealChromeEvidenceSchema=v2-px-real-chrome-evidence/2_implemented
-targetLifecyclePortSchema=v2-px-lifecycle-port-message/1_contract_ready
+targetLifecyclePortSchema=v2-px-lifecycle-port-message/1_runtime_implemented
 currentAcceptanceSchemas=v2-px-acceptance-manifest/1_px0_baseline,v2-px-acceptance-report/1_px0_baseline
 targetAcceptanceSchemas=v2-px-acceptance-manifest/2_planned_not_implemented,v2-px-acceptance-report/2_planned_not_implemented
 runtimeContractImplemented=true
-lifecyclePortRuntimeImplemented=false
+lifecyclePortRuntimeImplemented=true
 runtimeEnvelopeDecision=LC_A_COMMAND_MESSAGE_TYPE_AND_DEDICATED_LIFECYCLE_PORT
 ```
 
