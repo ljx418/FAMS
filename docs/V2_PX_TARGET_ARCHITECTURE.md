@@ -8,12 +8,12 @@ V2-PX 采用 Route A.1：`独立 Workspace Page + 轻量 Side Panel + Background
 
 ```text
 architectureReviewStatus=EXTERNAL_AUDIT_REMEDIATION_APPLIED_INTERNAL_REAUDIT_PASSED
-implementationStatus=PX1_THROUGH_PRODUCT_PX5_AUTOMATED_ACCEPTED
+implementationStatus=PX1_THROUGH_PX6_01_AUTOMATED_ACCEPTED_PX6_02_HUMAN_PENDING
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 routeAAdrStatus=PRODUCTION_APPROVED
 productAuthorityStatus=FROZEN
-routeAImplementationReadiness=PX6_01_IMPLEMENTED_FORMAL_ACCEPTANCE_PENDING
-productPx5LifecycleEntryStatus=PX5_AUTOMATED_ACCEPTED_PX6_01_ENTRY
+routeAImplementationReadiness=PX6_01_AUTOMATED_ACCEPTED_PX6_02_HUMAN_ENTRY
+productPx5LifecycleEntryStatus=PX5_AUTOMATED_ACCEPTED
 routeATechnicallyValidated=true
 routeAProductionApproved=true
 ```
@@ -46,7 +46,7 @@ routeAProductionApproved=true
 
 ### 2.2 已实现基座与剩余差距
 
-PX1～PX5 已实现 WXT package、Background、Side Panel、Workspace、target contracts、External Brain Read/Ask facade、FAMS adapter、Host Bridge、完整 Router、at-most-once ledger、生命周期 Port、RecoveryIndex/2、全部恢复/中断场景与 active Operation 有界 GET polling。PX6-01 已实现 acceptance `/2`、G1～G7 collector、真实 Chrome 可访问性审计和本地人类验收 HTML，但仍须在精确 clean 提交上正式重跑才能声明自动验收通过。正式 optional permission 点击与最终体验结论仍由人类完成。
+PX1～PX6-01 已实现并通过 WXT package、Background、Side Panel、Workspace、target contracts、External Brain Read/Ask facade、FAMS adapter、Host Bridge、完整 Router、at-most-once ledger、生命周期 Port、RecoveryIndex/2、全部恢复/中断场景、active Operation 有界 GET polling、acceptance `/2`、G1～G7 collector、真实 Chrome 可访问性审计和本地人类验收 HTML。正式自动验收绑定精确提交 `5485fae05c6ca0ea842f185ecfca674d045a2ca4`；正式 optional permission 点击与最终体验结论仍由人类完成。
 
 ## 3. 方案选择与取舍
 
@@ -117,16 +117,16 @@ GET  /api/v1/external-brain/traces/:operationId
 GET  /api/v1/external-brain/graphs/:scope/:id
 ```
 
-请求/响应 DTO、分页、错误、身份、超时和重试规则见 `V2_PX_API_RUNTIME_CONTRACT.md`。上述 API/Adapter 已由 PX2 API contract 与 PX3/PX4A/PX4B/PX5 真实 Chrome 证据验证；生命周期恢复和最终汇总仍不得提前声明完成。
+请求/响应 DTO、分页、错误、身份、超时和重试规则见 `V2_PX_API_RUNTIME_CONTRACT.md`。上述 API/Adapter 已由 PX2 API contract 与 PX3/PX4A/PX4B/PX5 真实 Chrome 证据验证；生命周期恢复和 PX6-01 最终自动汇总均已通过，PX6-02 人类体验仍不得提前声明完成。
 
 ### 4.5 验收与证据层
 
 | 状态 | 目标实体 | 责任 |
 | --- | --- | --- |
 | 已实现 | `backend/scripts/verify-v2-px-semantic-contract.ts`、target schemas/fixtures | target 合同正反例、sourceRef round-trip 与防假绿门禁 |
-| 已实现（待 PX6 汇总） | lifecycle/3、Chrome evidence/2 schemas | sequence/state/reason、四视口、manifest/network/console 约束已迁移 |
-| 已实现（待正式重跑） | `v2-px-acceptance-manifest-v2.schema.json`、`v2-px-acceptance-report-v2.schema.json` | 20 requirements、AC01～10、stage/command/artifact hash、人工/自动状态分离和 candidate 约束 |
-| 已实现（待正式重跑） | `scripts/verify-acceptance.mjs`、`verify-accessibility-chrome.mjs` | G1～G7、真实数据/Chrome、四视口、键盘/对比度/点击区、12 项篡改负例与证据汇总 |
+| 已实现并由 PX6-01 汇总通过 | lifecycle/3、Chrome evidence/2 schemas | sequence/state/reason、四视口、manifest/network/console 约束已迁移并重签 |
+| 已实现并通过 | `v2-px-acceptance-manifest-v2.schema.json`、`v2-px-acceptance-report-v2.schema.json` | 20 requirements、AC01～10、stage/command/artifact hash、人工/自动状态分离和 candidate 约束 |
+| 已实现并通过 PX6-01 | `scripts/verify-acceptance.mjs`、`verify-accessibility-chrome.mjs` | G1～G7、真实数据/Chrome、四视口、键盘/对比度/点击区、12 项篡改负例与 93 个引用 hash 复核 |
 | 已实现（待人类使用） | `scripts/generate-human-acceptance.mjs`、`docs/generated/v2-px-human-acceptance.html` | AC01～10 逐项通过/失败、截图预览、备注、本地保存与 JSON 导出；默认均 not_run |
 | 已实现 | `tests/contracts.test.ts`、`router.test.ts`、`host-bridge.test.ts` | 三入口/动作/intent、tab 与 Host 严格边界 |
 | 已实现 | `tests/workspace.test.ts`、`scripts/verify-workspace-chrome.mjs` | 独立宿主、五视图、768/1280 与真实数据；完整刷新恢复已由 PX5 验收 |
