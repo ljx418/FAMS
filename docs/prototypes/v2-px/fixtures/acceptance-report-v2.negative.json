@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "v2-px-acceptance-report/2",
+  "generatedAt": "2026-08-31T04:10:00.000Z",
+  "manifestRef": { "path": "missing.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" },
+  "automatedAcceptanceStatus": "passed",
+  "humanAcceptanceStatus": "not_performed",
+  "readyForHumanAcceptance": true,
+  "v2PxProductizationCandidate": true,
+  "acceptanceScenarios": [],
+  "knownBlockers": [],
+  "externalAudit": { "originalResult": "CONDITIONAL_PASS", "reportPath": "docs/V2_PX_INDEPENDENT_AUDIT_REPORT.md", "registeredBlockingIssues": 3, "registeredHighRiskIssues": 8, "remediationStatus": "closed_internal_reaudit_passed_report_retained" },
+  "allowedClaims": ["PX6-01 automated acceptance passed", "Ready for human experience acceptance"],
+  "mustNotClaim": ["Human acceptance passed", "V2-PX productization candidate", "Formal trading unlocked", "Production identity or Chrome Web Store release ready"],
+  "tradeBoundary": { "formalTradingUnlocked": false, "autoTradeUnlocked": false, "canCreateOrder": false, "orderCreateAllowed": false }
+}

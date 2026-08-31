@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "v2-px-acceptance-report/2",
+  "generatedAt": "2026-08-31T04:10:00.000Z",
+  "manifestRef": { "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" },
+  "automatedAcceptanceStatus": "passed",
+  "humanAcceptanceStatus": "not_performed",
+  "readyForHumanAcceptance": true,
+  "v2PxProductizationCandidate": false,
+  "acceptanceScenarios": [
+    { "scenarioId": "AC-PX-01", "title": "首次连接", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["扩展已安装且 FAMS 已启动"], "steps": ["打开侧栏并点击连接"], "threshold": "只请求 4000 权限且健康检查成功", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["权限弹窗和连接结果"], "notes": null },
+    { "scenarioId": "AC-PX-02", "title": "快速提问", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["已连接且有真实本地数据"], "steps": ["输入问题并发送"], "threshold": "1 秒内 ack，35 秒内结果或明确阻断", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["提问和结果"], "notes": null },
+    { "scenarioId": "AC-PX-03", "title": "打开工作台", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["侧栏有当前工作区"], "steps": ["连续点击二十次打开工作台"], "threshold": "同工作区只保留一个标签并在 1 秒内聚焦", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["标签页数量"], "notes": null },
+    { "scenarioId": "AC-PX-04", "title": "Host App 跳转", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["FAMS 三个入口可访问"], "steps": ["分别从 ChatBox、Daily Review、Operations 打开外部大脑"], "threshold": "三入口对象一致且缺扩展时说明清晰", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["三个 Host 入口"], "notes": null },
+    { "scenarioId": "AC-PX-05", "title": "五类意图", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["存在 review、operation 和 artifact"], "steps": ["依次查看来源库、详情、问答、追踪、图谱"], "threshold": "五类均使用真实读模型或明确空态", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["五类视图"], "notes": null },
+    { "scenarioId": "AC-PX-06", "title": "四视口", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["两个容器已构建"], "steps": ["按 360、420、768、1280 宽度检查"], "threshold": "无根级横向溢出，关键动作可见，console error 为零", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["四视口"], "notes": null },
+    { "scenarioId": "AC-PX-07", "title": "生命周期", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["工作区已打开"], "steps": ["执行前进后退、刷新、重开、断连和更新"], "threshold": "每个场景在 5 秒内恢复或明确阻断", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["恢复和阻断状态"], "notes": null },
+    { "scenarioId": "AC-PX-08", "title": "状态降级", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["可触发失败、空态和冲突"], "steps": ["观察未连接、加载、空、失败、恢复、阻断"], "threshold": "六种状态均有原因和下一步且伪成功为零", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["六种状态"], "notes": null },
+    { "scenarioId": "AC-PX-09", "title": "隐私与交易边界", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["使用脱敏测试账户"], "steps": ["走完整路径并检查网络与证据"], "threshold": "敏感数据和交易请求为零，四锁恒 false", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["边界提示"], "notes": null },
+    { "scenarioId": "AC-PX-10", "title": "防假绿", "automatedStatus": "passed", "humanStatus": "not_run", "prerequisites": ["自动验收证据已生成"], "steps": ["删除证据并篡改 hash、commit、gate 和状态"], "threshold": "所有负例必须失败且正例通过", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }], "screenshotSlots": ["负例失败结果"], "notes": null }
+  ],
+  "knownBlockers": ["PX6-02 人类十项体验验收和正式 permission 点击尚未执行"],
+  "externalAudit": {
+    "originalResult": "CONDITIONAL_PASS",
+    "reportPath": "docs/V2_PX_INDEPENDENT_AUDIT_REPORT.md",
+    "registeredBlockingIssues": 3,
+    "registeredHighRiskIssues": 8,
+    "remediationStatus": "closed_internal_reaudit_passed_report_retained"
+  },
+  "allowedClaims": ["PX6-01 automated acceptance passed", "Ready for human experience acceptance"],
+  "mustNotClaim": ["Human acceptance passed", "V2-PX productization candidate", "Formal trading unlocked", "Production identity or Chrome Web Store release ready"],
+  "tradeBoundary": { "formalTradingUnlocked": false, "autoTradeUnlocked": false, "canCreateOrder": false, "orderCreateAllowed": false }
+}

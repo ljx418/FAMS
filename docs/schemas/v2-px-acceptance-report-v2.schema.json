@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-acceptance-report-v2.schema.json",
+  "title": "V2-PX Acceptance Report v2",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "manifestRef",
+    "automatedAcceptanceStatus",
+    "humanAcceptanceStatus",
+    "readyForHumanAcceptance",
+    "v2PxProductizationCandidate",
+    "acceptanceScenarios",
+    "knownBlockers",
+    "externalAudit",
+    "allowedClaims",
+    "mustNotClaim",
+    "tradeBoundary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "v2-px-acceptance-report/2" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "manifestRef": { "$ref": "#/$defs/artifactRef" },
+    "automatedAcceptanceStatus": { "type": "string", "enum": ["passed", "failed", "blocked"] },
+    "humanAcceptanceStatus": { "type": "string", "enum": ["not_performed", "in_progress", "passed", "failed"] },
+    "readyForHumanAcceptance": { "type": "boolean" },
+    "v2PxProductizationCandidate": { "type": "boolean" },
+    "acceptanceScenarios": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": { "$ref": "#/$defs/acceptanceScenario" }
+    },
+    "knownBlockers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "externalAudit": {
+      "type": "object",
+      "required": ["originalResult", "reportPath", "registeredBlockingIssues", "registeredHighRiskIssues", "remediationStatus"],
+      "additionalProperties": false,
+      "properties": {
+        "originalResult": { "const": "CONDITIONAL_PASS" },
+        "reportPath": { "const": "docs/V2_PX_INDEPENDENT_AUDIT_REPORT.md" },
+        "registeredBlockingIssues": { "const": 3 },
+        "registeredHighRiskIssues": { "const": 8 },
+        "remediationStatus": { "const": "closed_internal_reaudit_passed_report_retained" }
+      }
+    },
+    "allowedClaims": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "allOf": [
+        { "contains": { "const": "PX6-01 automated acceptance passed" } },
+        { "contains": { "const": "Ready for human experience acceptance" } }
+      ]
+    },
+    "mustNotClaim": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "allOf": [
+        { "contains": { "const": "Human acceptance passed" } },
+        { "contains": { "const": "V2-PX productization candidate" } },
+        { "contains": { "const": "Formal trading unlocked" } },
+        { "contains": { "const": "Production identity or Chrome Web Store release ready" } }
+      ]
+    },
+    "tradeBoundary": { "$ref": "#/$defs/tradeBoundary" }
+  },
+  "allOf": [
+    {
+      "if": { "type": "object", "properties": { "humanAcceptanceStatus": { "enum": ["not_performed", "in_progress", "failed"] } } },
+      "then": { "type": "object", "properties": { "v2PxProductizationCandidate": { "const": false } } }
+    },
+    {
+      "if": { "type": "object", "properties": { "v2PxProductizationCandidate": { "const": true } } },
+      "then": {
+        "type": "object",
+        "properties": {
+          "automatedAcceptanceStatus": { "const": "passed" },
+          "humanAcceptanceStatus": { "const": "passed" },
+          "readyForHumanAcceptance": { "const": true },
+          "knownBlockers": { "type": "array", "maxItems": 0 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "commitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifactRef": {
+      "type": "object",
+      "required": ["path", "sha256", "artifactType", "commitSha"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "artifactType": { "type": "string", "enum": ["json", "html", "png", "trace", "log", "markdown"] },
+        "commitSha": { "$ref": "#/$defs/commitSha" }
+      }
+    },
+    "acceptanceScenario": {
+      "type": "object",
+      "required": ["scenarioId", "title", "automatedStatus", "humanStatus", "prerequisites", "steps", "threshold", "evidenceRefs", "screenshotSlots", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "scenarioId": { "type": "string", "pattern": "^AC-PX-(0[1-9]|10)$" },
+        "title": { "type": "string", "minLength": 1 },
+        "automatedStatus": { "const": "passed" },
+        "humanStatus": { "type": "string", "enum": ["not_run", "passed", "failed"] },
+        "prerequisites": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "steps": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "threshold": { "type": "string", "minLength": 1 },
+        "evidenceRefs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/artifactRef" } },
+        "screenshotSlots": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+    "tradeBoundary": {
+      "type": "object",
+      "required": ["formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+      "additionalProperties": false,
+      "properties": {
+        "formalTradingUnlocked": { "const": false },
+        "autoTradeUnlocked": { "const": false },
+        "canCreateOrder": { "const": false },
+        "orderCreateAllowed": { "const": false }
+      }
+    }
+  }
+}

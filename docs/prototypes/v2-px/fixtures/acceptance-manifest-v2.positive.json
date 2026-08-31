@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "v2-px-acceptance-manifest/2",
+  "generatedAt": "2026-08-31T04:00:00.000Z",
+  "product": {
+    "productId": "fams-v2-px",
+    "hostApplication": "FAMS",
+    "extensionPackage": "packages/fams-v2-px-extension"
+  },
+  "repository": {
+    "url": "https://github.com/ljx418/FAMS.git",
+    "branch": "main",
+    "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f",
+    "inScopeClean": true
+  },
+  "authority": {
+    "productAuthorityStatus": "FROZEN",
+    "routeAAdrStatus": "PRODUCTION_APPROVED"
+  },
+  "contractVersions": {
+    "intentRoute": "v2-px-intent-route/3",
+    "operationCommand": "v2-px-operation-command/2",
+    "lifecycleAudit": "v2-px-dual-container-lifecycle/3",
+    "lifecyclePort": "v2-px-lifecycle-port-message/1",
+    "realChromeEvidence": "v2-px-real-chrome-evidence/2",
+    "acceptanceManifest": "v2-px-acceptance-manifest/2",
+    "acceptanceReport": "v2-px-acceptance-report/2"
+  },
+  "stageResults": [
+    { "stageId": "PX1", "status": "passed", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "stageId": "PX2", "status": "passed", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "stageId": "PX3", "status": "passed", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "stageId": "PX4A", "status": "passed", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "stageId": "PX4B", "status": "passed", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "stageId": "PX5-01", "status": "passed", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "stageId": "PX5-02", "status": "passed", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] }
+  ],
+  "commands": [
+    { "commandId": "CMD-01", "command": "git status --short", "gateIds": ["G1"], "exitCode": 0, "startedAt": "2026-08-31T04:00:00.000Z", "endedAt": "2026-08-31T04:00:01.000Z", "stdoutSha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d" },
+    { "commandId": "CMD-02", "command": "npm run test:contracts", "gateIds": ["G2"], "exitCode": 0, "startedAt": "2026-08-31T04:00:01.000Z", "endedAt": "2026-08-31T04:00:02.000Z", "stdoutSha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d" },
+    { "commandId": "CMD-03", "command": "npm run test:router", "gateIds": ["G3"], "exitCode": 0, "startedAt": "2026-08-31T04:00:02.000Z", "endedAt": "2026-08-31T04:00:03.000Z", "stdoutSha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d" },
+    { "commandId": "CMD-04", "command": "npm run test:workspace", "gateIds": ["G4"], "exitCode": 0, "startedAt": "2026-08-31T04:00:03.000Z", "endedAt": "2026-08-31T04:00:04.000Z", "stdoutSha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d" },
+    { "commandId": "CMD-05", "command": "npm run test:sidepanel", "gateIds": ["G5"], "exitCode": 0, "startedAt": "2026-08-31T04:00:04.000Z", "endedAt": "2026-08-31T04:00:05.000Z", "stdoutSha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d" },
+    { "commandId": "CMD-06", "command": "npm run test:lifecycle", "gateIds": ["G6"], "exitCode": 0, "startedAt": "2026-08-31T04:00:05.000Z", "endedAt": "2026-08-31T04:00:06.000Z", "stdoutSha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d" },
+    { "commandId": "CMD-07", "command": "npm run verify:acceptance", "gateIds": ["G7"], "exitCode": 0, "startedAt": "2026-08-31T04:00:06.000Z", "endedAt": "2026-08-31T04:00:07.000Z", "stdoutSha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d" }
+  ],
+  "requirements": [
+    { "requirementId": "PX-REQ-001", "status": "passed", "sourceStages": ["PX3", "PX4B"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-002", "status": "passed", "sourceStages": ["PX5"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-003", "status": "passed", "sourceStages": ["PX3", "PX5"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-004", "status": "passed", "sourceStages": ["PX4A"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-005", "status": "passed", "sourceStages": ["PX3"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-006", "status": "passed", "sourceStages": ["PX5"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-007", "status": "passed", "sourceStages": ["PX5-01"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-008", "status": "passed", "sourceStages": ["PX5-02"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-009", "status": "passed", "sourceStages": ["PX5"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-010", "status": "passed", "sourceStages": ["PX1"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-011", "status": "passed", "sourceStages": ["PX1", "PX4A"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-012", "status": "passed", "sourceStages": ["PX1", "PX5-02"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-013", "status": "passed", "sourceStages": ["PX2", "PX3"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-014", "status": "passed", "sourceStages": ["PX5-02"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-015", "status": "passed", "sourceStages": ["PX1", "PX3"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-016", "status": "passed", "sourceStages": ["PX3", "PX4A"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-017", "status": "passed", "sourceStages": ["PX3", "PX4A", "PX5-02"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-018", "status": "passed", "sourceStages": ["PX2", "PX5-02"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-019", "status": "passed", "sourceStages": ["PX6-01"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "requirementId": "PX-REQ-020", "status": "passed", "sourceStages": ["PX6-01"], "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] }
+  ],
+  "gates": [
+    { "gateId": "G1", "status": "passed", "commandIds": ["CMD-01"], "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "gateId": "G2", "status": "passed", "commandIds": ["CMD-02"], "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "gateId": "G3", "status": "passed", "commandIds": ["CMD-03"], "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "gateId": "G4", "status": "passed", "commandIds": ["CMD-04"], "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "gateId": "G5", "status": "passed", "commandIds": ["CMD-05"], "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "gateId": "G6", "status": "passed", "commandIds": ["CMD-06"], "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] },
+    { "gateId": "G7", "status": "passed", "commandIds": ["CMD-07"], "evidenceRefs": [{ "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }] }
+  ],
+  "artifacts": [
+    { "path": "artifact-payload.json", "sha256": "8392a82ed3841acf39bd869d8d3d73279824303db6dcfb88e08878a911b88a6d", "artifactType": "json", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f" }
+  ],
+  "humanAcceptance": { "status": "not_performed", "reportPath": "docs/generated/v2-px-human-acceptance.html" },
+  "automatedAcceptanceStatus": "passed",
+  "readyForHumanAcceptance": true,
+  "v2PxProductizationCandidate": false,
+  "tradeBoundary": {
+    "formalTradingUnlocked": false,
+    "autoTradeUnlocked": false,
+    "canCreateOrder": false,
+    "orderCreateAllowed": false,
+    "brokerOrderRequestCount": 0,
+    "transactionMutationCount": 0
+  },
+  "antiFalseGreen": {
+    "positiveFixturesPassed": true,
+    "negativeFixturesRejected": true,
+    "allCommandsExecuted": true,
+    "allArtifactHashesVerified": true,
+    "commitMatched": true,
+    "staticMockHtmlUsed": false
+  }
+}

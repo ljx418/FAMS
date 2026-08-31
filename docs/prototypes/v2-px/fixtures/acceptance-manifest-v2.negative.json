@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "v2-px-acceptance-manifest/2",
+  "generatedAt": "2026-08-31T04:00:00.000Z",
+  "product": { "productId": "fams-v2-px", "hostApplication": "FAMS", "extensionPackage": "packages/fams-v2-px-extension" },
+  "repository": { "url": "https://github.com/ljx418/FAMS.git", "branch": "main", "commitSha": "14997a9aac92e52d29320725c40f1ff48ada8f2f", "inScopeClean": true },
+  "authority": { "productAuthorityStatus": "FROZEN", "routeAAdrStatus": "PRODUCTION_APPROVED" },
+  "contractVersions": { "intentRoute": "v2-px-intent-route/3", "operationCommand": "v2-px-operation-command/2", "lifecycleAudit": "v2-px-dual-container-lifecycle/3", "lifecyclePort": "v2-px-lifecycle-port-message/1", "realChromeEvidence": "v2-px-real-chrome-evidence/2", "acceptanceManifest": "v2-px-acceptance-manifest/2", "acceptanceReport": "v2-px-acceptance-report/2" },
+  "stageResults": [],
+  "commands": [],
+  "requirements": [],
+  "gates": [],
+  "artifacts": [],
+  "humanAcceptance": { "status": "not_performed", "reportPath": "docs/generated/v2-px-human-acceptance.html" },
+  "automatedAcceptanceStatus": "passed",
+  "readyForHumanAcceptance": true,
+  "v2PxProductizationCandidate": true,
+  "tradeBoundary": { "formalTradingUnlocked": true, "autoTradeUnlocked": false, "canCreateOrder": false, "orderCreateAllowed": false, "brokerOrderRequestCount": 0, "transactionMutationCount": 0 },
+  "antiFalseGreen": { "positiveFixturesPassed": true, "negativeFixturesRejected": true, "allCommandsExecuted": true, "allArtifactHashesVerified": true, "commitMatched": true, "staticMockHtmlUsed": false }
+}

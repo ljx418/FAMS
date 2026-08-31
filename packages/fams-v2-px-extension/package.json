@@ -22,6 +22,8 @@
     "verify:router-idempotency-chrome": "node scripts/verify-router-idempotency-chrome.mjs",
     "verify:lifecycle-recovery-chrome": "node scripts/verify-lifecycle-recovery-chrome.mjs",
     "verify:lifecycle-interruption-chrome": "node scripts/verify-lifecycle-interruption-chrome.mjs",
+    "verify:accessibility-chrome": "node scripts/verify-accessibility-chrome.mjs",
+    "generate:human-acceptance": "node scripts/generate-human-acceptance.mjs",
     "verify:acceptance": "node scripts/verify-acceptance.mjs"
   },
   "dependencies": {

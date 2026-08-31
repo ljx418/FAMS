@@ -27,7 +27,8 @@ assert.ok(existsSync(sourceDatabasePath), 'real FAMS SQLite database is missing'
 const devRun = (process.env.V2_PX_DEV_RUN ?? 'default').replace(/[^a-zA-Z0-9_-]/g, '_')
 const evidenceDir = resolve(repoRoot, '.verification/private/v2-px', commitSha, process.env.V2_PX_ALLOW_DIRTY ? `PX5-01-dev-${devRun}` : 'PX5-01')
 await mkdir(evidenceDir, { recursive: true })
-const extensionLoadDir = resolve(evidenceDir, 'headless-pregranted-extension')
+const tempRoot = await mkdtemp(resolve(tmpdir(), 'fams-v2-px-px5-01-'))
+const extensionLoadDir = resolve(tempRoot, 'headless-pregranted-extension')
 await cp(outputDir, extensionLoadDir, { recursive: true, force: true })
 const manifestPath = resolve(extensionLoadDir, 'manifest.json')
 const productionManifest = JSON.parse(readFileSync(resolve(outputDir, 'manifest.json'), 'utf8'))
@@ -45,7 +46,6 @@ const sha256 = (value) => createHash('sha256').update(value).digest('hex')
 const sha256File = (path) => execFileSync('sha256sum', [path], { encoding: 'utf8' }).split(/\s+/)[0]
 const wait = (delayMs) => new Promise((resolveWait) => setTimeout(resolveWait, delayMs))
 const sqlJson = (database, query) => JSON.parse(execFileSync('sqlite3', [database, '-json', query], { encoding: 'utf8' }) || '[]')
-const tempRoot = await mkdtemp(resolve(tmpdir(), 'fams-v2-px-px5-01-'))
 const databasePath = resolve(tempRoot, 'real-data-snapshot.db')
 execFileSync('sqlite3', [sourceDatabasePath, `.backup '${databasePath.replaceAll("'", "''")}'`])
 execFileSync('sqlite3', [databasePath, 'PRAGMA quick_check;'], { encoding: 'utf8' })
@@ -64,7 +64,7 @@ const chromePath = process.env.FAMS_CHROME_PATH || (existsSync(linuxChrome) ? li
 assert.ok(existsSync(chromePath), `official Chrome for Testing missing: ${chromePath}`)
 const linuxRuntimeLib = resolve(repoRoot, '.verification/tools/chrome-for-testing/runtime-libs/root/usr/lib/x86_64-linux-gnu')
 const isWindowsChrome = chromePath.endsWith('.exe')
-const profilePath = resolve(evidenceDir, 'persistent-chrome-profile')
+const profilePath = resolve(tempRoot, 'persistent-chrome-profile')
 await mkdir(profilePath, { recursive: true })
 const extensionArgPath = isWindowsChrome ? execFileSync('wslpath', ['-w', extensionLoadDir], { encoding: 'utf8' }).trim() : extensionLoadDir
 const profileArgPath = isWindowsChrome ? execFileSync('wslpath', ['-w', profilePath], { encoding: 'utf8' }).trim() : profilePath

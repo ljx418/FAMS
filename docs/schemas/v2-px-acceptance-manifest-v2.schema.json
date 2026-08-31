@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://px.local/schemas/v2-px-acceptance-manifest-v2.schema.json",
+  "title": "V2-PX Acceptance Manifest v2",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "product",
+    "repository",
+    "authority",
+    "contractVersions",
+    "stageResults",
+    "commands",
+    "requirements",
+    "gates",
+    "artifacts",
+    "humanAcceptance",
+    "automatedAcceptanceStatus",
+    "readyForHumanAcceptance",
+    "v2PxProductizationCandidate",
+    "tradeBoundary",
+    "antiFalseGreen"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "v2-px-acceptance-manifest/2" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "product": {
+      "type": "object",
+      "required": ["productId", "hostApplication", "extensionPackage"],
+      "additionalProperties": false,
+      "properties": {
+        "productId": { "const": "fams-v2-px" },
+        "hostApplication": { "const": "FAMS" },
+        "extensionPackage": { "const": "packages/fams-v2-px-extension" }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "required": ["url", "branch", "commitSha", "inScopeClean"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "const": "https://github.com/ljx418/FAMS.git" },
+        "branch": { "type": "string", "minLength": 1 },
+        "commitSha": { "$ref": "#/$defs/commitSha" },
+        "inScopeClean": { "const": true }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": ["productAuthorityStatus", "routeAAdrStatus"],
+      "additionalProperties": false,
+      "properties": {
+        "productAuthorityStatus": { "const": "FROZEN" },
+        "routeAAdrStatus": {
+          "type": "string",
+          "enum": ["PROPOSED", "ACCEPTED_FOR_SPIKE", "TECHNICALLY_VALIDATED", "PRODUCTION_APPROVED", "RETURN_TO_ADR"]
+        }
+      }
+    },
+    "contractVersions": {
+      "type": "object",
+      "required": ["intentRoute", "operationCommand", "lifecycleAudit", "lifecyclePort", "realChromeEvidence", "acceptanceManifest", "acceptanceReport"],
+      "additionalProperties": false,
+      "properties": {
+        "intentRoute": { "const": "v2-px-intent-route/3" },
+        "operationCommand": { "const": "v2-px-operation-command/2" },
+        "lifecycleAudit": { "const": "v2-px-dual-container-lifecycle/3" },
+        "lifecyclePort": { "const": "v2-px-lifecycle-port-message/1" },
+        "realChromeEvidence": { "const": "v2-px-real-chrome-evidence/2" },
+        "acceptanceManifest": { "const": "v2-px-acceptance-manifest/2" },
+        "acceptanceReport": { "const": "v2-px-acceptance-report/2" }
+      }
+    },
+    "stageResults": {
+      "type": "array",
+      "minItems": 7,
+      "items": { "$ref": "#/$defs/stageResult" }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 7,
+      "items": { "$ref": "#/$defs/commandResult" }
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": { "$ref": "#/$defs/requirementResult" }
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": { "$ref": "#/$defs/gateResult" }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/artifactRef" }
+    },
+    "humanAcceptance": {
+      "type": "object",
+      "required": ["status", "reportPath"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string", "enum": ["not_performed", "in_progress", "passed", "failed"] },
+        "reportPath": { "type": "string", "minLength": 1 }
+      }
+    },
+    "automatedAcceptanceStatus": { "type": "string", "enum": ["passed", "failed", "blocked"] },
+    "readyForHumanAcceptance": { "type": "boolean" },
+    "v2PxProductizationCandidate": { "type": "boolean" },
+    "tradeBoundary": { "$ref": "#/$defs/tradeBoundary" },
+    "antiFalseGreen": {
+      "type": "object",
+      "required": ["positiveFixturesPassed", "negativeFixturesRejected", "allCommandsExecuted", "allArtifactHashesVerified", "commitMatched", "staticMockHtmlUsed"],
+      "additionalProperties": false,
+      "properties": {
+        "positiveFixturesPassed": { "const": true },
+        "negativeFixturesRejected": { "const": true },
+        "allCommandsExecuted": { "const": true },
+        "allArtifactHashesVerified": { "const": true },
+        "commitMatched": { "const": true },
+        "staticMockHtmlUsed": { "const": false }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "humanAcceptance": { "type": "object", "properties": { "status": { "enum": ["not_performed", "in_progress", "failed"] } } } }
+      },
+      "then": { "type": "object", "properties": { "v2PxProductizationCandidate": { "const": false } } }
+    },
+    {
+      "if": { "type": "object", "properties": { "v2PxProductizationCandidate": { "const": true } } },
+      "then": {
+        "type": "object",
+        "properties": {
+          "automatedAcceptanceStatus": { "const": "passed" },
+          "readyForHumanAcceptance": { "const": true },
+          "humanAcceptance": { "type": "object", "properties": { "status": { "const": "passed" } } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "commitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifactRef": {
+      "type": "object",
+      "required": ["path", "sha256", "artifactType", "commitSha"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "artifactType": { "type": "string", "enum": ["json", "html", "png", "trace", "log", "markdown"] },
+        "commitSha": { "$ref": "#/$defs/commitSha" }
+      }
+    },
+    "stageResult": {
+      "type": "object",
+      "required": ["stageId", "status", "commitSha", "evidenceRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "stageId": { "type": "string", "enum": ["PX1", "PX2", "PX3", "PX4A", "PX4B", "PX5", "PX5-01", "PX5-02", "PX6-01"] },
+        "status": { "const": "passed" },
+        "commitSha": { "$ref": "#/$defs/commitSha" },
+        "evidenceRefs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/artifactRef" } }
+      }
+    },
+    "commandResult": {
+      "type": "object",
+      "required": ["commandId", "command", "gateIds", "exitCode", "startedAt", "endedAt", "stdoutSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "commandId": { "type": "string", "pattern": "^CMD-[0-9]{2}$" },
+        "command": { "type": "string", "minLength": 1 },
+        "gateIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/gateId" } },
+        "exitCode": { "const": 0 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "stdoutSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "requirementResult": {
+      "type": "object",
+      "required": ["requirementId", "status", "sourceStages", "commitSha", "evidenceRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "requirementId": { "type": "string", "pattern": "^PX-REQ-0(0[1-9]|1[0-9]|20)$" },
+        "status": { "const": "passed" },
+        "sourceStages": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "commitSha": { "$ref": "#/$defs/commitSha" },
+        "evidenceRefs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/artifactRef" } }
+      }
+    },
+    "gateId": { "type": "string", "enum": ["G1", "G2", "G3", "G4", "G5", "G6", "G7"] },
+    "gateResult": {
+      "type": "object",
+      "required": ["gateId", "status", "commandIds", "evidenceRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "gateId": { "$ref": "#/$defs/gateId" },
+        "status": { "const": "passed" },
+        "commandIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^CMD-[0-9]{2}$" } },
+        "evidenceRefs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/artifactRef" } }
+      }
+    },
+    "tradeBoundary": {
+      "type": "object",
+      "required": ["formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed", "brokerOrderRequestCount", "transactionMutationCount"],
+      "additionalProperties": false,
+      "properties": {
+        "formalTradingUnlocked": { "const": false },
+        "autoTradeUnlocked": { "const": false },
+        "canCreateOrder": { "const": false },
+        "orderCreateAllowed": { "const": false },
+        "brokerOrderRequestCount": { "const": 0 },
+        "transactionMutationCount": { "const": 0 }
+      }
+    }
+  }
+}

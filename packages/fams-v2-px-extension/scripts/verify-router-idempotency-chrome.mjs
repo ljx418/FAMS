@@ -41,14 +41,16 @@ const stable = (value) => {
 }
 const digestPayload = (value) => sha256(JSON.stringify(stable(value)))
 
+const acceptanceHost = process.env.V2_PX_ACCEPTANCE_HOST || '127.0.0.1'
+
 async function assertPortFree(port) {
   const occupied = await new Promise((resolveResult) => {
-    const socket = connect({ host: '127.0.0.1', port })
+    const socket = connect({ host: acceptanceHost, port })
     socket.once('connect', () => { socket.destroy(); resolveResult(true) })
     socket.once('error', () => resolveResult(false))
     socket.setTimeout(500, () => { socket.destroy(); resolveResult(false) })
   })
-  assert.equal(occupied, false, `port ${port} is already occupied; refusing false-green service reuse`)
+  assert.equal(occupied, false, `${acceptanceHost}:${port} is already occupied; refusing false-green service reuse`)
 }
 
 function token(prefix) { return `px-${prefix}-${randomUUID().replaceAll('-', '')}` }
@@ -159,7 +161,7 @@ const hostServer = createServer((_request, response) => {
 })
 await new Promise((resolveReady, reject) => {
   hostServer.once('error', reject)
-  hostServer.listen(3000, '127.0.0.1', resolveReady)
+  hostServer.listen(3000, acceptanceHost, resolveReady)
 })
 
 const productionManifest = JSON.parse(readFileSync(resolve(outputDir, 'manifest.json'), 'utf8'))
@@ -172,17 +174,24 @@ acceptanceManifest.host_permissions = [...acceptanceManifest.optional_host_permi
 acceptanceManifest.optional_host_permissions = []
 await writeFile(acceptanceManifestPath, `${JSON.stringify(acceptanceManifest)}\n`)
 
-const chromeForTestingPath = resolve(repoRoot, '.verification/tools/chrome-for-testing/chrome-win64/chrome.exe')
-const chromePath = process.env.FAMS_WINDOWS_CHROME_PATH || (existsSync(chromeForTestingPath) ? chromeForTestingPath : '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe')
-assert.ok(existsSync(chromePath), `Windows Chrome executable not found: ${chromePath}`)
+const linuxChrome = resolve(repoRoot, '.verification/tools/chrome-for-testing/chrome-linux64/chrome')
+const windowsChrome = resolve(repoRoot, '.verification/tools/chrome-for-testing/chrome-win64/chrome.exe')
+const chromePath = process.env.FAMS_CHROME_PATH || process.env.FAMS_WINDOWS_CHROME_PATH || (existsSync(linuxChrome) ? linuxChrome : windowsChrome)
+assert.ok(existsSync(chromePath), `official Chrome for Testing not found: ${chromePath}`)
+const isWindowsChrome = chromePath.endsWith('.exe')
+const linuxRuntimeLib = resolve(repoRoot, '.verification/tools/chrome-for-testing/runtime-libs/root/usr/lib/x86_64-linux-gnu')
 const profilePath = await mkdtemp(resolve(evidenceDir, 'chrome-profile-'))
-const windowsProfilePath = execFileSync('wslpath', ['-w', profilePath], { encoding: 'utf8' }).trim()
-const windowsExtensionPath = execFileSync('wslpath', ['-w', extensionLoadDir], { encoding: 'utf8' }).trim()
+const profileArgPath = isWindowsChrome ? execFileSync('wslpath', ['-w', profilePath], { encoding: 'utf8' }).trim() : profilePath
+const extensionArgPath = isWindowsChrome ? execFileSync('wslpath', ['-w', extensionLoadDir], { encoding: 'utf8' }).trim() : extensionLoadDir
 const chromeProcess = spawn(chromePath, [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-allow-origins=*',
-  '--remote-debugging-port=0', `--user-data-dir=${windowsProfilePath}`,
-  `--disable-extensions-except=${windowsExtensionPath}`, `--load-extension=${windowsExtensionPath}`, 'about:blank',
-], { stdio: ['ignore', 'ignore', 'pipe'] })
+  ...(acceptanceHost === '::1' ? ['--host-resolver-rules=MAP localhost [::1]'] : []),
+  '--remote-debugging-port=0', `--user-data-dir=${profileArgPath}`,
+  `--disable-extensions-except=${extensionArgPath}`, `--load-extension=${extensionArgPath}`, 'about:blank',
+], {
+  stdio: ['ignore', 'ignore', 'pipe'],
+  env: { ...process.env, ...(isWindowsChrome ? {} : { LD_LIBRARY_PATH: [linuxRuntimeLib, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':') }) },
+})
 let diagnostics = ''
 const endpoint = await new Promise((resolveEndpoint, reject) => {
   const timer = setTimeout(() => reject(new Error(`Chrome CDP timeout: ${diagnostics.slice(-2500)}`)), 30_000)
@@ -287,8 +296,16 @@ try {
   const duplicateDeadline = Date.now() + 10_000
   while ((await workspaceTabs(worker)).length < 2 && Date.now() < duplicateDeadline) await wait(100)
   assert.equal((await workspaceTabs(worker)).length, 2, 'multi-window duplicate setup failed')
+  const convergenceStartedAt = Date.now()
   await sendInternal(sidepanel, routeMessage('sidepanel', 'open_workspace', 'source_library', { workspaceId }))
-  const convergedTabs = await workspaceTabs(worker)
+  let convergedTabs = await workspaceTabs(worker)
+  const convergenceDeadline = convergenceStartedAt + 1_000
+  while (Date.now() < convergenceDeadline) {
+    const active = convergedTabs[0]?.url ? new URL(convergedTabs[0].url) : null
+    if (convergedTabs.length === 1 && active?.searchParams.get('view') === 'source_library' && !active.searchParams.has('ref')) break
+    await wait(25)
+    convergedTabs = await workspaceTabs(worker)
+  }
   assert.equal(convergedTabs.length, 1, 'multi-window duplicates were not consolidated')
   const focusedWindow = await worker.evaluate(async (windowId) => chrome.windows.get(windowId), convergedTabs[0].windowId)
   assert.equal(focusedWindow.focused, true, 'retained Workspace window was not focused')
@@ -297,6 +314,7 @@ try {
   assert.deepEqual([...activeUrl.searchParams.keys()].sort(), ['view', 'workspaceId'])
   assert.equal(activeUrl.searchParams.has('routeId'), false)
   assert.equal(activeUrl.searchParams.has('correlationId'), false)
+  assert.ok(Date.now() - convergenceStartedAt <= 1_000, 'multi-window focus/navigation exceeded the 1 second PRD threshold')
 
   const ask = queryMessage(`PX5 真实并发幂等核对 ${randomUUID()}`)
   const postsBeforeAsk = network.filter((entry) => entry.phase === 'request' && entry.method === 'POST' && entry.url.includes('/external-brain/ask')).length

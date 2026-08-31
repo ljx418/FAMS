@@ -160,6 +160,90 @@ async function verifyArtifactRefs(refs: ArtifactRef[]): Promise<ValidationIssue[
   return results.flat()
 }
 
+function exactIdSet(actual: string[], expected: string[]): boolean {
+  return actual.length === expected.length
+    && new Set(actual).size === expected.length
+    && expected.every((id) => actual.includes(id))
+}
+
+async function semanticAcceptanceManifestV2(document: Record<string, unknown>): Promise<ValidationIssue[]> {
+  const issues = findSecretKeys(document)
+  const repository = objectValue(document.repository)
+  const product = objectValue(document.product)
+  if (
+    product.productId !== AUTHORITY.productId
+    || product.hostApplication !== AUTHORITY.hostApplication
+    || product.extensionPackage !== AUTHORITY.extensionPackage
+    || repository.url !== AUTHORITY.repository
+  ) issues.push(issue('authority_mismatch', 'Acceptance v2 authority differs from the frozen PX baseline'))
+
+  const gates = Array.isArray(document.gates) ? document.gates.map(objectValue) : []
+  const gateIds = gates.map((gate) => String(gate.gateId ?? ''))
+  const expectedGates = Array.from({ length: 7 }, (_, index) => `G${index + 1}`)
+  if (!exactIdSet(gateIds, expectedGates)) issues.push(issue('gate_set_invalid', 'G1..G7 must each occur exactly once'))
+
+  const requirements = Array.isArray(document.requirements) ? document.requirements.map(objectValue) : []
+  const requirementIds = requirements.map((requirement) => String(requirement.requirementId ?? ''))
+  const expectedRequirements = Array.from({ length: 20 }, (_, index) => `PX-REQ-${String(index + 1).padStart(3, '0')}`)
+  if (!exactIdSet(requirementIds, expectedRequirements)) issues.push(issue('requirement_set_invalid', 'PX-REQ-001..020 must each occur exactly once'))
+
+  const commands = Array.isArray(document.commands) ? document.commands.map(objectValue) : []
+  const commandIds = commands.map((command) => String(command.commandId ?? ''))
+  if (new Set(commandIds).size !== commandIds.length) issues.push(issue('command_set_invalid', 'commandId values must be unique'))
+  for (const gate of gates) {
+    const gateId = String(gate.gateId ?? '')
+    const refs = Array.isArray(gate.commandIds) ? gate.commandIds.map(String) : []
+    if (refs.some((commandId) => !commandIds.includes(commandId))) issues.push(issue('command_ref_invalid', `${gateId} references an unknown command`))
+    if (refs.some((commandId) => !commands.some((command) => command.commandId === commandId && Array.isArray(command.gateIds) && command.gateIds.includes(gateId)))) {
+      issues.push(issue('command_gate_mismatch', `${gateId} command linkage is not bidirectional`))
+    }
+  }
+
+  const stageResults = Array.isArray(document.stageResults) ? document.stageResults.map(objectValue) : []
+  if (new Set(stageResults.map((stage) => String(stage.stageId ?? ''))).size !== stageResults.length) {
+    issues.push(issue('stage_set_invalid', 'stageId values must be unique'))
+  }
+  const owned = [...stageResults, ...requirements]
+  for (const owner of owned) {
+    const ownerCommit = String(owner.commitSha ?? '')
+    const refs = Array.isArray(owner.evidenceRefs) ? owner.evidenceRefs.map(objectValue) : []
+    if (refs.some((ref) => ref.commitSha !== ownerCommit)) issues.push(issue('artifact_commit_mismatch', 'Evidence commitSha differs from its owning result'))
+  }
+
+  const topArtifacts = Array.isArray(document.artifacts) ? document.artifacts.map(objectValue) : []
+  if (topArtifacts.some((ref) => ref.commitSha !== repository.commitSha)) {
+    issues.push(issue('artifact_commit_mismatch', 'Top-level artifact commitSha differs from repository commitSha'))
+  }
+  const fixtureRefs = [...stageResults, ...requirements, ...gates]
+    .flatMap((owner) => Array.isArray(owner.evidenceRefs) ? owner.evidenceRefs.map(objectValue) : [])
+    .concat(topArtifacts)
+    .map((ref) => ({ path: String(ref.path ?? ''), sha256: String(ref.sha256 ?? '') }))
+  issues.push(...await verifyArtifactRefs(fixtureRefs))
+
+  const human = objectValue(document.humanAcceptance)
+  if (human.status !== 'passed' && document.v2PxProductizationCandidate !== false) {
+    issues.push(issue('premature_candidate', 'Candidate must remain false until human acceptance passes'))
+  }
+  return issues
+}
+
+async function semanticAcceptanceReportV2(document: Record<string, unknown>): Promise<ValidationIssue[]> {
+  const issues = findSecretKeys(document)
+  const scenarios = Array.isArray(document.acceptanceScenarios) ? document.acceptanceScenarios.map(objectValue) : []
+  const scenarioIds = scenarios.map((scenario) => String(scenario.scenarioId ?? ''))
+  const expectedScenarios = Array.from({ length: 10 }, (_, index) => `AC-PX-${String(index + 1).padStart(2, '0')}`)
+  if (!exactIdSet(scenarioIds, expectedScenarios)) issues.push(issue('scenario_set_invalid', 'AC-PX-01..10 must each occur exactly once'))
+  if (document.humanAcceptanceStatus === 'not_performed' && scenarios.some((scenario) => scenario.humanStatus !== 'not_run')) {
+    issues.push(issue('human_status_mismatch', 'Human scenarios must remain not_run when human acceptance was not performed'))
+  }
+  if (document.humanAcceptanceStatus !== 'passed' && document.v2PxProductizationCandidate !== false) {
+    issues.push(issue('premature_candidate', 'Report candidate must remain false until human acceptance passes'))
+  }
+  const manifestRef = objectValue(document.manifestRef)
+  issues.push(...await verifyArtifactRefs([{ path: String(manifestRef.path ?? ''), sha256: String(manifestRef.sha256 ?? '') }]))
+  return issues
+}
+
 async function verifyPrivateEvidenceArtifact(ref: ArtifactRef): Promise<ValidationIssue[]> {
   const candidate = resolve(repoRoot, ref.path)
   const allowedPrefix = `${privateEvidenceRoot}${sep}`
@@ -439,12 +523,16 @@ async function main() {
     ['v2-px-dual-container-lifecycle-v3.schema.json', 'dual-container-lifecycle-v3.positive.json', 'dual-container-lifecycle-v3.negative.json'],
     ['v2-px-real-chrome-evidence-v2.schema.json', 'real-chrome-evidence-v2.positive.json', 'real-chrome-evidence-v2.negative.json'],
     ['v2-px-lifecycle-port-message-v1.schema.json', 'lifecycle-port-message-v1.positive.json', 'lifecycle-port-message-v1.negative.json'],
+    ['v2-px-acceptance-manifest-v2.schema.json', 'acceptance-manifest-v2.positive.json', 'acceptance-manifest-v2.negative.json'],
+    ['v2-px-acceptance-report-v2.schema.json', 'acceptance-report-v2.positive.json', 'acceptance-report-v2.negative.json'],
   ] as const
   const targetAjv = new Ajv2020({ allErrors: true, strict: true, validateFormats: false })
   const targetResults: Array<{ schema: string; positivePassed: boolean; negativeRejected: boolean }> = []
   let validateTargetChrome: { (document: unknown): boolean; errors?: unknown } | undefined
   let validateTargetIntent: { (document: unknown): boolean; errors?: unknown } | undefined
   let validateTargetCommand: { (document: unknown): boolean; errors?: unknown } | undefined
+  let validateTargetAcceptanceManifest: { (document: unknown): boolean; errors?: unknown } | undefined
+  let validateTargetAcceptanceReport: { (document: unknown): boolean; errors?: unknown } | undefined
   for (const [schemaName, positiveName, negativeName] of targetContracts) {
     const targetSchema = JSON.parse(await readFile(resolve(schemaRoot, schemaName), 'utf8'))
     const validate = targetAjv.compile(targetSchema)
@@ -455,8 +543,33 @@ async function main() {
     if (schemaName === 'v2-px-real-chrome-evidence-v2.schema.json') validateTargetChrome = validate
     if (schemaName === 'v2-px-intent-route-v3.schema.json') validateTargetIntent = validate
     if (schemaName === 'v2-px-operation-command-v2.schema.json') validateTargetCommand = validate
+    if (schemaName === 'v2-px-acceptance-manifest-v2.schema.json') validateTargetAcceptanceManifest = validate
+    if (schemaName === 'v2-px-acceptance-report-v2.schema.json') validateTargetAcceptanceReport = validate
     targetResults.push({ schema: schemaName, positivePassed, negativeRejected })
   }
+
+  const acceptanceManifestV2 = JSON.parse(await readFile(resolve(fixtureRoot, 'acceptance-manifest-v2.positive.json'), 'utf8')) as Record<string, unknown>
+  const acceptanceReportV2 = JSON.parse(await readFile(resolve(fixtureRoot, 'acceptance-report-v2.positive.json'), 'utf8')) as Record<string, unknown>
+  assert.equal(Boolean(validateTargetAcceptanceManifest?.(acceptanceManifestV2)), true, 'Acceptance manifest v2 positive fixture must pass schema')
+  assert.equal(Boolean(validateTargetAcceptanceReport?.(acceptanceReportV2)), true, 'Acceptance report v2 positive fixture must pass schema')
+  assert.deepEqual(await semanticAcceptanceManifestV2(acceptanceManifestV2), [], 'Acceptance manifest v2 positive fixture must pass semantic validation')
+  assert.deepEqual(await semanticAcceptanceReportV2(acceptanceReportV2), [], 'Acceptance report v2 positive fixture must pass semantic validation')
+
+  const duplicateGate = structuredClone(acceptanceManifestV2)
+  const duplicateGateItems = duplicateGate.gates as Array<Record<string, unknown>>
+  duplicateGateItems[6] = { ...duplicateGateItems[6], gateId: 'G1' }
+  assert.ok((await semanticAcceptanceManifestV2(duplicateGate)).some((item) => item.code === 'gate_set_invalid'), 'Duplicate gate semantic mutation must fail')
+  const duplicateRequirement = structuredClone(acceptanceManifestV2)
+  const duplicateRequirementItems = duplicateRequirement.requirements as Array<Record<string, unknown>>
+  duplicateRequirementItems[19] = { ...duplicateRequirementItems[19], requirementId: 'PX-REQ-001' }
+  assert.ok((await semanticAcceptanceManifestV2(duplicateRequirement)).some((item) => item.code === 'requirement_set_invalid'), 'Duplicate requirement semantic mutation must fail')
+  const mismatchedCommit = structuredClone(acceptanceManifestV2)
+  const mismatchedArtifacts = mismatchedCommit.artifacts as Array<Record<string, unknown>>
+  mismatchedArtifacts[0] = { ...mismatchedArtifacts[0], commitSha: '0000000000000000000000000000000000000000' }
+  assert.ok((await semanticAcceptanceManifestV2(mismatchedCommit)).some((item) => item.code === 'artifact_commit_mismatch'), 'Artifact commit mutation must fail')
+  const prematureCandidate = structuredClone(acceptanceReportV2)
+  prematureCandidate.v2PxProductizationCandidate = true
+  assert.ok((await semanticAcceptanceReportV2(prematureCandidate)).some((item) => item.code === 'premature_candidate'), 'Premature candidate semantic mutation must fail')
 
   const realOperation = await prisma.operation.findFirst({
     where: { NOT: { artifactRefsJson: '[]' } },
@@ -580,6 +693,11 @@ async function main() {
     schemaCount: schemas.length,
     targetSchemaCount: targetContracts.length,
     targetContractResults: targetResults,
+    acceptanceV2SemanticPositivePassed: true,
+    acceptanceV2DuplicateGateRejected: true,
+    acceptanceV2DuplicateRequirementRejected: true,
+    acceptanceV2ArtifactCommitMismatchRejected: true,
+    acceptanceV2PrematureCandidateRejected: true,
     fixturePath: relative(repoRoot, fixturesPath),
     positiveFixturePassed: positiveFixtures.every((fixture) => fixture.actual === 'pass'),
     negativeFixtureFailed: negativeFixtures.every((fixture) => fixture.actual === 'fail'),

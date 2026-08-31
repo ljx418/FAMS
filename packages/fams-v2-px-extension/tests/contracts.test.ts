@@ -20,6 +20,8 @@ const contracts = [
   ['v2-px-dual-container-lifecycle-v3.schema.json', 'dual-container-lifecycle-v3.positive.json', 'dual-container-lifecycle-v3.negative.json'],
   ['v2-px-real-chrome-evidence-v2.schema.json', 'real-chrome-evidence-v2.positive.json', 'real-chrome-evidence-v2.negative.json'],
   ['v2-px-lifecycle-port-message-v1.schema.json', 'lifecycle-port-message-v1.positive.json', 'lifecycle-port-message-v1.negative.json'],
+  ['v2-px-acceptance-manifest-v2.schema.json', 'acceptance-manifest-v2.positive.json', 'acceptance-manifest-v2.negative.json'],
+  ['v2-px-acceptance-report-v2.schema.json', 'acceptance-report-v2.positive.json', 'acceptance-report-v2.negative.json'],
 ] as const
 
 describe('V2-PX target JSON contracts', () => {

@@ -12,6 +12,8 @@ const backendRoot = resolve(repoRoot, 'backend')
 const outputDir = resolve(packageRoot, '.output/chrome-mv3')
 const databasePath = resolve(backendRoot, 'prisma/dev.db')
 const workspaceId = 'px-ws-00000000-0000-4000-8000-000000000001'
+const acceptanceHost = process.env.V2_PX_ACCEPTANCE_HOST || '0.0.0.0'
+const acceptanceApiOrigin = acceptanceHost === '::1' ? 'http://[::1]:4000' : 'http://127.0.0.1:4000'
 assert.ok(existsSync(resolve(outputDir, 'manifest.json')), 'WXT build output is missing')
 assert.ok(existsSync(databasePath), 'real FAMS SQLite database is missing')
 const productionManifest = JSON.parse(readFileSync(resolve(outputDir, 'manifest.json'), 'utf8'))
@@ -89,7 +91,7 @@ async function sendRuntimeRoute(page, routeIntent, routePayload) {
 }
 
 async function apiJson(extensionId, path) {
-  const response = await fetch(`http://127.0.0.1:4000${path}`, { headers: { Origin: `chrome-extension://${extensionId}`, 'X-FAMS-Extension-Id': extensionId } })
+  const response = await fetch(`${acceptanceApiOrigin}${path}`, { headers: { Origin: `chrome-extension://${extensionId}`, 'X-FAMS-Extension-Id': extensionId } })
   const body = await response.json()
   assert.equal(response.ok, true, `real API failed ${response.status}: ${JSON.stringify(body)}`)
   return body
@@ -154,18 +156,25 @@ async function captureBoth(page, view, suffix = '') {
   ]
 }
 
-const chromeForTestingPath = resolve(repoRoot, '.verification/tools/chrome-for-testing/chrome-win64/chrome.exe')
-const chromePath = process.env.FAMS_WINDOWS_CHROME_PATH || (existsSync(chromeForTestingPath) ? chromeForTestingPath : '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe')
-assert.ok(existsSync(chromePath), `Windows Chrome executable not found: ${chromePath}`)
+const linuxChrome = resolve(repoRoot, '.verification/tools/chrome-for-testing/chrome-linux64/chrome')
+const windowsChrome = resolve(repoRoot, '.verification/tools/chrome-for-testing/chrome-win64/chrome.exe')
+const chromePath = process.env.FAMS_CHROME_PATH || process.env.FAMS_WINDOWS_CHROME_PATH || (existsSync(linuxChrome) ? linuxChrome : windowsChrome)
+assert.ok(existsSync(chromePath), `official Chrome for Testing not found: ${chromePath}`)
+const isWindowsChrome = chromePath.endsWith('.exe')
+const linuxRuntimeLib = resolve(repoRoot, '.verification/tools/chrome-for-testing/runtime-libs/root/usr/lib/x86_64-linux-gnu')
 const profilePath = await mkdtemp(resolve(evidenceDir, 'chrome-profile-'))
-const windowsProfilePath = execFileSync('wslpath', ['-w', profilePath], { encoding: 'utf8' }).trim()
-const windowsExtensionPath = execFileSync('wslpath', ['-w', extensionLoadDir], { encoding: 'utf8' }).trim()
+const profileArgPath = isWindowsChrome ? execFileSync('wslpath', ['-w', profilePath], { encoding: 'utf8' }).trim() : profilePath
+const extensionArgPath = isWindowsChrome ? execFileSync('wslpath', ['-w', extensionLoadDir], { encoding: 'utf8' }).trim() : extensionLoadDir
 const chromeArgs = [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-allow-origins=*',
-  '--remote-debugging-port=0', `--user-data-dir=${windowsProfilePath}`,
-  `--disable-extensions-except=${windowsExtensionPath}`, `--load-extension=${windowsExtensionPath}`, 'about:blank',
+  '--no-proxy-server', ...(acceptanceHost === '::1' ? ['--host-resolver-rules=MAP localhost [::1]'] : []),
+  '--remote-debugging-port=0', `--user-data-dir=${profileArgPath}`,
+  `--disable-extensions-except=${extensionArgPath}`, `--load-extension=${extensionArgPath}`, 'about:blank',
 ]
-const chromeProcess = spawn(chromePath, chromeArgs, { stdio: ['ignore', 'ignore', 'pipe'] })
+const chromeProcess = spawn(chromePath, chromeArgs, {
+  stdio: ['ignore', 'ignore', 'pipe'],
+  env: { ...process.env, ...(isWindowsChrome ? {} : { LD_LIBRARY_PATH: [linuxRuntimeLib, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':') }) },
+})
 let diagnostics = ''
 const endpoint = await new Promise((resolveEndpoint, reject) => {
   const timer = setTimeout(() => reject(new Error(`Chrome CDP timeout: ${diagnostics.slice(-2000)}`)), 30_000)
