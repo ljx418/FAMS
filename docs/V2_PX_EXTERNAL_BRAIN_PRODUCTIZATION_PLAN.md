@@ -7,13 +7,13 @@
 V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。文档阶段已经完成且用户已批准方案 A/LC-A 顺序实施；PX1 技术基座、PX2 Workspace、PX3 Side Panel/Host、产品 PX4 Router/at-most-once 与 PX5 生命周期已通过自动化验收。当前只允许进入 PX6-01 全量自动验收，不得跳过该阶段或 PX6-02 人类体验核查直接声明产品化候选完成。
 
 ```text
-currentStage=PRODUCT_PX5_02_INTERRUPTION_LIFECYCLE_ENTRY
+currentStage=PRODUCT_PX6_01_FULL_AUTOMATED_ACCEPTANCE_ENTRY
 px0GithubReviewGate=PASS
 authorityBaselineStatus=FROZEN
 productAuthorityStatus=FROZEN
 productGoalApproval=APPROVED_BY_USER
-routeAAdrStatus=TECHNICALLY_VALIDATED
-routeAImplementationReadiness=PX1_THROUGH_PRODUCT_PX5_01_RECOVERY_MIGRATION_AUTOMATED_ACCEPTED
+routeAAdrStatus=PRODUCTION_APPROVED
+routeAImplementationReadiness=PX1_THROUGH_PRODUCT_PX5_AUTOMATED_ACCEPTED
 externalIndependentAuditStatus=CONDITIONAL_PASS
 externalAuditRemediationStatus=APPLIED_INTERNAL_REAUDIT_PASSED_REPORT_RETAINED
 semanticValidatorImplemented=true
@@ -27,7 +27,7 @@ px5RouterIdempotencyStatus=AUTOMATED_ACCEPTANCE_PASSED
 productPx5LifecycleStatus=PX5_AUTOMATED_ACCEPTED_PX6_01_ENTRY
 v2PxComplete=false
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-productionCodeChangesAllowedInCurrentPhase=PX5_02_ONLY
+productionCodeChangesAllowedInCurrentPhase=PX6_01_ACCEPTANCE_TOOLING_ONLY
 ```
 
 产品 PX5 入场审计曾登记的 3 个重大规格冲突已由用户批准 `LC-A` 并闭环。PX5-01 已在提交 `05221ecca4c761a31370ed541d6c4db7f012cc2a` 通过恢复迁移验收；PX5-02 已在提交 `51a9329ec6f8f8af3a4a1fe8888be533580d8993` 通过真实 FAMS 断连、worker suspend、0.1→0.2 update、stale/dual lease 与 2/4/8/10 秒有界 GET polling。M5 已完成，当前进入 PX6-01 acceptance manifest/report `/1→/2` 与 G1～G7 全量自动验收。
@@ -362,7 +362,7 @@ manual_experience_review_checklist.md
 | G6 | 双容器生命周期 | target lifecycle/3、Chrome evidence/2、storage migration | extension `test:lifecycle`（计划） | sequence/state/reason、TTL/未知版本均可推导 | PX-5 |
 | G7 | Anti-false-green | target acceptance manifest/report/2 + semantic validator | extension `verify:acceptance`（计划） | 20 requirements、AC01～10、正例/负例、artifact/commit 可复核 | PX-6 |
 
-当前 PX1～产品 PX4 Router/at-most-once 已形成可复核实现和私有证据；产品 PX5 生命周期恢复与 PX6 G1..G7 仍是未完成计划，不允许越级或提前出门。
+当前 PX1～产品 PX5 生命周期已形成可复核实现和私有证据；PX6-01 G1..G7、target acceptance `/2` 与人类验收 HTML 仍是未完成计划，不允许越级或提前出门。
 
 ## 4. Anti-False-Green 验收合同
 

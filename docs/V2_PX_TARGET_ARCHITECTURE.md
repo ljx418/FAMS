@@ -8,14 +8,14 @@ V2-PX 采用 Route A.1：`独立 Workspace Page + 轻量 Side Panel + Background
 
 ```text
 architectureReviewStatus=EXTERNAL_AUDIT_REMEDIATION_APPLIED_INTERNAL_REAUDIT_PASSED
-implementationStatus=PX1_THROUGH_PRODUCT_PX5_01_RECOVERY_MIGRATION_AUTOMATED_ACCEPTED
+implementationStatus=PX1_THROUGH_PRODUCT_PX5_AUTOMATED_ACCEPTED
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
-routeAAdrStatus=TECHNICALLY_VALIDATED_SCHEME_A_IMPLEMENTED
+routeAAdrStatus=PRODUCTION_APPROVED
 productAuthorityStatus=FROZEN
-routeAImplementationReadiness=LIFECYCLE_RECOVERY_AND_FINAL_ACCEPTANCE_REMAIN
-productPx5LifecycleEntryStatus=PX5_01_AUTOMATED_ACCEPTED_PX5_02_ENTRY
+routeAImplementationReadiness=PX6_FINAL_ACCEPTANCE_REMAINS
+productPx5LifecycleEntryStatus=PX5_AUTOMATED_ACCEPTED_PX6_01_ENTRY
 routeATechnicallyValidated=true
-routeAProductionApproved=false
+routeAProductionApproved=true
 ```
 
 架构的 8 页中文可视化位于 `docs/v2-px-target-architecture-gap.drawio`，页级职责和防退化检查位于 `docs/V2_PX_DRAWIO_SUMMARY.md`；实现级 API、消息、状态、存储、错误与权限决策以 `docs/V2_PX_API_RUNTIME_CONTRACT.md` 为准。
