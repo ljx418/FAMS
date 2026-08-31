@@ -79,11 +79,11 @@ PX1～PX5-01 已实现 WXT package、Background、Side Panel、Workspace、targe
 | 已实现（产品 PX4 已验收） | `src/background/workspaceTabManager.ts` | query/create/reuse/focus Workspace tab，按 workspace 排队与去重 | 20 串行、20 并发、多窗口均 tab=1；GET 导航仅有限重试 |
 | 已实现（产品 PX4 已验收） | `src/state/idempotencyRegistry.ts` | local dispatch ledger、同 key 重放、冲突拒绝、完整回读 | 并发 20 次 POST=1；restart/fault/unknown 不自动重试 |
 | 已实现（PX5-01 已验收） | `src/background/chromeStorage.ts` | session WorkspaceState、local ledger、20 条/30 天 RecoveryIndex/2 | 固定写序、启动清理、v1→v2 与未知 major 保留已由真实 Chrome 验收 |
-| 已实现（PX5-02 需补强） | `src/state/lifecycleAuditStore.ts` | lifecycle/3 封闭 eventType、sequence/reason 与状态迁移 | route/load/reload/migration/blocked 可追溯；断连、stale lease 全矩阵待 PX5-02 |
+| 已实现并通过 PX5-02 | `src/state/lifecycleAuditStore.ts` | lifecycle/3 封闭 eventType、sequence/reason 与状态迁移 | route/load/reload/migration/blocked/断连/stale lease/close 全链可追溯 |
 | 已实现（PX5-01 已验收） | `src/background/lifecyclePortManager.ts` | 验证 `v2-px-lifecycle/1` Port、首包订阅、sender 与 container lease；推送 Background snapshot | 不接收 Host；无 heartbeat/alarms；恶意首包零副作用 |
 | 已实现（PX5-01 已验收） | `src/background/lifecycleCoordinator.ts` | startup 清理、session/local 恢复、已知 v1→v2 迁移、URL 与状态调和 | 未知 major 保留原始 JSON 并 blocked；Background 单写 |
-| 已实现（PX5-02 需补强） | `src/ui/lifecycleClient.ts` | Side Panel/Workspace 建立 Port 与订阅 snapshot | UI 不自行宣称 restored；一次有界重连待 PX5-02；不持续保活 service worker |
-| 待 PX5-02 | `src/background/operationPoller.ts` | 只对已存在的 active GET Operation 做 2/4/8/10 秒有界轮询 | POST 永不轮询/重发；终态、断连或无 lease 立即停止 |
+| 已实现并通过 PX5-02 | `src/ui/lifecycleClient.ts` | Side Panel/Workspace 建立 Port、订阅 snapshot、250ms 一次有界重连 | UI 不自行宣称 restored；不持续保活 service worker |
+| 已实现并通过 PX5-02 | `src/background/operationPoller.ts` | 只对已存在的 active GET Operation 做 2/4/8/10 秒有界轮询 | 一次控制消息；POST 永不轮询/重发；终态、断连、无 lease 或四轮后停止 |
 
 ### 4.3 UI 体验层
 
@@ -93,7 +93,7 @@ PX1～PX5-01 已实现 WXT package、Background、Side Panel、Workspace、targe
 | 已实现（合并实体） | `entrypoints/sidepanel/SidePanelApp.tsx` | 连接说明、当前摘要、Quick Ask、最近任务与完整工作台入口 |
 | 已实现（合并实体） | `entrypoints/workspace/WorkspaceApp.tsx` | 页面框架、source library/detail/ask/trace/graph 五视图、证据折叠与失败动作 |
 | 已实现 | `frontend/src/components/external-brain/OpenInExternalBrainButton.tsx` | Host 三页统一按钮、ack、配置/阻断中文状态 |
-| 已实现（PX5-01；PX5-02 需补强） | `WorkspaceApp.tsx`、`SidePanelApp.tsx` 的 recovery UI | reload/close/Chrome 重启/未知 storage 已验收；断连、worker suspend/update 留 PX5-02 |
+| 已实现并通过 PX5-02 | `WorkspaceApp.tsx`、`SidePanelApp.tsx` 的 recovery UI | reload/close/Chrome 重启/未知 storage/FAMS 断连/worker suspend/update 已验收 |
 
 ### 4.4 FAMS 领域适配层
 
@@ -131,7 +131,7 @@ GET  /api/v1/external-brain/graphs/:scope/:id
 | 已实现 | `tests/sidepanel.test.ts`、`scripts/verify-sidepanel-chrome.mjs` | 360/420 Side Panel 单元与真实 Chrome/DB/API/LLM 证据 |
 | 已实现（产品 PX4 已验收） | `tests/router.test.ts`、`idempotency.test.ts`、`storage.test.ts`、`runtime-handler.test.ts`、`scripts/verify-router-idempotency-chrome.mjs` | 3×3、五 intent、20 次/并发/多窗口、restart/storage fault、固定写序与交易零副作用 |
 | 已实现（PX5-01 已验收） | `scripts/verify-lifecycle-recovery-chrome.mjs` | Back/Forward/Refresh、关闭重开、Chrome 重启、v1/未知 major、TTL/LRU；证据 commit=`05221ec` |
-| 待新增（PX5-02） | `scripts/verify-lifecycle-interruption-chrome.mjs` | FAMS 断连恢复、worker suspend、extension update、lease/轮询停止 |
+| 已实现并通过 PX5-02 | `scripts/verify-lifecycle-interruption-chrome.mjs` | 真实 FAMS 断连恢复、worker suspend、0.1→0.2 update、lease/轮询停止与防假绿 |
 | 已实现（分阶段） | `verify-real-chrome.mjs`、`verify-workspace-chrome.mjs`、`verify-sidepanel-chrome.mjs`、frontend Host verifier | Playwright + Chrome CDP 分阶段真实证据 |
 | 已实现（本地私有） | `.verification/private/v2-px/**` | PX1/PX2/PX3/PX4A/PX4B/PX5 截图、trace、事件、network 与哈希 |
 

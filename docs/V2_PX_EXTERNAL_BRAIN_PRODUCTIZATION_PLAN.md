@@ -4,7 +4,7 @@
 
 ## 1. 阶段定位
 
-V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。文档阶段已经完成且用户已批准方案 A/LC-A 顺序实施；PX1 技术基座、PX2 Workspace、PX3 Side Panel/Host、产品 PX4 Router/at-most-once 与 PX5-01 恢复迁移已通过自动化验收。当前只允许进入 PX5-02 中断生命周期，不得跳过该阶段直接声明产品化候选完成。
+V2-PX 的目标是把 External Brain 从当前项目内的研究/工作台能力，产品化为可被真实浏览器验证、可审计、可回放、可人工核查的 PX 体验。文档阶段已经完成且用户已批准方案 A/LC-A 顺序实施；PX1 技术基座、PX2 Workspace、PX3 Side Panel/Host、产品 PX4 Router/at-most-once 与 PX5 生命周期已通过自动化验收。当前只允许进入 PX6-01 全量自动验收，不得跳过该阶段或 PX6-02 人类体验核查直接声明产品化候选完成。
 
 ```text
 currentStage=PRODUCT_PX5_02_INTERRUPTION_LIFECYCLE_ENTRY
@@ -24,13 +24,13 @@ px1SixSpikesPassed=true
 px2PlusAllowed=true
 px4BHostBridgeAutomatedAccepted=true
 px5RouterIdempotencyStatus=AUTOMATED_ACCEPTANCE_PASSED
-productPx5LifecycleStatus=PX5_01_AUTOMATED_ACCEPTED_PX5_02_ENTRY
+productPx5LifecycleStatus=PX5_AUTOMATED_ACCEPTED_PX6_01_ENTRY
 v2PxComplete=false
 implementationApprovalStatus=APPROVED_FOR_PX1_THROUGH_PX6_SEQUENTIAL_AUTOMATION_2026_08_28
 productionCodeChangesAllowedInCurrentPhase=PX5_02_ONLY
 ```
 
-产品 PX5 入场审计曾登记的 3 个重大规格冲突已由用户批准 `LC-A` 并闭环。PX5-01 已在提交 `05221ecca4c761a31370ed541d6c4db7f012cc2a` 通过真实 Back/Forward/Refresh、关闭重开、Chrome 重启、RecoveryIndex `/1→/2` 和未知 major 阻断验收。当前按 `docs/audits/v2-px/PX5_02/DEVELOPMENT_PLAN.md` 实施断连、worker suspend、update、lease 与有界 GET polling；在 PX5-02 验收前不得声明 M5 完成。
+产品 PX5 入场审计曾登记的 3 个重大规格冲突已由用户批准 `LC-A` 并闭环。PX5-01 已在提交 `05221ecca4c761a31370ed541d6c4db7f012cc2a` 通过恢复迁移验收；PX5-02 已在提交 `51a9329ec6f8f8af3a4a1fe8888be533580d8993` 通过真实 FAMS 断连、worker suspend、0.1→0.2 update、stale/dual lease 与 2/4/8/10 秒有界 GET polling。M5 已完成，当前进入 PX6-01 acceptance manifest/report `/1→/2` 与 G1～G7 全量自动验收。
 
 本计划的架构、运行时合同、原型、追踪和图形入口分别为 `V2_PX_TARGET_ARCHITECTURE.md`、`V2_PX_API_RUNTIME_CONTRACT.md`、`prototypes/v2-px/V2_PX_PROTOTYPE_DESIGN.md`、`V2_PX_PRD_TRACEABILITY_MATRIX.md` 和 `v2-px-target-architecture-gap.drawio`；自动文档验收记录在 `V2_PX_DOCUMENTATION_ACCEPTANCE.md`。
 
@@ -509,7 +509,7 @@ Side Panel 只保留快速提问、当前摘要、连接状态、最近任务和
 | M2 Bounded API + Workspace Accepted | M1 + 人工确认 | 五端点 DTO/同源/policy；768/1280、五视图、六状态、刷新恢复 | 完整工作台可读真实结果并受控提问 | 自动化核心切片 PASS（commit `6c8714e`）；正式权限点击留最终人类门槛，深度生命周期留 PX-5 |
 | M3 Side Panel Entry Accepted | M2 | 360/420、简明摘要、连接、跳转和 host app 入口通过 | 随时快速提问并进入完整页 | 自动化 PASS；Side Panel=`bc7cc5a`，Host Bridge=`a0758b4`；正式 permission 点击留最终人类门槛 |
 | M4 Intent & FAMS Adapter Accepted | M3 | 三入口、五 intent、20 次 tab/idempotency、交易边界通过 | 同一任务不重复，结果来自现有 FAMS | 自动化 PASS（commit `4e752a6`）；3×3、五 intent、20 串行/并发/多窗口与 storage fault 全部重签 |
-| M5 Lifecycle Accepted | M4 + LC-A 合同验收 | PX5-01/PX5-02 必测 lifecycle 场景 100% 可推导 | 刷新、重开、断连可恢复或明确阻断 | PX5-01 自动化 PASS；PX5-02 入场审计 PASS，待实现 |
+| M5 Lifecycle Accepted | M4 + LC-A 合同验收 | PX5-01/PX5-02 必测 lifecycle 场景 100% 可推导 | 刷新、重开、断连可恢复或明确阻断 | PASS；PX5-01 `05221ec` + PX5-02 `51a9329` 正式真实 Chrome 证据 |
 | M6 Productization Candidate | M5 | G1～G7、四视口、隐私、HTML、人工体验通过 | 可作为本地浏览器产品化候选使用 | 未开始 |
 
 ## 10. 用户场景验收目录
