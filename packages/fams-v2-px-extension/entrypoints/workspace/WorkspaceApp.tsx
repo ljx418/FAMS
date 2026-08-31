@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { browser } from 'wxt/browser'
 import type { WorkspaceViewData } from '../../src/adapters/fams/types'
 import { createIntentRoute, createOperationCommand } from '../../src/contracts/factories'
 import type { IntentRoute, RouteIntent, WorkspaceStateV1 } from '../../src/contracts/types'
 import { openLifecycleChannel } from '../../src/ui/lifecycleClient'
-import { sendCommandDetailed, sendRoute } from '../../src/ui/runtimeClient'
+import { sendCommandDetailed, sendRoute, startOperationPolling } from '../../src/ui/runtimeClient'
 
 const VIEW_LABELS: Record<RouteIntent, string> = {
   source_library: '来源库', source_detail: '来源详情', ask: '快速问答', trace: '任务追踪', graph: '关系图谱',
@@ -24,12 +24,13 @@ const displayTime = (value: string) => new Date(value).toLocaleString('zh-CN', {
 const ROUTE_INTENTS: RouteIntent[] = ['source_library', 'source_detail', 'ask', 'trace', 'graph']
 
 function lifecycleUiState(state: WorkspaceStateV1): UiState {
+  if (state.lifecycleStatus === 'disconnected') return 'not_connected'
   if (state.lifecycleStatus === 'ready') return 'ready'
   if (state.lifecycleStatus === 'empty') return 'empty'
   if (state.lifecycleStatus === 'failed') return 'failed'
   if (state.lifecycleStatus === 'blocked') return 'blocked'
   if (state.lifecycleStatus === 'recovering' || state.recovery.status === 'recovering' || state.lifecycleStatus === 'closed') return 'recovering'
-  if (state.lifecycleStatus === 'uninitialized' || state.lifecycleStatus === 'disconnected') return 'not_connected'
+  if (state.lifecycleStatus === 'uninitialized') return 'not_connected'
   return 'loading'
 }
 
@@ -45,6 +46,9 @@ export function WorkspaceApp() {
   const [question, setQuestion] = useState('')
   const [ackVisible, setAckVisible] = useState(false)
   const [backgroundState, setBackgroundState] = useState<WorkspaceStateV1 | null>(null)
+  const initialLifecycleHandled = useRef(false)
+  const recoveryLoadInFlight = useRef(false)
+  const pollingOperationId = useRef<string | null>(null)
 
   const loadView = useCallback(async (recovering = false) => {
     setUiState(recovering ? 'recovering' : 'loading')
@@ -53,6 +57,16 @@ export function WorkspaceApp() {
     const response = await sendCommandDetailed(command)
     const result = response.commandResult
     if (response.viewData) setViewData(response.viewData)
+    if (response.viewData?.view === 'trace'
+      && !response.viewData.value.completedAt
+      && !['completed', 'succeeded', 'failed', 'cancelled'].includes(response.viewData.value.status)
+      && pollingOperationId.current !== response.viewData.value.operationId) {
+      const operationId = response.viewData.value.operationId
+      pollingOperationId.current = operationId
+      void startOperationPolling(workspaceId, operationId).then((pollResult) => {
+        if (pollResult.status === 'failed') pollingOperationId.current = null
+      }).catch(() => { pollingOperationId.current = null })
+    }
     if (result.status === 'completed') { setUiState('ready'); setMessage('已从本地 FAMS 读取并验证响应。') }
     else if (result.status === 'empty') { setUiState('empty'); setMessage('接口返回明确 empty，没有使用 mock 填充。') }
     else if (result.error?.code === 'PX_PERMISSION_REQUIRED') { setUiState('not_connected'); setMessage(result.error.userMessage) }
@@ -66,14 +80,25 @@ export function WorkspaceApp() {
       onSnapshot: (state) => {
         setBackgroundState(state)
         setUiState(lifecycleUiState(state))
+        if (['disconnected', 'recovering', 'blocked', 'closed'].includes(state.lifecycleStatus)) pollingOperationId.current = null
         if (state.recovery.status === 'restored') setMessage('已由 Background 恢复工作区并重新验证真实 FAMS 数据。')
         if (state.recovery.status === 'blocked') setMessage('Background 无法安全恢复；原恢复索引仍保留，请按原因处理。')
+        if (initialLifecycleHandled.current && state.lifecycleStatus === 'recovering' && !recoveryLoadInFlight.current) {
+          recoveryLoadInFlight.current = true
+          void loadView(true).finally(() => { recoveryLoadInFlight.current = false })
+        }
       },
+      onConnectionLost: () => { pollingOperationId.current = null; setUiState('not_connected'); setMessage('Background 连接已中断，正在执行一次有界重连。') },
+      onReconnectExhausted: () => { setUiState('blocked'); setMessage('一次有界重连未成功；请打开侧栏确认 FAMS 状态后手动重试。') },
     })
     void channel.firstSnapshot
       .then((snapshot) => {
+        initialLifecycleHandled.current = true
         const state = snapshot.payload.workspaceState
-        if (state.lifecycleStatus !== 'blocked' && state.recovery.status !== 'blocked') return loadView(state.recovery.status === 'recovering')
+        if (state.lifecycleStatus !== 'blocked' && state.recovery.status !== 'blocked') {
+          recoveryLoadInFlight.current = true
+          return loadView(state.recovery.status === 'recovering').finally(() => { recoveryLoadInFlight.current = false })
+        }
       })
       .catch(() => { setUiState('blocked'); setMessage('生命周期订阅未通过验证；系统没有自行显示恢复成功。') })
     return () => channel.disconnect()

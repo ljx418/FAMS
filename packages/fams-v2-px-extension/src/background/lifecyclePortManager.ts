@@ -1,7 +1,7 @@
 import { browser } from 'wxt/browser'
 import { LIFECYCLE_PORT_NAME, type LifecyclePortMessage, type WorkspaceStateV1 } from '../contracts/types'
 import { validateLifecyclePortMessage } from '../contracts/validation'
-import { closeLifecycle, currentLifecycleSnapshot, recoverLifecycle, subscribeLifecycle } from './lifecycleCoordinator'
+import { closeLifecycle, currentLifecycleSnapshot, markLifecycleConnectionLost, recoverLifecycle, subscribeLifecycle } from './lifecycleCoordinator'
 
 type PortLike = {
   name: string
@@ -12,7 +12,15 @@ type PortLike = {
   onDisconnect: { addListener(listener: () => void): void }
 }
 
-type Subscription = { port: PortLike; workspaceId: string; container: 'sidepanel' | 'workspace_page'; instanceId: string; currentView: WorkspaceStateV1['currentView'] }
+type Subscription = {
+  port: PortLike
+  workspaceId: string
+  routeId: string
+  correlationId: string
+  container: 'sidepanel' | 'workspace_page'
+  instanceId: string
+  currentView: WorkspaceStateV1['currentView']
+}
 const subscriptions = new Set<Subscription>()
 
 function senderContainer(port: PortLike): 'sidepanel' | 'workspace_page' | null {
@@ -30,14 +38,16 @@ function safePost(port: PortLike, message: LifecyclePortMessage | null): void {
   try { port.postMessage(message) } catch { /* page already closed */ }
 }
 
-export function handleLifecyclePort(port: PortLike): void {
+export function handleLifecyclePort(port: PortLike, readiness: Promise<void> = Promise.resolve()): void {
   if (port.name !== LIFECYCLE_PORT_NAME) { port.disconnect(); return }
   const actualContainer = senderContainer(port)
   if (!actualContainer) { port.disconnect(); return }
   let subscription: Subscription | null = null
+  let explicitlyClosing = false
   let chain = Promise.resolve()
   port.onMessage.addListener((input) => {
     chain = chain.then(async () => {
+      await readiness
       const validated = validateLifecyclePortMessage(input)
       if (!validated.ok) { port.disconnect(); return }
       const message = validated.value
@@ -45,12 +55,16 @@ export function handleLifecyclePort(port: PortLike): void {
       if (!subscription && message.kind !== 'state_subscribe') { port.disconnect(); return }
       if (message.kind === 'state_subscribe') {
         if (subscription) { port.disconnect(); return }
-        subscription = { port, workspaceId: message.workspaceId, container: actualContainer, instanceId: message.containerInstanceId, currentView: message.payload.currentView }
+        subscription = {
+          port, workspaceId: message.workspaceId, routeId: message.routeId, correlationId: message.correlationId,
+          container: actualContainer, instanceId: message.containerInstanceId, currentView: message.payload.currentView,
+        }
         subscriptions.add(subscription)
         safePost(port, await subscribeLifecycle(message))
       } else if (message.kind === 'recover_request' && subscription) {
         safePost(port, await recoverLifecycle(message, subscription.currentView))
       } else if (message.kind === 'container_close' && subscription) {
+        explicitlyClosing = true
         safePost(port, await closeLifecycle(message))
         subscriptions.delete(subscription)
         subscription = null
@@ -59,7 +73,16 @@ export function handleLifecyclePort(port: PortLike): void {
       }
     }).catch(() => port.disconnect())
   })
-  port.onDisconnect.addListener(() => { if (subscription) subscriptions.delete(subscription) })
+  port.onDisconnect.addListener(() => {
+    const lost = subscription
+    if (!lost) return
+    subscriptions.delete(lost)
+    subscription = null
+    if (!explicitlyClosing) void markLifecycleConnectionLost({
+      workspaceId: lost.workspaceId, routeId: lost.routeId, correlationId: lost.correlationId,
+      container: lost.container, containerInstanceId: lost.instanceId,
+    })
+  })
 }
 
 export async function broadcastLifecycleSnapshots(): Promise<void> {
@@ -69,8 +92,8 @@ export async function broadcastLifecycleSnapshots(): Promise<void> {
   }))
 }
 
-export function registerLifecyclePortManager(): void {
-  browser.runtime.onConnect.addListener((port) => handleLifecyclePort(port))
+export function registerLifecyclePortManager(readiness: Promise<void> = Promise.resolve()): void {
+  browser.runtime.onConnect.addListener((port) => handleLifecyclePort(port, readiness))
   browser.storage.onChanged.addListener((_changes, areaName) => {
     if (areaName === 'session') void broadcastLifecycleSnapshots()
   })

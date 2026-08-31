@@ -232,6 +232,21 @@ export function validateRuntimeMessage(input: unknown, external = false): Valida
   if (!hasExactKeys(input, required)) issues.push('runtime message contains missing or additional fields')
   if (input.schemaVersion !== 'v2-px-runtime-message/1') issues.push('runtime schemaVersion is invalid')
   if (!isDateTime(input.sentAt)) issues.push('sentAt is invalid')
+  if (input.messageType === 'operation_poll') {
+    if (typeof input.routeId !== 'string' || !ROUTE_ID_PATTERN.test(input.routeId)) issues.push('routeId is invalid')
+    if (typeof input.correlationId !== 'string' || !CORRELATION_PATTERN.test(input.correlationId)) issues.push('correlationId is invalid')
+    if (typeof input.idempotencyKey !== 'string' || !IDEMPOTENCY_PATTERN.test(input.idempotencyKey)) issues.push('idempotencyKey is invalid')
+    if (input.sourceContainer !== 'workspace_page' || input.targetContainer !== 'background') issues.push('operation_poll direction is invalid')
+    if (!isObject(input.payload) || !hasExactKeys(input.payload, ['workspaceId', 'operationId', 'controlId'])) {
+      issues.push('operation_poll payload keys are invalid')
+    } else {
+      if (!isWorkspaceId(input.payload.workspaceId)) issues.push('workspaceId is invalid')
+      if (!isFamsEntityId(input.payload.operationId)) issues.push('operationId is invalid')
+      if (typeof input.payload.controlId !== 'string' || !COMMAND_PATTERN.test(input.payload.controlId)) issues.push('controlId is invalid')
+    }
+    if (external) issues.push('external host messages may not start operation polling')
+    return issues.length ? { ok: false, issues } : { ok: true, value: input as RuntimeMessage }
+  }
   const payloadResult = input.messageType === 'intent_route'
     ? validateIntentRoute(input.payload)
     : input.messageType === 'operation_command'

@@ -17,7 +17,9 @@ import {
 } from './chromeStorage'
 import { buildWorkspacePath } from './intentRouter'
 import { openOrFocusWorkspace } from './workspaceTabManager'
-import { serializeWorkspaceState } from './workspaceStateQueue'
+import { LIFECYCLE_STATE_WRITER_KEY, serializeWorkspaceState } from './workspaceStateQueue'
+import { beginLifecycleReconnect, markLifecycleConnectionLost } from './lifecycleCoordinator'
+import { operationPoller } from './operationPoller'
 
 const ALLOWED_HOST_ORIGINS = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
 const adapter = new FamsDomainAdapter(new FamsApiClient(browser.runtime.id))
@@ -42,7 +44,7 @@ function backgroundResponse(commandResult: CommandResult, viewData?: WorkspaceVi
 
 async function recordRoute(route: IntentRoute): Promise<void> {
   const workspaceId = String((route.routePayload as Record<string, unknown>).workspaceId)
-  return serializeWorkspaceState(workspaceId, async () => {
+  return serializeWorkspaceState(LIFECYCLE_STATE_WRITER_KEY, async () => {
     const states = await readWorkspaceStates()
     const current = states[workspaceId]
     const events = await readLifecycleEvents()
@@ -91,7 +93,7 @@ async function recordRoute(route: IntentRoute): Promise<void> {
 }
 
 async function recordLoadResult(workspaceId: string, outcome: 'ready' | 'empty' | 'failed'): Promise<void> {
-  return serializeWorkspaceState(workspaceId, async () => {
+  return serializeWorkspaceState(LIFECYCLE_STATE_WRITER_KEY, async () => {
     const states = await readWorkspaceStates()
     const current = states[workspaceId]
     if (!current) return
@@ -141,7 +143,7 @@ function emptyWorkspaceState(command: OperationCommand): WorkspaceStateV1 {
 
 async function recordQueryEvents(command: OperationCommand, result: CommandResult): Promise<void> {
   const workspaceId = command.payload.workspaceId
-  return serializeWorkspaceState(workspaceId, async () => {
+  return serializeWorkspaceState(LIFECYCLE_STATE_WRITER_KEY, async () => {
     const states = await readWorkspaceStates()
     const current = states[workspaceId] ?? emptyWorkspaceState(command)
     let events = await readLifecycleEvents()
@@ -273,8 +275,8 @@ function commandFailure(command: OperationCommand, code: 'PX_BACKEND_UNAVAILABLE
 
 async function handleRefresh(message: RuntimeMessage, command: OperationCommand): Promise<BackgroundCommandResponse> {
   const workspaceId = command.payload.workspaceId
-  const states = await readWorkspaceStates()
-  const state = states[workspaceId]
+  let states = await readWorkspaceStates()
+  let state = states[workspaceId]
   if (!state) {
     if (command.sourceContainer === 'workspace_page') {
       return backgroundResponse(commandFailure(
@@ -289,6 +291,11 @@ async function handleRefresh(message: RuntimeMessage, command: OperationCommand)
       ? { schemaVersion: 'v2-px-command-result/1', commandId: command.commandId, routeId: command.routeId, correlationId: command.correlationId, status: 'completed', completedAt: new Date().toISOString() }
       : commandFailure(command, 'PX_BACKEND_UNAVAILABLE', '本地 FAMS 暂时不可用，请启动后端后重试。', 'failed'))
   }
+  if (state.lifecycleStatus === 'disconnected') {
+    await beginLifecycleReconnect(workspaceId)
+    states = await readWorkspaceStates()
+    state = states[workspaceId] ?? state
+  }
   try {
     const viewData = await adapter.loadWorkspaceView(command.sourceContainer === 'sidepanel' ? { ...state, currentView: 'source_library' } : state)
     const empty = viewData?.status === 'empty'
@@ -302,8 +309,10 @@ async function handleRefresh(message: RuntimeMessage, command: OperationCommand)
       completedAt: new Date().toISOString(),
     }, viewData ?? undefined)
   } catch (error) {
-    await recordLoadResult(workspaceId, 'failed')
     const apiError = error instanceof FamsApiError ? error : null
+    const connectionFailure = Boolean(apiError && (apiError.code === 'PX_BACKEND_UNAVAILABLE' || apiError.status === 503 || apiError.status === undefined))
+    if (connectionFailure) await markLifecycleConnectionLost({ workspaceId })
+    else await recordLoadResult(workspaceId, 'failed')
     return backgroundResponse(commandFailure(
       command,
       apiError?.code === 'PX_API_RESPONSE_INVALID' ? 'PX_SCHEMA_INVALID' : 'PX_BACKEND_UNAVAILABLE',
@@ -311,6 +320,43 @@ async function handleRefresh(message: RuntimeMessage, command: OperationCommand)
       apiError?.status === 400 || apiError?.status === 403 ? 'blocked' : 'failed',
     ))
   }
+}
+
+async function handleOperationPoll(message: Extract<RuntimeMessage, { messageType: 'operation_poll' }>): Promise<CommandResult> {
+  const base = {
+    schemaVersion: 'v2-px-command-result/1' as const,
+    commandId: message.payload.controlId,
+    routeId: message.routeId,
+    correlationId: message.correlationId,
+    completedAt: new Date().toISOString(),
+  }
+  if (!await hasBackendPermission(browser.permissions)) {
+    return {
+      ...base,
+      status: 'blocked',
+      error: { code: 'PX_PERMISSION_REQUIRED', userMessage: '尚未授权访问本地 FAMS，未启动任务轮询。', recoverable: true },
+    }
+  }
+  const result = await operationPoller.run(message.payload.workspaceId, message.payload.operationId, {
+    onConnectionLost: async (workspaceId) => markLifecycleConnectionLost({ workspaceId }),
+  })
+  if (result.status === 'failed') {
+    return {
+      ...base,
+      completedAt: new Date().toISOString(),
+      status: 'failed',
+      error: { code: 'PX_BACKEND_UNAVAILABLE', userMessage: '任务轮询已因 FAMS 断连停止。', recoverable: true },
+    }
+  }
+  if (result.status === 'stopped') {
+    return {
+      ...base,
+      completedAt: new Date().toISOString(),
+      status: 'blocked',
+      error: { code: 'PX_POLICY_BLOCKED', userMessage: '任务已不满足有界轮询条件，轮询已停止。', recoverable: false },
+    }
+  }
+  return { ...base, completedAt: new Date().toISOString(), status: 'completed' }
 }
 
 async function handleQuery(command: OperationCommand): Promise<BackgroundCommandResponse> {
@@ -355,6 +401,7 @@ export async function handleRuntimeMessage(input: unknown, options: { external?:
   const validated = validateRuntimeMessage(input, options.external)
   if (!validated.ok) return blocked(null, `消息合同无效：${validated.issues.join('；')}`)
   const message = validated.value
+  if (message.messageType === 'operation_poll') return handleOperationPoll(message)
   if (message.messageType === 'intent_route') {
     try {
       return await handleIntent(message.payload as IntentRoute, options.senderTabId)

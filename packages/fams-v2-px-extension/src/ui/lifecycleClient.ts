@@ -22,20 +22,26 @@ export function openLifecycleChannel(input: {
   currentView: RouteIntent
   selectedRef?: string
   onSnapshot?: (state: WorkspaceStateV1, snapshot: Snapshot) => void
+  onConnectionLost?: () => void
+  onReconnectExhausted?: () => void
 }): {
   firstSnapshot: Promise<Snapshot>
   requestRecovery(): void
   close(reason?: 'user_close' | 'page_unload'): void
   disconnect(): void
 } {
-  const port = browser.runtime.connect({ name: LIFECYCLE_PORT_NAME })
-  const instanceStorageKey = `v2-px-container-instance:${input.container}`
-  const storedInstance = sessionStorage.getItem(instanceStorageKey)
-  const containerInstanceId = storedInstance && /^px-container-[a-z0-9][a-z0-9-]{7,100}$/.test(storedInstance) ? storedInstance : token('container')
-  sessionStorage.setItem(instanceStorageKey, containerInstanceId)
+  // Every actual Port channel owns a distinct lease. A reconnect within this
+  // channel reuses the ID, while React StrictMode remounts cannot close a newer
+  // channel's lease by racing with an older cleanup.
+  const containerInstanceId = token('container')
   const routeId = token('route')
   const correlationId = token('corr')
   let settled = false
+  let disposed = false
+  let explicitlyClosing = false
+  let reconnectAttempts = 0
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let port: ReturnType<typeof browser.runtime.connect> | null = null
   let resolveFirst: (snapshot: Snapshot) => void = () => {}
   let rejectFirst: (error: Error) => void = () => {}
   const firstSnapshot = new Promise<Snapshot>((resolve, reject) => { resolveFirst = resolve; rejectFirst = reject })
@@ -43,30 +49,49 @@ export function openLifecycleChannel(input: {
     if (!settled) { settled = true; rejectFirst(new Error('PX lifecycle snapshot timeout')) }
   }, 5_000)
 
-  const post = (message: Extract<LifecyclePortMessage, { kind: 'state_subscribe' | 'recover_request' | 'container_close' }>) => port.postMessage(message)
+  const post = (message: Extract<LifecyclePortMessage, { kind: 'state_subscribe' | 'recover_request' | 'container_close' }>) => {
+    if (!port) throw new Error('PX lifecycle port unavailable')
+    port.postMessage(message)
+  }
   const common = () => ({
     schemaVersion: 'v2-px-lifecycle-port-message/1' as const,
     messageId: token('message'), workspaceId: input.workspaceId, routeId, correlationId, containerInstanceId,
     sourceContainer: input.container, targetContainer: 'background' as const, sentAt: new Date().toISOString(),
   })
 
-  port.onMessage.addListener((message) => {
-    const validated = validateLifecyclePortMessage(message)
-    if (!validated.ok || validated.value.kind !== 'state_snapshot') return
-    const snapshot = validated.value
-    if (snapshot.workspaceId !== input.workspaceId || snapshot.containerInstanceId !== containerInstanceId || snapshot.targetContainer !== input.container) return
-    if (!settled) { settled = true; clearTimeout(timer); resolveFirst(snapshot) }
-    input.onSnapshot?.(snapshot.payload.workspaceState, snapshot)
-  })
-  port.onDisconnect.addListener(() => {
-    if (!settled) { settled = true; clearTimeout(timer); rejectFirst(new Error('PX lifecycle port disconnected before snapshot')) }
-  })
-  post({
-    ...common(), kind: 'state_subscribe',
-    payload: { currentView: input.currentView, ...(input.selectedRef ? { selectedRef: input.selectedRef } : {}), navigationType: navigationType() },
-  })
+  const connect = (requestedNavigationType: ReturnType<typeof navigationType>) => {
+    const connectedPort = browser.runtime.connect({ name: LIFECYCLE_PORT_NAME })
+    port = connectedPort
+    connectedPort.onMessage.addListener((message) => {
+      if (port !== connectedPort || disposed) return
+      const validated = validateLifecyclePortMessage(message)
+      if (!validated.ok || validated.value.kind !== 'state_snapshot') return
+      const snapshot = validated.value
+      if (snapshot.workspaceId !== input.workspaceId || snapshot.containerInstanceId !== containerInstanceId || snapshot.targetContainer !== input.container) return
+      if (!settled) { settled = true; clearTimeout(timer); resolveFirst(snapshot) }
+      input.onSnapshot?.(snapshot.payload.workspaceState, snapshot)
+    })
+    connectedPort.onDisconnect.addListener(() => {
+      if (port !== connectedPort || disposed || explicitlyClosing) return
+      input.onConnectionLost?.()
+      if (reconnectAttempts < 1) {
+        reconnectAttempts += 1
+        reconnectTimer = setTimeout(() => { if (!disposed) connect('restore') }, 250)
+        return
+      }
+      if (!settled) { settled = true; clearTimeout(timer); rejectFirst(new Error('PX lifecycle port disconnected before snapshot')) }
+      input.onReconnectExhausted?.()
+    })
+    connectedPort.postMessage({
+      ...common(), kind: 'state_subscribe',
+      payload: { currentView: input.currentView, ...(input.selectedRef ? { selectedRef: input.selectedRef } : {}), navigationType: requestedNavigationType },
+    })
+  }
+  connect(navigationType())
 
   const onPageHide = () => {
+    explicitlyClosing = true
+    disposed = true
     try { post({ ...common(), kind: 'container_close', payload: { reason: 'page_unload' } }) } catch { /* browser owns final disconnect */ }
   }
   window.addEventListener('pagehide', onPageHide, { once: true })
@@ -74,7 +99,22 @@ export function openLifecycleChannel(input: {
   return {
     firstSnapshot,
     requestRecovery() { post({ ...common(), kind: 'recover_request', payload: { reason: 'manual_retry' } }) },
-    close(reason = 'user_close') { post({ ...common(), kind: 'container_close', payload: { reason } }) },
-    disconnect() { clearTimeout(timer); window.removeEventListener('pagehide', onPageHide); port.disconnect() },
+    close(reason = 'user_close') {
+      explicitlyClosing = true
+      disposed = true
+      post({ ...common(), kind: 'container_close', payload: { reason } })
+    },
+    disconnect() {
+      clearTimeout(timer)
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      window.removeEventListener('pagehide', onPageHide)
+      if (!disposed) {
+        explicitlyClosing = true
+        disposed = true
+        try { post({ ...common(), kind: 'container_close', payload: { reason: 'page_unload' } }) } catch { /* already disconnected */ }
+      }
+      const closingPort = port
+      setTimeout(() => closingPort?.disconnect(), 0)
+    },
   }
 }

@@ -3,7 +3,8 @@ import { resolve } from 'node:path'
 import Ajv2020 from 'ajv/dist/2020.js'
 import addFormats from 'ajv-formats'
 import { describe, expect, it } from 'vitest'
-import { expectedTargetContainer, isContextRef, isConversationId, isLifecycleEventType, isSourceRef, parseSourceRef, validateIntentRoute, validateLifecyclePortMessage, validateOperationCommand } from '../src/contracts/validation'
+import { createOperationPollMessage } from '../src/contracts/factories'
+import { expectedTargetContainer, isContextRef, isConversationId, isLifecycleEventType, isSourceRef, parseSourceRef, validateIntentRoute, validateLifecyclePortMessage, validateOperationCommand, validateRuntimeMessage } from '../src/contracts/validation'
 
 const root = resolve(import.meta.dirname, '../../..')
 const schemaDir = resolve(root, 'docs/schemas')
@@ -62,6 +63,14 @@ describe('V2-PX target JSON contracts', () => {
     expect(validateLifecyclePortMessage({ ...valid, sourceContainer: 'host_app' }).ok).toBe(false)
     expect(validateLifecyclePortMessage({ ...valid, payload: { ...(valid.payload as object), token: 'forbidden' } }).ok).toBe(false)
     expect(validateLifecyclePortMessage(json(resolve(fixtureDir, 'lifecycle-port-message-v1.negative.json'))).ok).toBe(false)
+  })
+
+  it('accepts one strict internal operation_poll message and rejects widened senders or payloads', () => {
+    const valid = createOperationPollMessage('px-ws-00000000-0000-4000-8000-000000000001', '752c6874-0c65-49f0-be70-13367f724798')
+    expect(validateRuntimeMessage(valid).ok).toBe(true)
+    expect(validateRuntimeMessage({ ...valid, sourceContainer: 'sidepanel' }).ok).toBe(false)
+    expect(validateRuntimeMessage({ ...valid, payload: { ...valid.payload, token: 'forbidden' } }).ok).toBe(false)
+    expect(validateRuntimeMessage(valid, true).ok).toBe(false)
   })
 
   it('accepts real UUID/sourceRef values and round-trips canonical UTF-8 refs', () => {

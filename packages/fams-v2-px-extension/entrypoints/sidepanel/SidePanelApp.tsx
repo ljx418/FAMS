@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { browser } from 'wxt/browser'
 import type { WorkspaceViewData } from '../../src/adapters/fams/types'
 import { hasBackendPermission, requestBackendPermission } from '../../src/background/connection'
@@ -28,13 +28,16 @@ export function sidePanelLifecyclePresentation(state: WorkspaceStateV1): { conne
   if (state.lifecycleStatus === 'blocked' || state.recovery.status === 'blocked') {
     return { connection: 'failed', message: 'Background 已阻断不安全的恢复；原索引没有被静默清空。' }
   }
+  if (state.lifecycleStatus === 'disconnected') {
+    return { connection: 'failed', message: '与 Background/FAMS 的连接已中断；可重试一次只读读取。' }
+  }
   if (state.lifecycleStatus === 'recovering' || state.recovery.status === 'recovering' || state.lifecycleStatus === 'closed') {
     return { connection: 'recovering', message: SIDE_PANEL_STATE_COPY.recovering.detail }
   }
   if (state.lifecycleStatus === 'ready' || state.lifecycleStatus === 'empty' || state.recovery.status === 'restored') {
     return { connection: 'connected', message: state.recovery.status === 'restored' ? '已恢复研究入口，并重新验证本地 FAMS 数据。' : '已从本地 FAMS 读取并验证最新摘要。' }
   }
-  if (state.lifecycleStatus === 'failed' || state.lifecycleStatus === 'disconnected') {
+  if (state.lifecycleStatus === 'failed') {
     return { connection: 'failed', message: SIDE_PANEL_STATE_COPY.failed.detail }
   }
   return null
@@ -50,6 +53,8 @@ export function SidePanelApp() {
   const [ackVisible, setAckVisible] = useState(false)
   const [askError, setAskError] = useState<string | null>(null)
   const [workspaceState, setWorkspaceState] = useState<WorkspaceStateV1 | null>(null)
+  const initialLifecycleHandled = useRef(false)
+  const recoveryLoadInFlight = useRef(false)
 
   const refreshConnection = useCallback(async () => {
     const granted = await hasBackendPermission(browser.permissions)
@@ -86,9 +91,19 @@ export function SidePanelApp() {
         setWorkspaceState(state)
         const presentation = sidePanelLifecyclePresentation(state)
         if (presentation) { setConnection(presentation.connection); setMessage(presentation.message) }
+        if (initialLifecycleHandled.current && state.lifecycleStatus === 'recovering' && !recoveryLoadInFlight.current) {
+          recoveryLoadInFlight.current = true
+          void refreshConnection().finally(() => { recoveryLoadInFlight.current = false })
+        }
       },
+      onConnectionLost: () => { setConnection('recovering'); setMessage('Background 连接已中断，正在执行一次有界重连。') },
+      onReconnectExhausted: () => { setConnection('failed'); setMessage('一次有界重连未成功；请确认 FAMS 已启动后手动重试。') },
     })
-    void channel.firstSnapshot.then(() => refreshConnection()).catch(() => {
+    void channel.firstSnapshot.then(() => {
+      initialLifecycleHandled.current = true
+      recoveryLoadInFlight.current = true
+      return refreshConnection().finally(() => { recoveryLoadInFlight.current = false })
+    }).catch(() => {
       setConnection('failed'); setMessage('生命周期订阅失败；系统没有把入口显示为已连接。')
     })
     return () => channel.disconnect()

@@ -4,17 +4,15 @@ import { initializeLifecycleStorage } from '../src/background/lifecycleCoordinat
 import { registerLifecyclePortManager } from '../src/background/lifecyclePortManager'
 
 export default defineBackground(() => {
-  registerLifecyclePortManager()
-  void initializeLifecycleStorage().catch(() => undefined)
+  const lifecycleReady = initializeLifecycleStorage().catch(() => undefined)
+  registerLifecyclePortManager(lifecycleReady)
 
   browser.runtime.onInstalled.addListener(() => {
     void browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
-    void initializeLifecycleStorage().catch(() => undefined)
   })
-  browser.runtime.onStartup.addListener(() => { void initializeLifecycleStorage().catch(() => undefined) })
 
-  browser.runtime.onMessage.addListener((message, sender) => handleRuntimeMessage(message, { senderUrl: sender.url, senderTabId: sender.tab?.id }))
+  browser.runtime.onMessage.addListener((message, sender) => lifecycleReady.then(() => handleRuntimeMessage(message, { senderUrl: sender.url, senderTabId: sender.tab?.id })))
   browser.runtime.onMessageExternal.addListener((message, sender) => (
-    handleRuntimeMessage(message, { external: true, senderUrl: sender.url })
+    lifecycleReady.then(() => handleRuntimeMessage(message, { external: true, senderUrl: sender.url }))
   ))
 })

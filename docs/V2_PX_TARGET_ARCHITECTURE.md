@@ -187,7 +187,7 @@ Workspace Refresh
 | lifecycle audit | PX background | session + 验收导出 | 汇总状态不得脱离事件自报 |
 | Chrome 证据 | acceptance collector | `.verification/private/v2-px` | 不提交隐私和浏览器 profile |
 
-background 是 PX 状态单写者，也是唯一 FAMS 网络访问者。容器不直接轮询后端。仅 background 在存在活动任务时按 2s→4s→8s、最大 10s 做有界轮询，终态停止、容器全部关闭时停止。GET 最多有限重试；POST Ask dispatch 后自动重试次数恒为 0。
+background 是 PX 状态单写者，也是唯一 FAMS 网络访问者。容器不直接轮询后端。Workspace 仅在 Trace 首次真实读取或恢复成功后发送一次严格校验的 `operation_poll` 控制消息；background 借该待响应消息抵抗 MV3 事件结束后的内存回收，在存在活动任务时按 2s→4s→8s→10s 做有界轮询。页面不发送周期 tick；相同 workspace/operation 合并为一条 run；终态、断连、容器全部关闭或四轮完成时停止。GET 最多有限重试；POST Ask dispatch 后自动重试次数恒为 0。
 
 用户可见状态与实现状态使用下列唯一映射；UI 不得直接显示内部枚举，`closed` 没有活动容器，因此不可伪造一个仍可操作的页面：
 

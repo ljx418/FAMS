@@ -13,11 +13,13 @@ import {
   writeWorkspaceStateAndEvents,
   type RecoveryIndexRecord,
 } from './chromeStorage'
-import { serializeWorkspaceState } from './workspaceStateQueue'
+import { LIFECYCLE_STATE_WRITER_KEY, serializeWorkspaceState } from './workspaceStateQueue'
+import { operationPoller } from './operationPoller'
 
 type ClientMessage = Extract<LifecyclePortMessage, { kind: 'state_subscribe' | 'recover_request' | 'container_close' }>
 type SnapshotMessage = Extract<LifecyclePortMessage, { kind: 'state_snapshot' }>
 const BACKGROUND_INSTANCE_ID = 'px-container-background-single-writer'
+export const STALE_LEASE_MS = 5 * 60 * 1000
 
 function token(prefix: 'message' | 'route' | 'corr'): string {
   return `px-${prefix}-${crypto.randomUUID().replaceAll('-', '')}`
@@ -126,7 +128,6 @@ async function blockedUnknownStorage(message: ClientMessage): Promise<WorkspaceS
 export async function initializeLifecycleStorage(now = new Date()): Promise<void> {
   const prepared = await prepareRecoveryIndexStorage(now)
   await cleanLedgerStorage(chromeLedgerStorage, now)
-  if (prepared.migratedWorkspaceIds.length === 0) return
   const states = await readWorkspaceStates()
   let events = await readLifecycleEvents()
   for (const workspaceId of prepared.migratedWorkspaceIds) {
@@ -143,7 +144,87 @@ export async function initializeLifecycleStorage(now = new Date()): Promise<void
     events = [...events, event]
     states[workspaceId] = { ...current, lifecycleStatus: event.nextState, lastEventSeq: event.sequence, updatedAt: event.at }
   }
-  await writeWorkspaceStateAndEvents(states, events)
+  if (prepared.migratedWorkspaceIds.length > 0) await writeWorkspaceStateAndEvents(states, events)
+  await expireStaleLifecycleLeases(now)
+}
+
+export async function expireStaleLifecycleLeases(now = new Date()): Promise<void> {
+  return serializeWorkspaceState(LIFECYCLE_STATE_WRITER_KEY, () => expireStaleLifecycleLeasesLocked(now))
+}
+
+async function expireStaleLifecycleLeasesLocked(now: Date): Promise<void> {
+  const states = await readWorkspaceStates()
+  let events = await readLifecycleEvents()
+  let changed = false
+  for (const [workspaceId, current] of Object.entries(states)) {
+    const freshLeases = current.containerLeases.filter((lease) => Date.parse(lease.lastSeenAt) > now.getTime() - STALE_LEASE_MS)
+    if (freshLeases.length === current.containerLeases.length) continue
+    changed = true
+    let next: WorkspaceStateV1 = { ...current, containerLeases: freshLeases, updatedAt: now.toISOString() }
+    if (freshLeases.length === 0 && current.containerLeases.length > 0 && current.lifecycleStatus !== 'closed') {
+      const event = appendLifecycleEvent({
+        events, workspaceId, routeId: current.routeId, correlationId: current.correlationId,
+        container: 'background', containerInstanceId: BACKGROUND_INSTANCE_ID,
+        eventType: 'lease_expired', previousState: current.lifecycleStatus, reasonCode: 'LEASE_TIMEOUT', now: now.toISOString(),
+      })
+      events = [...events, event]
+      next = { ...next, lifecycleStatus: event.nextState, connection: { status: 'not_connected' }, lastEventSeq: event.sequence, updatedAt: event.at }
+      operationPoller.stop(workspaceId)
+    }
+    states[workspaceId] = next
+  }
+  if (changed) await writeWorkspaceStateAndEvents(states, events)
+}
+
+export async function markLifecycleConnectionLost(input: {
+  workspaceId: string
+  routeId?: string
+  correlationId?: string
+  container?: 'sidepanel' | 'workspace_page' | 'background'
+  containerInstanceId?: string
+}): Promise<void> {
+  await serializeWorkspaceState(LIFECYCLE_STATE_WRITER_KEY, async () => {
+    const states = await readWorkspaceStates()
+    const current = states[input.workspaceId]
+    if (!current || ['blocked', 'closed', 'disconnected'].includes(current.lifecycleStatus)) return
+    let events = await readLifecycleEvents()
+    const event = appendLifecycleEvent({
+      events, workspaceId: input.workspaceId, routeId: input.routeId ?? current.routeId,
+      correlationId: input.correlationId ?? current.correlationId, container: input.container ?? 'background',
+      containerInstanceId: input.containerInstanceId ?? BACKGROUND_INSTANCE_ID,
+      eventType: 'connection_lost', previousState: current.lifecycleStatus,
+    })
+    events = [...events, event]
+    const next: WorkspaceStateV1 = {
+      ...current, lifecycleStatus: event.nextState, connection: { status: 'disconnected' }, recovery: { status: 'recovering' },
+      containerLeases: input.containerInstanceId
+        ? current.containerLeases.filter((lease) => lease.instanceId !== input.containerInstanceId)
+        : current.containerLeases,
+      lastEventSeq: event.sequence, updatedAt: event.at,
+    }
+    await writeWorkspaceStateAndEvents({ ...states, [input.workspaceId]: next }, events)
+    operationPoller.stop(input.workspaceId)
+  })
+}
+
+export async function beginLifecycleReconnect(workspaceId: string): Promise<void> {
+  await serializeWorkspaceState(LIFECYCLE_STATE_WRITER_KEY, async () => {
+    const states = await readWorkspaceStates()
+    const current = states[workspaceId]
+    if (!current || current.lifecycleStatus !== 'disconnected') return
+    let events = await readLifecycleEvents()
+    const event = appendLifecycleEvent({
+      events, workspaceId, routeId: current.routeId, correlationId: current.correlationId,
+      container: 'background', containerInstanceId: BACKGROUND_INSTANCE_ID,
+      eventType: 'reconnect', previousState: current.lifecycleStatus,
+    })
+    events = [...events, event]
+    const next: WorkspaceStateV1 = {
+      ...current, lifecycleStatus: event.nextState, connection: { status: 'connecting' }, recovery: { status: 'recovering' },
+      lastEventSeq: event.sequence, updatedAt: event.at,
+    }
+    await writeWorkspaceStateAndEvents({ ...states, [workspaceId]: next }, events)
+  })
 }
 
 async function subscribeLifecycleLocked(message: Extract<ClientMessage, { kind: 'state_subscribe' }>): Promise<SnapshotMessage> {
@@ -163,6 +244,8 @@ async function subscribeLifecycleLocked(message: Extract<ClientMessage, { kind: 
   let events = await readLifecycleEvents()
   const current = states[message.workspaceId]
   const now = new Date().toISOString()
+  const reconnectingExistingLease = Boolean(current?.containerLeases.some((lease) => lease.instanceId === message.containerInstanceId)
+    && message.payload.navigationType === 'restore')
   let next = current ?? (record
     ? stateFromRecovery(record, message.routeId, message.correlationId, now)
     : {
@@ -174,11 +257,12 @@ async function subscribeLifecycleLocked(message: Extract<ClientMessage, { kind: 
   // Side Panel renders its own source-library summary. It may observe the
   // canonical Workspace route, but only Workspace may reconcile that route.
   if (message.sourceContainer === 'workspace_page') next = reconcileSubscription(next, message)
+  const reconnecting = current?.lifecycleStatus === 'disconnected' || reconnectingExistingLease
   const needsResume = Boolean(record && !current)
     || current?.lifecycleStatus === 'closed'
     || ['reload', 'back_forward', 'restore'].includes(message.payload.navigationType)
-  if (!current || needsResume) {
-    const eventType = migratedDuringSubscribe ? 'state_migrated' : needsResume ? 'resume' : 'start'
+  if (!current || needsResume || reconnecting) {
+    const eventType = migratedDuringSubscribe ? 'state_migrated' : reconnecting ? 'reconnect' : needsResume ? 'resume' : 'start'
     const event = appendLifecycleEvent({
       events, workspaceId: message.workspaceId, routeId: message.routeId, correlationId: message.correlationId,
       container: message.sourceContainer, containerInstanceId: message.containerInstanceId,
@@ -187,7 +271,7 @@ async function subscribeLifecycleLocked(message: Extract<ClientMessage, { kind: 
     events = [...events, event]
     next = {
       ...next, lifecycleStatus: event.nextState, routeId: message.routeId, correlationId: message.correlationId,
-      recovery: eventType === 'resume' || eventType === 'state_migrated' ? { status: 'recovering' } : next.recovery,
+      recovery: ['resume', 'reconnect', 'state_migrated'].includes(eventType) ? { status: 'recovering' } : next.recovery,
       lastEventSeq: event.sequence, updatedAt: event.at,
     }
   }
@@ -205,7 +289,8 @@ async function subscribeLifecycleLocked(message: Extract<ClientMessage, { kind: 
 }
 
 export async function subscribeLifecycle(message: Extract<ClientMessage, { kind: 'state_subscribe' }>): Promise<SnapshotMessage> {
-  return serializeWorkspaceState(message.workspaceId, () => subscribeLifecycleLocked(message))
+  await expireStaleLifecycleLeases()
+  return serializeWorkspaceState(LIFECYCLE_STATE_WRITER_KEY, () => subscribeLifecycleLocked(message))
 }
 
 export async function recoverLifecycle(message: Extract<ClientMessage, { kind: 'recover_request' }>, currentView: WorkspaceStateV1['currentView']): Promise<SnapshotMessage> {
@@ -213,7 +298,10 @@ export async function recoverLifecycle(message: Extract<ClientMessage, { kind: '
 }
 
 export async function closeLifecycle(message: Extract<ClientMessage, { kind: 'container_close' }>): Promise<SnapshotMessage | null> {
-  return serializeWorkspaceState(message.workspaceId, () => closeLifecycleLocked(message))
+  const snapshot = await serializeWorkspaceState(LIFECYCLE_STATE_WRITER_KEY, () => closeLifecycleLocked(message))
+  const state = snapshot?.payload.workspaceState
+  if (!state?.containerLeases.length) operationPoller.stop(message.workspaceId)
+  return snapshot
 }
 
 async function closeLifecycleLocked(message: Extract<ClientMessage, { kind: 'container_close' }>): Promise<SnapshotMessage | null> {

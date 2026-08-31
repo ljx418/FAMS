@@ -164,6 +164,8 @@ type LifecyclePortMessage = {
 
 约束：首次 client 消息必须是 `state_subscribe`；其 payload 严格包含 `view/ref?/navigationType`，`navigationType` 仅为 `open|navigate|reload|back_forward|restore`。Background 只返回 `state_snapshot`（WorkspaceState、recovery outcome、snapshotAt）或 `lifecycle_error`。sender/page/字段/secret-like 校验失败立即断开且不得写 storage、调用 FAMS 或创建 tab。端口不发送 heartbeat、不使用 alarm、不以持续消息延长 MV3 service worker 生命周期；只在页面事件、连接事件和用户动作时通信。
 
+活动 Trace 的有界轮询使用 `v2-px-runtime-message/1` 内部控制分支 `messageType=operation_poll`，不走生命周期 Port。其 payload 必须且只能包含 `workspaceId,operationId,controlId`，方向固定为 `workspace_page→background`，Host 与 Side Panel 禁止发送。页面在 Trace 首次真实读取或恢复成功后只发送一次并等待最终响应；Background 在该响应未决期间自行执行 2/4/8/10 秒调度和 GET。它不更新 lease，不允许页面按周期发消息，因此不构成 heartbeat；相同 workspace/operation 并发请求必须合并。
+
 ### 4.2 `intent-route/3` 只负责导航
 
 目标 v3 保留三入口、三动作和五 intent，但 `ask` payload 不再包含 question。五种 payload：
@@ -407,7 +409,7 @@ Response data：`conversationId/messageId/summary/keyEvidence[]/dataAsOf/confide
 | `/health` | 3 秒 | 1 次 | 只用于连接与恢复探测 |
 | GET read model | 8 秒 | 最多 2 次 | 250ms/1000ms 退避，仅网络/503 |
 | POST `/ask` | 35 秒 | 0 次 | dispatch 后禁止自动重试 |
-| 活动 Operation trace | 单次 8 秒 | 有界轮询 | 2s→4s→8s，最大 10s；终态或无容器停止 |
+| 活动 Operation trace | 单次 8 秒 | 有界轮询 | Trace 页面一次 `operation_poll`；Background 内 2s→4s→8s→10s；终态、断连、无容器或四轮后停止 |
 
 “5 秒恢复目标”表示 5 秒内必须显示 restored 或带原因的 blocked/recovering 结论，不表示外部 LLM 或长任务必须在 5 秒完成。
 

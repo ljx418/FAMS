@@ -84,6 +84,21 @@ describe('LC-A lifecycle port boundary', () => {
     expect(JSON.stringify({ local: storage.local, session: storage.session })).not.toMatch(/question|answer|cookie|token|Authorization/i)
   })
 
+  it('does not process Port subscriptions before the Background initialization gate resolves', async () => {
+    let resolveReady: () => void = () => {}
+    const readiness = new Promise<void>((resolve) => { resolveReady = resolve })
+    const port = new FakePort()
+    handleLifecyclePort(port, readiness)
+    port.send({ ...common, kind: 'state_subscribe', payload: { currentView: 'source_library', navigationType: 'open' } })
+    await settle()
+    expect(storage.writes).toBe(0)
+    expect(port.posted).toEqual([])
+    resolveReady()
+    await settle(); await settle()
+    expect(port.posted).toEqual([expect.objectContaining({ kind: 'state_snapshot' })])
+    expect(storage.writes).toBeGreaterThan(0)
+  })
+
   it('blocks an unknown recovery major without overwriting another workspace session state', async () => {
     const otherWorkspaceId = 'px-ws-00000000-0000-4000-8000-000000000002'
     storage.local.recoveryIndex = [{ schemaVersion: 'v2-px-recovery-index/99', opaque: { preserve: true } }]
@@ -127,5 +142,40 @@ describe('LC-A lifecycle port boundary', () => {
       payload: expect.objectContaining({ workspaceState: expect.objectContaining({ currentView: 'trace', activeOperationId: '18bb115d-5733-4ce7-8c94-81df30f2b000' }) }),
     })])
     expect(storage.local.recoveryIndex).toEqual([expect.objectContaining({ currentView: 'trace', operationId: '18bb115d-5733-4ce7-8c94-81df30f2b000' })])
+  })
+
+  it('records an unexpected Port loss and performs one reconnect transition', async () => {
+    const first = new FakePort()
+    handleLifecyclePort(first)
+    first.send({ ...common, kind: 'state_subscribe', payload: { currentView: 'source_library', navigationType: 'open' } })
+    await settle(); await settle()
+    first.disconnect()
+    await settle(); await settle()
+    expect(storage.session.workspaceStates).toMatchObject({ [common.workspaceId]: { lifecycleStatus: 'disconnected', connection: { status: 'disconnected' } } })
+    expect(storage.session.lifecycleEvents).toEqual(expect.arrayContaining([expect.objectContaining({ eventType: 'connection_lost', nextState: 'disconnected' })]))
+
+    const second = new FakePort()
+    handleLifecyclePort(second)
+    second.send({ ...common, kind: 'state_subscribe', payload: { currentView: 'source_library', navigationType: 'restore' } })
+    await settle(); await settle()
+    expect(second.posted).toEqual([expect.objectContaining({ payload: expect.objectContaining({ workspaceState: expect.objectContaining({ lifecycleStatus: 'recovering' }) }) })])
+    expect(storage.session.lifecycleEvents).toEqual(expect.arrayContaining([expect.objectContaining({ eventType: 'reconnect', nextState: 'recovering' })]))
+  })
+
+  it('keeps the workspace live until the last of two containers closes', async () => {
+    const workspace = new FakePort()
+    const sidepanel = new FakePort()
+    sidepanel.sender.url = `chrome-extension://${'a'.repeat(32)}/sidepanel.html`
+    handleLifecyclePort(workspace); handleLifecyclePort(sidepanel)
+    workspace.send({ ...common, kind: 'state_subscribe', payload: { currentView: 'source_library', navigationType: 'open' } })
+    sidepanel.send({ ...common, sourceContainer: 'sidepanel', containerInstanceId: 'px-container-sidepanel000001', kind: 'state_subscribe', payload: { currentView: 'source_library', navigationType: 'open' } })
+    await settle(); await settle(); await settle()
+    workspace.send({ ...common, kind: 'container_close', payload: { reason: 'user_close' } })
+    await settle(); await settle()
+    expect(storage.session.workspaceStates).toMatchObject({ [common.workspaceId]: { lifecycleStatus: 'connecting', containerLeases: [expect.objectContaining({ container: 'sidepanel' })] } })
+    sidepanel.send({ ...common, sourceContainer: 'sidepanel', containerInstanceId: 'px-container-sidepanel000001', kind: 'container_close', payload: { reason: 'user_close' } })
+    await settle(); await settle()
+    expect(storage.session.workspaceStates).toMatchObject({ [common.workspaceId]: { lifecycleStatus: 'closed', containerLeases: [] } })
+    expect(storage.session.lifecycleEvents).toEqual(expect.arrayContaining([expect.objectContaining({ eventType: 'close', nextState: 'closed' })]))
   })
 })

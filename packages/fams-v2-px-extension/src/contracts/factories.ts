@@ -72,15 +72,29 @@ export async function createOperationCommand(input: {
 
 export function wrapRuntimeMessage(payload: IntentRoute | OperationCommand): RuntimeMessage {
   const isRoute = payload.schemaVersion === 'v2-px-intent-route/3'
-  return {
+  const common = {
     schemaVersion: 'v2-px-runtime-message/1',
-    messageType: isRoute ? 'intent_route' : 'operation_command',
     routeId: payload.routeId,
     correlationId: payload.correlationId,
     idempotencyKey: payload.idempotencyKey,
-    sourceContainer: isRoute ? payload.entryContainer : payload.sourceContainer,
     targetContainer: payload.targetContainer,
     sentAt: new Date().toISOString(),
-    payload,
+  } as const
+  return isRoute
+    ? { ...common, messageType: 'intent_route', sourceContainer: payload.entryContainer, payload }
+    : { ...common, messageType: 'operation_command', sourceContainer: payload.sourceContainer, payload }
+}
+
+export function createOperationPollMessage(workspaceId: string, operationId: string): Extract<RuntimeMessage, { messageType: 'operation_poll' }> {
+  return {
+    schemaVersion: 'v2-px-runtime-message/1',
+    messageType: 'operation_poll',
+    routeId: token('route'),
+    correlationId: token('corr'),
+    idempotencyKey: token('idem'),
+    sourceContainer: 'workspace_page',
+    targetContainer: 'background',
+    sentAt: new Date().toISOString(),
+    payload: { workspaceId, operationId, controlId: token('command') },
   }
 }

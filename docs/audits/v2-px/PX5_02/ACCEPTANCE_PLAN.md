@@ -8,9 +8,9 @@
 | --- | --- | --- |
 | FAMS 断连/重连 | 打开真实 active Operation；停止 `[::1]:4000`，再启动同一 SQLite snapshot 服务 | 5 秒内显示 disconnected/失败结论；重启后一次有界恢复到 ready 或诚实 blocked；事件链可推导 |
 | worker suspend | 通过 CDP 停止真实 extension service worker，再由页面触发恢复 | 无 UI 自报成功；5 秒内恢复或 blocked；同 workspace/view/ref |
-| extension update | 同 profile 从 production 0.1.0 加载到 0.2.0 build | session 可丢失，RecoveryIndex/2 可恢复；权限集合不扩大；migration/update 证据可复核 |
+| extension update | 同 profile 从 production 0.1.0 加载到 0.2.0 build；旧 Chrome 完全退出后仅失效临时 profile 的 unpacked Worker/JS 代码缓存，保留 extension local storage | session 可丢失，RecoveryIndex/2 可恢复；extension ID 稳定；权限集合不扩大；migration/update 证据可复核 |
 | 双容器 lease | Side Panel + Workspace 同时订阅，依次关闭 | 关闭一个不进入 closed；最后一个关闭后 close/closed；stale seed 产生 lease_expired/closed |
-| active Operation poll | 使用真实非终态 Operation，记录 GET 时间；关闭最后容器 | 间隔只允许 2/4/8/10 秒；terminal/断连/无 lease 后新增 GET=0；POST=0 |
+| active Operation poll | 使用真实非终态 Operation；Trace 页面单次发送 `operation_poll`，记录 Background GET 时间；关闭最后容器 | 页面控制消息恰为 1 次且无循环消息；GET 间隔只允许 2/4/8/10 秒；terminal/断连/无 lease 后新增 GET=0；POST=0 |
 | 安全/真实性 | 扫描 manifest、network、storage、SQLite 与 console | heartbeat/alarm=0；订单请求/Transaction 差分/secret=0；四锁 false；console error=0 |
 
 ## 2. 证据目录

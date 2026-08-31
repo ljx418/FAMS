@@ -1,4 +1,5 @@
 const workspaceStateQueues = new Map<string, Promise<void>>()
+export const LIFECYCLE_STATE_WRITER_KEY = 'px-lifecycle-background-single-writer'
 
 export async function serializeWorkspaceState<T>(workspaceId: string, task: () => Promise<T>): Promise<T> {
   const previous = workspaceStateQueues.get(workspaceId) ?? Promise.resolve()

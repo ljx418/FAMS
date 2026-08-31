@@ -54,17 +54,26 @@ export type OperationCommand = {
   requestedAt: string
 }
 
-export type RuntimeMessage = {
+type RuntimeMessageCommon = {
   schemaVersion: 'v2-px-runtime-message/1'
-  messageType: 'intent_route' | 'operation_command'
   routeId: string
   correlationId: string
   idempotencyKey: string
   sourceContainer: EntryContainer
   targetContainer: TargetContainer
   sentAt: string
-  payload: IntentRoute | OperationCommand
 }
+
+export type RuntimeMessage = RuntimeMessageCommon & (
+  | { messageType: 'intent_route'; payload: IntentRoute }
+  | { messageType: 'operation_command'; payload: OperationCommand }
+  | {
+      messageType: 'operation_poll'
+      sourceContainer: 'workspace_page'
+      targetContainer: 'background'
+      payload: { workspaceId: string; operationId: string; controlId: string }
+    }
+)
 
 export const LIFECYCLE_PORT_NAME = 'v2-px-lifecycle/1' as const
 

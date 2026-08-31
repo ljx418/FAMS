@@ -5,7 +5,7 @@ export default defineConfig({
   manifest: {
     name: 'FAMS External Brain',
     description: 'FAMS 本地研究工作台的浏览器入口。只读研究与受控问答，不执行交易。',
-    version: '0.1.0',
+    version: '0.2.0',
     permissions: ['sidePanel', 'tabs', 'storage'],
     host_permissions: [],
     optional_host_permissions: [

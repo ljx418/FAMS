@@ -19,8 +19,9 @@ vi.mock('wxt/browser', () => ({
 }))
 
 import { PxStorageMigrationBlockedError, prepareRecoveryIndexStorage, readLifecycleEvents, readRecoveryIndex, readWorkspaceStates, writeRecoveryIndexRecord } from '../src/background/chromeStorage'
-import { initializeLifecycleStorage } from '../src/background/lifecycleCoordinator'
+import { beginLifecycleReconnect, expireStaleLifecycleLeases, initializeLifecycleStorage, markLifecycleConnectionLost } from '../src/background/lifecycleCoordinator'
 import { DEFAULT_WORKSPACE_ID } from '../src/contracts/validation'
+import { appendLifecycleEvent } from '../src/state/lifecycleAuditStore'
 
 const legacyState = {
   schemaVersion: 'v2-px-workspace-state/1' as const,
@@ -97,5 +98,57 @@ describe('workspace storage migration', () => {
     localValues.recoveryIndex = structuredClone(unknown)
     await expect(prepareRecoveryIndexStorage()).rejects.toBeInstanceOf(PxStorageMigrationBlockedError)
     expect(localValues.recoveryIndex).toEqual(unknown)
+  })
+
+  it('expires the last stale lease to closed and derives disconnect/reconnect events', async () => {
+    const start = appendLifecycleEvent({
+      events: [], workspaceId: DEFAULT_WORKSPACE_ID, routeId: 'px-route-leaselifecycle0001', correlationId: 'px-corr-leaselifecycle0001',
+      container: 'workspace_page', containerInstanceId: 'px-container-leaselifecycle0001', eventType: 'start', previousState: 'uninitialized',
+      now: '2026-08-31T00:00:00.000Z',
+    })
+    const ready = appendLifecycleEvent({
+      events: [start], workspaceId: DEFAULT_WORKSPACE_ID, routeId: start.routeId, correlationId: start.correlationId,
+      container: 'background', containerInstanceId: 'px-container-background000001', eventType: 'load_succeeded', previousState: start.nextState,
+      now: '2026-08-31T00:00:01.000Z',
+    })
+    sessionValues.lifecycleEvents = [start, ready]
+    sessionValues.workspaceStates = {
+      [DEFAULT_WORKSPACE_ID]: {
+        schemaVersion: 'v2-px-workspace-state/1', workspaceId: DEFAULT_WORKSPACE_ID, lifecycleStatus: 'ready', currentView: 'source_library',
+        routeId: start.routeId, correlationId: start.correlationId, connection: { status: 'connected' }, recovery: { status: 'restored' },
+        containerLeases: [{ container: 'workspace_page', instanceId: 'px-container-leaselifecycle0001', lastSeenAt: '2026-08-31T00:00:00.000Z' }],
+        lastEventSeq: 2, updatedAt: ready.at,
+      },
+    }
+    await expireStaleLifecycleLeases(new Date('2026-08-31T00:06:00.000Z'))
+    expect(sessionValues.workspaceStates).toMatchObject({ [DEFAULT_WORKSPACE_ID]: { lifecycleStatus: 'closed', containerLeases: [] } })
+    expect(sessionValues.lifecycleEvents).toEqual(expect.arrayContaining([expect.objectContaining({ eventType: 'lease_expired', nextState: 'closed', reasonCode: 'LEASE_TIMEOUT' })]))
+
+    const events = sessionValues.lifecycleEvents as Array<Record<string, unknown>>
+    const closed = events.at(-1)!
+    sessionValues.workspaceStates = {
+      [DEFAULT_WORKSPACE_ID]: {
+        ...(sessionValues.workspaceStates as Record<string, Record<string, unknown>>)[DEFAULT_WORKSPACE_ID],
+        lifecycleStatus: closed.nextState, containerLeases: [{ container: 'workspace_page', instanceId: 'px-container-leaselifecycle0002', lastSeenAt: '2026-08-31T00:06:00.000Z' }],
+      },
+    }
+    // A new subscription normally resumes closed first; exercise the dedicated
+    // live disconnect/reconnect transition from a fresh ready stream below.
+    sessionValues.lifecycleEvents = [start, ready]
+    sessionValues.workspaceStates = {
+      [DEFAULT_WORKSPACE_ID]: {
+        schemaVersion: 'v2-px-workspace-state/1', workspaceId: DEFAULT_WORKSPACE_ID, lifecycleStatus: 'ready', currentView: 'source_library',
+        routeId: start.routeId, correlationId: start.correlationId, connection: { status: 'connected' }, recovery: { status: 'restored' },
+        containerLeases: [{ container: 'workspace_page', instanceId: 'px-container-leaselifecycle0002', lastSeenAt: '2026-08-31T00:06:00.000Z' }],
+        lastEventSeq: 2, updatedAt: ready.at,
+      },
+    }
+    await markLifecycleConnectionLost({ workspaceId: DEFAULT_WORKSPACE_ID, container: 'workspace_page', containerInstanceId: 'px-container-leaselifecycle0002' })
+    await beginLifecycleReconnect(DEFAULT_WORKSPACE_ID)
+    expect(sessionValues.workspaceStates).toMatchObject({ [DEFAULT_WORKSPACE_ID]: { lifecycleStatus: 'recovering', connection: { status: 'connecting' }, recovery: { status: 'recovering' } } })
+    expect((sessionValues.lifecycleEvents as Array<Record<string, unknown>>).slice(-2)).toEqual([
+      expect.objectContaining({ eventType: 'connection_lost', nextState: 'disconnected' }),
+      expect.objectContaining({ eventType: 'reconnect', nextState: 'recovering' }),
+    ])
   })
 })
