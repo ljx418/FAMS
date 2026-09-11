@@ -13,6 +13,23 @@ const riskCheckSchema = {
   },
 }
 
+const unreadAlertsSchema = {
+  querystring: {
+    type: 'object',
+    required: ['userId'],
+    additionalProperties: false,
+    properties: {
+      userId: { type: 'string', minLength: 1 },
+      limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+    },
+  },
+}
+
+type UnreadAlertsQuery = {
+  userId: string
+  limit?: number
+}
+
 export async function alertRoutes(app: FastifyInstance) {
   // 获取宽基回撤监控配置
   app.get('/market-watch/rules', async (request) => {
@@ -84,8 +101,8 @@ export async function alertRoutes(app: FastifyInstance) {
   })
 
   // 获取未读告警
-  app.get('/unread', async (request) => {
-    const { userId, limit } = request.query as any
+  app.get<{ Querystring: UnreadAlertsQuery }>('/unread', { schema: unreadAlertsSchema }, async (request) => {
+    const { userId, limit = 10 } = request.query
     return alertService.getUnreadAlerts(userId, limit)
   })
 

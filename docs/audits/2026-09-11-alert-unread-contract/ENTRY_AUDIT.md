@@ -1,0 +1,17 @@
+# S1 未读提醒查询合同准入审计
+
+日期：2026-09-11
+
+```text
+stageId=S1
+s0ExitDecision=PASS_FOR_S1
+fatalSpecificationFindingCount=0
+majorUnclosedFindingCountBeforeImplementation=0
+changeScope=alert_unread_query_validation_only
+realAccountDataRequired=existing_alert_regression_only
+databaseMutationAllowed=controlled_and_reversible_regression_only
+tradingPermissionChangeAllowed=false
+entryDecision=PASS
+```
+
+本阶段修复的是确定的 API 类型合同缺陷；新增合同测试通过 Fastify 注入完成，不访问数据库。既有提醒回归会读取真实本地行情和持仓，并执行可恢复的提醒/阈值写入；止损回归必须恢复原阈值并清理本轮新增提醒。无效参数采用显式 400，而不是回退默认值，避免调用方错误被掩盖。

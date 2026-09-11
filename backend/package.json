@@ -23,6 +23,7 @@
     "test:derived-quantity": "node node_modules/tsx/dist/cli.mjs scripts/verify-derived-quantity-consistency.ts",
     "test:market-watch": "node node_modules/tsx/dist/cli.mjs scripts/verify-market-watch-alerts.ts",
     "test:stop-alerts": "node node_modules/tsx/dist/cli.mjs scripts/verify-stop-alerts.ts",
+    "test:alert-unread-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-alert-unread-contract.ts",
     "test:manual-buy-position": "node node_modules/tsx/dist/cli.mjs scripts/verify-manual-buy-position.ts",
     "test:fund-nav-sources": "node node_modules/tsx/dist/cli.mjs scripts/verify-fund-nav-sources.ts",
     "test:technical-indicators": "node node_modules/tsx/dist/cli.mjs scripts/verify-technical-indicator-service.ts",
