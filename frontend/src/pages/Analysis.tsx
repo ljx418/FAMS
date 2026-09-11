@@ -24,6 +24,7 @@ import {
   createFivdRManualTradeDraft,
   generateTradingPlan,
   executeAdviceAction,
+  confirmNotionalAdviceAction,
   type AnalysisScope,
   type HoldingResearchItem,
   type FivdRAnalysisResult,
@@ -117,6 +118,18 @@ const ACTION_LABEL: Record<string, string> = {
   rebalance: '再平衡',
   grid_order: '网格',
   dca: '定投',
+}
+
+const ACCOUNT_ACTION_LABEL: Record<string, string> = {
+  reduce_bond: '降低债券仓',
+  sell_transition_equity: '退出过渡权益',
+  increase_gold: '增配黄金',
+  increase_target_equity: '增配目标权益',
+  retain_cash: '保留现金',
+  pause_new_volatility_buys: '暂停新增波动仓',
+  reduce_volatility_exposure: '降低波动仓',
+  increase_core_exposure: '补足核心仓',
+  restore_trading_cash: '恢复交易现金',
 }
 
 const POSITION_ADVICE_ACTION: Record<string, { label: string; color: string }> = {
@@ -285,7 +298,7 @@ const isExecutableSuggestion = (suggestion: Suggestion) => Boolean(
   suggestion.actionId &&
   suggestion.assetId &&
   (suggestion.actionType === 'buy' || suggestion.actionType === 'sell') &&
-  suggestion.status !== 'executed'
+  suggestion.status !== 'executed' && suggestion.status !== 'recorded_pending_reconciliation'
 )
 
 // 建议卡片组件
@@ -326,8 +339,8 @@ const SuggestionCard: React.FC<{
             <Tag color="#818cf8" style={{ marginRight: 0 }}>
               {ACTION_LABEL[suggestion.actionType || 'hold'] || '观察'}
             </Tag>
-            <Tag color={suggestion.status === 'executed' ? '#34d399' : '#fbbf24'} style={{ marginRight: 0 }}>
-              {suggestion.status === 'executed' ? '已记录' : '待确认'}
+            <Tag color={suggestion.status === 'executed' || suggestion.status === 'recorded_pending_reconciliation' ? '#34d399' : '#fbbf24'} style={{ marginRight: 0 }}>
+              {suggestion.status === 'recorded_pending_reconciliation' ? '已记金额·待对账' : suggestion.status === 'executed' ? '已记录' : '待确认'}
             </Tag>
             {suggestion.targetSymbol && (
               <Tag color="#38bdf8" style={{ marginRight: 0 }}>{suggestion.targetSymbol}</Tag>
@@ -2457,14 +2470,21 @@ const Analysis: React.FC = () => {
 
     Modal.confirm({
       title: '确认记录交易',
-      content: `将按建议记录${ACTION_LABEL[suggestion.actionType || 'hold'] || '交易'}：${suggestion.targetSymbol || suggestion.title}，数量 ${formatQuantity(suggestion.suggestedQuantity)}，单价 ${formatMoney(suggestion.suggestedPrice)}。此操作只写入本地交易记录，不会自动下单。`,
+      content: suggestion.parameters?.confirmationMode === 'notional_ledger_only'
+        ? `将记录${ACTION_LABEL[suggestion.actionType || 'hold'] || '交易'} ${suggestion.targetSymbol || suggestion.title} 的名义金额 ${formatMoney(suggestion.suggestedAmount)}。不会自动下单，也不会在真实份额对账前修改持仓。`
+        : `将按建议记录${ACTION_LABEL[suggestion.actionType || 'hold'] || '交易'}：${suggestion.targetSymbol || suggestion.title}，数量 ${formatQuantity(suggestion.suggestedQuantity)}，单价 ${formatMoney(suggestion.suggestedPrice)}。此操作只写入本地交易记录，不会自动下单。`,
       okText: '确认记录',
       cancelText: '取消',
       onOk: async () => {
         setExecutingActionId(suggestion.actionId || null)
         try {
-          await executeAdviceAction(suggestion.actionId!)
-          message.success('已根据建议记录交易')
+          if (suggestion.parameters?.confirmationMode === 'notional_ledger_only') {
+            await confirmNotionalAdviceAction(suggestion.actionId!, suggestion.suggestedAmount || 0)
+            message.success('已记录名义金额，等待真实份额对账')
+          } else {
+            await executeAdviceAction(suggestion.actionId!)
+            message.success('已根据建议记录交易')
+          }
           await loadSuggestions()
         } catch (error) {
           console.error('Failed to execute advice action:', error)
@@ -3556,6 +3576,80 @@ const Analysis: React.FC = () => {
                     </div>
                   )}
 
+                  {overviewExpanded && structuredAdvice.account_summaries && structuredAdvice.account_summaries.length > 0 && (
+                    <section aria-label="支付宝与同花顺账户调整摘要" className="rounded-lg border border-[rgba(129,140,248,0.25)] bg-[rgba(129,140,248,0.06)] p-2.5">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-medium text-white">双账户仓位调整摘要</div>
+                          <div className="mt-1 text-xs text-gray-400">支付宝负责长期配置；同花顺负责核心、波动与交易现金，两个账户不互相抵消缺口。</div>
+                        </div>
+                        <Tag color="#fbbf24" style={{ marginRight: 0 }}>研究草案 · 不自动下单</Tag>
+                      </div>
+                      <div className="grid gap-3 xl:grid-cols-2">
+                        {structuredAdvice.account_summaries.map((account) => (
+                          <article key={account.account_id} className="min-w-0 rounded-lg border border-white/10 bg-[#161629] p-3">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <div className="text-base font-semibold text-white">{account.account_name}</div>
+                                <div className="mt-1 text-xs leading-5 text-gray-400">{account.strategy}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-mono text-sm font-semibold text-white">{formatMoney(account.current_value)}</div>
+                                <Tag color={account.status === 'within_policy' ? '#34d399' : '#fbbf24'} style={{ marginRight: 0, marginTop: 4 }}>
+                                  {account.status === 'within_policy' ? '结构合规' : account.account_id === 'alipay' ? '需要再平衡' : '需要降低风险'}
+                                </Tag>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 overflow-hidden rounded border border-white/10">
+                              {account.buckets.map((bucket, index) => (
+                                <div key={bucket.key} className={`grid grid-cols-[minmax(90px,1fr)_auto] gap-3 px-2.5 py-2 text-xs ${index ? 'border-t border-white/10' : ''}`}>
+                                  <div>
+                                    <div className="text-white">{bucket.label}</div>
+                                    <div className="mt-0.5 text-gray-500">当前 {(bucket.current_pct * 100).toFixed(1)}% → 目标 {(bucket.target_pct * 100).toFixed(1)}%</div>
+                                  </div>
+                                  <div className={`text-right font-mono ${bucket.gap_value > 0 ? 'text-sky-300' : bucket.gap_value < 0 ? 'text-amber-300' : 'text-gray-300'}`}>
+                                    {bucket.gap_value > 0 ? '缺口 +' : bucket.gap_value < 0 ? '盈余 ' : '持平 '}{formatMoney(Math.abs(bucket.gap_value))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="mt-3 space-y-2">
+                              {account.actions.map((action) => (
+                                <div key={`${account.account_id}-${action.sequence}-${action.action}-${action.symbol || ''}`} className="rounded border border-white/10 bg-white/[0.025] p-2.5">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                    <div className="font-medium text-white">
+                                      {action.sequence}. {ACCOUNT_ACTION_LABEL[action.action] || action.action}
+                                      {action.symbol ? <span className="ml-1 font-mono text-sky-300">{action.symbol}</span> : null}
+                                    </div>
+                                    <Tag color={action.state === 'manual_review' ? '#38bdf8' : '#fbbf24'} style={{ marginRight: 0 }}>
+                                      {action.state === 'manual_review' ? '人工复核' : '等待研究证据'}
+                                    </Tag>
+                                  </div>
+                                  <div className="mt-1 text-xs text-gray-300">
+                                    {action.amount > 0 ? <>完整方向 {formatMoney(action.amount)}</> : '当前动作不新增资金'}
+                                    {typeof action.first_tranche_amount === 'number' && action.first_tranche_amount > 0
+                                      ? <span className="ml-2 text-sky-300">第一批 {formatMoney(action.first_tranche_amount)}</span>
+                                      : null}
+                                  </div>
+                                  {action.candidate_symbols && action.candidate_symbols.length > 0 && (
+                                    <div className="mt-1 text-xs text-gray-500">复核标的：{action.candidate_symbols.join(' / ')}</div>
+                                  )}
+                                  <div className="mt-1 text-xs leading-5 text-gray-500">{action.reason}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="mt-3 border-t border-white/10 pt-2 text-xs leading-5 text-gray-500">
+                              {account.guardrails.map((guardrail) => <div key={guardrail}>• {guardrail}</div>)}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
                   {overviewExpanded && structuredAdvice.risks.length > 0 && (
                     <div className="rounded-lg border border-[rgba(248,113,113,0.25)] bg-[rgba(248,113,113,0.08)] p-2.5">
                       <div className="text-xs text-gray-300 mb-1.5">关键风险</div>
@@ -3564,6 +3658,45 @@ const Analysis: React.FC = () => {
                           <Tag key={risk} color="#f87171">{risk}</Tag>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {overviewExpanded && structuredAdvice.allocation_plan && (
+                    <div className="rounded-lg border border-[rgba(56,189,248,0.25)] bg-[rgba(56,189,248,0.07)] p-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div className="text-sm font-medium text-white">四批次执行门控</div>
+                        <Tag color="#38bdf8">严格偏离 &gt; {structuredAdvice.allocation_plan.threshold_pct_point}pp</Tag>
+                      </div>
+                      <div className="grid gap-2 md:grid-cols-4">
+                        {structuredAdvice.allocation_plan.tranches.map((tranche) => (
+                          <div key={tranche.index} className="rounded border border-white/10 bg-[#161629] p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-white">第 {tranche.index} 批 · {(tranche.ratio * 100).toFixed(0)}%</span>
+                              <Tag color={tranche.state === 'draft_ready' ? '#34d399' : '#fbbf24'} style={{ marginRight: 0 }}>
+                                {tranche.state === 'draft_ready' ? '可复核草案' : '等待RRG'}
+                              </Tag>
+                            </div>
+                            <div className="mt-1 text-xs leading-5 text-gray-400">{tranche.gate}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {structuredAdvice.allocation_plan.target_gates.length > 0 && (
+                        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                          {structuredAdvice.allocation_plan.target_gates.map((gate) => (
+                            <div key={gate.symbol} className="rounded border border-white/10 bg-[#161629] p-2 text-xs">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-mono font-semibold text-white">{gate.symbol}</span>
+                                <Tag color={gate.current_condition_passed ? '#34d399' : '#f87171'} style={{ marginRight: 0 }}>
+                                  {gate.current_condition_passed ? '当前条件通过' : '当前阻断'}
+                                </Tag>
+                              </div>
+                              <div className="mt-1 text-gray-300">{gate.quadrant || '无象限'} · {gate.readiness} · 延迟 {gate.freshness_lag ?? '--'} 日</div>
+                              <div className="mt-1 leading-5 text-gray-500">{gate.current_condition_passed ? '仍需等待新的周频点后才能释放下一批。' : gate.reason}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-2 text-xs text-gray-400">{structuredAdvice.allocation_plan.execution_boundary}</div>
                     </div>
                   )}
 

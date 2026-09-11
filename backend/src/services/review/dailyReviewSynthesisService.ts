@@ -184,6 +184,20 @@ function isDailyReviewLlmEnabled() {
   return Boolean(config.configured && config.chatAgentEnabled && SUPPORTED_PROVIDERS.has(config.provider))
 }
 
+export function getDailyReviewLlmReadiness() {
+  const config = getFamsLlmConfig()
+  const enabled = isDailyReviewLlmEnabled()
+  return {
+    configured: Boolean(config.configured),
+    chatAgentEnabled: Boolean(config.chatAgentEnabled),
+    enabled,
+    supportedProvider: SUPPORTED_PROVIDERS.has(config.provider),
+    provider: config.provider || null,
+    model: config.model || null,
+    failureCode: enabled ? null : 'llm_not_configured_or_disabled',
+  }
+}
+
 export function buildDailyReviewSynthesisFallback(input: any, failureCode: string, attempted: boolean, validationDiagnostics?: unknown) {
   const decisionAssets = Array.isArray(input?.decisionSummary?.assets) ? input.decisionSummary.assets : []
   const candidates = Array.isArray(input?.attentionCandidates) ? input.attentionCandidates : []
@@ -277,6 +291,7 @@ export function validateDailyReviewSynthesisPayload(parsed: unknown, input: any)
   const narrativeWithoutAllowlistedSymbols = allNarrative.map((item) => {
     let safeText = item
     for (const symbol of allowedSymbols) safeText = safeText.replaceAll(symbol, '')
+    safeText = safeText.replaceAll('A500', '')
     return safeText
   })
   const numericNarrativeIndexes = narrativeWithoutAllowlistedSymbols
@@ -302,19 +317,45 @@ class DailyReviewSynthesisService {
     if (!isDailyReviewLlmEnabled()) return buildDailyReviewSynthesisFallback(input, 'llm_not_configured_or_disabled', false)
     const config = getFamsLlmConfig()
     const allCandidates = Array.isArray(input?.attentionCandidates) ? input.attentionCandidates : []
-    const focusedCandidates = allCandidates.filter((candidate: any) => SYNTHESIS_FOCUS_SYMBOLS.has(String(candidate.symbol)))
+    const portfolioActionSummary = input?.decisionSummary?.portfolioActionSummary
+    const actionDrafts = Array.isArray(portfolioActionSummary?.tradeDrafts) ? portfolioActionSummary.tradeDrafts : []
+    const sourceCaptureRef = portfolioActionSummary?.sourceSnapshot?.captureId
+      ? `screenshot_capture:${portfolioActionSummary.sourceSnapshot.captureId}`
+      : null
+    const actionCandidates = actionDrafts.map((draft: any) => ({
+      symbol: String(draft.symbol),
+      name: draft.title || draft.symbol,
+      source: 'alipay_allocation_draft',
+      reason: `${draft.title || draft.symbol}；当前状态 ${draft.currentState || 'manual_review'}；后续状态 ${draft.laterTrancheState || 'pending'}`,
+      evidenceStatus: sourceCaptureRef ? 'available' : 'partial',
+      evidenceRefs: sourceCaptureRef ? [sourceCaptureRef] : [],
+    }))
+    const contextualSymbols = new Set(actionDrafts.map((draft: any) => String(draft.symbol)))
+    const focusedCandidates = contextualSymbols.size > 0
+      ? actionCandidates
+      : allCandidates.filter((candidate: any) => SYNTHESIS_FOCUS_SYMBOLS.has(String(candidate.symbol)))
     const synthesisInput = {
       ...input,
       decisionSummary: { ...input.decisionSummary, assets: [] },
-      attentionCandidates: focusedCandidates.length > 0 ? focusedCandidates : allCandidates.slice(0, 4),
-      assets: (input.assets || []).filter((asset: any) => SYNTHESIS_FOCUS_SYMBOLS.has(String(asset.symbol))).slice(0, 4),
+      attentionCandidates: focusedCandidates.length > 0 ? focusedCandidates : allCandidates.slice(0, 6),
+      assets: (input.assets || []).filter((asset: any) => (
+        contextualSymbols.size > 0 ? contextualSymbols.has(String(asset.symbol)) : SYNTHESIS_FOCUS_SYMBOLS.has(String(asset.symbol))
+      )).slice(0, 6),
     }
     const compactInput = {
       strategyAssessment: {
         status: input.strategyAssessment?.status,
       },
+      portfolioActionSummary: input.decisionSummary?.portfolioActionSummary || null,
+      portfolioComparison: input.portfolioComparison ? {
+        status: input.portfolioComparison.status,
+        actualAllocationContract: input.portfolioComparison.actualAllocationContract,
+        researchComparisonContract: input.portfolioComparison.researchComparisonContract,
+        headline: input.portfolioComparison.summary?.headline || null,
+        confidence: input.portfolioComparison.summary?.confidence || null,
+      } : null,
       decisionAssets: [],
-      attentionCandidates: (synthesisInput.attentionCandidates || []).slice(0, 4).map((candidate: any) => ({
+      attentionCandidates: (synthesisInput.attentionCandidates || []).slice(0, 6).map((candidate: any) => ({
         symbol: candidate.symbol,
         name: candidate.name,
         source: candidate.source,
@@ -346,8 +387,11 @@ class DailyReviewSynthesisService {
         '你是 FAMS 证据摘要器。直接输出结果，不展示分析过程。',
         '只能解释输入事实，不得新增标的、事实、动作、价格、数量或目标价。',
         '所有价格和数量由页面的确定性区域展示；你的叙述字段中禁止出现任何阿拉伯数字。',
+        '产品名中的 A500 必须改写为“宽基”，不得在叙述里输出 A500。',
         'evidenceRefs 只能逐字复制对应标的输入中已有的引用。',
         '不得把人工计划草案升级为投资建议或自动下单指令。',
+        'headline 和 overview 必须优先概括 portfolioActionSummary 中的配置偏离、当前批次、历史流水约束与轮动门禁；不得改写其中金额。',
+        'portfolioComparison 是独立研究比较：actualAllocationContract 是人工计划合同，researchComparisonContract 只是研究候选；禁止把两者合并或把研究比例写成调仓指令。',
         '为控制长度，每个叙述字段不超过八个汉字，每个数组最多一项。',
         '只输出 JSON，不要 Markdown。',
         '根对象必须且只能包含 headline, overview, attentionSummaries, orderExplanations。',

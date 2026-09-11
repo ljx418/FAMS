@@ -28,6 +28,8 @@ import { portfolioBenchmarkService } from './portfolioBenchmarkService.js'
 import { formalValidationService } from '../formal-release/formalValidationService.js'
 import { executionIsolationService } from '../formal-release/executionIsolationService.js'
 import { releaseGateService } from '../formal-release/releaseGateService.js'
+import { classicPortfolioStudyService } from './classicPortfolioStudyService.js'
+import { portfolioFixedRuleStudyService } from './portfolioFixedRuleStudyService.js'
 
 type PriceSeries = Map<string, number>
 type PriceSource = 'price_history' | 'market_bar_canonical'
@@ -99,6 +101,8 @@ export class PortfolioBacktestEngine {
     const multiPeriodBacktestResult = await this.buildMultiPeriodBacktestResult(input, strategies)
     const longHorizonDataCoverageAudit = this.buildLongHorizonDataCoverageAudit(multiPeriodBacktestResult)
     const dividendTotalReturnAudit = this.buildDividendTotalReturnAudit(input, strategies)
+    const classicPortfolioStudy = await classicPortfolioStudyService.run(input)
+    const fixedRuleStudy = await portfolioFixedRuleStudyService.run(input)
     const releaseGateAudit = releaseGateService.build({
       formalReviewReadiness,
       dataGradeAudit,
@@ -141,6 +145,8 @@ export class PortfolioBacktestEngine {
       longHorizonDataCoverageAudit,
       multiPeriodBacktestResult,
       dividendTotalReturnAudit,
+      classicPortfolioStudy,
+      fixedRuleStudy,
     }
   }
 

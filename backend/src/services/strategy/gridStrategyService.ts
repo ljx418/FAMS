@@ -42,6 +42,81 @@ export const gridStrategyConfigSchema = z.object({
 
 export type GridStrategyConfig = z.infer<typeof gridStrategyConfigSchema>
 
+export const gridOrderRoleSchema = z.enum([
+  'capacity_build',
+  'satellite_cycle',
+  'rebound_exit',
+  'conditional_buyback',
+])
+
+export type GridOrderRole = z.infer<typeof gridOrderRoleSchema>
+
+const downtrendLevelSchema = z.object({
+  orderRef: z.string().min(1),
+  side: z.enum(['buy', 'sell']),
+  price: z.number().positive(),
+  quantity: z.number().positive(),
+  orderRole: gridOrderRoleSchema,
+  parentOrderRef: z.string().min(1).nullable().optional(),
+  activationStatus: z.enum(['active', 'awaiting_parent_fill', 'awaiting_sellability', 'dormant']).default('active'),
+  rationale: z.string().min(1),
+}).strict()
+
+export const downtrendDefensiveConfigSchema = z.object({
+  schemaVersion: z.literal('fams.grid-strategy.v2'),
+  templateId: z.string().min(1),
+  name: z.string().min(1),
+  mode: z.literal('downtrend_defensive'),
+  status: z.string().min(1).optional(),
+  source_id: z.string().min(1).optional(),
+  fixedAnchor: z.object({
+    price: z.number().positive(),
+    asOf: z.string().min(1),
+    reanchorOnlyAfter: z.array(z.enum(['completed_fill_cycle', 'pause_trigger', 'two_closes_above_ma5_with_nonfalling_ma5'])).min(1),
+  }).strict(),
+  allocation: z.object({
+    core: z.number().nonnegative(),
+    satellite: z.number().nonnegative(),
+    reboundExit: z.number().nonnegative().default(0),
+    hardCap: z.number().positive(),
+    stageBuildCap: z.number().nonnegative().optional(),
+  }).strict().refine((value) => value.core + value.satellite + value.reboundExit === value.hardCap, 'allocation sleeves must equal hardCap'),
+  riskPolicy: z.object({
+    cashFloorPercent: z.number().min(0).max(100),
+    feeReserve: z.number().nonnegative().default(0),
+    unfilledSellProceedsCountAsCash: z.literal(false),
+    pauseRule: z.object({
+      metric: z.literal('daily_close'),
+      operator: z.literal('below'),
+      threshold: z.number().positive(),
+      action: z.literal('pause_pending_net_buys'),
+      appliesTo: z.enum(['capacity_build', 'all_satellite_buys']).default('capacity_build'),
+    }).strict().nullable(),
+  }).strict(),
+  capacityOverride: z.object({
+    ignoreFrozenForCapacity: z.boolean(),
+    reason: z.string().min(1),
+  }).strict().optional(),
+  levels: z.array(downtrendLevelSchema),
+}).strict()
+
+export type DowntrendDefensiveConfig = z.infer<typeof downtrendDefensiveConfigSchema>
+
+export interface DowntrendDefensiveBuildInput {
+  config: DowntrendDefensiveConfig
+  assetType: string
+  market?: string
+  currentQuantity: number
+  sellableQuantity: number
+  currentClose?: number | null
+  cashBudget: number
+  availablePortfolioBuyBudget: number
+  portfolioValue: number
+  externalOrders?: Array<{ side: string; price: number | null; status: string }>
+  ignoreFrozenForCapacity?: boolean
+  now?: Date
+}
+
 const templates: GridStrategyConfig[] = [
   {
     schemaVersion: 'fams.grid-strategy.v1',
@@ -258,6 +333,65 @@ class GridStrategyService {
       errors.push({ path: 'sizingPolicy.levelWeights', message: 'levelWeights must cover every configured grid level' })
     }
     return { valid: errors.length === 0, config: parsed.data, errors }
+  }
+
+  validateDowntrendConfig(config: unknown) {
+    const parsed = downtrendDefensiveConfigSchema.safeParse(config)
+    if (!parsed.success) {
+      return {
+        valid: false as const,
+        config: null,
+        errors: parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+      }
+    }
+    const refs = new Set<string>()
+    const errors: Array<{ path: string; message: string }> = []
+    parsed.data.levels.forEach((level, index) => {
+      if (refs.has(level.orderRef)) errors.push({ path: `levels.${index}.orderRef`, message: 'orderRef must be unique' })
+      refs.add(level.orderRef)
+    })
+    parsed.data.levels.forEach((level, index) => {
+      if (level.parentOrderRef && !refs.has(level.parentOrderRef)) errors.push({ path: `levels.${index}.parentOrderRef`, message: 'parentOrderRef must reference a configured level' })
+      if (level.orderRole === 'rebound_exit' && (level.side !== 'sell' || level.parentOrderRef)) errors.push({ path: `levels.${index}`, message: 'rebound_exit must be an unpaired sell' })
+      if (level.orderRole === 'conditional_buyback' && (level.side !== 'buy' || !level.parentOrderRef)) errors.push({ path: `levels.${index}`, message: 'conditional_buyback must be a paired buy' })
+    })
+    return { valid: errors.length === 0, config: parsed.data, errors }
+  }
+
+  async createDowntrendDraft(input: { userId: string; config: unknown; description?: string }) {
+    await ensureUser(prisma, input.userId)
+    const validation = this.validateDowntrendConfig(input.config)
+    if (!validation.valid || !validation.config) return { status: 'blocked', validation, notTradingAdvice: true }
+    const config = validation.config
+    const auditHash = hash(config)
+    const strategy = await prisma.strategy.create({
+      data: {
+        userId: input.userId,
+        name: config.name,
+        description: input.description || '下跌趋势防御网格草案；显式价位、仓位角色、父单和暂停线。',
+        type: 'grid_downtrend_defensive',
+        parameters: JSON.stringify(config),
+        isActive: false,
+      },
+    })
+    const version = await prisma.strategyVersion.create({
+      data: {
+        strategyId: strategy.id, strategyKey: `grid:${strategy.id}`,
+        schemaVersion: config.schemaVersion,
+        signalStrategyId: config.mode, signalVersion: 'v2',
+        thresholdHash: hash({ pause: config.riskPolicy.pauseRule, anchor: config.fixedAnchor }),
+        entryPolicyId: 'explicit_role_aware_levels', entryPolicyVersion: 'v2',
+        exitPolicyId: 'paired_or_permanent_exit', exitPolicyVersion: 'v2',
+        sizingPolicyId: 'core_satellite_rebound_capacity', sizingVersion: 'v2',
+        portfolioPolicyId: 'hard_cash_floor_no_unfilled_proceeds', portfolioVersion: 'v2',
+        costModelId: 'manual_plan_draft', costModelVersion: 'v1',
+        constraintId: 'fams_trade_boundary', constraintVersion: 'v1',
+        engineVersion: 'grid-plan-engine.v2',
+        versionBundleJson: JSON.stringify(config), auditHash, isActive: false,
+        validationJson: JSON.stringify({ schema: validation, activatable: false, reason: 'manual_draft_only' }),
+      },
+    })
+    return { status: 'draft', strategy, version, validation, executionBoundary: { canCreateOrder: false }, notTradingAdvice: true }
   }
 
   async createDraft(input: {
@@ -653,9 +787,213 @@ class GridStrategyService {
     }
   }
 
+  buildDowntrendDefensiveDraft(input: DowntrendDefensiveBuildInput) {
+    const parsed = downtrendDefensiveConfigSchema.safeParse(input.config)
+    if (!parsed.success) {
+      return {
+        mode: 'observe_only' as const,
+        orders: [],
+        blockers: ['downtrend_config_invalid'],
+        sideBlockers: { global: ['downtrend_config_invalid'], buy: [], sell: [] },
+        summary: '观察模式：下跌趋势防御网格配置无效。',
+        constraints: { notTradingAdvice: true, validationErrors: parsed.error.issues },
+        derivation: { schemaVersion: 'fams.grid-derivation.v2', validationErrors: parsed.error.issues },
+      }
+    }
+    const config = parsed.data
+    const now = input.now || new Date()
+    const validUntil = shanghaiSessionClose(now)
+    const tradingRules = resolveGridTradingRules(input.assetType, input.market || 'CN')
+    const globalBlockers: string[] = []
+    const buyBlockers: string[] = []
+    const sellBlockers: string[] = []
+    const refs = new Set<string>()
+    for (const level of config.levels) {
+      if (refs.has(level.orderRef)) globalBlockers.push(`duplicate_order_ref:${level.orderRef}`)
+      refs.add(level.orderRef)
+    }
+    for (const level of config.levels) {
+      if (level.parentOrderRef && !refs.has(level.parentOrderRef)) globalBlockers.push(`parent_order_ref_not_found:${level.orderRef}`)
+      if (level.orderRole === 'rebound_exit' && (level.side !== 'sell' || level.parentOrderRef)) globalBlockers.push(`invalid_rebound_exit:${level.orderRef}`)
+      if (level.orderRole === 'conditional_buyback' && (level.side !== 'buy' || !level.parentOrderRef)) globalBlockers.push(`invalid_conditional_buyback:${level.orderRef}`)
+    }
+    if (now.getTime() >= validUntil.getTime()) globalBlockers.push('session_closed')
+    if (input.currentQuantity > config.allocation.hardCap) globalBlockers.push('quantity_hard_cap_already_exceeded')
+
+    const currentReboundExit = Math.min(config.allocation.reboundExit, Math.max(0, input.currentQuantity - config.allocation.core - config.allocation.satellite))
+    const currentSatellite = Math.min(config.allocation.satellite, Math.max(0, input.currentQuantity - config.allocation.core - currentReboundExit))
+    const remainingSatelliteCapacity = Math.max(0, config.allocation.satellite - currentSatellite)
+    const stageBuildCapacity = Math.min(remainingSatelliteCapacity, config.allocation.stageBuildCap ?? remainingSatelliteCapacity)
+    const nonCoreSellable = Math.max(0, input.sellableQuantity - Math.min(config.allocation.core, input.currentQuantity))
+    let remainingReboundSell = Math.min(currentReboundExit, nonCoreSellable)
+    let remainingSatelliteSell = Math.min(currentSatellite, Math.max(0, nonCoreSellable - remainingReboundSell))
+    let remainingBuild = Math.min(stageBuildCapacity, Math.max(0, config.allocation.hardCap - input.currentQuantity))
+    let remainingBuyBudget = Math.max(0, input.availablePortfolioBuyBudget - config.riskPolicy.feeReserve)
+    const pauseTriggered = Boolean(
+      config.riskPolicy.pauseRule
+      && Number.isFinite(Number(input.currentClose))
+      && Number(input.currentClose) < config.riskPolicy.pauseRule.threshold,
+    )
+    const activeExternal = (input.externalOrders || []).filter((order) => ['pending', 'submitted', 'partial', 'open', 'triggered'].includes(order.status))
+    const conflict = (side: string, price: number) => activeExternal.some((order) => (
+      order.side.toLowerCase() === side.toLowerCase()
+      && order.price !== null
+      && Math.abs(Number(order.price) - price) <= tradingRules.priceTick / 2
+    ))
+    const sourceLevels = new Map(config.levels.map((level) => [level.orderRef, level]))
+    const sideLevel = { buy: 0, sell: 0 }
+    const orders: Array<Record<string, unknown>> = []
+
+    if (globalBlockers.length === 0) {
+      for (const configured of config.levels) {
+        const price = roundGridPrice(configured.price, tradingRules.priceTick, configured.side)
+        const quantity = normalizeToLot(configured.quantity, tradingRules.lotSize)
+        let activationStatus = configured.activationStatus
+        let blocker: string | null = null
+        const parent = configured.parentOrderRef ? sourceLevels.get(configured.parentOrderRef) : null
+
+        if (quantity <= 0) blocker = 'quantity_below_minimum_lot'
+        if (configured.orderRole === 'rebound_exit' && !blocker) {
+          if (remainingReboundSell < quantity) blocker = 'rebound_exit_capacity_exhausted'
+          else remainingReboundSell -= quantity
+        } else if (configured.side === 'sell' && activationStatus === 'active' && !blocker) {
+          if (remainingSatelliteSell < quantity) {
+            blocker = 'satellite_sellability_not_yet_available'
+            activationStatus = 'awaiting_sellability'
+          } else remainingSatelliteSell -= quantity
+        } else if (configured.orderRole === 'capacity_build' && configured.side === 'buy' && activationStatus === 'active' && !blocker) {
+          if (pauseTriggered) {
+            blocker = 'daily_close_pause_triggered'
+            activationStatus = 'dormant'
+          } else if (remainingBuild < quantity) {
+            blocker = 'satellite_stage_or_hard_cap_exhausted'
+            activationStatus = 'dormant'
+          } else if (remainingBuyBudget + 1e-8 < price * quantity) {
+            blocker = 'portfolio_cash_floor_gate'
+            activationStatus = 'dormant'
+          } else {
+            remainingBuild -= quantity
+            remainingBuyBudget -= price * quantity
+          }
+        } else if (configured.orderRole === 'conditional_buyback' && !blocker) {
+          if (!parent || parent.side !== 'sell' || parent.quantity < configured.quantity) blocker = 'invalid_parent_sell_capacity'
+          const buybackPaused = pauseTriggered && config.riskPolicy.pauseRule?.appliesTo === 'all_satellite_buys'
+          activationStatus = buybackPaused ? 'dormant' : 'awaiting_parent_fill'
+          if (buybackPaused) blocker = 'daily_close_pause_triggered'
+        } else if (configured.parentOrderRef && configured.side === 'sell' && !blocker) {
+          if (!parent || parent.side !== 'buy' || parent.quantity < configured.quantity) blocker = 'invalid_parent_buy_capacity'
+          activationStatus = 'awaiting_parent_fill'
+        }
+
+        sideLevel[configured.side] += 1
+        if (blocker) {
+          if (configured.side === 'buy') buyBlockers.push(blocker)
+          else sellBlockers.push(blocker)
+        }
+        const orderPauseRule = configured.side === 'buy' ? config.riskPolicy.pauseRule : null
+        const triggerCondition = {
+          schemaVersion: 'fams.grid-order-trigger.v2',
+          orderRef: configured.orderRef,
+          orderRole: configured.orderRole,
+          parentOrderRef: configured.parentOrderRef || null,
+          activationStatus,
+          pauseRule: orderPauseRule,
+          blocker,
+          ...(configured.side === 'buy' ? { priceAtOrBelow: price } : { priceAtOrAbove: price }),
+          consumesImmediateCashBeforeFill: configured.side === 'buy' && activationStatus === 'active',
+        }
+        orders.push({
+          side: configured.side,
+          level: sideLevel[configured.side],
+          price,
+          quantity,
+          amount: Number((price * quantity).toFixed(2)),
+          validUntil: validUntil.toISOString(),
+          status: activationStatus,
+          conflictStatus: conflict(configured.side, price) ? 'overlaps_external' : activationStatus === 'active' ? 'none' : 'not_active',
+          orderRole: configured.orderRole,
+          parentOrderRef: configured.parentOrderRef || null,
+          activationStatus,
+          pauseRule: orderPauseRule,
+          triggerCondition,
+          rationale: configured.rationale,
+        })
+      }
+    }
+
+    const activeBuyPrincipal = orders
+      .filter((order) => order.side === 'buy' && order.activationStatus === 'active')
+      .reduce((sum, order) => sum + Number(order.amount), 0)
+    const immediateCashCommitment = activeBuyPrincipal > 0 ? activeBuyPrincipal + config.riskPolicy.feeReserve : 0
+    const projectedCash = input.cashBudget - immediateCashCommitment
+    const cashFloorAmount = input.portfolioValue * config.riskPolicy.cashFloorPercent / 100
+    if (projectedCash + 1e-8 < cashFloorAmount) {
+      globalBlockers.push('portfolio_cash_floor_gate')
+    }
+    const derivation = {
+      schemaVersion: 'fams.grid-derivation.v2',
+      fixedAnchor: config.fixedAnchor,
+      allocation: {
+        ...config.allocation,
+        currentCore: Math.min(config.allocation.core, input.currentQuantity),
+        currentSatellite,
+        currentReboundExit,
+        remainingSatelliteCapacity,
+        stageBuildCapacity,
+        sellableQuantity: input.sellableQuantity,
+        nonCoreSellable,
+        ignoreFrozenForCapacity: input.ignoreFrozenForCapacity === true,
+      },
+      cashGate: {
+        cashBudget: input.cashBudget,
+        cashFloorPercent: config.riskPolicy.cashFloorPercent,
+        cashFloorAmount: Number(cashFloorAmount.toFixed(2)),
+        unfilledSellProceedsCountAsCash: false,
+        feeReserve: config.riskPolicy.feeReserve,
+        activeBuyPrincipal: Number(activeBuyPrincipal.toFixed(2)),
+        immediateCashCommitment: Number(immediateCashCommitment.toFixed(2)),
+        projectedCash: Number(projectedCash.toFixed(2)),
+        portfolioBudgetRemainingBefore: Number(input.availablePortfolioBuyBudget.toFixed(2)),
+        portfolioBudgetRemainingAfter: Number(Math.max(0, input.availablePortfolioBuyBudget - immediateCashCommitment).toFixed(2)),
+      },
+      pause: { rule: config.riskPolicy.pauseRule, currentClose: input.currentClose ?? null, triggered: pauseTriggered },
+      tradingRules,
+      validity: { policy: 'session_close', timeZone: 'Asia/Shanghai', generatedAt: now.toISOString(), validUntil: validUntil.toISOString() },
+      gates: { global: [...new Set(globalBlockers)], buy: [...new Set(buyBlockers)], sell: [...new Set(sellBlockers)] },
+    }
+    if (globalBlockers.length > 0) {
+      return {
+        mode: 'observe_only' as const,
+        orders: [],
+        blockers: [...new Set(globalBlockers)],
+        sideBlockers: derivation.gates,
+        summary: `观察模式：${[...new Set(globalBlockers)].join('、')}`,
+        constraints: { ...derivation.cashGate, fixedAnchor: config.fixedAnchor, validUntil: validUntil.toISOString(), notTradingAdvice: true },
+        derivation,
+      }
+    }
+    return {
+      mode: config.mode,
+      orders,
+      blockers: [...new Set([...buyBlockers, ...sellBlockers])],
+      sideBlockers: derivation.gates,
+      summary: `下跌趋势防御网格：${orders.filter((order) => order.activationStatus === 'active').length} 张当前拟单，${orders.filter((order) => order.activationStatus !== 'active').length} 张条件/等待单。`,
+      constraints: {
+        ...derivation.cashGate,
+        fixedAnchor: config.fixedAnchor,
+        reanchorOnlyAfter: config.fixedAnchor.reanchorOnlyAfter,
+        validUntil: validUntil.toISOString(),
+        priceTick: tradingRules.priceTick,
+        lotSize: tradingRules.lotSize,
+        notTradingAdvice: true,
+      },
+      derivation,
+    }
+  }
+
   buildConditionalBuybackDraft(input: {
     parentGridPlanId: string
-    parentSellOrders: Array<{ id: string; level: number; price: number; quantity: number; validUntil?: Date | string | null }>
+    parentSellOrders: Array<{ id: string; level: number; price: number; quantity: number; validUntil?: Date | string | null; orderRole?: GridOrderRole; orderRef?: string | null }>
     spacingAbsolute: number
     assetType: string
     market?: string
@@ -669,12 +1007,18 @@ class GridStrategyService {
     if (!Number.isFinite(input.spacingAbsolute) || input.spacingAbsolute <= 0) blockers.push('grid_spacing_invalid')
     if (input.parentSellOrders.length === 0) blockers.push('parent_sell_draft_unavailable')
     const derivationRows: Array<Record<string, unknown>> = []
-    const orders = blockers.length > 0 ? [] : input.parentSellOrders.flatMap((parent) => {
+    const eligibleParents = input.parentSellOrders.filter((parent) => parent.orderRole !== 'rebound_exit')
+    if (input.parentSellOrders.length > 0 && eligibleParents.length === 0) blockers.push('rebound_exit_has_no_buyback')
+    const orders = blockers.some((item) => item !== 'rebound_exit_has_no_buyback') ? [] : eligibleParents.flatMap((parent) => {
       const rawPrice = parent.price - input.spacingAbsolute
       const price = roundGridPrice(rawPrice, tradingRules.priceTick, 'buy')
       const quantity = normalizeToLot(parent.quantity, tradingRules.lotSize)
       if (rawPrice <= 0 || price <= 0 || quantity <= 0) return []
       const triggerCondition = {
+        schemaVersion: 'fams.grid-order-trigger.v2',
+        orderRole: 'conditional_buyback',
+        parentOrderRef: parent.orderRef || null,
+        activationStatus: 'awaiting_parent_fill',
         activationPolicy: 'after_parent_sell_fill',
         parentGridPlanId: input.parentGridPlanId,
         parentOrderDraftId: parent.id,
@@ -701,6 +1045,10 @@ class GridStrategyService {
         amount: Number((price * quantity).toFixed(2)),
         validUntil: validUntil.toISOString(),
         status: 'awaiting_parent_fill',
+        orderRole: 'conditional_buyback' as const,
+        parentOrderRef: parent.orderRef || null,
+        activationStatus: 'awaiting_parent_fill' as const,
+        pauseRule: null,
         conflictStatus: 'not_active_until_parent_fill',
         triggerCondition,
         rationale: `仅在父卖单第 ${parent.level} 档确认成交 ${quantity} 后激活；按父卖价下移一个本轮间距并以 ${tradingRules.priceTick} 元步长向下取整`,
@@ -712,7 +1060,7 @@ class GridStrategyService {
       orders,
       blockers: [...new Set(blockers)],
       summary: orders.length > 0
-        ? `生成 ${orders.length} 档卖出成交后条件买回草案；父卖单成交前不占用当前现金。`
+        ? `生成 ${orders.length} 档卖出成交后条件买回草案；永久反弹减仓不会生成买回，父卖单成交前不占用当前现金。`
         : `未生成条件买回草案：${[...new Set(blockers)].join('、')}`,
       constraints: {
         parentGridPlanId: input.parentGridPlanId,

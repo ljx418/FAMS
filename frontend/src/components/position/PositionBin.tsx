@@ -48,6 +48,13 @@ const TAG_COLORS: Record<string, string> = {
   '现金': '#38bdf8',
   'ETF': '#5eead4',      // 青绿
   '半导体': '#818cf8',   // 靛蓝
+  '支付宝·现金': '#38bdf8',
+  '支付宝·黄金': '#fbbf24',
+  '支付宝·权益': '#818cf8',
+  '支付宝·债券': '#a3a3a3',
+  '同花顺·核心仓': '#60a5fa',
+  '同花顺·波动仓': '#f472b6',
+  '同花顺·交易现金': '#2dd4bf',
   '未分类': '#9ca3af',   // 中灰 - 满足 WCAG AA
 }
 
@@ -89,9 +96,11 @@ const PositionBin: React.FC<PositionBinProps> = ({
   // Calculate progress based on target value
   const targetFillPercent = targetValue > 0 ? (totalCurrent / targetValue) * 100 : 0
   const deviation = totalCurrent - targetValue  // 偏离度
-  const isOverTarget = deviation >= 0
-  const statusColor = isOverTarget ? '#34d399' : '#f87171'
-  const pnlStatusColor = totalPnlPercent >= 0 ? '#34d399' : '#f59e0b'
+  const alignmentTolerance = Math.max(0.01, targetValue * 0.01)
+  const isAligned = Math.abs(deviation) <= alignmentTolerance
+  const isOverTarget = deviation > alignmentTolerance
+  const statusLabel = isAligned ? '已对齐' : isOverTarget ? '盈余' : '缺口'
+  const statusColor = isAligned ? '#34d399' : isOverTarget ? '#f59e0b' : '#38bdf8'
 
   const assetColumns: ColumnsType<AssetInfo> = [
     {
@@ -190,7 +199,7 @@ const PositionBin: React.FC<PositionBinProps> = ({
           background: `linear-gradient(180deg, ${color}20 0%, ${color}05 100%)`,
           borderColor: hovered ? color : `${color}50`,
         }}
-        bodyStyle={{ padding: 16 }}
+        styles={{ body: { padding: 16 } }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -237,19 +246,19 @@ const PositionBin: React.FC<PositionBinProps> = ({
             style={{ top: '0%' }}
           />
 
-          {/* 填充区域 - 基于目标市值，颜色体现本类别总体浮盈亏 */}
+          {/* 填充区域 - 基于目标市值，颜色体现目标仓位缺口或盈余 */}
           <div
             className="absolute bottom-0 left-0 right-0 transition-all duration-500"
             style={{
               height: `${Math.min(100, targetFillPercent)}%`,
-              background: `linear-gradient(180deg, ${pnlStatusColor}66 0%, ${pnlStatusColor}33 100%)`,
+              background: `linear-gradient(180deg, ${statusColor}66 0%, ${statusColor}33 100%)`,
             }}
           >
             {/* 填充渐变效果 */}
             <div
               className="absolute inset-0 opacity-50"
               style={{
-                background: `repeating-linear-gradient(90deg, transparent, transparent 4px, ${pnlStatusColor}1A 4px, ${pnlStatusColor}1A 8px)`,
+                background: `repeating-linear-gradient(90deg, transparent, transparent 4px, ${statusColor}1A 4px, ${statusColor}1A 8px)`,
               }}
             />
           </div>
@@ -258,12 +267,12 @@ const PositionBin: React.FC<PositionBinProps> = ({
           <div className="absolute inset-0 flex flex-col items-center justify-center">
 	            <span
 	              className="text-2xl font-bold"
-	              style={{ color: pnlStatusColor }}
+	              style={{ color: statusColor }}
 	            >
               {targetFillPercent.toFixed(0)}%
             </span>
 	            <span className="text-xs text-gray-300 mt-1">
-	              浮盈亏 {totalPnlPercent >= 0 ? '+' : ''}{totalPnlPercent.toFixed(1)}%
+	              {statusLabel} {isAligned ? '' : `${Math.abs(deviation).toFixed(1)}万`}
 	            </span>
           </div>
         </div>
@@ -288,9 +297,9 @@ const PositionBin: React.FC<PositionBinProps> = ({
           </span>
         </div>
         <div className="flex justify-between text-sm mt-1">
-          <span className="text-gray-300">偏离</span>
+          <span className="text-gray-300">{statusLabel}</span>
           <span style={{ color: statusColor }}>
-            {isOverTarget ? '+' : ''}{deviation.toFixed(1)}万
+            {isAligned ? '≤ 1%' : `${Math.abs(deviation).toFixed(1)}万`}
           </span>
         </div>
       </Card>

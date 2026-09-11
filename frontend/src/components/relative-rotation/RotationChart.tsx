@@ -1,9 +1,12 @@
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import type { RotationQuadrant, RotationTimelineItem } from '../../services/relativeRotationService'
+import type { RotationQuadrant, RotationResearchTaxonomy, RotationTimelineItem } from '../../services/relativeRotationService'
 
-const seriesColors = ['#2563eb', '#0f766e', '#7c3aed', '#c2410c', '#0284c7', '#65a30d', '#be123c', '#4f46e5']
+const seriesColors = [
+  '#2563eb', '#0f766e', '#7c3aed', '#c2410c', '#0284c7', '#65a30d', '#be123c', '#4f46e5',
+  '#0891b2', '#a16207', '#9333ea', '#059669', '#dc2626', '#475569', '#0d9488', '#7e22ce',
+]
 
 const quadrantLabels: Record<RotationQuadrant, string> = {
   leading: '领先',
@@ -12,8 +15,21 @@ const quadrantLabels: Record<RotationQuadrant, string> = {
   improving: '改善',
 }
 
+const taxonomySeriesColors: Record<string, string> = {
+  上游资源: '#ca8a04',
+  能源供给: '#16a34a',
+  核心器件: '#4f46e5',
+  算力与数据: '#2563eb',
+  软件应用: '#7c3aed',
+  AI综合主题: '#db2777',
+}
+
+type RotationChartItem = Pick<RotationTimelineItem, 'targetKey' | 'symbol' | 'name' | 'readiness' | 'freshness' | 'points'> & {
+  taxonomy?: RotationResearchTaxonomy | null
+}
+
 interface RotationChartProps {
-  items: RotationTimelineItem[]
+  items: RotationChartItem[]
   headDate: string
   tailLength: number
   loading?: boolean
@@ -48,7 +64,7 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
       .filter(({ points }) => points.length > 0)
 
     const assetSeries: any[] = chartItems.flatMap(({ item, points }, itemIndex) => {
-      const color = seriesColors[itemIndex % seriesColors.length]
+      const color = item.taxonomy ? taxonomySeriesColors[item.taxonomy.stage] : seriesColors[itemIndex % seriesColors.length]
       const name = `${item.name} ${item.symbol}`
       const limited = item.readiness === 'limited'
       const aged = item.freshness === 'stale' || item.freshness === 'unknown'
@@ -140,6 +156,7 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
           borderRadius: 5,
           padding: [4, 6],
         },
+        labelLayout: { hideOverlap: true, moveOverlap: 'shiftY' as const },
         emphasis: { focus: 'series' as const, scale: 1.25 },
         animationDurationUpdate: reducedMotion ? 0 : 320,
         animationEasingUpdate: 'cubicOut' as const,
@@ -158,7 +175,7 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
       aria: {
         enabled: true,
         decal: { show: false },
-        label: { description: `相对轮动图，头部日期 ${headDate}，显示 ${chartItems.length} 个持仓或自选标的。` },
+        label: { description: `相对轮动图，头部日期 ${headDate}，显示 ${chartItems.length} 个当前研究标的。` },
       },
       grid: { left: 70, right: 54, top: 30, bottom: 78, containLabel: false },
       legend: {
@@ -251,7 +268,11 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
         option={option}
         showLoading={loading}
         style={{ height: '100%', width: '100%', position: 'relative', zIndex: 1 }}
-        notMerge={false}
+        // A research switch changes the complete asset universe. ECharts merge
+        // semantics retain series whose IDs disappeared from the next option,
+        // which can leave a prior study's curves visible. Replace the option
+        // atomically so the rendered universe always equals `items`.
+        notMerge
         lazyUpdate
       />
     </div>

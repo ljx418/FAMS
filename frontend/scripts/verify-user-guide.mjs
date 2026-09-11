@@ -22,7 +22,7 @@ function appRoutes() {
   return unique([...appSource.matchAll(/<Route\s+path="([^"]+)"/g)].map(match => {
     const path = match[1]
     return path === '/' ? '/' : `/${path.replace(/^\//, '')}`
-  }))
+  })).filter(route => route !== '/*')
 }
 
 function guideRoutes() {

@@ -112,6 +112,7 @@ export interface FamsDailyReviewStructuredDetails {
     }
   }>
   attentionCandidates: Array<Record<string, string | number | null>>
+  reconciliation?: Record<string, unknown>
   executionBoundary: Record<string, boolean>
 }
 

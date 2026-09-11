@@ -211,7 +211,7 @@
   </style>
 </head>
 <body>
-  <script id="route-manifest" type="application/json">["/","/dashboard","/assets","/positions","/daily-reviews","/daily-reviews/:reviewId","/fund/:code","/stock/:code","/transactions","/analysis","/dividend-low-vol","/relative-rotation","/alerts","/operations","/backtest","/portfolios"]</script>
+  <script id="route-manifest" type="application/json">["/","/dashboard","/assets","/positions","/daily-reviews","/daily-reviews/:reviewId","/fund/:code","/stock/:code","/transactions","/analysis","/dividend-low-vol","/relative-rotation","/alerts","/operations","/backtest","/portfolio-comparison","/portfolios"]</script>
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand"><span class="brand-mark">F</span><span>FAMS 使用指南</span></div>
@@ -349,11 +349,11 @@
       {
         id: "positions", number: "06", tier: "essential", route: "/positions", openUrl: "/positions",
         title: "用仓位管理核对仓位、目标比例和资产详情", purpose: "确认系统理解的持仓与真实账户一致。",
-        risk: "local-write", baseline: "verified", baselineNote: "仓位卡、目标设置、明细、手工新增、Excel 导入、刷新价格和详情入口已只读核对。",
-        steps: ["核对总仓位价值和仓位数量。", "打开每个仓位卡的资产明细，检查代码、数量、市值和盈亏。", "齿轮用于修改目标仓位；没有明确计划时不要改。", "点击股票代码查看详情；新增持仓或 Excel 导入会写入台账。"],
-        expected: ["仓位按标签分组，并显示当前市值占目标的比例。", "股票/ETF 手工买入会提示 100 股整数倍规则。", "无法自动识别资产类型或价格时要求人工补充，不会静默猜测。"],
+        risk: "local-write", baseline: "verified", baselineNote: "支付宝当前/目标配置饼图、图内明细、其他账户仓位卡、手工新增、Excel 导入、刷新价格和详情入口已核对。",
+        steps: ["先区分页面顶部的全部账户总仓位与支付宝账户总额。", "查看支付宝饼图：实色内环是当前比例，虚线外环是批准目标。", "悬停、键盘获焦或手机点击现金、黄金、债券、权益，核对图内浮层的代码、名称、金额和类内占比。", "其他账户仍通过下方仓位卡查看明细；新增持仓或 Excel 导入会写入台账。"],
+        expected: ["支付宝四类资产的当前比例与批准目标可以直接对照。", "选中任一类别后只显示该类别内部标的，不混入其他账户。", "股票/ETF 手工买入会提示 100 股整数倍规则。", "无法自动识别资产类型或价格时要求人工补充，不会静默猜测。"],
         problems: "总价值与总览不一致、数量异常、资产类型被错误识别或刷新失败无明细时标记问题。",
-        screenshot: "截取总仓位价值和一个展开后的仓位明细。"
+        screenshot: "截取支付宝当前/目标饼图，以及至少一个类别的图内持仓浮层。"
       },
       {
         id: "transactions", number: "07", tier: "daily", route: "/transactions", openUrl: "/transactions",
@@ -374,16 +374,7 @@
         screenshot: "截取标的名称、当前价、数据来源、MA 指标和走势图。"
       },
       {
-        id: "portfolio_display", number: "09", tier: "advanced", route: "/portfolios", openUrl: "/portfolios",
-        title: "认识投资组合页面的当前边界", purpose: "这个页面目前主要展示永久组合和全天候组合模板。",
-        risk: "readonly", baseline: "placeholder", baselineNote: "路由和两类组合卡片可访问，但完整的组合创建、编辑、保存和再平衡流程尚未实现。",
-        steps: ["打开投资组合页，查看永久组合和全天候组合的说明。", "需要真实比较时改用 ChatBox“对比组合策略”或进入策略回测。", "不要把展示卡片理解成已创建或已执行的个人组合。"],
-        expected: ["可以看到两类组合模板。", "页面没有假装提供尚未实现的完整管理能力。"],
-        problems: "如果页面暗示组合已经执行、持仓已自动再平衡，或没有说明当前边界，请记录。",
-        screenshot: "截取两类组合卡片和页面可用操作。"
-      },
-      {
-        id: "analysis_fivdr", number: "10", tier: "essential", route: "/analysis", openUrl: "/analysis",
+        id: "analysis_fivdr", number: "09", tier: "essential", route: "/analysis", openUrl: "/analysis",
         title: "从分析建议中先读结论，再看证据", purpose: "使用统一分析核对风险、变化和下一步，不从复杂细节自己拼结论。",
         risk: "local-write", baseline: "verified", baselineNote: "建议摘要、计划、详细分析和 FIVD-R 快照/观察/风险/审计入口已只读核对。",
         steps: ["先看建议摘要、优先级和风险等级。", "需要原因时展开基本面、技术面和消息面。", "FIVD-R 先看当前能力边界、主要阻断和下一步，再看评分与证据。", "保存快照、加入观察、风险提醒会保存研究产物；“记录交易”只用于真实已发生交易。"],
@@ -392,7 +383,7 @@
         screenshot: "截取简明结论、主要阻断、下一步和一段证据详情。"
       },
       {
-        id: "dividend_low_vol", number: "11", tier: "advanced", route: "/dividend-low-vol", openUrl: "/dividend-low-vol",
+        id: "dividend_low_vol", number: "10", tier: "advanced", route: "/dividend-low-vol", openUrl: "/dividend-low-vol",
         title: "使用红利低波策略研究候选", purpose: "筛选值得继续研究的候选，而不是生成正式买单。",
         risk: "background-task", baseline: "verified", baselineNote: "候选表、普通话结论、筛选排序、Top 3、观察区间、提醒、回测和人工 Gate 已只读核对。",
         steps: ["先看 Top 3 普通话结论、数据可信度和未纳入原因。", "使用等级、状态、行业、提醒和排序筛选候选。", "查看买入/卖出观察区间、价格来源和滚动回测。", "提醒检查、研究回测、验证复测和人工草案 Gate 会创建任务或审计产物，按需使用。"],
@@ -401,7 +392,7 @@
         screenshot: "截取 Top 3、一个候选的观察区间和数据可信状态。"
       },
       {
-        id: "relative_rotation", number: "12", tier: "advanced", route: "/relative-rotation", openUrl: "/relative-rotation",
+        id: "relative_rotation", number: "11", tier: "advanced", route: "/relative-rotation", openUrl: "/relative-rotation",
         title: "查看相对轮动与波动仓", purpose: "用共同基准观察持仓的相对趋势，再单独管理标的内部波动仓。",
         risk: "background-task", baseline: "verified", baselineNote: "导航、路由、四象限轨迹、回测、分仓台账、每日草稿和审计入口已通过编译与专项不变式测试；进入页面时若历史数据不足，可能自动创建补齐任务。",
         steps: ["打开“相对轮动与波动仓”，先看数据与计算口径：当前持仓、沪深300共同基准、前复权价格和最长 8 年历史。", "用周频/日频、时间滑块和轨迹长度观察领先、弱化、落后、改善四个象限；不要把相对表现当成绝对收益。", "查看每个持仓的样本日、回测状态、推荐比例和数据阻断；没有至少 3 年合格回测时不确认拆仓。", "“确认拆仓”、“仓内划转”会写入本地台账；“确认成交”只能记录你已在券商完成的真实成交，不能当作下单按钮。"],
@@ -410,16 +401,16 @@
         screenshot: "截取数据口径、轮动轨迹和一个持仓的回测/分仓区域；如未发生真实交易，不要练习“确认成交”。"
       },
       {
-        id: "backtest", number: "13", tier: "advanced", route: "/backtest", openUrl: "/backtest",
-        title: "比较策略回测，而不是预测未来", purpose: "用收益、回撤和数据等级比较方案的历史表现。",
+        id: "backtest", number: "12", tier: "advanced", route: "/backtest", openUrl: "/backtest",
+        title: "使用策略回测和持仓组合对比，而不是预测未来", purpose: "用收益、回撤和数据等级比较方案的历史表现。",
         risk: "background-task", baseline: "verified", baselineNote: "组合模板、快速对比、建议回测、报告、人工复核和任务跳转入口已只读核对；未运行新回测。",
-        steps: ["先选择推荐 3 组或明确的组合模板，核对区间和初始资金。", "运行前确认是研究模式还是正式评审前置。", "结果先看累计收益、最大回撤、基准、数据等级，再看交易明细。", "需要保存或基于 Advice ID 回测时会创建后台任务，可从任务中心追踪。"],
+        steps: ["策略研究使用“策略回测”；需要查看固定支付宝工作流的历史报告时进入“持仓组合对比”。", "先选择推荐 3 组或明确的组合模板，核对区间和初始资金。", "运行前确认是研究模式还是正式评审前置。", "结果先看累计收益、最大回撤、基准、数据等级，再看交易明细。", "需要保存或基于 Advice ID 回测时会创建后台任务，可从任务中心追踪。"],
         expected: ["策略、基准和回撤曲线可区分。", "结果说明样本区间、数据质量和局限。", "页面明确历史回测不是正式交易建议。"],
         problems: "没有基准、回撤口径不明、数据等级缺失或把历史收益表述为未来承诺时记录问题。",
         screenshot: "截取策略选择、收益/回撤曲线和指标对照。"
       },
       {
-        id: "alerts", number: "14", tier: "daily", route: "/alerts", openUrl: "/alerts",
+        id: "alerts", number: "13", tier: "daily", route: "/alerts", openUrl: "/alerts",
         title: "查看风险告警，区分确认与解决", purpose: "先理解当前风险，再决定是否更新告警状态。",
         risk: "local-write", baseline: "verified", baselineNote: "告警统计、列表、刷新、风险检查、宽基监控和状态操作入口已只读核对。",
         steps: ["先看活跃告警、危险级别和规则来源。", "阅读告警标的、触发条件、当前状态和时间。", "“确认”表示你已看见，“解决”表示问题已处理；不要混用。", "宽基规则新增、删除、保存和风险检查会修改配置或创建任务。"],
@@ -428,7 +419,7 @@
         screenshot: "截取告警统计和一条告警详情；如修改状态，再附修改后的状态。"
       },
       {
-        id: "operations", number: "15", tier: "advanced", route: "/operations", openUrl: "/operations",
+        id: "operations", number: "14", tier: "advanced", route: "/operations", openUrl: "/operations",
         title: "在任务中心追踪执行状态和失败原因", purpose: "任务中心是高级排错页，日常只在结果异常时进入。",
         risk: "background-task", baseline: "verified", baselineNote: "任务统计、筛选、最近任务、详情、失败、重试、取消、产物和维护任务入口已只读核对。",
         steps: ["先看最近价格刷新、告警检查、每日建议和回测任务。", "使用任务类型、状态和搜索筛选，再打开任务详情。", "先读普通话摘要、失败原因、数据可靠性和下一步，最后才展开原始 JSON。", "刷新价格、检查告警、生成建议、重试、取消和维护任务都会改变任务状态。"],
@@ -437,7 +428,7 @@
         screenshot: "截取任务统计、最近任务摘要和一条任务详情。"
       },
       {
-        id: "trade_boundary", number: "16", tier: "essential", route: "/dashboard", openUrl: "/dashboard",
+        id: "trade_boundary", number: "15", tier: "essential", route: "/dashboard", openUrl: "/dashboard",
         title: "确认系统不会替你自动交易", purpose: "这是使用任何建议和网格前必须理解的边界。",
         risk: "readonly", baseline: "verified", baselineNote: "总览、ChatBox、分析、回测和策略页的研究边界及交易阻断文案已核对。",
         steps: ["在总览工作台点击“确认交易边界”，或在 ChatBox 选择“解释为什么不能交易”。", "确认说明包含 ADD、REDUCE、ORDER_CREATE、AUTO_TRADE 的阻断原因。", "检查网格和观察区间是否明确标成人工计划草案。"],
@@ -446,7 +437,7 @@
         screenshot: "截取交易阻断说明和人工计划草案标识。"
       },
       {
-        id: "developer_checklists", number: "17", tier: "advanced", route: "独立验收页", openUrl: "/daily-portfolio-review-human-checklist.html",
+        id: "developer_checklists", number: "16", tier: "advanced", route: "独立验收页", openUrl: "/daily-portfolio-review-human-checklist.html",
         title: "按需使用开发验收附录", purpose: "这些页面用于功能验收，不是日常投资流程。",
         risk: "readonly", baseline: "verified", baselineNote: "每日复盘验收页和正式发布检查页文件存在；本指南不增加或分配任何评审人员角色。",
         steps: ["只有需要向 Codex 提交功能问题时才打开每日复盘验收页。", "逐项检查、备注并附截图，再导出 HTML 报告。", "正式发布检查页属于开发验收资料；普通用户无需完成角色、合规或发布职责。"],

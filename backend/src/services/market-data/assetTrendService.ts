@@ -31,6 +31,9 @@ export interface AssetTrendSnapshot extends Omit<StockMarketTrendSnapshot, 'sche
     status: 'ok' | 'partial' | 'insufficient'
     persistedHistory: boolean
     completedBarCount: number
+    historyAdjustment: 'none' | 'qfq' | 'mixed'
+    realtimePriceAvailable: boolean
+    realtimePriceFresh: boolean
     warnings: string[]
   }
 }
@@ -57,16 +60,13 @@ class AssetTrendService {
   }
 
   private async loadLocalHistory(assetId: string | null, symbol: string, market: string, take: number): Promise<StockHistoryData[]> {
-    const canonical = await prisma.marketBarCanonical.findMany({
-      where: {
-        symbol,
-        market,
-        timeframe: '1d',
-        adjustType: 'none',
-        dataVersion: 'canonical.v1',
-      },
-      orderBy: { tradeDate: 'desc' },
-      take,
+    const qfq = await prisma.marketBarCanonical.findMany({
+      where: { symbol, market, timeframe: '1d', adjustType: 'qfq', dataVersion: 'canonical.v1' },
+      orderBy: { tradeDate: 'desc' }, take,
+    })
+    const canonical = qfq.length >= 30 ? qfq : await prisma.marketBarCanonical.findMany({
+      where: { symbol, market, timeframe: '1d', adjustType: 'none', dataVersion: 'canonical.v1' },
+      orderBy: { tradeDate: 'desc' }, take,
     })
     if (canonical.length >= 30) {
       return canonical.reverse().map((bar) => ({
@@ -77,6 +77,7 @@ class AssetTrendService {
         close: bar.closePrice,
         volume: bar.volume ?? 0,
         source: bar.primaryProvider || 'market_bar_canonical',
+        adjustType: bar.adjustType === 'qfq' ? 'qfq' : 'none',
       }))
     }
     if (!assetId) return []
@@ -93,6 +94,7 @@ class AssetTrendService {
       close: bar.closePrice,
       volume: bar.volume ?? 0,
       source: bar.source || 'price_history',
+      adjustType: 'none',
     }))
   }
 
@@ -117,7 +119,7 @@ class AssetTrendService {
           symbol,
           market,
           tradeDate: new Date(`${bar.date}T00:00:00.000Z`),
-          adjustType: 'none',
+          adjustType: bar.adjustType === 'qfq' ? 'qfq' : 'none',
           dataVersion: 'canonical.v1',
         },
       },
@@ -127,7 +129,7 @@ class AssetTrendService {
         market,
         timeframe: '1d',
         tradeDate: new Date(`${bar.date}T00:00:00.000Z`),
-        adjustType: 'none',
+        adjustType: bar.adjustType === 'qfq' ? 'qfq' : 'none',
         openPrice: bar.open,
         highPrice: bar.high,
         lowPrice: bar.low,
@@ -167,6 +169,12 @@ class AssetTrendService {
       ma10: averageAt(closes, index, 10),
       ma30: averageAt(closes, index, 30),
     })).slice(warmup)
+    const adjustments = new Set(snapshot.history.map((bar) => bar.adjustType || 'none'))
+    const historyAdjustment = adjustments.size > 1 ? 'mixed' : adjustments.has('qfq') ? 'qfq' : 'none'
+    const warnings = [...snapshot.warnings]
+    if (historyAdjustment !== 'qfq' && ['stock', 'etf'].includes(asset?.type || 'stock')) {
+      warnings.push('完整日线未能确认前复权口径；均线只可作为降级参考。')
+    }
     return {
       ...snapshot,
       schemaVersion: 'asset.market-trend.v1',
@@ -175,10 +183,13 @@ class AssetTrendService {
       currency: asset?.currency || snapshot.currency,
       chart,
       dataQuality: {
-        status: snapshot.quote.fallbackUsed || snapshot.warnings.length > 0 ? 'partial' : 'ok',
+        status: snapshot.quote.fallbackUsed || warnings.length > 0 ? 'partial' : 'ok',
         persistedHistory,
         completedBarCount: snapshot.indicators.sampleCount,
-        warnings: snapshot.warnings,
+        historyAdjustment,
+        realtimePriceAvailable: !snapshot.quote.fallbackUsed,
+        realtimePriceFresh: snapshot.quote.freshnessStatus === 'fresh',
+        warnings,
       },
     }
   }
@@ -198,7 +209,21 @@ class AssetTrendService {
 
     let snapshot: StockMarketTrendSnapshot
     const localHistory = await this.loadLocalHistory(asset?.id || null, symbol, market, days + 45)
-    if (localHistory.length >= days) {
+    const canFetchFreshChinaSeries = market === 'CN' && ['stock', 'etf'].includes(assetType) && /^\d{6}$/.test(symbol)
+    if (canFetchFreshChinaSeries) {
+      snapshot = await stockMarketTrendService.getSnapshot(symbol, days).catch(async (error) => {
+        if (localHistory.length < days) throw error
+        const fallback = buildStockMarketTrendSnapshot({
+          symbol,
+          name: asset?.name || identity?.name,
+          requestedTradingDays: days,
+          history: localHistory,
+          realtime: await this.quote(symbol, assetType),
+        })
+        fallback.warnings.push(`实时日线刷新失败，使用本地缓存：${error instanceof Error ? error.message : String(error)}`)
+        return fallback
+      })
+    } else if (localHistory.length >= days) {
       snapshot = buildStockMarketTrendSnapshot({
         symbol,
         name: asset?.name || identity?.name,
@@ -206,8 +231,6 @@ class AssetTrendService {
         history: localHistory,
         realtime: await this.quote(symbol, assetType),
       })
-    } else if (market === 'CN' && ['stock', 'etf'].includes(assetType) && /^\d{6}$/.test(symbol)) {
-      snapshot = await stockMarketTrendService.getSnapshot(symbol, days)
     } else {
       throw new Error(`Historical data is insufficient for ${symbol}: ${localHistory.length} completed bars`)
     }

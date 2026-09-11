@@ -56,8 +56,8 @@ export interface MarketDataFreshnessReport {
 }
 
 const DEFAULT_USER_ID = 'default'
-const DEFAULT_TIMEZONE = 'Asia/Shanghai'
-const DEFAULT_AFTER_CLOSE_MINUTES = 17 * 60
+export const DEFAULT_MARKET_DATA_TIMEZONE = 'Asia/Shanghai'
+export const DEFAULT_MARKET_DATA_AFTER_CLOSE_MINUTES = 17 * 60
 const PORTFOLIO_PROXY_SYMBOLS = ['510300', '510500', '512100', '511010', '518880']
 
 function normalizeSymbol(symbol: string) {
@@ -162,7 +162,7 @@ function maxStatus(items: Array<{ status: MarketDataFreshnessStatus }>): MarketD
 }
 
 export class MarketDataFreshnessService {
-  expectedLatestTradeDate(now = new Date(), timezone = DEFAULT_TIMEZONE, afterCloseMinutes = DEFAULT_AFTER_CLOSE_MINUTES) {
+  expectedLatestTradeDate(now = new Date(), timezone = DEFAULT_MARKET_DATA_TIMEZONE, afterCloseMinutes = DEFAULT_MARKET_DATA_AFTER_CLOSE_MINUTES) {
     return expectedLatestTradeDate(now, timezone, afterCloseMinutes)
   }
 
@@ -222,8 +222,8 @@ export class MarketDataFreshnessService {
   async buildReport(options: MarketDataFreshnessOptions = {}): Promise<MarketDataFreshnessReport> {
     const userId = options.userId || DEFAULT_USER_ID
     const scope = options.scope || 'active_strategy'
-    const timezone = options.timezone || DEFAULT_TIMEZONE
-    const afterCloseMinutes = options.afterCloseMinutes ?? DEFAULT_AFTER_CLOSE_MINUTES
+    const timezone = options.timezone || DEFAULT_MARKET_DATA_TIMEZONE
+    const afterCloseMinutes = options.afterCloseMinutes ?? DEFAULT_MARKET_DATA_AFTER_CLOSE_MINUTES
     const expected = expectedLatestTradeDate(options.now || new Date(), timezone, afterCloseMinutes)
     const symbols = await this.collectRelevantSymbols({ ...options, userId, scope })
 

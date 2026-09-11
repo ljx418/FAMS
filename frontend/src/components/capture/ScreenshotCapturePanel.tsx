@@ -16,6 +16,7 @@ type ScreenshotCapturePanelProps = {
   compact?: boolean
   onEvent?: (event: ScreenshotCaptureEvent) => void
   onConfirmed?: (event: ScreenshotCaptureEvent) => void
+  tradePositionEffectPolicy?: 'apply' | 'included_in_latest_snapshot'
 }
 
 type ScreenshotPreview = {
@@ -65,21 +66,29 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024
 const ACCEPTED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 
 const captureFieldLabels: Record<string, string> = {
-  symbol: '证券代码', name: '名称', quantity: '数量', avgCost: '平均成本', currentPrice: '当前价', marketValue: '市值',
+  symbol: '证券代码', name: '名称', quantity: '数量', availableQuantity: '可卖数量', frozenQuantity: '冻结数量', avgCost: '平均成本', currentPrice: '当前价', marketValue: '市值',
   type: '成交类型', side: '方向', price: '成交价', fee: '费用', executedAt: '成交时间', broker: '券商', confirmationNo: '成交编号',
-  status: '委托状态', filledQuantity: '已成交数量', limitPrice: '委托价', submittedAt: '委托时间', externalOrderId: '外部委托号', validUntil: '有效期',
-  availableCash: '可用金额', cashBalance: '资金余额', withdrawableCash: '可取金额', stockMarketValue: '股票市值', totalAssets: '总资产',
-  holdingPnl: '持仓盈亏', dayPnl: '当日盈亏', dayPnlPct: '当日盈亏比（%）',
+  status: '委托状态', filledQuantity: '已成交数量', limitPrice: '委托价', submittedAt: '委托时间', externalOrderId: '外部委托号', validUntil: '有效期', orderKind: '委托类型',
+  accountId: '账户', valueBasis: '持仓口径', transactionBasis: '流水口径', entryType: '基金流水类型',
+  amount: '金额', shares: '份额', nav: '单位净值', weightPct: '资产占比（%）', asOfDate: '数据日期',
+  availableCash: '可用金额', cashBalance: '资金余额', withdrawableCash: '可取金额', stockMarketValue: '股票市值', investmentMarketValue: '投资市值', totalAssets: '总资产',
+  holdingPnl: '持仓盈亏', cumulativePnl: '累计盈亏', monthChange: '本月变动', dayPnl: '当日盈亏', dayPnlPct: '当日盈亏比（%）',
 }
 
 function captureFieldKeys(rowType: string, fields: Record<string, unknown>) {
+  const marketValueHolding = String(fields.valueBasis || '') === 'market_value_total'
+  const fundTrade = String(fields.transactionBasis || '') === 'fund_notional' || String(fields.accountId || '') === 'alipay'
   const defaults = rowType === 'account_summary'
-    ? ['availableCash', 'cashBalance', 'withdrawableCash', 'stockMarketValue', 'totalAssets', 'holdingPnl', 'dayPnl', 'dayPnlPct']
+    ? ['accountId', 'availableCash', 'cashBalance', 'withdrawableCash', 'stockMarketValue', 'investmentMarketValue', 'totalAssets', 'monthChange', 'dayPnl', 'asOfDate']
     : rowType === 'holding'
-    ? ['symbol', 'name', 'quantity', 'avgCost', 'currentPrice', 'marketValue']
+    ? marketValueHolding
+      ? ['accountId', 'valueBasis', 'symbol', 'name', 'marketValue', 'weightPct', 'holdingPnl', 'cumulativePnl', 'asOfDate']
+      : ['symbol', 'name', 'quantity', 'availableQuantity', 'frozenQuantity', 'avgCost', 'currentPrice', 'marketValue']
     : rowType === 'trade'
-      ? ['symbol', 'type', 'quantity', 'price', 'fee', 'executedAt', 'broker', 'confirmationNo']
-      : ['symbol', 'side', 'status', 'quantity', 'filledQuantity', 'limitPrice', 'submittedAt', 'externalOrderId', 'validUntil']
+      ? fundTrade
+        ? ['accountId', 'transactionBasis', 'symbol', 'name', 'entryType', 'amount', 'shares', 'nav', 'status', 'executedAt']
+        : ['symbol', 'type', 'quantity', 'price', 'fee', 'executedAt', 'broker', 'confirmationNo']
+      : ['symbol', 'side', 'status', 'quantity', 'filledQuantity', 'limitPrice', 'submittedAt', 'externalOrderId', 'validUntil', 'orderKind']
   return Array.from(new Set([...defaults, ...Object.keys(fields)]))
 }
 
@@ -99,6 +108,7 @@ export function ScreenshotCapturePanel({
   compact = false,
   onEvent,
   onConfirmed,
+  tradePositionEffectPolicy = 'apply',
 }: ScreenshotCapturePanelProps) {
   const { message } = AntApp.useApp()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -227,7 +237,13 @@ export function ScreenshotCapturePanel({
         `/api/v1/captures/screenshots/${encodeURIComponent(preview.capture.id)}/confirm`,
         {
           method: 'POST',
-          body: JSON.stringify({ userId, rowIds: readyRows.map((row) => row.id), confirmed: true, confirmedBy: 'fams_screenshot_panel_user' }),
+          body: JSON.stringify({
+            userId,
+            rowIds: readyRows.map((row) => row.id),
+            confirmed: true,
+            confirmedBy: 'fams_screenshot_panel_user',
+            tradePositionEffectPolicy,
+          }),
         },
       )
       const event = { type: 'confirmed' as const, captureId: preview.capture.id, filename: file?.name, rowCount: result.results.length }
@@ -306,6 +322,14 @@ export function ScreenshotCapturePanel({
               message="截图缺失的现有持仓只提示差异，绝不自动减仓或平仓"
               description={`文档类型：${preview.capture.documentType}；可确认 ${preview.rows.filter((row) => row.status === 'ready').length}/${preview.rows.length} 行；不会创建券商订单。`}
             />
+            {preview.rows.some((row) => row.rowType === 'trade') && tradePositionEffectPolicy === 'included_in_latest_snapshot' ? (
+              <Alert
+                type="warning"
+                showIcon
+                message="成交只写审计台账，不重放持仓"
+                description="本工作流以最新资金持仓截图为数量和现金水位线；成交历史已经体现在该快照中，确认后不会再次扣加仓位或现金。"
+              />
+            ) : null}
             {preview.accountReconciliation ? (
               <Alert
                 type={preview.accountReconciliation.status === 'exact' ? 'success' : 'warning'}
@@ -313,12 +337,12 @@ export function ScreenshotCapturePanel({
                 message={preview.accountReconciliation.status === 'exact' ? '账户汇总与逐行持仓完全对平' : '账户汇总与逐行市值存在差额，按原图保留并提示'}
                 description={(
                   <Descriptions size="small" column={{ xs: 1, sm: 2 }} className="mt-2">
-                    <Descriptions.Item label="逐行股票市值">{preview.accountReconciliation.rowMarketValueSum.toFixed(2)}</Descriptions.Item>
-                    <Descriptions.Item label="券商股票市值">{preview.accountReconciliation.brokerStockMarketValue?.toFixed(2) ?? '--'}</Descriptions.Item>
+                    <Descriptions.Item label="逐行投资市值">{preview.accountReconciliation.rowMarketValueSum.toFixed(2)}</Descriptions.Item>
+                    <Descriptions.Item label="账户投资市值">{preview.accountReconciliation.brokerStockMarketValue?.toFixed(2) ?? '--'}</Descriptions.Item>
                     <Descriptions.Item label="市值差额">{preview.accountReconciliation.stockMarketValueVariance?.toFixed(2) ?? '--'}</Descriptions.Item>
                     <Descriptions.Item label="可用金额">{preview.accountReconciliation.availableCash?.toFixed(2) ?? '--'}</Descriptions.Item>
                     <Descriptions.Item label="逐行市值 + 可用金额">{preview.accountReconciliation.calculatedTotalAssets?.toFixed(2) ?? '--'}</Descriptions.Item>
-                    <Descriptions.Item label="券商总资产">{preview.accountReconciliation.brokerTotalAssets?.toFixed(2) ?? '--'}</Descriptions.Item>
+                    <Descriptions.Item label="账户总资产">{preview.accountReconciliation.brokerTotalAssets?.toFixed(2) ?? '--'}</Descriptions.Item>
                     <Descriptions.Item label="总资产差额">{preview.accountReconciliation.totalAssetsVariance?.toFixed(2) ?? '--'}</Descriptions.Item>
                   </Descriptions>
                 )}

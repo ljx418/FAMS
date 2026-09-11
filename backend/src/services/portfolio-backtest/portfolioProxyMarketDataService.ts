@@ -39,6 +39,13 @@ function daysBetween(startDate: string, endDate: string) {
   return Math.max(1, Math.ceil((end - start) / 86400000) + 1)
 }
 
+function boundaryGapDays(availableDate: string, requestedEndDate: string) {
+  const available = new Date(`${availableDate}T00:00:00.000Z`).getTime()
+  const requested = new Date(`${requestedEndDate}T00:00:00.000Z`).getTime()
+  if (!Number.isFinite(available) || !Number.isFinite(requested)) return Number.POSITIVE_INFINITY
+  return Math.max(0, Math.ceil((requested - available) / 86400000))
+}
+
 export class PortfolioProxyMarketDataService {
   async ensureCoverage(
     symbols: string[],
@@ -54,23 +61,26 @@ export class PortfolioProxyMarketDataService {
     const warnings: string[] = []
 
     for (const symbol of uniqueSymbols) {
-      const cachedBarsBefore = await this.countBars(symbol)
+      const cachedBarsBefore = await this.countBars(symbol, startDate, endDate)
+      const latestBefore = await this.latestTradeDate(symbol, endDate)
+      const endBoundaryMissing = !latestBefore || boundaryGapDays(latestBefore, endDate) > 7
       let providerWarnings: string[] = []
       let sourceProvider = 'market_bar_canonical'
-      if (cachedBarsBefore < minRequiredBars || options.forceRefresh) {
+      if (cachedBarsBefore < minRequiredBars || endBoundaryMissing || options.forceRefresh) {
         const result = await marketBarCacheService.getHistory(symbol, requestedDays, {
           market: 'CN',
           provider: 'eastmoney_sina_free_proxy',
-          forceRefresh: options.forceRefresh,
+          forceRefresh: options.forceRefresh || endBoundaryMissing,
         })
         sourceProvider = result.stats.provider
         providerWarnings = result.stats.warnings
       }
 
-      const cachedBarsAfter = await this.countBars(symbol)
-      const latestTradeDate = await this.latestTradeDate(symbol)
+      const cachedBarsAfter = await this.countBars(symbol, startDate, endDate)
+      const latestTradeDate = await this.latestTradeDate(symbol, endDate)
       const freshnessStatus = this.freshness(latestTradeDate)
-      const coverageStatus = cachedBarsAfter >= minRequiredBars
+      const dateBoundaryReady = Boolean(latestTradeDate && boundaryGapDays(latestTradeDate, endDate) <= 7)
+      const coverageStatus = cachedBarsAfter >= minRequiredBars && dateBoundaryReady
         ? 'ready'
         : cachedBarsAfter > 0
           ? 'partial'
@@ -78,6 +88,7 @@ export class PortfolioProxyMarketDataService {
       const itemWarnings = [
         ...providerWarnings,
         ...(freshnessStatus !== 'fresh' ? [`proxy_market_data_${freshnessStatus}:${symbol}`] : []),
+        ...(!dateBoundaryReady ? [`proxy_market_data_end_boundary_missing:${symbol}:${latestTradeDate || 'none'}:${endDate}`] : []),
         ...(coverageStatus !== 'ready' ? [`proxy_market_bar_coverage_below_${minRequiredBars}:${symbol}:${cachedBarsAfter}`] : []),
       ]
       if (coverageStatus !== 'ready') {
@@ -117,7 +128,7 @@ export class PortfolioProxyMarketDataService {
     }
   }
 
-  private async countBars(symbol: string) {
+  private async countBars(symbol: string, startDate: string, endDate: string) {
     return prisma.marketBarCanonical.count({
       where: {
         symbol,
@@ -126,11 +137,15 @@ export class PortfolioProxyMarketDataService {
         adjustType: 'none',
         dataVersion: 'canonical.v1',
         closePrice: { gt: 0 },
+        tradeDate: {
+          gte: new Date(`${startDate}T00:00:00.000Z`),
+          lte: new Date(`${endDate}T23:59:59.999Z`),
+        },
       },
     })
   }
 
-  private async latestTradeDate(symbol: string) {
+  private async latestTradeDate(symbol: string, endDate: string) {
     const row = await prisma.marketBarCanonical.findFirst({
       where: {
         symbol,
@@ -139,6 +154,7 @@ export class PortfolioProxyMarketDataService {
         adjustType: 'none',
         dataVersion: 'canonical.v1',
         closePrice: { gt: 0 },
+        tradeDate: { lte: new Date(`${endDate}T23:59:59.999Z`) },
       },
       orderBy: { tradeDate: 'desc' },
       select: { tradeDate: true },

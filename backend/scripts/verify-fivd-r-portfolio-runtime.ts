@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { analysisService } from '../src/services/analysis/analysisService.js'
 import { resolveDatabaseUrl } from '../src/db/databaseUrl.js'
@@ -12,8 +13,8 @@ const originalAssess = valueAssessmentService.assessPosition.bind(valueAssessmen
 
 try {
   const caseVariant = resolveDatabaseUrl('file:/mnt/c/workSpace/financial-asset-manager/backend/prisma/dev.db')
-  assert.equal(caseVariant.sqlitePath, resolve(import.meta.dirname, '../prisma/dev.db'))
-  assert.match(caseVariant.url, /connection_limit=4/)
+  assert.equal(caseVariant.sqlitePath, realpathSync.native(resolve(import.meta.dirname, '../prisma/dev.db')))
+  assert.match(caseVariant.url, /connection_limit=1/)
 
   await initializePrisma()
   await prisma.user.create({ data: { id: userId, email: `${userId}@local.test`, passwordHash: 'test-only', name: 'FIVD runtime test' } })

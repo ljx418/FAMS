@@ -18,6 +18,16 @@ const DEFAULT_REQUEST = {
   feeRate: 0.0003,
   slippageRate: 0.0005,
   benchmarkIds: ['cash_cny'],
+  scenarioAnalysis: {
+    enabled: false,
+    policyIds: ['buy_and_hold', 'weekly', 'semi_monthly', 'monthly', 'quarterly', 'drift_3pp'] as const,
+    executionPrice: 'next_open' as const,
+    lotSize: 100,
+    minCommissionCny: 5,
+    cashAnnualRate: 0.01,
+    driftThresholdPercentagePoints: 3,
+    validationMonths: 12,
+  },
 }
 
 function round(value: number, digits = 4) {
@@ -62,7 +72,25 @@ export class PortfolioBacktestInputBuilder {
         strategyId: String(item.strategyId || '').trim(),
         reason: String(item.reason || '').trim(),
       })),
+      ruleMode: request.ruleMode === 'registry_fixed' ? 'registry_fixed' : 'request_override',
+      startDateSensitivity: {
+        enabled: request.startDateSensitivity?.enabled === true,
+        sampling: 'weekly_first_trading_day',
+        minimumTradingDaysForAnnualization: Math.max(2, Math.floor(request.startDateSensitivity?.minimumTradingDaysForAnnualization || 20)),
+      },
       customStrategies: request.customStrategies || [],
+      scenarioAnalysis: {
+        enabled: request.scenarioAnalysis?.enabled === true,
+        policyIds: request.scenarioAnalysis?.policyIds?.length
+          ? Array.from(new Set(request.scenarioAnalysis.policyIds))
+          : [...DEFAULT_REQUEST.scenarioAnalysis.policyIds],
+        executionPrice: 'next_open',
+        lotSize: Math.max(1, Math.floor(request.scenarioAnalysis?.lotSize || DEFAULT_REQUEST.scenarioAnalysis.lotSize)),
+        minCommissionCny: Math.max(0, request.scenarioAnalysis?.minCommissionCny ?? DEFAULT_REQUEST.scenarioAnalysis.minCommissionCny),
+        cashAnnualRate: Math.max(0, request.scenarioAnalysis?.cashAnnualRate ?? DEFAULT_REQUEST.scenarioAnalysis.cashAnnualRate),
+        driftThresholdPercentagePoints: Math.max(0.1, request.scenarioAnalysis?.driftThresholdPercentagePoints ?? DEFAULT_REQUEST.scenarioAnalysis.driftThresholdPercentagePoints),
+        validationMonths: Math.max(1, Math.floor(request.scenarioAnalysis?.validationMonths || DEFAULT_REQUEST.scenarioAnalysis.validationMonths)),
+      },
     }
 
     const strategies: PortfolioStrategyDefinition[] = []
@@ -71,7 +99,7 @@ export class PortfolioBacktestInputBuilder {
 
     for (const strategyId of resolved.portfolioStrategyIds) {
       const preset = portfolioStrategyRegistry.getPresetStrategy(strategyId, {
-        rebalanceFrequency: resolved.rebalanceFrequency,
+        ...(resolved.ruleMode === 'registry_fixed' ? {} : { rebalanceFrequency: resolved.rebalanceFrequency }),
         dividendPolicy: resolved.dividendMode,
         feeRate: resolved.feeRate,
         slippageRate: resolved.slippageRate,
@@ -176,7 +204,7 @@ export class PortfolioBacktestInputBuilder {
     strategy: PortfolioStrategyDefinition,
     request: PortfolioBacktestRequest,
   ): Promise<PortfolioStrategyDefinition> {
-    if (!['permanent_portfolio', 'all_weather'].includes(strategy.strategyId)) {
+    if (!portfolioStrategyRegistry.classicResearchStrategyIds().includes(strategy.strategyId)) {
       return strategy
     }
 
@@ -184,8 +212,13 @@ export class PortfolioBacktestInputBuilder {
       .map((component) => component.proxySymbol || component.symbol)
       .filter((symbol): symbol is string => typeof symbol === 'string' && /^\d{6}$/.test(symbol))
 
+    const calendarDays = Math.max(1, Math.round((new Date(request.endDate).getTime() - new Date(request.startDate).getTime()) / 86400000) + 1)
+    // The exchange has materially fewer than 252 sessions in holiday-heavy
+    // short windows. This gate only ensures enough history to run; the study's
+    // union-calendar audit separately enforces the user-requested 98% coverage.
+    const minimumExpectedBars = Math.max(90, Math.floor(calendarDays * (220 / 365)))
     const coverage = await portfolioProxyMarketDataService.ensureCoverage(proxySymbols, request.startDate, request.endDate, {
-      minRequiredBars: 250,
+      minRequiredBars: minimumExpectedBars,
     })
 
     return {

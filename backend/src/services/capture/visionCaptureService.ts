@@ -58,7 +58,7 @@ class VisionCaptureService {
               type: 'text',
               text: `识别这张证券账户截图。只提取图片中明确可见的信息，不推断缺失值。返回严格 JSON：
 {
-  "documentType": "holding|trade|order|mixed",
+  "documentType": "holding|trade|order|ordinary_order|conditional_order|mixed|fund_portfolio|fund_transaction",
   "rawText": "简短原文",
   "rows": [{
     "rowType": "account_summary|holding|trade|order",
@@ -68,7 +68,10 @@ class VisionCaptureService {
     "confidence": 0.0
   }]
 }
-账户汇总只生成一行，字段使用 availableCash,cashBalance,withdrawableCash,stockMarketValue,totalAssets,holdingPnl,dayPnl,dayPnlPct；持仓字段使用 symbol,name,quantity,avgCost,currentPrice,marketValue；成交字段使用 symbol,type,quantity,price,fee,executedAt,broker,confirmationNo；委托字段使用 symbol,side,status,quantity,filledQuantity,limitPrice,submittedAt,externalOrderId,validUntil。金额和比例保留图片所示正负号；日期用 ISO 8601，方向只用 buy/sell。无法确定的字段省略。`,
+证券账户：账户汇总只生成一行，字段使用 availableCash,cashBalance,withdrawableCash,stockMarketValue,totalAssets,holdingPnl,dayPnl,dayPnlPct；持仓字段使用 symbol,name,quantity,availableQuantity,frozenQuantity,avgCost,currentPrice,marketValue；成交字段使用 symbol,type,quantity,price,fee,executedAt,broker,confirmationNo；普通委托使用 documentType=ordinary_order，条件单使用 documentType=conditional_order；委托字段使用 symbol,side,status,quantity,filledQuantity,limitPrice,submittedAt,externalOrderId,validUntil,orderKind，orderKind只能为ordinary或conditional。
+支付宝基金持仓页：documentType=fund_portfolio；账户汇总字段使用 accountId=alipay,availableCash,totalAssets,monthChange,dayPnl,asOfDate；余额宝金额写入availableCash，不再生成余额宝holding；每个基金holding写入 accountId=alipay,valueBasis=market_value_total,symbol,name,marketValue,weightPct,holdingPnl,cumulativePnl,asOfDate，不得虚构quantity、avgCost或currentPrice。
+支付宝交易记录页：documentType=fund_transaction；每个可见明细生成trade，字段使用 accountId=alipay,transactionBasis=fund_notional,symbol,name,entryType,amount,shares,status,executedAt。entryType只用buy,sell,recurring_buy,dividend_cash,dividend_reinvest,fee,transfer；红利再投资只有份额时写shares；买卖只有金额时写amount；撤销写status=cancelled。顶部交易次数和总额只放在rawText，不得伪造不可见逐笔交易。
+金额和比例保留图片所示正负号；日期用 ISO 8601。基金名称中无法直接看见代码时不得猜代码，可保留名称并降低置信度等待人工补充。无法确定的字段省略。`,
             },
             {
               type: 'image_url',

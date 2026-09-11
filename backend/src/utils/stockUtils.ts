@@ -6,7 +6,7 @@
 
 import axios from 'axios'
 import iconv from 'iconv-lite'
-import { compactHttpError, getJson, getJsonWithCurlOnly } from './httpJson.js'
+import { compactHttpError, getJson, getJsonWithCurlOnly, getTextWithCurlOnly } from './httpJson.js'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -72,6 +72,21 @@ export interface ChinaIndexIdentity {
   sinaSymbol: string
   exchange: 'SH' | 'SZ'
   name: string
+  /**
+   * The official China Securities Index performance API uses the bare index
+   * code (including the H-prefixed codes), rather than an exchange symbol.
+   * Keeping it explicit avoids treating a CSI index as a listed security.
+   */
+  csindexCode?: string
+  /**
+   * Some CSI theme and industry indexes are not exchange-traded `.SH`/`.SZ`
+   * instruments.  Eastmoney assigns them a distinct quote identity (for
+   * example `2.H30184`).  Keep that provider identity explicit instead of
+   * inferring an exchange from a six-digit-looking code.
+   */
+  eastmoneySecid?: string
+  /** Yahoo's index identity, where it publishes the same CSI price index. */
+  yahooSymbol?: string
 }
 
 let aShareUniverseCache: {
@@ -245,6 +260,85 @@ const CHINA_INDEX_MAP: Record<string, ChinaIndexIdentity> = {
   sz399006: { symbol: '399006.SZ', sinaSymbol: 'sz399006', exchange: 'SZ', name: '创业板指' },
 }
 
+/**
+ * Vetted CSI indexes used by the domestic AI supply-chain RRG research.
+ *
+ * The canonical symbols deliberately retain the CSI namespace.  In
+ * particular, H-prefixed indexes cannot be represented truthfully as either
+ * Shanghai or Shenzhen exchange indexes.  The alias map below accepts common
+ * user input while emitting one stable canonical symbol and target key.
+ */
+const CSI_RESEARCH_INDEXES: Array<ChinaIndexIdentity & { aliases: string[] }> = [
+  {
+    symbol: '930708.CSI',
+    sinaSymbol: 'sh930708',
+    exchange: 'SH',
+    csindexCode: '930708',
+    eastmoneySecid: '1.930708',
+    yahooSymbol: '930708.SS',
+    name: '中证有色金属指数',
+    aliases: ['930708', '930708.CSI', '930708.SH', 'SH930708'],
+  },
+  {
+    symbol: 'H30199.CSI',
+    sinaSymbol: 'shH30199',
+    exchange: 'SH',
+    csindexCode: 'H30199',
+    eastmoneySecid: '2.H30199',
+    yahooSymbol: 'H30199.SS',
+    name: '中证全指电力公用事业指数',
+    aliases: ['H30199', 'H30199.CSI'],
+  },
+  {
+    symbol: 'H30184.CSI',
+    sinaSymbol: 'shH30184',
+    exchange: 'SH',
+    csindexCode: 'H30184',
+    eastmoneySecid: '2.H30184',
+    yahooSymbol: 'H30184.SS',
+    name: '中证全指半导体产品与设备指数',
+    aliases: ['H30184', 'H30184.CSI'],
+  },
+  {
+    symbol: '930851.CSI',
+    sinaSymbol: 'sh930851',
+    exchange: 'SH',
+    csindexCode: '930851',
+    eastmoneySecid: '1.930851',
+    yahooSymbol: '930851.SS',
+    name: '中证云计算与大数据主题指数',
+    aliases: ['930851', '930851.CSI', '930851.SH', 'SH930851'],
+  },
+  {
+    symbol: '930601.CSI',
+    sinaSymbol: 'sh930601',
+    exchange: 'SH',
+    csindexCode: '930601',
+    eastmoneySecid: '1.930601',
+    yahooSymbol: '930601.SS',
+    name: '中证软件服务指数',
+    aliases: ['930601', '930601.CSI', '930601.SH', 'SH930601'],
+  },
+  {
+    symbol: '930713.CSI',
+    sinaSymbol: 'sh930713',
+    exchange: 'SH',
+    csindexCode: '930713',
+    eastmoneySecid: '1.930713',
+    yahooSymbol: '930713.SS',
+    name: '中证人工智能主题指数',
+    aliases: ['930713', '930713.CSI', '930713.SH', 'SH930713'],
+  },
+]
+
+for (const index of CSI_RESEARCH_INDEXES) {
+  const { aliases, ...identity } = index
+  for (const alias of aliases) {
+    CHINA_INDEX_MAP[alias] = identity
+    CHINA_INDEX_MAP[alias.toUpperCase()] = identity
+  }
+}
+
 export function resolveChinaIndexIdentity(symbol: string, fallbackName?: string): ChinaIndexIdentity | null {
   const raw = String(symbol || '').trim()
   if (!raw) return null
@@ -255,7 +349,7 @@ export function resolveChinaIndexIdentity(symbol: string, fallbackName?: string)
     return fallbackName && fallbackName !== direct.name ? { ...direct, name: fallbackName } : direct
   }
 
-  const compact = normalized.replace(/\.(SH|SZ)$/, '')
+  const compact = normalized.replace(/\.(SH|SZ|CSI)$/, '')
   const mapped = CHINA_INDEX_MAP[compact]
   if (mapped) {
     return fallbackName && fallbackName !== mapped.name ? { ...mapped, name: fallbackName } : mapped
@@ -512,7 +606,7 @@ async function getTencentHistoryPages(params: {
       'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get',
       {
         params: {
-          param: `${params.marketSymbol},day,,${endDate},${count},qfq`,
+          param: `${params.marketSymbol},day,,${endDate},${count},${params.adjustType === 'qfq' ? 'qfq' : 'bfq'}`,
         },
         headers: {
           Referer: 'https://gu.qq.com/',
@@ -554,6 +648,76 @@ export async function getTencentQfqStockHistory(
   }
 }
 
+export async function getTencentRawStockHistory(
+  stockCode: string,
+  days: number = 756,
+): Promise<StockHistoryData[]> {
+  try {
+    const marketSymbol = `${getSinaMarketPrefix(stockCode)}${stockCode}`
+    return getTencentHistoryPages({
+      marketSymbol,
+      days,
+      adjustType: 'none',
+      provider: 'tencent_raw',
+    })
+  } catch (error) {
+    console.error(`Failed to fetch Tencent raw history for ${stockCode}:`, compactHttpError(error))
+    return []
+  }
+}
+
+/**
+ * Fetch the Sina domestic-futures continuous-contract daily series.
+ *
+ * This endpoint returns JSONP rather than JSON.  The helper intentionally
+ * exposes it as research-grade history so callers can disclose the roll and
+ * basis risk when a continuous future is used as an ETF pre-inception proxy.
+ */
+export async function getSinaDomesticFuturesHistory(
+  symbol: string,
+  days: number = 756,
+): Promise<StockHistoryData[]> {
+  try {
+    const normalizedSymbol = String(symbol || '').trim().toUpperCase()
+    if (!/^[A-Z]{1,3}0$/.test(normalizedSymbol)) return []
+    const raw = await getTextWithCurlOnly(
+      `https://stock2.finance.sina.com.cn/futures/api/jsonp.php/var%20_${normalizedSymbol}=/InnerFuturesNewService.getDailyKLine`,
+      {
+        params: { symbol: normalizedSymbol },
+        headers: {
+          Referer: 'https://finance.sina.com.cn/futures/',
+          'User-Agent': 'Mozilla/5.0',
+        },
+        timeout: 10000,
+      },
+    )
+    const start = raw.indexOf('([')
+    const end = raw.lastIndexOf('])')
+    if (start < 0 || end <= start) return []
+    const rows = JSON.parse(raw.slice(start + 1, end + 1)) as Array<{
+      d?: string
+      o?: string
+      h?: string
+      l?: string
+      c?: string
+      v?: string
+    }>
+    return normalizeHistory(rows.map((row) => ({
+      date: String(row.d || ''),
+      open: Number(row.o),
+      high: Number(row.h),
+      low: Number(row.l),
+      close: Number(row.c),
+      volume: Number(row.v) || 0,
+      source: `sina_domestic_futures_continuous:${normalizedSymbol}`,
+      adjustType: 'none' as const,
+    })), 'none').slice(-Math.max(120, Math.min(3000, Math.floor(days))))
+  } catch (error) {
+    console.error(`Failed to fetch Sina domestic futures history for ${symbol}:`, compactHttpError(error))
+    return []
+  }
+}
+
 export async function getSmartQfqStockHistory(
   stockCode: string,
   days: number = 756,
@@ -569,8 +733,8 @@ export async function getChinaStockHistory(
   stockCode: string,
   days: number = 30
 ): Promise<StockHistoryData[]> {
-  const eastmoneyHistory = await getEastmoneyQfqStockHistory(stockCode, days)
-  if (eastmoneyHistory.length > 0) return eastmoneyHistory
+  const adjusted = await getSmartQfqStockHistory(stockCode, days)
+  if (adjusted.history.length > 0) return adjusted.history
 
   const sinaHistory = await getSinaStockHistory(stockCode, days)
   if (sinaHistory.length > 0) return sinaHistory
@@ -606,7 +770,7 @@ export async function getSinaStockHistory(stockCode: string, days: number): Prom
       }
     )
 
-    return rows
+    return (rows || [])
       .map((row) => ({
         date: row.day || '',
         open: parseFloat(row.open || '0'),
@@ -649,7 +813,7 @@ export async function getSinaHistoryBySymbol(sinaSymbol: string, days: number): 
       }
     )
 
-    return rows
+    return (rows || [])
       .map((row) => ({
         date: row.day || '',
         open: parseFloat(row.open || '0'),
@@ -682,6 +846,229 @@ export async function getTencentIndexHistory(symbol: string, days: number = 756)
   }
 }
 
+/**
+ * Fetch unadjusted daily index levels from Eastmoney.  This is intentionally
+ * separate from the A-share qfq endpoint: RRG research indexes are price
+ * indexes and must never be adjusted or silently replaced by ETF proxies.
+ */
+export async function getEastmoneyIndexHistory(symbol: string, days: number = 756): Promise<StockHistoryData[]> {
+  const identity = resolveChinaIndexIdentity(symbol)
+  if (!identity?.eastmoneySecid) return []
+
+  try {
+    const endDate = new Date()
+    const startDate = new Date()
+    const calendarLookbackDays = Math.ceil(days * (365 / 252)) + 21
+    startDate.setDate(startDate.getDate() - calendarLookbackDays)
+
+    const response = await getJson<{ data?: { name?: string; klines?: string[] } }>(
+      'https://push2his.eastmoney.com/api/qt/stock/kline/get',
+      {
+        params: {
+          secid: identity.eastmoneySecid,
+          fields1: 'f1,f2,f3,f4,f5,f6',
+          fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61',
+          klt: '101',
+          fqt: '0',
+          beg: startDate.toISOString().slice(0, 10).replace(/-/g, ''),
+          end: endDate.toISOString().slice(0, 10).replace(/-/g, ''),
+          lmt: Math.max(days, 120),
+        },
+        headers: {
+          Referer: 'https://quote.eastmoney.com/',
+          'User-Agent': 'Mozilla/5.0',
+        },
+        timeout: 12_000,
+      },
+    )
+
+    return (response.data?.klines || [])
+      .map((line) => {
+        const [date, open, close, high, low, volume] = line.split(',')
+        return {
+          date: date || '',
+          name: response.data?.name || identity.name,
+          open: Number(open),
+          high: Number(high),
+          low: Number(low),
+          close: Number(close),
+          volume: Number(volume),
+          source: 'eastmoney_price_index',
+          adjustType: 'none' as const,
+        }
+      })
+      .filter((row) => row.date && row.close > 0 && row.high > 0 && row.low > 0)
+  } catch (error) {
+    console.error(`Failed to fetch Eastmoney index history for ${identity.eastmoneySecid}:`, compactHttpError(error))
+    return []
+  }
+}
+
+interface CsindexPerformanceRow {
+  tradeDate?: string
+  indexCode?: string
+  indexNameCnAll?: string
+  indexNameCn?: string
+  open?: number | null
+  high?: number | null
+  low?: number | null
+  close?: number | null
+  tradingVol?: number | null
+}
+
+interface CsindexPerformanceResponse {
+  code?: string | number
+  msg?: string
+  data?: CsindexPerformanceRow[]
+}
+
+const CSINDEX_PERFORMANCE_ENDPOINT = 'https://www.csindex.com.cn/csindex-home/perf/index-perf'
+const CSINDEX_BATCH_CALENDAR_DAYS = 1_000
+
+const csindexDate = (date: Date) => date.toISOString().slice(0, 10).replace(/-/g, '')
+
+const finitePositive = (value: unknown) => {
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0 ? number : null
+}
+
+export function normalizeCsindexOfficialPerformanceRows(
+  rows: CsindexPerformanceRow[],
+  identity: ChinaIndexIdentity,
+): StockHistoryData[] {
+  const expectedCode = identity.csindexCode
+  const byDate = new Map<string, StockHistoryData>()
+  for (const row of rows) {
+    if (String(row.indexCode || '').toUpperCase() !== expectedCode) continue
+    const rawDate = String(row.tradeDate || '')
+    if (!/^\d{8}$/.test(rawDate)) continue
+    const close = finitePositive(row.close)
+    if (!close) continue
+    const open = finitePositive(row.open) || close
+    const high = Math.max(close, open, finitePositive(row.high) || close)
+    const low = Math.min(close, open, finitePositive(row.low) || close)
+    const volume = Number(row.tradingVol)
+    const date = `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
+    byDate.set(date, {
+      date,
+      name: row.indexNameCnAll || row.indexNameCn || identity.name,
+      open,
+      high,
+      low,
+      close,
+      volume: Number.isFinite(volume) && volume >= 0 ? volume : 0,
+      source: 'csindex_official_price_index',
+      adjustType: 'none',
+    })
+  }
+  return Array.from(byDate.values()).sort((left, right) => left.date.localeCompare(right.date))
+}
+
+/**
+ * Fetch raw CSI price-index levels from the official China Securities Index
+ * performance endpoint.  The endpoint is queried in bounded calendar batches
+ * so an intermittent response cannot turn a complete research series into an
+ * all-or-nothing failure.  CSI only guarantees a close for some older dates;
+ * close is therefore mirrored into missing OHLC fields for the canonical bar
+ * shape while RRG itself continues to use the unadjusted close only.
+ */
+export async function getCsindexOfficialIndexHistory(symbol: string, days: number = 756): Promise<StockHistoryData[]> {
+  const identity = resolveChinaIndexIdentity(symbol)
+  if (!identity?.csindexCode) return []
+
+  const requestedDays = Math.max(120, Math.min(3000, Math.floor(days)))
+  const end = new Date()
+  end.setUTCHours(0, 0, 0, 0)
+  const start = new Date(end)
+  start.setUTCDate(start.getUTCDate() - Math.ceil(requestedDays * (365 / 252)) - 28)
+
+  const history = new Map<string, StockHistoryData>()
+  let batchStart = new Date(start)
+  while (batchStart <= end) {
+    const batchEnd = new Date(Math.min(
+      end.getTime(),
+      batchStart.getTime() + ((CSINDEX_BATCH_CALENDAR_DAYS - 1) * 24 * 60 * 60 * 1000),
+    ))
+    try {
+      const response = await getJsonWithCurlOnly<CsindexPerformanceResponse>(CSINDEX_PERFORMANCE_ENDPOINT, {
+        params: {
+          indexCode: identity.csindexCode,
+          startDate: csindexDate(batchStart),
+          endDate: csindexDate(batchEnd),
+        },
+        headers: {
+          Referer: 'https://www.csindex.com.cn/',
+          'User-Agent': 'Mozilla/5.0',
+        },
+        timeout: 20_000,
+      })
+      if (String(response.code || '') !== '200') return []
+      for (const row of normalizeCsindexOfficialPerformanceRows(response.data || [], identity)) history.set(row.date, row)
+    } catch (error) {
+      console.error(`Failed to fetch official CSI index history for ${identity.csindexCode}:`, compactHttpError(error))
+      return []
+    }
+    batchStart = new Date(batchEnd)
+    batchStart.setUTCDate(batchStart.getUTCDate() + 1)
+  }
+
+  return Array.from(history.values())
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .slice(-requestedDays)
+}
+
+/**
+ * Yahoo is retained as a non-official fallback for legacy China index targets.
+ * CSI supply-chain research indexes use getCsindexOfficialIndexHistory instead.
+ */
+export async function getYahooChinaIndexHistory(symbol: string, days: number = 756): Promise<StockHistoryData[]> {
+  const identity = resolveChinaIndexIdentity(symbol)
+  if (!identity?.yahooSymbol) return []
+
+  try {
+    const end = Math.floor(Date.now() / 1000) + 86_400
+    const start = end - Math.ceil(days * (365 / 252)) * 86_400
+    const response = await getJsonWithCurlOnly<{
+      chart?: {
+        error?: { description?: string } | null
+        result?: Array<{
+          meta?: { longName?: string; shortName?: string }
+          timestamp?: number[]
+          indicators?: { quote?: Array<{ open?: Array<number | null>; high?: Array<number | null>; low?: Array<number | null>; close?: Array<number | null>; volume?: Array<number | null> }> }
+        }> | null
+      }
+    }>(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(identity.yahooSymbol)}`, {
+      params: { period1: start, period2: end, interval: '1d', events: 'history' },
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 12_000,
+    })
+    const payload = response.chart?.result?.[0]
+    if (!payload || response.chart?.error) return []
+    const quote = payload.indicators?.quote?.[0]
+    const timestamps = payload.timestamp || []
+    if (!quote || timestamps.length === 0) return []
+    const name = payload.meta?.longName || payload.meta?.shortName || identity.name
+    const history = timestamps.map((timestamp, index) => ({
+      date: new Date(timestamp * 1000).toISOString().slice(0, 10),
+      name,
+      open: Number(quote.open?.[index]),
+      high: Number(quote.high?.[index]),
+      low: Number(quote.low?.[index]),
+      close: Number(quote.close?.[index]),
+      volume: Number(quote.volume?.[index] || 0),
+      source: 'yahoo_cn_price_index',
+      adjustType: 'none' as const,
+    })).filter((row) => row.close > 0 && row.high > 0 && row.low > 0)
+    // Yahoo may expose only an intraday snapshot for an otherwise valid CSI
+    // ticker.  One live point is not historical price-index evidence and must
+    // not be cached as a usable RRG source.
+    return history.length >= Math.min(120, days) ? history : []
+  } catch (error) {
+    console.error(`Failed to fetch Yahoo China index history for ${identity.yahooSymbol}:`, compactHttpError(error))
+    return []
+  }
+}
+
 export async function getSmartChinaIndexHistory(
   symbol: string,
   days: number = 756,
@@ -689,7 +1076,18 @@ export async function getSmartChinaIndexHistory(
   const identity = resolveChinaIndexIdentity(symbol)
   if (!identity) throw new Error(`Unsupported China index symbol: ${symbol}`)
   const requestedDays = Math.max(120, Math.min(3000, Math.floor(days)))
+  if (identity.csindexCode) {
+    return fetchSmartHistory([
+      { provider: 'csindex_official_price_index', fetch: () => getCsindexOfficialIndexHistory(identity.symbol, requestedDays) },
+    ], requestedDays, 'none')
+  }
   return fetchSmartHistory([
+    ...(identity.yahooSymbol
+      ? [{ provider: 'yahoo_cn_price_index', fetch: () => getYahooChinaIndexHistory(identity.symbol, requestedDays) }]
+      : []),
+    ...(identity.eastmoneySecid
+      ? [{ provider: 'eastmoney_price_index', fetch: () => getEastmoneyIndexHistory(identity.symbol, requestedDays) }]
+      : []),
     { provider: 'sina_price_index', fetch: () => getSinaHistoryBySymbol(identity.sinaSymbol, requestedDays) },
     { provider: 'tencent_price_index', fetch: () => getTencentIndexHistory(identity.symbol, requestedDays) },
   ], requestedDays, 'none')
@@ -701,6 +1099,9 @@ export async function getChinaIndexHistory(symbol: string, days: number = 260): 
     throw new Error(`Unsupported China index symbol: ${symbol}`)
   }
 
+  if (identity.csindexCode) return getCsindexOfficialIndexHistory(identity.symbol, days)
+  if (identity.yahooSymbol) return getYahooChinaIndexHistory(identity.symbol, days)
+  if (identity.eastmoneySecid) return getEastmoneyIndexHistory(identity.symbol, days)
   return getSinaHistoryBySymbol(identity.sinaSymbol, days)
 }
 

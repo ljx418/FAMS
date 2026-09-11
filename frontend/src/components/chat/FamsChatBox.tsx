@@ -259,6 +259,7 @@ const welcomeTaskCards = [
 declare global {
   interface WindowEventMap {
     'fams-chat:ask': CustomEvent<{ message?: string; autoSend?: boolean }>
+    'fams:broker-review-reminder': CustomEvent<{ id?: string; title?: string; message?: string }>
   }
 }
 
@@ -902,6 +903,33 @@ export function FamsChatBox() {
     return () => window.removeEventListener('fams-chat:ask', handler)
   }, [sendMessage])
 
+  useEffect(() => {
+    const handler = (event: WindowEventMap['fams:broker-review-reminder']) => {
+      const alert = event.detail
+      const id = `broker-reminder:${alert.id || Date.now()}`
+      setMessages((current) => current.some((item) => item.id === id) ? current : [...current, {
+        id,
+        role: 'assistant',
+        text: `${alert.message || '到了券商持仓复盘时间。'}\n\n我只会先对账并生成拟单；不会连接同花顺下单。你可以上传截图后说“现在生成持仓复盘”。`,
+      }])
+    }
+    window.addEventListener('fams:broker-review-reminder', handler)
+    return () => window.removeEventListener('fams:broker-review-reminder', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = (event: WindowEventMap['fams:broker-review-reminder']) => {
+      const reminder = event.detail
+      setMessages((current) => current.some((item) => item.id === `reminder-${reminder.id}`) ? current : [...current, {
+        id: `reminder-${reminder.id || Date.now()}`,
+        role: 'assistant',
+        text: reminder.message || '已到券商持仓复盘时间。请先核对持仓、新成交和现有委托，再生成只读拟单。',
+      }])
+    }
+    window.addEventListener('fams:broker-review-reminder', handler)
+    return () => window.removeEventListener('fams:broker-review-reminder', handler)
+  }, [])
+
   const confirmTool = async (confirmationId: string) => {
     if (loading) return
     setLoading(true)
@@ -942,6 +970,11 @@ export function FamsChatBox() {
     if (card.type === 'navigation' && card.href) {
       navigate(card.href)
       setOpen(false)
+      return
+    }
+    if (card.type === 'artifact' && card.href) {
+      const href = card.href.startsWith('/api/') ? `${API_BASE}${card.href}` : card.href
+      window.open(href, '_blank', 'noopener,noreferrer')
       return
     }
     if (card.type === 'tool_confirmation' && card.confirmationId) {
@@ -1096,7 +1129,13 @@ export function FamsChatBox() {
           <details className="rounded-lg border border-slate-200 bg-white text-xs text-slate-600">
             <summary className="cursor-pointer px-3 py-2 font-medium text-slate-700">导入截图（持仓 / 成交 / 委托）</summary>
             <div className="border-t border-slate-100 px-3 py-3">
-              <ScreenshotCapturePanel userId="default" conversationId={conversationId} compact onEvent={handleCaptureEvent} />
+              <ScreenshotCapturePanel
+                userId="default"
+                conversationId={conversationId}
+                compact
+                tradePositionEffectPolicy="included_in_latest_snapshot"
+                onEvent={handleCaptureEvent}
+              />
             </div>
           </details>
 

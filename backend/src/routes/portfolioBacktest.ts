@@ -4,10 +4,105 @@ import { portfolioBacktestEngine } from '../services/portfolio-backtest/portfoli
 import { portfolioBacktestInputBuilder } from '../services/portfolio-backtest/portfolioBacktestInputBuilder.js'
 import { portfolioBacktestReviewService } from '../services/portfolio-backtest/portfolioBacktestReviewService.js'
 import { portfolioStrategyRegistry } from '../services/portfolio-backtest/portfolioStrategyRegistry.js'
+import { portfolioFixedRuleStudyService } from '../services/portfolio-backtest/portfolioFixedRuleStudyService.js'
+import { renderAlipayPortfolioComparisonHtml } from '../services/portfolio-backtest/alipayPortfolioComparisonHtml.js'
+import { alipayResearchWorkflowService } from '../services/review/alipayResearchWorkflowService.js'
 import { runtimeHealthService } from '../services/runtime/runtimeHealthService.js'
 import { ensureUser } from '../utils/user.js'
 
 export async function portfolioBacktestRoutes(app: FastifyInstance) {
+  app.post('/alipay-comparison/run', async (request) => {
+    const body = (request.body || {}) as { userId?: string; idempotencyKey?: string }
+    const userId = typeof body.userId === 'string' && body.userId.trim() ? body.userId.trim() : 'default'
+    const result = await alipayResearchWorkflowService.runComparison({
+      userId,
+      createdBy: 'user',
+      idempotencyKey: typeof body.idempotencyKey === 'string' && body.idempotencyKey.trim() ? body.idempotencyKey.trim() : undefined,
+    })
+    return {
+      schemaVersion: 'portfolio.alipay_comparison.run_submission.v1',
+      operationId: result.operation.id,
+      status: result.operation.status,
+      reused: result.reused,
+      summary: result.summary,
+      reportUrl: `/api/v1/portfolio-backtest/alipay-comparison/runs/${encodeURIComponent(result.operation.id)}/report?userId=${encodeURIComponent(userId)}`,
+      allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE'],
+      prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
+      notTradingAdvice: true,
+    }
+  })
+
+  app.get('/alipay-comparison/report', async (request, reply) => {
+    const query = (request.query || {}) as { userId?: string; operationId?: string }
+    const userId = typeof query.userId === 'string' && query.userId.trim() ? query.userId.trim() : 'default'
+    const saved = query.operationId
+      ? await alipayResearchWorkflowService.loadStudy(query.operationId, userId).catch(() => null)
+      : await alipayResearchWorkflowService.getLatest(userId)
+    if (!saved) return reply.status(404).type('text/html; charset=utf-8').send('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>尚无持久化回测</title><body><h1>尚无持久化回测</h1><p>请返回持仓组合对比页面，点击“运行完整分析”。</p></body></html>')
+    return reply
+      .header('Cache-Control', 'no-store')
+      .type('text/html; charset=utf-8')
+      .send(renderAlipayPortfolioComparisonHtml(saved.study, { operationId: saved.operation.id }))
+  })
+
+  app.get('/alipay-comparison/runs', async (request) => {
+    const query = (request.query || {}) as { userId?: string; limit?: string }
+    return alipayResearchWorkflowService.listRuns(
+      typeof query.userId === 'string' && query.userId.trim() ? query.userId.trim() : 'default',
+      Number.parseInt(String(query.limit || '20'), 10) || 20,
+    )
+  })
+
+  app.get('/alipay-comparison/runs/:operationId', async (request, reply) => {
+    const { operationId } = request.params as { operationId: string }
+    const query = (request.query || {}) as { userId?: string }
+    try {
+      const saved = await alipayResearchWorkflowService.loadStudy(operationId, query.userId || 'default')
+      return {
+        schemaVersion: 'portfolio.alipay_comparison.saved_run_detail.v1',
+        operationId: saved.operation.id,
+        status: saved.operation.status,
+        summary: saved.summary,
+        study: saved.study,
+        notTradingAdvice: true,
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return reply.status(message.includes('not_found') ? 404 : 409).send({ error: message, retryable: false })
+    }
+  })
+
+  app.get('/alipay-comparison/runs/:operationId/report', async (request, reply) => {
+    const { operationId } = request.params as { operationId: string }
+    const query = (request.query || {}) as { userId?: string }
+    try {
+      const saved = await alipayResearchWorkflowService.loadStudy(operationId, query.userId || 'default')
+      return reply.header('Cache-Control', 'no-store').type('text/html; charset=utf-8')
+        .send(renderAlipayPortfolioComparisonHtml(saved.study, { operationId: saved.operation.id }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return reply.status(message.includes('not_found') ? 404 : 409).send({ error: message, retryable: false })
+    }
+  })
+
+  app.post('/alipay-comparison/runs/:operationId/window', async (request, reply) => {
+    const { operationId } = request.params as { operationId: string }
+    const body = (request.body || {}) as { userId?: string; startDate?: string; endDate?: string }
+    if (!body.startDate || !body.endDate) return reply.status(400).send({ error: 'startDate_and_endDate_required', retryable: false })
+    try {
+      return await alipayResearchWorkflowService.runWindow({
+        operationId,
+        userId: body.userId || 'default',
+        startDate: body.startDate,
+        endDate: body.endDate,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const status = message.includes('not_found') ? 404 : message.startsWith('window_') ? 422 : 409
+      return reply.status(status).send({ error: message, retryable: false })
+    }
+  })
+
   app.get('/templates', async () => {
     const runtimeHealth = await runtimeHealthService.check({ prisma, lightweight: true })
     return {
@@ -278,6 +373,60 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           canCreateOrder: false,
           notTradingAdvice: true,
         },
+        '22_classic_portfolio_three_year_study.json': {
+          schemaVersion: 'portfolio.backtest.classic_portfolio_three_year_study.v1',
+          generatedAt: generatedAt.toISOString(),
+          classicPortfolioStudy: result.classicPortfolioStudy,
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          orderCreateAllowed: false,
+          canCreateOrder: false,
+          notTradingAdvice: true,
+        },
+        '23_fixed_rule_primary_run.json': {
+          schemaVersion: 'portfolio.backtest.fixed_rule_primary_run.v1',
+          generatedAt: generatedAt.toISOString(),
+          requestedPeriod: result.fixedRuleStudy?.requestedPeriod || null,
+          actualPeriod: result.fixedRuleStudy?.actualPeriod || null,
+          initialCapital: result.fixedRuleStudy?.initialCapital || input.request.initialCapital,
+          ruleMode: result.fixedRuleStudy?.ruleMode || null,
+          executionAssumptions: result.fixedRuleStudy?.executionAssumptions || null,
+          methodology: result.fixedRuleStudy?.methodology || null,
+          strategies: (result.fixedRuleStudy?.strategies || []).map((strategy) => ({
+            strategyId: strategy.strategyId,
+            displayName: strategy.displayName,
+            strategyVersion: strategy.strategyVersion,
+            components: strategy.components,
+            appliedPolicy: strategy.appliedPolicy,
+            primaryRun: strategy.primaryRun,
+          })),
+          notTradingAdvice: true,
+        },
+        '24_fixed_rule_trade_ledger.json': {
+          schemaVersion: 'portfolio.backtest.fixed_rule_trade_ledger.v1',
+          generatedAt: generatedAt.toISOString(),
+          strategies: (result.fixedRuleStudy?.strategies || []).map((strategy) => ({
+            strategyId: strategy.strategyId,
+            displayName: strategy.displayName,
+            appliedPolicy: strategy.appliedPolicy,
+            trades: strategy.primaryRun.trades,
+          })),
+          notTradingAdvice: true,
+        },
+        '25_start_date_sensitivity.json': {
+          schemaVersion: 'portfolio.backtest.start_date_sensitivity.v1',
+          generatedAt: generatedAt.toISOString(),
+          config: result.fixedRuleStudy?.sensitivityConfig || null,
+          strategies: (result.fixedRuleStudy?.strategies || []).map((strategy) => ({
+            strategyId: strategy.strategyId,
+            displayName: strategy.displayName,
+            appliedPolicy: strategy.appliedPolicy,
+            sensitivity: strategy.sensitivity,
+          })),
+          aggregateSensitivity: result.fixedRuleStudy?.aggregateSensitivity || [],
+          methodology: result.fixedRuleStudy?.methodology || null,
+          notTradingAdvice: true,
+        },
       }
       const operation = await prisma.operation.create({
         data: {
@@ -330,6 +479,116 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
       }
     }
     return result
+  })
+
+  app.post('/fixed-rule-detail', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const runtimeHealth = await runtimeHealthService.check({ prisma, lightweight: true })
+    if (!runtimeHealth.sqliteHealthy) {
+      return reply.status(503).send({
+        schemaVersion: 'portfolio.fixed_rule_detail.blocked.v1',
+        status: 'blocked',
+        blockedReasons: ['sqlite_health_check_failed'],
+        notTradingAdvice: true,
+      })
+    }
+    const input = await portfolioBacktestInputBuilder.build({
+      ...(body || {}),
+      userId: typeof body?.userId === 'string' ? body.userId : 'default',
+      ruleMode: 'registry_fixed',
+      scenarioAnalysis: {
+        ...((body?.scenarioAnalysis as Record<string, unknown>) || {}),
+        enabled: false,
+      },
+      startDateSensitivity: {
+        enabled: false,
+        sampling: 'weekly_first_trading_day',
+        minimumTradingDaysForAnnualization: 20,
+      },
+    } as any)
+    const fixedRuleStudy = await portfolioFixedRuleStudyService.run(input)
+    return {
+      schemaVersion: 'portfolio.fixed_rule_detail.v1',
+      generatedAt: new Date().toISOString(),
+      fixedRuleStudy,
+      allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'PLAN_DRAFT'],
+      prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
+      notTradingAdvice: true,
+    }
+  })
+
+  app.get('/runs', async (request) => {
+    const query = request.query as { userId?: string; limit?: string }
+    const userId = String(query.userId || 'default')
+    const limit = Math.min(100, Math.max(1, Number.parseInt(String(query.limit || '20'), 10) || 20))
+    const operations = await prisma.operation.findMany({
+      where: { userId, type: 'portfolio_backtest_run' },
+      orderBy: { requestedAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        status: true,
+        requestedAt: true,
+        completedAt: true,
+        inputJson: true,
+        resultJson: true,
+        artifactRefsJson: true,
+      },
+    })
+    const parse = <T,>(value: string, fallback: T): T => {
+      try { return JSON.parse(value) as T } catch { return fallback }
+    }
+    return {
+      schemaVersion: 'portfolio.strategy_backtest.run_history.v1',
+      generatedAt: new Date().toISOString(),
+      userId,
+      runs: operations.map((operation) => {
+        const input = parse<Record<string, any>>(operation.inputJson, {})
+        const result = parse<Record<string, any>>(operation.resultJson, {})
+        const artifacts = result.artifacts || {}
+        const fixed = artifacts['23_fixed_rule_primary_run.json'] || null
+        return {
+          operationId: operation.id,
+          status: operation.status,
+          requestedAt: operation.requestedAt,
+          completedAt: operation.completedAt,
+          strategyIds: input.portfolioStrategyIds || [],
+          startDate: input.startDate || null,
+          endDate: fixed?.actualPeriod?.endDate || input.endDate || null,
+          initialCapital: input.initialCapital || null,
+          ruleMode: input.ruleMode || 'request_override',
+          fixedRuleAvailable: Boolean(fixed?.strategies?.length),
+          artifactRefs: parse<string[]>(operation.artifactRefsJson, []),
+        }
+      }),
+      notTradingAdvice: true,
+    }
+  })
+
+  app.get('/runs/:operationId', async (request, reply) => {
+    const { operationId } = request.params as { operationId: string }
+    const query = request.query as { userId?: string }
+    const operation = await prisma.operation.findFirst({
+      where: {
+        id: operationId,
+        type: 'portfolio_backtest_run',
+        ...(query.userId ? { userId: String(query.userId) } : {}),
+      },
+    })
+    if (!operation) return reply.status(404).send({ error: 'portfolio_backtest_run_not_found' })
+    let parsed: Record<string, any> = {}
+    try { parsed = JSON.parse(operation.resultJson) } catch { parsed = {} }
+    const result = parsed.artifacts?.['03_backtest_results.json']?.result || null
+    return {
+      schemaVersion: 'portfolio.strategy_backtest.saved_run.v1',
+      operationId: operation.id,
+      status: operation.status,
+      requestedAt: operation.requestedAt,
+      completedAt: operation.completedAt,
+      result,
+      artifactRefs: JSON.parse(operation.artifactRefsJson || '[]'),
+      notTradingAdvice: true,
+    }
   })
 
   app.get('/reviews/:runId', async (request) => {

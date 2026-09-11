@@ -160,9 +160,17 @@ class FamsChatService {
         const report = review.report as any
         const structuredResult = this.buildDailyReviewStructuredResult(report)
         const material = (report.assets || []).filter((asset: any) => asset.fundamentalAndNews?.level === 'material')
+        const reconciliation = report.reconciliation
         return {
           reply: [
             `最新${report.sessionType === 'open' ? '开盘后' : report.sessionType === 'pre_close' ? '收盘前' : '手动'}复盘已完成 ${report.portfolio?.reviewedAssets || 0} 个资产。`,
+            ...(reconciliation ? [
+              `已确认事实：${reconciliation.confirmedFacts?.positions?.length || 0} 个持仓，资金 ${reconciliation.confirmedFacts?.account?.availableCash || '未确认'}。`,
+              `对账差异：${reconciliation.reconciliationDifferences?.length || 0} 项；强制材料${reconciliation.readiness?.requiredInputsReady ? '已就绪' : '未就绪'}。`,
+              `待确认规则：${reconciliation.pendingRules?.length || 0} 项，均未自动启用。`,
+              `拟保留／撤销／新增：${reconciliation.proposedOrders?.retained?.length || 0}／${reconciliation.proposedOrders?.cancelCandidates?.length || 0}／${reconciliation.proposedOrders?.addCandidates?.length || 0}；阻断 ${reconciliation.proposedOrders?.blocked?.length || 0}。`,
+              '执行权限：只读、提醒和拟单；不创建、不提交券商订单。',
+            ] : []),
             material.length > 0 ? `${material.length} 个资产触发重大变化复核，相关买入网格已转观察。` : '未识别出达到重大变化阈值的新事实；证据不足的资产仍保持观察。',
             `关注标的：${(report.attentionCandidates || []).map((item: any) => `${item.symbol} ${item.name || ''}`).join('、') || '暂无'}。`,
             '网格内容是人工计划草案，不会创建或提交券商订单。',
@@ -180,6 +188,7 @@ class FamsChatService {
           },
           actionCards: [
             makeCard({ type: 'navigation', title: '打开复盘工作台', description: '逐节点核对本轮输入、输出、证据、均线和网格草案。', href: `/daily-reviews/${review.id}`, status: 'ready' }),
+            makeCard({ type: 'artifact', title: '打开 HTML 复盘报告', description: '打开可交互浏览、可打印的自包含网页报告。', href: `/api/v1/daily-reviews/${review.id}/report.html?userId=${encodeURIComponent(userId)}`, status: 'ready' }),
             makeCard({ type: 'navigation', title: '打开仓位管理', description: '对照当前仓位和截图导入结果。', href: '/positions', status: 'ready' }),
           ],
         }
@@ -200,6 +209,14 @@ class FamsChatService {
           sessionType: (args.sessionType as any) || 'manual',
           triggerSource: 'user',
           executionMode: 'inline',
+          brokerWorkflow: true,
+          brokerReconciliationInput: {
+            holdingsCaptureId: args.holdingsCaptureId ? String(args.holdingsCaptureId) : undefined,
+            tradesCaptureId: args.tradesCaptureId ? String(args.tradesCaptureId) : undefined,
+            ordinaryOrdersCaptureId: args.ordinaryOrdersCaptureId ? String(args.ordinaryOrdersCaptureId) : undefined,
+            conditionalOrdersCaptureId: args.conditionalOrdersCaptureId ? String(args.conditionalOrdersCaptureId) : undefined,
+            zeroNewTradesConfirmed: args.zeroNewTradesConfirmed === true,
+          },
         })
         const completedReview = result.review?.id
           ? await dailyReviewService.getReview(result.review.id, String(args.userId || DEFAULT_USER_ID))
@@ -209,9 +226,17 @@ class FamsChatService {
           ? this.buildDailyReviewStructuredResult(report)
           : this.buildPlainStructuredResult('持仓复盘任务', `Operation ${result.operation?.id || 'unknown'} 已完成，但暂未读取到复盘报告。`)
         const material = (report?.assets || []).filter((asset: any) => asset.fundamentalAndNews?.level === 'material')
+        const reconciliation = report?.reconciliation
         return {
           reply: report ? [
             `本次${report.sessionType === 'open' ? '开盘后' : report.sessionType === 'pre_close' ? '收盘前' : '手动'}持仓复盘已完成，共分析 ${report.portfolio?.reviewedAssets || 0} 个资产。`,
+            ...(reconciliation ? [
+              `已确认事实：${reconciliation.confirmedFacts?.positions?.length || 0} 个持仓，资金 ${reconciliation.confirmedFacts?.account?.availableCash || '未确认'}。`,
+              `对账差异：${reconciliation.reconciliationDifferences?.length || 0} 项；强制材料${reconciliation.readiness?.requiredInputsReady ? '已就绪' : '未就绪'}。`,
+              `待确认规则：${reconciliation.pendingRules?.length || 0} 项，均未自动启用。`,
+              `拟保留／撤销／新增：${reconciliation.proposedOrders?.retained?.length || 0}／${reconciliation.proposedOrders?.cancelCandidates?.length || 0}／${reconciliation.proposedOrders?.addCandidates?.length || 0}；阻断 ${reconciliation.proposedOrders?.blocked?.length || 0}。`,
+              '执行权限：只读、提醒和拟单；不创建、不提交券商订单。',
+            ] : []),
             report.strategy?.assessment?.conclusion || '已生成策略总体判断。',
             material.length ? `${material.length} 个资产触发重大变化复核。` : '未发现达到重大变化阈值的新事实。',
             `关注标的：${(report.attentionCandidates || []).map((item: any) => `${item.symbol} ${item.name || ''}`).join('、') || '暂无'}。`,
@@ -233,6 +258,7 @@ class FamsChatService {
           },
           actionCards: [
             ...(result.review?.id ? [makeCard({ type: 'navigation', title: '审查本轮复盘', description: '在工作台逐节点核对本轮证据和网格草案。', href: `/daily-reviews/${result.review.id}`, status: 'completed' })] : []),
+            ...(result.review?.id ? [makeCard({ type: 'artifact', title: '打开 HTML 复盘报告', description: '打开可浏览、可打印的自包含网页报告。', href: `/api/v1/daily-reviews/${result.review.id}/report.html?userId=${encodeURIComponent(String(args.userId || DEFAULT_USER_ID))}`, status: 'completed' })] : []),
             makeCard({ type: 'navigation', title: '核对当前仓位', description: '对照当前仓位、截图导入与本轮复盘结果。', href: '/positions', status: 'completed' }),
           ],
         }
@@ -1610,6 +1636,7 @@ class FamsChatService {
           },
         })),
         attentionCandidates: report?.attentionCandidates || [],
+        reconciliation: report?.reconciliation || undefined,
         executionBoundary: report?.executionBoundary || {
           formalTradingUnlocked: false,
           autoTradeUnlocked: false,

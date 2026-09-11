@@ -14,6 +14,7 @@ import { priceService } from '../price/priceService.js'
 import { ensureUser } from '../../utils/user.js'
 import { assetIdentityResolver } from '../asset/assetIdentityResolver.js'
 import { transactionService } from '../transaction/transactionService.js'
+import { allocationPolicyService } from '../allocation/allocationPolicyService.js'
 
 interface PositionFilters {
   status?: 'open' | 'closed' | 'pending'
@@ -256,8 +257,15 @@ class PositionService {
   }
 
   async getPositionTargets(userId: string) {
-    const settings = await this.getUserSettings(userId)
-    return settings.positionTargets || {}
+    const plan = await allocationPolicyService.getCurrentPlan(userId)
+    return Object.fromEntries(plan.accounts.flatMap((account) => account.buckets).map((bucket) => [
+      bucket.tag,
+      { targetValue: bucket.targetValue / 10_000, setAt: plan.approvedAt, source: plan.schemaVersion },
+    ]))
+  }
+
+  async getApprovedAllocationPlan(userId: string) {
+    return allocationPolicyService.getCurrentPlan(userId)
   }
 
   async updatePositionTarget(userId: string, tag: string, targetValue: number) {
@@ -294,13 +302,9 @@ class PositionService {
    * 获取仓位列表
    */
   async getPositions(userId: string, filters: PositionFilters = {}) {
-    const where: any = { userId }
+    const where: any = { userId, status: filters.status || 'open' }
     const tagFilters = this.normalizeStringArray(filters.tags)
     const labelFilters = this.normalizeStringArray(filters.labels)
-
-    if (filters.status) {
-      where.status = filters.status
-    }
 
     if (filters.assetType) {
       where.asset = { type: filters.assetType }

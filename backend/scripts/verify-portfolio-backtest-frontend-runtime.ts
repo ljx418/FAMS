@@ -88,10 +88,16 @@ async function main() {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } })
   const consoleErrors: string[] = []
   const portfolioRunRequests: any[] = []
+  const fixedRuleDetailRequests: any[] = []
+  const savedRunDetailRequests: string[] = []
   page.on('console', (message: any) => {
     if (message.type() === 'error') consoleErrors.push(message.text())
   })
   page.on('pageerror', (error: Error) => consoleErrors.push(error.message))
+  page.on('request', (request: any) => {
+    const url = request.url()
+    if (request.method() === 'GET' && /\/api\/v1\/portfolio-backtest\/runs\/[^?]+/.test(url)) savedRunDetailRequests.push(url)
+  })
   await page.route('**/api/v1/portfolio-backtest/run', async (route: any) => {
     const request = route.request()
     try {
@@ -101,36 +107,50 @@ async function main() {
     }
     await route.continue()
   })
+  await page.route('**/api/v1/portfolio-backtest/fixed-rule-detail', async (route: any) => {
+    const request = route.request()
+    try {
+      fixedRuleDetailRequests.push(request.postDataJSON())
+    } catch {
+      fixedRuleDetailRequests.push({ raw: request.postData() })
+    }
+    await route.continue()
+  })
 
   const screenshots = []
   try {
     await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'networkidle', timeout: 120000 })
-    await waitForText(page, ['组合策略对比回测', '选择要比较的组合策略', '回测区间', '运行组合回测', 'Runtime', '数据可用截止日', '推荐 3 组'])
+    await waitForText(page, ['组合策略对比回测', '选择要比较的组合策略', '回测区间', '运行并保存固定规则回测', 'Runtime', '数据可用截止日', '经典 5 组'])
     screenshots.push(await screenshot(page, '01-backtest-entry.png', '组合回测入口与 runtime gate', [
       '组合策略对比回测',
       '选择要比较的组合策略',
       '已选',
       '回测区间',
       '数据可用截止日',
-      '推荐 3 组',
+      '经典 5 组',
       '季度再平衡',
       'Runtime',
       'Operation 持久化',
     ]))
 
     const checkedCountBefore = await page.locator('.ant-checkbox-checked').count()
-    const firstChecked = page.locator('.ant-checkbox-checked input').first()
+    const firstChecked = await page.locator('.ant-checkbox-checked input').first().elementHandle()
     if (checkedCountBefore > 1) {
+      if (!firstChecked) throw new Error('没有找到已选策略复选框')
       await firstChecked.click()
       const checkedCountAfter = await page.locator('.ant-checkbox-checked').count()
       if (checkedCountAfter >= checkedCountBefore) {
         throw new Error('策略多选控件没有响应取消勾选')
       }
+      await firstChecked.click()
+      if (await page.locator('.ant-checkbox-checked').count() !== checkedCountBefore) {
+        throw new Error('策略多选控件没有响应重新勾选')
+      }
     }
     const checkedCountBeforeRun = await page.locator('.ant-checkbox-checked').count()
 
-    await page.getByRole('button', { name: '运行组合回测' }).click()
-    await waitForText(page, ['正式交易未解锁', '非交易建议', 'Benchmark', '超额收益', '红利低波候选篮子'], 120000)
+    await page.getByRole('button', { name: '运行并保存固定规则回测' }).click()
+    await waitForText(page, ['正式交易未解锁', '非交易建议', '固定规则组合回测 · 起投日期敏感性', '数据真实性 passed', '图一：指定起投日的资金与仓位曲线', '图二：每周起投到现在的敏感性曲线'], 180000)
     screenshots.push(await screenshot(page, '02-backtest-result.png', '组合回测结果', [
       '正式交易未解锁',
       '允许 RESEARCH / OBSERVE / COMPARE / PLAN_DRAFT',
@@ -138,8 +158,15 @@ async function main() {
       'Benchmark',
       '超额收益',
       '成本拖累',
-      '红利低波候选篮子',
-      '快照来源',
+      '固定规则组合回测 · 起投日期敏感性',
+      '数据真实性 passed',
+      '规则预先冻结',
+      '无历史择优',
+      '图形选择',
+      '图一：指定起投日的资金与仓位曲线',
+      '图二：每周起投到现在的敏感性曲线',
+      '横截面汇总',
+      '交易记录',
       '数据等级',
       '数据治理',
       'local_cache',
@@ -157,10 +184,42 @@ async function main() {
     if (!latestRequest.startDate || !latestRequest.endDate) {
       throw new Error('组合回测请求体缺少日期区间')
     }
-    const chartBox = await page.locator('#portfolio-backtest-result canvas').first().boundingBox()
-    if (!chartBox || chartBox.width <= 0 || chartBox.height <= 0) {
-      throw new Error('组合回测图表 canvas 未正确渲染')
+    if (latestRequest.startDate !== '2023-08-29' || latestRequest.endDate !== '2026-08-28') {
+      throw new Error(`三年回测日期不符合冻结口径: ${latestRequest.startDate} ~ ${latestRequest.endDate}`)
     }
+    if (latestRequest.ruleMode !== 'registry_fixed') {
+      throw new Error('组合回测请求体未冻结为 registry_fixed')
+    }
+    if (latestRequest.scenarioAnalysis?.enabled !== false || latestRequest.scenarioAnalysis.policyIds?.length !== 1 || latestRequest.scenarioAnalysis.policyIds[0] !== 'quarterly') {
+      throw new Error('固定规则回测不应启用历史规则择优')
+    }
+    if (!latestRequest.startDateSensitivity?.enabled || latestRequest.startDateSensitivity?.sampling !== 'weekly_first_trading_day') {
+      throw new Error('组合回测请求体缺少每周起投敏感性')
+    }
+    const chartCanvases = page.locator('[data-testid="fixed-rule-study"] canvas')
+    if (await chartCanvases.count() < 2) throw new Error('固定规则双图未完整渲染')
+    for (let index = 0; index < 2; index += 1) {
+      const chartBox = await chartCanvases.nth(index).boundingBox()
+      if (!chartBox || chartBox.width <= 0 || chartBox.height <= 0) throw new Error(`固定规则图表 ${index + 1} canvas 未正确渲染`)
+    }
+    await page.getByRole('button', { name: '累计盈亏', exact: true }).click()
+    await page.getByRole('button', { name: '实际权重', exact: true }).click()
+    await page.getByRole('button', { name: '横截面汇总', exact: true }).click()
+    const shortcuts = page.locator('[data-testid="sensitivity-start-shortcuts"] button')
+    if (await shortcuts.count() < 2) throw new Error('起投日下钻快捷入口不足')
+    const shortcutText = await shortcuts.nth(1).innerText()
+    const selectedDate = shortcutText.replace('起点', '').trim()
+    await shortcuts.nth(1).click()
+    await waitForText(page, [`当前起点 ${selectedDate}`], 120000)
+    if (fixedRuleDetailRequests.length === 0) throw new Error('起投日点选未触发固定规则明细请求')
+    const historySelect = page.locator('.ant-select').filter({ hasText: '打开已保存回测' }).first()
+    if (await historySelect.count() !== 1) throw new Error('未找到已保存回测选择器')
+    await historySelect.click()
+    const historyOption = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option').first()
+    await historyOption.waitFor({ state: 'visible', timeout: 30000 })
+    await historyOption.click()
+    await waitForText(page, ['固定规则组合回测 · 起投日期敏感性', '图一：指定起投日的资金与仓位曲线'], 60000)
+    if (savedRunDetailRequests.length === 0) throw new Error('已保存回测选择器未触发历史运行详情请求')
   } finally {
     await browser.close().catch(() => undefined)
   }
@@ -175,6 +234,10 @@ async function main() {
     assertions: {
       portfolioRunRequestCaptured: portfolioRunRequests.length > 0,
       latestPortfolioRunRequest: portfolioRunRequests[portfolioRunRequests.length - 1] || null,
+      fixedRuleDetailRequestCaptured: fixedRuleDetailRequests.length > 0,
+      latestFixedRuleDetailRequest: fixedRuleDetailRequests[fixedRuleDetailRequests.length - 1] || null,
+      savedRunDetailRequestCaptured: savedRunDetailRequests.length > 0,
+      latestSavedRunDetailRequest: savedRunDetailRequests[savedRunDetailRequests.length - 1] || null,
     },
     consoleErrors: consoleErrors.slice(0, 20),
     notTradingAdvice: true,

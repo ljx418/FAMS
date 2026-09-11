@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Button, Drawer, Layout as AntLayout, Menu } from 'antd'
+import { Button, Drawer, Layout as AntLayout, Menu, notification } from 'antd'
 import {
   DashboardOutlined,
   BankOutlined,
@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { FamsChatBox } from '../chat/FamsChatBox'
+import { API_BASE } from '../../config/api'
 
 const { Sider, Content } = AntLayout
 
@@ -34,7 +35,6 @@ const menuItems = [
       { key: 'positions', icon: <WalletOutlined />, label: '仓位管理' },
       { key: 'daily-reviews', icon: <AuditOutlined />, label: '每日复盘' },
       { key: 'transactions', icon: <SwapOutlined />, label: '交易记录' },
-      { key: 'portfolios', icon: <PieChartOutlined />, label: '投资组合' },
     ],
   },
   {
@@ -46,6 +46,7 @@ const menuItems = [
       { key: 'dividend-low-vol', icon: <RiseOutlined />, label: '红利低波策略' },
       { key: 'relative-rotation', icon: <RadarChartOutlined />, label: '相对轮动与波动仓' },
       { key: 'backtest', icon: <ExperimentOutlined />, label: '策略回测' },
+      { key: 'portfolio-comparison', icon: <PieChartOutlined />, label: '持仓组合对比' },
     ],
   },
   {
@@ -61,6 +62,8 @@ const menuItems = [
 
 export function Layout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [notificationApi, notificationContext] = notification.useNotification()
+  const notifiedReminderIds = useRef(new Set<string>())
   const navigate = useNavigate()
   const location = useLocation()
   const pathKey = location.pathname.split('/')[1] || 'dashboard'
@@ -81,6 +84,45 @@ export function Layout() {
     navigate(`/${key}`)
     setMobileNavOpen(false)
   }
+  useEffect(() => {
+    let cancelled = false
+    const storageKey = 'fams.brokerReviewReminder.seen.v1'
+    try {
+      notifiedReminderIds.current = new Set(JSON.parse(window.localStorage.getItem(storageKey) || '[]'))
+    } catch {
+      notifiedReminderIds.current = new Set()
+    }
+    const poll = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/alerts/unread?userId=default&limit=30`)
+        if (!response.ok || cancelled) return
+        const alerts = await response.json() as Array<{ id: string; title: string; message: string }>
+        for (const alert of alerts.filter((item) => item.title.startsWith('[券商复盘提醒]')).reverse()) {
+          if (notifiedReminderIds.current.has(alert.id)) continue
+          notifiedReminderIds.current.add(alert.id)
+          const kept = [...notifiedReminderIds.current].slice(-40)
+          notifiedReminderIds.current = new Set(kept)
+          window.localStorage.setItem(storageKey, JSON.stringify(kept))
+          notificationApi.info({
+            key: alert.id,
+            message: '券商波动交易复盘提醒',
+            description: alert.message,
+            duration: 0,
+            btn: <Button type="primary" size="small" onClick={() => navigate('/daily-reviews')}>进入每日复盘</Button>,
+          })
+          if ('Notification' in window && window.Notification.permission === 'granted') {
+            new window.Notification('FAMS 券商复盘提醒', { body: alert.message, tag: alert.id })
+          }
+          window.dispatchEvent(new CustomEvent('fams:broker-review-reminder', { detail: alert }))
+        }
+      } catch {
+        // 后端暂不可用时保持静默，下一个轮询周期会重试。
+      }
+    }
+    void poll()
+    const timer = window.setInterval(() => void poll(), 60_000)
+    return () => { cancelled = true; window.clearInterval(timer) }
+  }, [navigate, notificationApi])
   const navigationMenu = (
     <nav aria-label="FAMS 主导航">
       <Menu
@@ -96,6 +138,7 @@ export function Layout() {
 
   return (
     <AntLayout className="min-h-screen min-w-0">
+      {notificationContext}
       <Sider
         width={200}
         breakpoint="md"

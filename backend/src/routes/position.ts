@@ -90,6 +90,11 @@ export async function positionRoutes(app: FastifyInstance) {
     return positionService.createManualBuyPosition(userId, data)
   })
 
+  app.get('/allocation-plan/:userId', async (request) => {
+    const { userId } = request.params as { userId: string }
+    return positionService.getApprovedAllocationPlan(userId)
+  })
+
   app.get('/:id/sleeves', async (request) => {
     const { id } = request.params as { id: string }
     const query = request.query as Record<string, string | undefined>

@@ -13,6 +13,7 @@ import { alertService } from '../services/alert/alertService.js'
 import { operationService } from '../services/operation/operationService.js'
 import { assetTrendService } from '../services/market-data/assetTrendService.js'
 import { dailyReviewService } from '../services/review/dailyReviewService.js'
+import { brokerReviewReconciliationService } from '../services/review/brokerReviewReconciliationService.js'
 import { gridStrategyService } from '../services/strategy/gridStrategyService.js'
 import { screenshotCaptureService } from '../services/capture/screenshotCaptureService.js'
 import { getVisionCaptureStatus } from '../services/capture/visionCaptureService.js'
@@ -742,14 +743,33 @@ export const mcpTools: Record<string, McpToolDefinition> = {
         userId: { type: 'string' },
         sessionType: { type: 'string', enum: ['open', 'pre_close', 'manual'] },
         idempotencyKey: { type: 'string' },
+        holdingsCaptureId: { type: 'string' },
+        tradesCaptureId: { type: 'string' },
+        ordinaryOrdersCaptureId: { type: 'string' },
+        conditionalOrdersCaptureId: { type: 'string' },
+        zeroNewTradesConfirmed: { type: 'boolean' },
       },
       required: ['userId'],
     },
     outputSchema: operationOutputSchema,
     permissions: asyncPermission(['daily_review:write', 'operation:write']),
     safety: asyncOperationSafety,
-    handler: async (params: { userId: string; sessionType?: 'open' | 'pre_close' | 'manual'; idempotencyKey?: string }) => {
-      const started = await dailyReviewService.startReview({ ...params, triggerSource: 'agent', executionMode: 'queued' })
+    handler: async (params: { userId: string; sessionType?: 'open' | 'pre_close' | 'manual'; idempotencyKey?: string; holdingsCaptureId?: string; tradesCaptureId?: string; ordinaryOrdersCaptureId?: string; conditionalOrdersCaptureId?: string; zeroNewTradesConfirmed?: boolean }) => {
+      const started = await dailyReviewService.startReview({
+        userId: params.userId,
+        sessionType: params.sessionType,
+        idempotencyKey: params.idempotencyKey,
+        triggerSource: 'agent',
+        executionMode: 'queued',
+        brokerWorkflow: true,
+        brokerReconciliationInput: {
+          holdingsCaptureId: params.holdingsCaptureId,
+          tradesCaptureId: params.tradesCaptureId,
+          ordinaryOrdersCaptureId: params.ordinaryOrdersCaptureId,
+          conditionalOrdersCaptureId: params.conditionalOrdersCaptureId,
+          zeroNewTradesConfirmed: params.zeroNewTradesConfirmed === true,
+        },
+      })
       return {
         id: started.operation?.id,
         operationId: started.operation?.id,
@@ -760,6 +780,50 @@ export const mcpTools: Record<string, McpToolDefinition> = {
         artifactRefs: started.review?.id ? [`daily-review:${started.review.id}`] : [],
         nextActions: [{ tool: 'operation.get', operation_id: started.operation?.id }, { tool: 'daily_review.get', reviewId: started.review?.id }],
         reused: started.reused,
+      }
+    },
+  },
+
+  'daily_review.reconcile': {
+    name: 'daily_review.reconcile',
+    domain: 'daily_review',
+    version: 'v1',
+    description: '只读对账券商持仓、可卖数量、资金、成交、普通委托和条件单；不会修改仓位或创建订单',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string' },
+        sessionType: { type: 'string', enum: ['open', 'pre_close', 'manual'] },
+        holdingsCaptureId: { type: 'string' },
+        tradesCaptureId: { type: 'string' },
+        ordinaryOrdersCaptureId: { type: 'string' },
+        conditionalOrdersCaptureId: { type: 'string' },
+        zeroNewTradesConfirmed: { type: 'boolean' },
+      },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['daily_review:read']),
+    safety: readSafety,
+    handler: async (params: any) => brokerReviewReconciliationService.reconcile(params),
+  },
+
+  'daily_review.export_html': {
+    name: 'daily_review.export_html',
+    domain: 'daily_review',
+    version: 'v1',
+    description: '返回指定复盘的自包含 HTML 报告地址；页面不依赖单张图片且不会触发交易',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, reviewId: { type: 'string' } }, required: ['userId', 'reviewId'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['daily_review:read']),
+    safety: readSafety,
+    handler: async (params: { userId: string; reviewId: string }) => {
+      await dailyReviewService.getReview(params.reviewId, params.userId)
+      return {
+        reviewId: params.reviewId,
+        contentType: 'text/html; charset=utf-8',
+        href: `/api/v1/daily-reviews/${encodeURIComponent(params.reviewId)}/report.html?userId=${encodeURIComponent(params.userId)}`,
+        executionBoundary: { canCreateOrder: false, autoTradeUnlocked: false },
       }
     },
   },
@@ -897,7 +961,7 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     description: '保存 Codex 从截图得到的结构化识别结果并生成逐行差异预览，不写入台账',
     inputSchema: {
       type: 'object',
-      properties: { userId: { type: 'string' }, captureId: { type: 'string' }, documentType: { type: 'string', enum: ['holding', 'trade', 'order', 'mixed'] }, rows: { type: 'array', items: { type: 'object' } }, rawText: { type: 'string' } },
+      properties: { userId: { type: 'string' }, captureId: { type: 'string' }, documentType: { type: 'string', enum: ['holding', 'trade', 'order', 'ordinary_order', 'conditional_order', 'mixed', 'fund_portfolio', 'fund_transaction'] }, rows: { type: 'array', items: { type: 'object' } }, rawText: { type: 'string' } },
       required: ['userId', 'captureId', 'documentType', 'rows'],
     },
     outputSchema: successEnvelopeSchema,
@@ -967,13 +1031,19 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     description: '人工确认选定截图行后写入持仓、成交记录或外部委托观察；缺失持仓绝不自动关闭',
     inputSchema: {
       type: 'object',
-      properties: { userId: { type: 'string' }, captureId: { type: 'string' }, rowIds: { type: 'array', items: { type: 'string' } }, confirmation: humanConfirmationSchema },
+      properties: {
+        userId: { type: 'string' },
+        captureId: { type: 'string' },
+        rowIds: { type: 'array', items: { type: 'string' } },
+        tradePositionEffectPolicy: { type: 'string', enum: ['apply', 'included_in_latest_snapshot'] },
+        confirmation: humanConfirmationSchema,
+      },
       required: ['userId', 'captureId', 'confirmation'],
     },
     outputSchema: successEnvelopeSchema,
     permissions: tradeWritePermission(['capture:confirm']),
     safety: confirmedWriteSafety,
-    handler: async (params: { userId: string; captureId: string; rowIds?: string[]; confirmation?: HumanConfirmation }) => {
+    handler: async (params: { userId: string; captureId: string; rowIds?: string[]; tradePositionEffectPolicy?: 'apply' | 'included_in_latest_snapshot'; confirmation?: HumanConfirmation }) => {
       if (!hasHumanConfirmation(params.confirmation)) {
         return { blocked: true, code: 'HUMAN_CONFIRMATION_REQUIRED', message: '截图行写入台账需要明确人工确认。', nextActions: ['检查预览后携带 confirmation.confirmed=true 和确认人重试'] }
       }
@@ -983,6 +1053,7 @@ export const mcpTools: Record<string, McpToolDefinition> = {
         rowIds: params.rowIds,
         confirmed: true,
         confirmedBy: params.confirmation!.confirmedBy!,
+        tradePositionEffectPolicy: params.tradePositionEffectPolicy,
       })
     },
   },

@@ -74,6 +74,7 @@ export async function captureRoutes(app: FastifyInstance) {
       rowIds: body.rowIds,
       confirmed: body.confirmed === true,
       confirmedBy: body.confirmedBy,
+      tradePositionEffectPolicy: body.tradePositionEffectPolicy,
     })
   })
 }

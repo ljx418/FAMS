@@ -34,6 +34,12 @@ export interface CreateTransactionParams {
   sourceCaptureRowId?: string
   sleeveType?: 'core' | 'volatility'
   volatilityTradeDraftId?: string
+  /**
+   * Screenshot history is often already reflected by a newer holdings snapshot.
+   * record_only persists the fill for audit/deduplication without replaying its
+   * position or cash effect.
+   */
+  positionEffect?: 'apply' | 'record_only'
 }
 
 export interface TransactionFilters {
@@ -100,6 +106,35 @@ class TransactionService {
         const error = new Error('股票/ETF交易数量必须是100股的整数倍') as Error & { statusCode?: number }
         error.statusCode = 400
         throw error
+      }
+
+      if (params.positionEffect === 'record_only') {
+        const existingPosition = await tx.position.findFirst({
+          where: { userId: params.userId, assetId: params.assetId, status: 'open' },
+        })
+        return tx.transaction.create({
+          data: {
+            userId: params.userId,
+            assetId: params.assetId,
+            positionId: existingPosition?.id,
+            type: params.type,
+            quantity: params.quantity,
+            price: params.price,
+            fee,
+            amount: this.calculateSignedAmount(params.type, amount, fee),
+            broker: params.broker,
+            confirmationNo: params.confirmationNo,
+            executedAt: params.executedAt || new Date(),
+            notes: params.notes,
+            source: params.source,
+            sleeveType: params.sleeveType,
+            volatilityTradeDraftId: params.volatilityTradeDraftId,
+            adviceActionId: params.adviceActionId,
+            sourceImportKey: params.sourceImportKey,
+            sourceCaptureRowId: params.sourceCaptureRowId,
+          },
+          include: { asset: true },
+        })
       }
 
       const openPositionBeforeTrade = params.type === 'buy' || params.type === 'sell'

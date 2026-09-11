@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "gold_oil_etf_provider_validation.v1",
+  "validatedAt": "2026-09-06T10:01:38+08:00",
+  "method": "Compare qfq daily closes returned independently by the project Tencent and Eastmoney adapters.",
+  "items": [
+    {
+      "symbol": "518880",
+      "status": "passed",
+      "commonSampleSize": 300,
+      "latestCommonDate": "2026-09-04",
+      "eastmoneyLatestClose": 9.164,
+      "tencentLatestClose": 9.164,
+      "medianAbsoluteDifferencePct": 0,
+      "latestAbsoluteDifferencePct": 0,
+      "error": null
+    },
+    {
+      "symbol": "513350",
+      "status": "passed",
+      "commonSampleSize": 300,
+      "latestCommonDate": "2026-09-04",
+      "eastmoneyLatestClose": 1.39,
+      "tencentLatestClose": 1.39,
+      "medianAbsoluteDifferencePct": 0,
+      "latestAbsoluteDifferencePct": 0,
+      "error": null
+    }
+  ]
+}

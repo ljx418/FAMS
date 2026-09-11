@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, App as AntApp, Button, Card, Checkbox, Col, DatePicker, Form, Input, InputNumber, Row, Select, Tag } from 'antd'
 import axios from 'axios'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -21,7 +21,14 @@ const formatSignedMoney = (value?: number | null) => {
 }
 const getOperationId = (data: any) => data?.operation_id || data?.operationId || data?.id
 
-const DEFAULT_PORTFOLIO_BACKTEST_END_DATE = '2026-06-05'
+const DEFAULT_PORTFOLIO_BACKTEST_END_DATE = '2026-08-28'
+const CLASSIC_PORTFOLIO_STRATEGY_IDS = [
+  'all_weather',
+  'permanent_portfolio',
+  'china_60_40',
+  'china_golden_butterfly',
+  'dividend_low_vol_60_40',
+]
 const RECOMMENDED_PORTFOLIO_STRATEGY_IDS = [
   'dividend_low_vol_basket',
   'current_holdings_buy_and_hold',
@@ -116,6 +123,499 @@ const PortfolioCurveChart: React.FC<{ strategies: any[] }> = ({ strategies }) =>
   return (
     <div role="img" aria-label="组合策略累计收益、基准和回撤曲线">
       <ReactECharts option={option} style={{ height: 430, width: '100%' }} notMerge lazyUpdate />
+    </div>
+  )
+}
+
+const FIXED_RULE_COLORS = ['#38bdf8', '#34d399', '#fbbf24', '#a78bfa', '#fb7185', '#f97316', '#94a3b8']
+
+const FixedRulePrimaryChart: React.FC<{
+  study: any
+  visibleStrategyIds: string[]
+  view: 'asset' | 'return' | 'weight'
+  focusedStrategyId: string
+}> = ({ study, visibleStrategyIds, view, focusedStrategyId }) => {
+  const strategies = (study?.strategies || []).filter((strategy: any) => visibleStrategyIds.includes(strategy.strategyId))
+  const focused = strategies.find((strategy: any) => strategy.strategyId === focusedStrategyId) || strategies[0]
+  if (strategies.length === 0) return <div className="flex h-72 items-center justify-center text-gray-500">请选择至少一个组合</div>
+
+  const option: EChartsOption = view === 'weight' ? {
+    backgroundColor: 'transparent',
+    animation: false,
+    color: FIXED_RULE_COLORS,
+    tooltip: { trigger: 'axis', valueFormatter: (value) => `${Number(value).toFixed(2)}%` },
+    legend: { type: 'scroll', top: 0, textStyle: { color: '#94a3b8' } },
+    grid: { left: 56, right: 24, top: 52, bottom: 66 },
+    dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 12, height: 22 }],
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: (focused?.primaryRun?.positionCurve || []).map((point: any) => point.date),
+      axisLabel: { color: '#94a3b8' },
+    },
+    yAxis: { type: 'value', min: 0, max: 100, name: '实际权重', axisLabel: { formatter: '{value}%', color: '#94a3b8' } },
+    series: [
+      ...((focused?.components || []).filter((component: any) => component.assetClass !== 'cash').map((component: any) => ({
+        name: `${component.symbol} ${component.name}`,
+        type: 'line' as const,
+        stack: 'weights',
+        showSymbol: false,
+        areaStyle: { opacity: 0.52 },
+        data: (focused?.primaryRun?.positionCurve || []).map((point: any) => (
+          point.components?.find((item: any) => item.symbol === component.symbol)?.weightPercent ?? 0
+        )),
+      }))),
+      {
+        name: '现金',
+        type: 'line' as const,
+        stack: 'weights',
+        showSymbol: false,
+        areaStyle: { opacity: 0.52 },
+        data: (focused?.primaryRun?.positionCurve || []).map((point: any) => point.cashWeightPercent ?? 0),
+      },
+    ],
+  } : {
+    backgroundColor: 'transparent',
+    animation: false,
+    color: FIXED_RULE_COLORS,
+    tooltip: {
+      trigger: 'axis',
+      valueFormatter: (value) => view === 'asset' ? formatMoney(Number(value)) : `${Number(value).toFixed(2)}%`,
+    },
+    legend: { type: 'scroll', top: 0, textStyle: { color: '#94a3b8' }, selectedMode: false },
+    grid: { left: 70, right: 24, top: 52, bottom: 66 },
+    dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 12, height: 22 }],
+    xAxis: { type: 'time', axisLabel: { color: '#94a3b8' } },
+    yAxis: {
+      type: 'value',
+      name: view === 'asset' ? '总资产（元）' : '累计盈亏',
+      axisLabel: { color: '#94a3b8', formatter: view === 'asset' ? '¥{value}' : '{value}%' },
+      splitLine: { lineStyle: { color: '#1e293b' } },
+    },
+    series: strategies.map((strategy: any) => ({
+      name: strategy.displayName,
+      type: 'line' as const,
+      smooth: false,
+      showSymbol: false,
+      data: (strategy.primaryRun?.equityCurve || []).map((point: any) => [
+        point.date,
+        view === 'asset' ? point.portfolioValue : point.cumulativeReturnPercent,
+      ]),
+    })),
+  }
+
+  return <ReactECharts option={option} style={{ height: 460, width: '100%' }} notMerge lazyUpdate />
+}
+
+const FixedRuleSensitivityChart: React.FC<{
+  study: any
+  visibleStrategyIds: string[]
+  mode: 'strategy' | 'aggregate'
+  metric: 'peak' | 'annualized' | 'drawdown'
+  onSelectStartDate: (startDate: string) => void
+}> = ({ study, visibleStrategyIds, mode, metric, onSelectStartDate }) => {
+  const strategies = (study?.strategies || []).filter((strategy: any) => visibleStrategyIds.includes(strategy.strategyId))
+  const starts = Array.from(new Set(strategies.flatMap((strategy: any) => (
+    (strategy.sensitivity || []).map((point: any) => point.startDate)
+  )))).sort() as string[]
+  const aggregate = starts.flatMap((startDate) => {
+    const points = strategies.flatMap((strategy: any) => {
+      const point = (strategy.sensitivity || []).find((item: any) => item.startDate === startDate)
+      return point ? [{ strategyId: strategy.strategyId, point }] : []
+    })
+    if (points.length === 0) return []
+    return [{
+      startDate,
+      maximumTerminalReturnPercent: Math.max(...points.map(({ point }: any) => point.totalReturnPercent)),
+      averageTerminalReturnPercent: points.reduce((sum: number, { point }: any) => sum + point.totalReturnPercent, 0) / points.length,
+      worstMaxDrawdownPercent: Math.min(...points.map(({ point }: any) => point.maxDrawdownPercent)),
+    }]
+  })
+  const metricConfig = {
+    peak: { key: 'peakReturnPercent', label: '区间最高浮盈' },
+    annualized: { key: 'annualizedReturnPercent', label: '年化收益' },
+    drawdown: { key: 'maxDrawdownPercent', label: '最大回撤' },
+  }[metric]
+  const series = mode === 'strategy'
+    ? strategies.map((strategy: any) => ({
+      name: strategy.displayName,
+      type: 'line' as const,
+      showSymbol: false,
+      connectNulls: false,
+      data: (strategy.sensitivity || []).map((point: any) => [point.startDate, point[metricConfig.key]]),
+    }))
+    : [
+      { name: '最高期末收益', key: 'maximumTerminalReturnPercent', color: '#34d399' },
+      { name: '平均期末收益', key: 'averageTerminalReturnPercent', color: '#38bdf8' },
+      { name: '最差最大回撤', key: 'worstMaxDrawdownPercent', color: '#fb7185' },
+    ].map((item) => ({
+      name: item.name,
+      type: 'line' as const,
+      showSymbol: false,
+      itemStyle: { color: item.color },
+      lineStyle: { color: item.color },
+      data: aggregate.map((point: any) => [point.startDate, Number(point[item.key].toFixed(4))]),
+    }))
+  const option: EChartsOption = {
+    backgroundColor: 'transparent',
+    animation: false,
+    color: FIXED_RULE_COLORS,
+    tooltip: { trigger: 'axis', valueFormatter: (value) => `${Number(value).toFixed(2)}%` },
+    legend: { type: 'scroll', top: 0, textStyle: { color: '#94a3b8' }, selectedMode: false },
+    grid: { left: 58, right: 24, top: 52, bottom: 66 },
+    dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 12, height: 22 }],
+    xAxis: { type: 'time', axisLabel: { color: '#94a3b8' } },
+    yAxis: {
+      type: 'value',
+      name: mode === 'strategy' ? metricConfig.label : '横截面收益 / 回撤',
+      axisLabel: { color: '#94a3b8', formatter: '{value}%' },
+      splitLine: { lineStyle: { color: '#1e293b' } },
+    },
+    series,
+  }
+  return (
+    <ReactECharts
+      option={option}
+      style={{ height: 430, width: '100%' }}
+      notMerge
+      lazyUpdate
+      onEvents={{
+        click: (params: any) => {
+          const startDate = Array.isArray(params?.value) ? String(params.value[0] || '') : ''
+          if (startDate) onSelectStartDate(startDate.slice(0, 10))
+        },
+      }}
+    />
+  )
+}
+
+const FixedRuleStudyPanel: React.FC<{
+  study: any
+  userId: string
+  onStartDateSelected: (startDate: string) => void
+}> = ({ study, userId, onStartDateSelected }) => {
+  const { message } = AntApp.useApp()
+  const [visibleStrategyIds, setVisibleStrategyIds] = useState<string[]>([])
+  const [focusedStrategyId, setFocusedStrategyId] = useState('')
+  const [primaryView, setPrimaryView] = useState<'asset' | 'return' | 'weight'>('asset')
+  const [sensitivityMode, setSensitivityMode] = useState<'strategy' | 'aggregate'>('strategy')
+  const [sensitivityMetric, setSensitivityMetric] = useState<'peak' | 'annualized' | 'drawdown'>('peak')
+  const [detailStudy, setDetailStudy] = useState<any | null>(null)
+  const [detailStartDate, setDetailStartDate] = useState('')
+  const [detailLoading, setDetailLoading] = useState(false)
+  const detailCache = useRef(new Map<string, any>())
+
+  useEffect(() => {
+    const ids = (study?.strategies || []).map((strategy: any) => strategy.strategyId)
+    setVisibleStrategyIds(ids)
+    setFocusedStrategyId(ids[0] || '')
+    setDetailStudy(null)
+    setDetailStartDate(study?.actualPeriod?.startDate || '')
+    detailCache.current.clear()
+  }, [study?.generatedAt])
+
+  if (!study) return null
+  const activeStudy = detailStudy || study
+  const strategies = study.strategies || []
+  const sensitivityDates = (strategies[0]?.sensitivity || []).map((point: any) => point.startDate)
+  const sensitivityShortcuts = Array.from(new Set([
+    sensitivityDates[0],
+    sensitivityDates[Math.floor(sensitivityDates.length / 2)],
+    sensitivityDates[Math.max(0, sensitivityDates.length - 5)],
+  ].filter(Boolean))) as string[]
+  const loadDetail = async (startDate: string) => {
+    onStartDateSelected(startDate)
+    if (startDate === study.actualPeriod?.startDate) {
+      setDetailStudy(null)
+      setDetailStartDate(startDate)
+      return
+    }
+    const cached = detailCache.current.get(startDate)
+    if (cached) {
+      setDetailStudy(cached)
+      setDetailStartDate(startDate)
+      return
+    }
+    setDetailLoading(true)
+    try {
+      const assumptions = study.executionAssumptions || {}
+      const response = await axios.post('/api/v1/portfolio-backtest/fixed-rule-detail', {
+        userId,
+        portfolioStrategyIds: strategies.map((strategy: any) => strategy.strategyId),
+        startDate,
+        endDate: study.actualPeriod?.endDate,
+        initialCapital: study.initialCapital,
+        rebalanceFrequency: 'quarterly',
+        dividendMode: 'reinvest',
+        feeRate: assumptions.feeRate ?? 0.0003,
+        slippageRate: assumptions.slippageRate ?? 0.0005,
+        benchmarkIds: ['cash_cny'],
+        ruleMode: 'registry_fixed',
+        startDateSensitivity: { enabled: false, sampling: 'weekly_first_trading_day', minimumTradingDaysForAnnualization: 20 },
+        scenarioAnalysis: {
+          enabled: false,
+          policyIds: ['quarterly'],
+          executionPrice: 'next_open',
+          lotSize: assumptions.lotSize ?? 100,
+          minCommissionCny: assumptions.minCommissionCny ?? 5,
+          cashAnnualRate: assumptions.cashAnnualRate ?? 0.01,
+          driftThresholdPercentagePoints: 3,
+          validationMonths: 12,
+        },
+      })
+      const detail = response.data?.fixedRuleStudy
+      if (!detail) throw new Error('fixed_rule_detail_missing')
+      detailCache.current.set(startDate, detail)
+      setDetailStudy(detail)
+      setDetailStartDate(startDate)
+      message.success(`图一已切换到 ${startDate} 起投`)
+    } catch (error) {
+      console.error('Failed to load fixed rule detail:', error)
+      message.error('起投日明细加载失败')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4" data-testid="fixed-rule-study">
+      <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-lg font-semibold text-white">固定规则组合回测 · 起投日期敏感性</div>
+          <Tag color={study.dataTruthAudit?.status === 'passed' ? '#34d399' : '#ef4444'}>数据真实性 {study.dataTruthAudit?.status}</Tag>
+          <Tag color="#38bdf8">初始资金 {formatMoney(study.initialCapital)}</Tag>
+          <Tag color="#34d399">规则预先冻结</Tag>
+          <Tag color="#34d399">无历史择优</Tag>
+        </div>
+        <div className="mt-2 text-sm text-slate-200">{study.methodology?.summary}</div>
+        <div className="mt-2 text-xs text-slate-400">
+          实际共同交易日 {study.actualPeriod?.startDate || '--'} 至 {study.actualPeriod?.endDate || '--'}，共 {study.actualPeriod?.tradingDays || 0} 日；每周起点 {study.sensitivityConfig?.startPointCount || 0} 个。
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-[#0f172a99] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="font-medium text-white">图形选择</div>
+            <div className="mt-1 text-xs text-gray-400">下列选择同时控制两张图；组合颜色保持一致。</div>
+          </div>
+          <Checkbox.Group
+            value={visibleStrategyIds}
+            onChange={(values) => {
+              const ids = values.map(String)
+              setVisibleStrategyIds(ids)
+              if (!ids.includes(focusedStrategyId)) setFocusedStrategyId(ids[0] || '')
+            }}
+            options={strategies.map((strategy: any) => ({ label: strategy.displayName, value: strategy.strategyId }))}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-[#0f172a99] p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="font-semibold text-white">图一：指定起投日的资金与仓位曲线</div>
+            <div className="mt-1 text-xs text-gray-400">当前起点 {detailStartDate || activeStudy.actualPeriod?.startDate}，终点 {activeStudy.actualPeriod?.endDate}。</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(['asset', 'return', 'weight'] as const).map((view) => (
+              <Button key={view} size="small" type={primaryView === view ? 'primary' : 'default'} onClick={() => setPrimaryView(view)}>
+                {view === 'asset' ? '总资产' : view === 'return' ? '累计盈亏' : '实际权重'}
+              </Button>
+            ))}
+            {detailStudy && <Button size="small" onClick={() => void loadDetail(study.actualPeriod?.startDate)}>恢复主起点</Button>}
+          </div>
+        </div>
+        {primaryView === 'weight' && (
+          <div className="mb-2 flex flex-wrap gap-1">
+            {(activeStudy.strategies || []).filter((strategy: any) => visibleStrategyIds.includes(strategy.strategyId)).map((strategy: any) => (
+              <Button key={strategy.strategyId} size="small" type={focusedStrategyId === strategy.strategyId ? 'primary' : 'text'} onClick={() => setFocusedStrategyId(strategy.strategyId)}>{strategy.displayName}</Button>
+            ))}
+          </div>
+        )}
+        <div className={detailLoading ? 'pointer-events-none opacity-50' : ''}>
+          <FixedRulePrimaryChart study={activeStudy} visibleStrategyIds={visibleStrategyIds} view={primaryView} focusedStrategyId={focusedStrategyId} />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-[#0f172a99] p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="font-semibold text-white">图二：每周起投到现在的敏感性曲线</div>
+            <div className="mt-1 text-xs text-gray-400">点击曲线点可把该起投日带入图一；不足20个交易日不展示年化收益。</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="small" type={sensitivityMode === 'strategy' ? 'primary' : 'default'} onClick={() => setSensitivityMode('strategy')}>逐策略</Button>
+            <Button size="small" type={sensitivityMode === 'aggregate' ? 'primary' : 'default'} onClick={() => setSensitivityMode('aggregate')}>横截面汇总</Button>
+            {sensitivityMode === 'strategy' && (['peak', 'annualized', 'drawdown'] as const).map((metric) => (
+              <Button key={metric} size="small" type={sensitivityMetric === metric ? 'primary' : 'text'} onClick={() => setSensitivityMetric(metric)}>
+                {metric === 'peak' ? '最高浮盈' : metric === 'annualized' ? '年化收益' : '最大回撤'}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <FixedRuleSensitivityChart study={study} visibleStrategyIds={visibleStrategyIds} mode={sensitivityMode} metric={sensitivityMetric} onSelectStartDate={(date) => void loadDetail(date)} />
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-400" data-testid="sensitivity-start-shortcuts">
+          <span>无障碍起点选择：</span>
+          {sensitivityShortcuts.map((date) => (
+            <Button key={date} size="small" loading={detailLoading && detailStartDate === date} onClick={() => void loadDetail(date)}>起点 {date}</Button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-5">
+        {(activeStudy.strategies || []).filter((strategy: any) => visibleStrategyIds.includes(strategy.strategyId)).map((strategy: any) => (
+          <div key={strategy.strategyId} className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+            <div className="font-medium text-white">{strategy.displayName}</div>
+            <div className="mt-1 text-xs text-emerald-300">固定：{strategy.appliedPolicy?.frequency} / {strategy.appliedPolicy?.scenarioId}</div>
+            <div className="mt-3 text-gray-300">期末 {formatMoney(strategy.primaryRun?.metrics?.endingValue)}</div>
+            <div className={strategy.primaryRun?.metrics?.totalReturnPercent >= 0 ? 'text-red-300' : 'text-emerald-300'}>{formatPercent(strategy.primaryRun?.metrics?.totalReturnPercent)}</div>
+            <div className="mt-1 text-xs text-gray-400">最大回撤 {formatPercent(strategy.primaryRun?.metrics?.maxDrawdownPercent)} · 成本 {formatMoney(strategy.primaryRun?.metrics?.totalCostCny)}</div>
+            <details className="mt-3">
+              <summary className="cursor-pointer text-xs text-sky-300">交易记录（{strategy.primaryRun?.trades?.length || 0}）</summary>
+              <div className="mt-2 max-h-64 overflow-auto">
+                {(strategy.primaryRun?.trades || []).map((trade: any, index: number) => (
+                  <div key={`${trade.executionDate}-${trade.symbol}-${index}`} className="border-b border-white/5 py-2 text-xs text-gray-300">
+                    <div>{trade.executionDate} · {trade.side} {trade.symbol} · {trade.quantity}份</div>
+                    <div className="text-gray-500">{formatMoney(trade.grossAmount)} · 费用 {formatMoney(trade.totalCost)}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const ClassicPortfolioStudyPanel: React.FC<{ study: any }> = ({ study }) => {
+  if (!study) return null
+  const preferredCurves = (study.strategies || []).map((strategy: any) => {
+    const scenario = (strategy.scenarios || []).find((item: any) => item.scenarioId === strategy.preferredScenarioId)
+    return scenario ? {
+      definition: { strategyId: strategy.strategyId, displayName: `${strategy.displayName} · ${scenario.scenarioLabel}` },
+      equityCurve: scenario.equityCurve,
+    } : null
+  }).filter(Boolean)
+
+  return (
+    <div className="space-y-4" data-testid="classic-portfolio-study">
+      <div className="rounded-xl border border-sky-400/25 bg-sky-500/10 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-lg font-semibold text-white">中国版经典组合 · 三年真实数据研究</div>
+          <Tag color={study.dataTruthAudit?.status === 'passed' ? '#34d399' : '#ef4444'}>
+            数据真实性 {study.dataTruthAudit?.status || 'unknown'}
+          </Tag>
+          <Tag color="#38bdf8">10万元</Tag>
+          <Tag color="#38bdf8">6种调仓机制</Tag>
+          <Tag color="#fbbf24">置信度 {study.conclusion?.confidence || 'insufficient'}</Tag>
+        </div>
+        <div className="mt-3 text-sm leading-6 text-slate-200">{study.conclusion?.summary}</div>
+        <div className="mt-2 text-xs text-slate-400">
+          请求区间 {study.requestedPeriod?.startDate} 至 {study.requestedPeriod?.endDate}；实际共同交易日 {study.actualPeriod?.startDate || '--'} 至 {study.actualPeriod?.endDate || '--'}，共 {study.actualPeriod?.tradingDays || 0} 日。
+        </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-4">
+        <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
+          <div className="font-medium text-white">执行口径</div>
+          <div className="mt-2 space-y-1 text-gray-300">
+            <div>信号：前一交易日收盘后</div>
+            <div>成交：下一交易日开盘</div>
+            <div>整数手：{study.executionAssumptions?.lotSize}份</div>
+            <div>最低佣金：{formatMoney(study.executionAssumptions?.minCommissionCny)}</div>
+            <div>现金：固定年化 {formatPercent((study.executionAssumptions?.cashAnnualRate || 0) * 100)}</div>
+          </div>
+        </div>
+        <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm lg:col-span-3">
+          <div className="mb-2 font-medium text-white">数据真实性逐标的检查</div>
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {(study.dataTruthAudit?.items || []).map((item: any) => (
+              <div key={item.symbol} className="rounded border border-white/10 bg-black/20 p-2">
+                <div className="flex justify-between gap-2 text-white"><span>{item.name}</span><span>{item.symbol}</span></div>
+                <div className="mt-1 text-xs text-gray-400">{item.firstDate || '--'} ~ {item.lastDate || '--'}</div>
+                <div className="mt-1 flex justify-between text-xs"><span className="text-gray-400">{item.bars}日</span><span className={item.status === 'passed' ? 'text-emerald-300' : 'text-red-300'}>{item.coveragePercent}% · {item.status}</span></div>
+                <div className="mt-1 text-[11px] text-gray-500">腾讯未复权核验 {item.crossCheckedBars || 0}日 · 官方分红 {item.distributionEvents || 0}次 · {item.crossCheckStatus}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <PortfolioCurveChart strategies={preferredCurves as any[]} />
+
+      <div className="space-y-4">
+        {(study.strategies || []).map((strategy: any) => {
+          const preferred = (strategy.scenarios || []).find((item: any) => item.scenarioId === strategy.preferredScenarioId)
+          const trades = preferred?.trades || []
+          return (
+            <div key={strategy.strategyId} className="rounded-xl border border-white/10 bg-[#0f172a99] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-base font-semibold text-white">{strategy.displayName}</div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {(strategy.components || []).map((component: any) => (
+                      <Tag key={`${strategy.strategyId}-${component.symbol || component.name}`} color={component.assetClass === 'cash' ? '#64748b' : '#38bdf8'}>
+                        {component.symbol || '现金'} {component.name} {component.targetWeightPercent}%
+                      </Tag>
+                    ))}
+                  </div>
+                </div>
+                <div className="text-right text-sm">
+                  <Tag color="#34d399">优选：{preferred?.scenarioLabel || '无结论'}</Tag>
+                  <div className="mt-2 text-gray-300">下次决策：{strategy.nextDecision?.decisionDate || '无固定日期'}</div>
+                  <div className="text-xs text-gray-500">执行：{strategy.nextDecision?.executionDate || '--'} · {strategy.nextDecision?.rule}</div>
+                </div>
+              </div>
+              <div className="mt-3 text-xs leading-5 text-gray-400">{strategy.preferenceReason}</div>
+
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-[920px] w-full text-left text-xs">
+                  <thead className="text-gray-400"><tr className="border-b border-white/10">
+                    <th className="px-2 py-2">调仓方案</th><th>三年收益</th><th>年化</th><th>最大回撤</th><th>Sharpe</th><th>后12月收益</th><th>后12月回撤</th><th>换手率</th><th>成本</th><th>动作数</th>
+                  </tr></thead>
+                  <tbody>
+                    {(strategy.scenarios || []).map((scenario: any) => (
+                      <tr key={scenario.scenarioId} className={`border-b border-white/5 ${scenario.scenarioId === strategy.preferredScenarioId ? 'bg-emerald-500/10 text-emerald-100' : 'text-gray-300'}`}>
+                        <td className="px-2 py-2 font-medium">{scenario.scenarioLabel}</td>
+                        <td>{formatPercent(scenario.metrics?.totalReturnPercent)}</td>
+                        <td>{formatPercent(scenario.metrics?.annualizedReturnPercent)}</td>
+                        <td>{formatPercent(scenario.metrics?.maxDrawdownPercent)}</td>
+                        <td>{scenario.metrics?.sharpe?.toFixed(2) ?? '--'}</td>
+                        <td>{formatPercent(scenario.validationMetrics?.totalReturnPercent)}</td>
+                        <td>{formatPercent(scenario.validationMetrics?.maxDrawdownPercent)}</td>
+                        <td>{formatPercent(scenario.metrics?.turnoverRatePercent)}</td>
+                        <td>{formatMoney(scenario.metrics?.totalCostCny)}</td>
+                        <td>{scenario.metrics?.tradeCount || 0}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <details className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-white">查看优选频率的完整模拟买卖流水（{trades.length}条）</summary>
+                <div className="mt-3 max-h-80 overflow-auto">
+                  <table className="min-w-[1050px] w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-[#111827] text-gray-400"><tr><th>决策日</th><th>执行日</th><th>代码</th><th>方向</th><th>数量</th><th>开盘价</th><th>模拟价</th><th>金额</th><th>费用</th><th>执行后权重</th><th>剩余现金</th></tr></thead>
+                    <tbody>
+                      {trades.map((trade: any, index: number) => (
+                        <tr key={`${trade.executionDate}-${trade.symbol}-${index}`} className="border-b border-white/5 text-gray-300">
+                          <td className="py-2">{trade.decisionDate}</td><td>{trade.executionDate}</td><td>{trade.symbol}</td>
+                          <td className={trade.side === 'BUY' ? 'text-red-300' : 'text-emerald-300'}>{trade.side === 'BUY' ? '买入' : '卖出'}</td>
+                          <td>{trade.quantity}（{trade.lots}手）</td><td>{trade.rawOpenPrice}</td><td>{trade.simulatedPrice}</td>
+                          <td>{formatMoney(trade.grossAmount)}</td><td>{formatMoney(trade.totalCost)}</td><td>{trade.postTradeWeightPercent}%</td><td>{formatMoney(trade.cashAfter)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -273,12 +773,14 @@ const Backtest: React.FC = () => {
   const [portfolioRuntimeHealth, setPortfolioRuntimeHealth] = useState<any | null>(null)
   const [portfolioBacktestResult, setPortfolioBacktestResult] = useState<any | null>(null)
   const [portfolioBacktestOperation, setPortfolioBacktestOperation] = useState<any | null>(null)
+  const [portfolioRunHistory, setPortfolioRunHistory] = useState<any[]>([])
+  const [portfolioHistoryLoading, setPortfolioHistoryLoading] = useState(false)
   const [portfolioManualReview, setPortfolioManualReview] = useState<any | null>(null)
   const [portfolioManualReviewLoading, setPortfolioManualReviewLoading] = useState(false)
   const [portfolioBacktestParams, setPortfolioBacktestParams] = useState({
     userId: 'audit_portfolio_backtest_user',
     gradeMode: 'formal_review',
-    startDate: '2025-12-04',
+    startDate: '2023-08-29',
     endDate: DEFAULT_PORTFOLIO_BACKTEST_END_DATE,
     initialCapital: 100000,
   })
@@ -301,6 +803,8 @@ const Backtest: React.FC = () => {
           setPortfolioTemplates(templates)
           setSelectedPortfolioStrategyIds((previous) => {
             if (previous.length > 0) return previous
+            const classic = CLASSIC_PORTFOLIO_STRATEGY_IDS.filter((id) => templates.some((template: any) => template.strategyId === id))
+            if (classic.length === CLASSIC_PORTFOLIO_STRATEGY_IDS.length) return classic
             const recommended = RECOMMENDED_PORTFOLIO_STRATEGY_IDS.filter((id) => templates.some((template: any) => template.strategyId === id))
             return recommended.length > 0
               ? recommended
@@ -321,6 +825,22 @@ const Backtest: React.FC = () => {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchHistory = async () => {
+      try {
+        const response = await axios.get('/api/v1/portfolio-backtest/runs', {
+          params: { userId: portfolioBacktestParams.userId || 'default', limit: 20 },
+        })
+        if (!cancelled) setPortfolioRunHistory(response.data?.runs || [])
+      } catch (error) {
+        if (!cancelled) console.error('Failed to fetch portfolio run history:', error)
+      }
+    }
+    void fetchHistory()
+    return () => { cancelled = true }
+  }, [portfolioBacktestParams.userId])
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -561,11 +1081,31 @@ const Backtest: React.FC = () => {
         slippageRate: 0.0005,
         benchmarkIds: ['cash_cny', 'csi300_price_index', 'local_equal_weight_20', 'free_source_total_return'],
         gradeMode: portfolioBacktestParams.gradeMode,
+        ruleMode: 'registry_fixed',
+        startDateSensitivity: {
+          enabled: true,
+          sampling: 'weekly_first_trading_day',
+          minimumTradingDaysForAnnualization: 20,
+        },
+        scenarioAnalysis: {
+          enabled: false,
+          policyIds: ['quarterly'],
+          executionPrice: 'next_open',
+          lotSize: 100,
+          minCommissionCny: 5,
+          cashAnnualRate: 0.01,
+          driftThresholdPercentagePoints: 3,
+          validationMonths: 12,
+        },
         executionMode: 'operation',
       })
       setPortfolioBacktestOperation(response.data?.operationId ? response.data : null)
       setPortfolioBacktestResult(response.data?.result || response.data)
       setPortfolioManualReview(null)
+      const historyResponse = await axios.get('/api/v1/portfolio-backtest/runs', {
+        params: { userId: portfolioBacktestParams.userId || 'default', limit: 20 },
+      }).catch(() => null)
+      if (historyResponse) setPortfolioRunHistory(historyResponse.data?.runs || [])
       message.success(response.data?.result || response.data?.strategies ? '组合策略研究回测已生成结果' : '组合策略研究回测任务已提交')
       window.setTimeout(() => document.getElementById('portfolio-backtest-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
     } catch (error) {
@@ -580,6 +1120,34 @@ const Backtest: React.FC = () => {
       }
     } finally {
       setPortfolioBacktestLoading(false)
+    }
+  }
+
+  const handleLoadSavedPortfolioRun = async (operationId: string) => {
+    if (!operationId) return
+    setPortfolioHistoryLoading(true)
+    try {
+      const response = await axios.get(`/api/v1/portfolio-backtest/runs/${encodeURIComponent(operationId)}`, {
+        params: { userId: portfolioBacktestParams.userId || 'default' },
+      })
+      if (!response.data?.result) throw new Error('saved_portfolio_result_missing')
+      setPortfolioBacktestOperation({ operationId, status: response.data.status, artifactRefs: response.data.artifactRefs || [] })
+      setPortfolioBacktestResult(response.data.result)
+      const request = response.data.result.request || {}
+      setPortfolioBacktestParams((previous) => ({
+        ...previous,
+        startDate: request.startDate || previous.startDate,
+        endDate: request.endDate || previous.endDate,
+        initialCapital: Number(request.initialCapital || previous.initialCapital),
+      }))
+      setSelectedPortfolioStrategyIds(request.portfolioStrategyIds || selectedPortfolioStrategyIds)
+      message.success('已恢复保存的固定规则回测')
+      window.setTimeout(() => document.getElementById('portfolio-backtest-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
+    } catch (error) {
+      console.error('Failed to load saved portfolio run:', error)
+      message.error('读取保存的回测失败')
+    } finally {
+      setPortfolioHistoryLoading(false)
     }
   }
 
@@ -785,6 +1353,7 @@ const Backtest: React.FC = () => {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(portfolioTemplates.filter((item) => item.strategyId !== 'custom_weight_portfolio').map((item) => item.strategyId))}>全选</Button>
+              <Button size="small" type="primary" ghost onClick={() => setSelectedPortfolioStrategyIds(CLASSIC_PORTFOLIO_STRATEGY_IDS.filter((id) => portfolioTemplates.some((item) => item.strategyId === id)))}>经典 5 组</Button>
               <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(RECOMMENDED_PORTFOLIO_STRATEGY_IDS.filter((id) => portfolioTemplates.some((item) => item.strategyId === id)))}>推荐 3 组</Button>
               <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(['dividend_low_vol_basket', 'current_holdings_buy_and_hold'].filter((id) => portfolioTemplates.some((item) => item.strategyId === id)))}>红利+当前持仓</Button>
               <Button size="small" onClick={() => setSelectedPortfolioStrategyIds([])}>清空</Button>
@@ -877,7 +1446,7 @@ const Backtest: React.FC = () => {
           </div>
           <div className="lg:col-span-6 flex flex-wrap items-end gap-2">
             <Button type="primary" loading={portfolioBacktestLoading} onClick={handleRunPortfolioBacktest}>
-              运行组合回测
+              运行并保存固定规则回测
             </Button>
             {portfolioBacktestOperation?.operationId && (
               <Button onClick={() => navigate(`/operations?operationId=${portfolioBacktestOperation.operationId}`)}>
@@ -890,6 +1459,19 @@ const Backtest: React.FC = () => {
             {portfolioBacktestOperation?.artifactRefs?.length > 0 && (
               <Tag color="#a78bfa">产物 {portfolioBacktestOperation.artifactRefs.length}</Tag>
             )}
+            <Select
+              allowClear
+              showSearch
+              loading={portfolioHistoryLoading}
+              placeholder="打开已保存回测"
+              className="min-w-[280px]"
+              optionFilterProp="label"
+              onChange={(value) => void handleLoadSavedPortfolioRun(String(value || ''))}
+              options={portfolioRunHistory.filter((run) => run.fixedRuleAvailable).map((run) => ({
+                value: run.operationId,
+                label: `${dayjs(run.requestedAt).format('MM-DD HH:mm')} · ${run.startDate} · ¥${Number(run.initialCapital || 0).toLocaleString('zh-CN')}`,
+              }))}
+            />
           </div>
         </div>
         <div className="mt-4 rounded-lg border border-white/10 bg-black/10 p-3 text-xs text-gray-300">
@@ -899,8 +1481,11 @@ const Backtest: React.FC = () => {
               区间 {portfolioBacktestParams.startDate || '未选'} ~ {portfolioBacktestParams.endDate || '未选'}
             </Tag>
             <Tag color="#64748b">分红 reinvest</Tag>
-            <Tag color="#64748b">季度再平衡</Tag>
-            <Tag color="#64748b">费率 0.03% / 滑点 0.05%</Tag>
+            <Tag color="#34d399">固定注册表规则</Tag>
+            <Tag color="#64748b">当前经典组合：季度再平衡</Tag>
+            <Tag color="#64748b">每周首个交易日起投敏感性</Tag>
+            <Tag color="#64748b">次日开盘 · 100份整数手</Tag>
+            <Tag color="#64748b">费率 0.03% / 最低5元 / 滑点 0.05%</Tag>
           </div>
           <div className="text-gray-400">
             {selectedTemplates.map((template) => template.displayName).join('、') || '尚未选择策略'}
@@ -954,6 +1539,12 @@ const Backtest: React.FC = () => {
               </div>
               <div className="text-sm text-gray-300">{portfolioGateSummary.description}</div>
             </div>
+            <FixedRuleStudyPanel
+              study={portfolioBacktestResult.fixedRuleStudy}
+              userId={portfolioBacktestParams.userId || 'default'}
+              onStartDateSelected={(startDate) => setPortfolioBacktestParams((previous) => ({ ...previous, startDate }))}
+            />
+            {!portfolioBacktestResult.fixedRuleStudy && <ClassicPortfolioStudyPanel study={portfolioBacktestResult.classicPortfolioStudy} />}
             {portfolioBacktestResult.readinessSummary && (
               <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-3 text-sm">
                 <div className="mb-2 flex flex-wrap gap-2">

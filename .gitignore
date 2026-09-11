@@ -30,8 +30,12 @@ backend/prisma/*.db-journal
 backend/prisma/*.db-shm
 backend/prisma/*.db-wal
 backend/prisma/backups/
+backend/prisma/*.bak-shm
+backend/prisma/*.bak-wal
+backend/prisma/*.writer.lock*
 
 .verification/
+.runtime/
 reports/
 .tmp/
 backend/.tmp-tsx/
@@ -42,6 +46,27 @@ __pycache__/
 backend/data/gpt-audit/
 backend/data/formal-release/
 backend/data/private-captures/
+backend/data/overnight-lakehouse/
+backend/data/overnight-3m-*/
+backend/data/overnight-grid90-*/
 backend/data/**/*.zip
 backend/data/**/*.tar
 backend/data/**/*.gz
+
+# Local-only financial evidence. The upstream repository is public.
+backend/scripts/*alipay*.ts
+backend/scripts/*broker*.ts
+backend/scripts/*approved-dual-account*.ts
+backend/scripts/*latest-account*.ts
+backend/scripts/verify-portfolio-relative-rotation-v1.ts
+frontend/scripts/*alipay*.mjs
+frontend/scripts/*broker*.mjs
+frontend/scripts/*allocation-workflow*.mjs
+frontend/scripts/*portfolio-rrg*.mjs
+docs/audits/*alipay*/
+docs/audits/*broker*/
+docs/audits/*account*/
+docs/generated/alipay-*
+docs/generated/broker-*
+docs/workflows/
+波动交易工作流迁移-*/

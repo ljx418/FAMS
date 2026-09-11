@@ -16,6 +16,7 @@ import { dividendLowVolDataReadinessService } from '../dividend-low-vol/dividend
 import { volatilityBacktestService } from '../volatility-sleeve/volatilityBacktestService.js'
 import { volatilitySleeveService } from '../volatility-sleeve/volatilitySleeveService.js'
 import { relativeRotationService } from '../relative-rotation/relativeRotationService.js'
+import { industryCrowdingService, type IndustryCrowdingBoardRefreshResult } from '../relative-rotation/industryCrowdingService.js'
 import { randomUUID } from 'crypto'
 import { execFile } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -26,7 +27,7 @@ const OPERATION_WORKER_ID = `fams-api:${process.pid}:${Math.random().toString(36
 const QUOTE_LIST_MARKET_CAP_UNAVAILABLE_WARNING = 'BaoStock 派生流通市值缺失'
 
 type OperationStatus = 'queued' | 'running' | 'completed' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'partial'
-type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'strategy_tournament_run' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'fivd_r_fund_factset_refresh' | 'fivd_r_gold_macro_factset_refresh' | 'dividend_low_vol_daily_scan' | 'relative_rotation_backtest' | 'relative_rotation_history_refresh' | 'volatility_sleeve_daily_analysis'
+type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'strategy_tournament_run' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'fivd_r_fund_factset_refresh' | 'fivd_r_gold_macro_factset_refresh' | 'dividend_low_vol_daily_scan' | 'relative_rotation_backtest' | 'relative_rotation_history_refresh' | 'volatility_sleeve_daily_analysis' | 'industry_crowding_backfill'
 
 interface OperationAction {
   type: string
@@ -159,6 +160,17 @@ interface RelativeRotationHistoryRefreshInput {
   idempotencyKey?: string
 }
 
+interface IndustryCrowdingBackfillInput {
+  userId: string
+  year?: number
+  boardCodes?: string[]
+  slot?: string
+  parentOperationId?: string
+  executionMode?: 'inline' | 'queued'
+  createdBy?: string
+  idempotencyKey?: string
+}
+
 type QuoteListCanonicalItem = {
   code: string
   name?: string
@@ -279,6 +291,8 @@ class OperationService {
         return artifactRefs.length > 0 ? [{ type: 'open_operation', label: '查看策略证据产物', href: `/operations?operationId=${operation.id}` }] : []
       case 'batch_factset_refresh':
         return [{ type: 'open_analysis', label: '查看持仓研究', href: '/analysis?section=holdings' }]
+      case 'industry_crowding_backfill':
+        return [{ type: 'open_relative_rotation', label: '查看板块拥挤度', href: '/relative-rotation?tab=industry_crowding' }]
       case 'quote_list_market_cap_warmup':
         return artifactRefs.length > 0 ? [{ type: 'open_operation', label: '查看市值补齐产物', href: `/operations?operationId=${operation.id}` }] : []
       case 'fivd_r_portfolio_refresh':
@@ -1647,6 +1661,103 @@ class OperationService {
     }
   }
 
+  private async executeIndustryCrowdingBackfillOperation(
+    operationId: string,
+    input: IndustryCrowdingBackfillInput,
+    options: { resume?: boolean; recovery?: Record<string, unknown> } = {},
+  ) {
+    const leaseToken = await this.markOperationRunning(operationId, 5, {
+      allowResume: options.resume,
+      recovery: options.recovery,
+    })
+    if (!leaseToken) return
+
+    try {
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'industry_crowding.backfill',
+        taskType: 'industry_crowding.backfill',
+        status: 'running',
+        input: { year: input.year, boardCodes: input.boardCodes || [], slot: input.slot || null },
+        provider: 'eastmoney_industry',
+      })
+      await this.updateOperationProgress(operationId, leaseToken, 8, {
+        progressCurrent: 0,
+        progressTotal: 0,
+        progressMessage: '正在分批补齐行业价格与主力资金流历史',
+      })
+      const result = await industryCrowdingService.refresh(input.userId, {
+        year: input.year,
+        boardCodes: input.boardCodes,
+        concurrency: 2,
+        batchSize: 6,
+        // The configured 16:40 slot is an explicit second pass. It must retry
+        // a 16:10 failure even if that board finished late and set a normal
+        // cooldown after 16:10.
+        respectRetryAfter: input.slot !== '16:40',
+        onBoardResult: async (board: IndustryCrowdingBoardRefreshResult, completed, total) => {
+          if (await this.isOperationCancelled(operationId, leaseToken)) {
+            throw new Error('industry_crowding_backfill_cancelled')
+          }
+          const taskStatus = board.priceReady && board.flowReady
+            ? 'completed'
+            : board.priceRefreshed || board.flowRefreshed
+              ? 'partial'
+              : 'failed'
+          await this.updateOperationTask(operationId, leaseToken, {
+            name: `industry_crowding.board.${board.code}`,
+            taskType: 'industry_crowding.board',
+            status: taskStatus,
+            provider: 'eastmoney_industry',
+            input: { code: board.code },
+            output: { ...board },
+            successCount: board.priceReady && board.flowReady ? 1 : 0,
+            failureCount: board.priceReady && board.flowReady ? 0 : 1,
+            warnings: board.warnings,
+            metrics: {
+              pointCount: board.pointCount,
+              flowPointCount: board.flowPointCount,
+              priceReady: board.priceReady,
+              flowReady: board.flowReady,
+            },
+          })
+          await this.updateOperationProgress(operationId, leaseToken, Math.min(94, 8 + Math.round((completed / Math.max(total, 1)) * 86)), {
+            progressCurrent: completed,
+            progressTotal: total,
+            progressMessage: `已检查 ${completed}/${total} 个待补齐行业`,
+          })
+        },
+      })
+      const partialSuccess = result.failedBoards.length > 0 || result.incompleteBoards.length > 0
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'industry_crowding.backfill',
+        taskType: 'industry_crowding.backfill',
+        status: partialSuccess ? 'partial' : 'completed',
+        provider: 'eastmoney_industry',
+        successCount: result.readyBoards,
+        failureCount: result.incompleteBoards.length,
+        output: result,
+        warnings: result.warnings,
+        metrics: {
+          requestedBoards: result.requestedBoards,
+          readyBoards: result.readyBoards,
+          flowReadyBoards: result.flowReadyBoards,
+          marketFlowPoints: result.marketFlow.pointCount,
+        },
+      })
+      const artifactRefs = [`operation_artifact:${operationId}:industry_crowding_backfill.json`]
+      await this.completeOperation(operationId, leaseToken, {
+        result: { ...result, partialSuccess, artifacts: { 'industry_crowding_backfill.json': result }, artifactRefs },
+        artifactRefs,
+      })
+    } catch (error) {
+      if (await this.isOperationCancelled(operationId, leaseToken)) {
+        await this.cancelOwnedOperation(operationId, leaseToken, error)
+        return
+      }
+      await this.failOperation(operationId, leaseToken, error)
+    }
+  }
+
   private async executeDividendLowVolDailyScanOperation(operationId: string, input: DividendLowVolDailyScanInput) {
     const leaseToken = await this.markOperationRunning(operationId, 5)
     if (!leaseToken) return
@@ -2523,7 +2634,7 @@ class OperationService {
     workerId?: string
   } = {}) {
     const now = new Date()
-    const supportedTypes: OperationType[] = ['stock_screener_full_scan', 'strategy_tournament_run', 'batch_factset_refresh', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'volatility_sleeve_daily_analysis']
+    const supportedTypes: OperationType[] = ['stock_screener_full_scan', 'strategy_tournament_run', 'batch_factset_refresh', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'volatility_sleeve_daily_analysis', 'industry_crowding_backfill']
     const types = (params.types && params.types.length > 0 ? params.types : supportedTypes)
       .filter((type) => supportedTypes.includes(type))
     if (types.length === 0) {
@@ -2692,6 +2803,23 @@ class OperationService {
           recovery: {
             recoveredAt: new Date().toISOString(),
             resumePolicy: 'upsert_same_source_long_history_and_recompute_timelines',
+            ...recovery,
+          },
+        })
+        break
+      case 'industry_crowding_backfill':
+        await this.executeIndustryCrowdingBackfillOperation(operation.id, {
+          userId,
+          year: typeof input.year === 'number' ? input.year : undefined,
+          boardCodes: Array.isArray(input.boardCodes) ? input.boardCodes.map(String) : [],
+          slot: typeof input.slot === 'string' ? input.slot : undefined,
+          parentOperationId: typeof input.parentOperationId === 'string' ? input.parentOperationId : undefined,
+          executionMode: 'queued',
+        }, {
+          resume: operation.status === 'running',
+          recovery: {
+            recoveredAt: new Date().toISOString(),
+            resumePolicy: 'skip_ready_industries_and_resume_incomplete_sources',
             ...recovery,
           },
         })
@@ -3027,6 +3155,45 @@ class OperationService {
     return this.getOperation(operation.id)
   }
 
+  async startIndustryCrowdingBackfillOperation(input: IndustryCrowdingBackfillInput) {
+    await ensureUser(prisma, input.userId)
+    const year = typeof input.year === 'number' && Number.isFinite(input.year) ? Math.floor(input.year) : undefined
+    let operation
+    try {
+      operation = await prisma.operation.create({
+        data: {
+          parentOperationId: input.parentOperationId || null,
+          userId: input.userId,
+          type: 'industry_crowding_backfill',
+          status: 'queued',
+          createdBy: input.createdBy || 'user',
+          idempotencyKey: input.idempotencyKey || null,
+          inputJson: JSON.stringify({
+            userId: input.userId,
+            year,
+            boardCodes: Array.from(new Set((input.boardCodes || []).map((code) => String(code).toUpperCase()).filter(Boolean))),
+            slot: input.slot || null,
+            parentOperationId: input.parentOperationId || null,
+            executionMode: input.executionMode || 'inline',
+            createdBy: input.createdBy || 'user',
+          }),
+        },
+      })
+    } catch (error) {
+      if (!input.idempotencyKey || !this.isUniqueConstraintError(error)) throw error
+      const existing = await prisma.operation.findFirst({
+        where: { type: 'industry_crowding_backfill', idempotencyKey: input.idempotencyKey },
+        orderBy: { requestedAt: 'desc' },
+      })
+      if (!existing) throw error
+      return this.getOperation(existing.id)
+    }
+    if (input.executionMode !== 'queued') {
+      void this.executeIndustryCrowdingBackfillOperation(operation.id, { ...input, year })
+    }
+    return this.getOperation(operation.id)
+  }
+
   async scheduleDueFactsetRefresh(input: DueFactsetRefreshInput) {
     await ensureUser(prisma, input.userId)
 
@@ -3207,7 +3374,7 @@ class OperationService {
     const now = new Date()
     const recoverable = await prisma.operation.findMany({
       where: {
-        type: { in: ['batch_factset_refresh', 'stock_screener_full_scan', 'strategy_tournament_run', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'volatility_sleeve_daily_analysis'] },
+        type: { in: ['batch_factset_refresh', 'stock_screener_full_scan', 'strategy_tournament_run', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'volatility_sleeve_daily_analysis', 'industry_crowding_backfill'] },
         status: { in: ['queued', 'running'] },
         cancelRequested: false,
         OR: [
@@ -3348,6 +3515,15 @@ class OperationService {
           years: typeof input.years === 'number' ? input.years : 8,
           parentOperationId: sourceOperation.id,
           executionMode: 'queued',
+        })
+      case 'industry_crowding_backfill':
+        return this.startIndustryCrowdingBackfillOperation({
+          userId,
+          year: typeof input.year === 'number' ? input.year : undefined,
+          boardCodes: Array.isArray(input.boardCodes) ? input.boardCodes.map(String) : [],
+          slot: typeof input.slot === 'string' ? input.slot : undefined,
+          parentOperationId: sourceOperation.id,
+          executionMode: 'inline',
         })
       case 'volatility_sleeve_daily_analysis':
         return this.startVolatilitySleeveDailyAnalysisOperation({

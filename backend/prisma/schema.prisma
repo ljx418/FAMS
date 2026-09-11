@@ -9,34 +9,37 @@ datasource db {
 
 // 用户
 model User {
-  id                        String                     @id @default(uuid())
-  email                     String                     @unique
-  passwordHash              String
-  name                      String
-  riskLevel                 Int                        @default(3) // 1-5 风险等级
-  settings                  String                     @default("{}") // JSON设置
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
-  positions                 Position[]
-  transactions              Transaction[]
-  portfolios                Portfolio[]
-  alerts                    Alert[]
-  snapshots                 DailySnapshot[]
-  advices                   Advice[]
-  adviceInputSnapshots      AdviceInputSnapshot[]
-  positionSnapshots         PositionSnapshot[]
-  alertRules                AlertRule[]
-  alertEvents               AlertEvent[]
-  operations                Operation[]
-  dailyReviewRuns           DailyReviewRun[]
-  gridPlans                 GridPlan[]
-  screenshotCaptures        ScreenshotCapture[]
-  externalOrderObservations ExternalOrderObservation[]
-  positionSleeveAllocations PositionSleeveAllocation[]
-  positionSleeveLedgerEntries PositionSleeveLedgerEntry[]
-  volatilityStrategyBacktests VolatilityStrategyBacktest[]
-  volatilityTradeDrafts VolatilityTradeDraft[]
+  id                             String                          @id @default(uuid())
+  email                          String                          @unique
+  passwordHash                   String
+  name                           String
+  riskLevel                      Int                             @default(3) // 1-5 风险等级
+  settings                       String                          @default("{}") // JSON设置
+  createdAt                      DateTime                        @default(now())
+  updatedAt                      DateTime                        @updatedAt
+  positions                      Position[]
+  transactions                   Transaction[]
+  portfolios                     Portfolio[]
+  alerts                         Alert[]
+  snapshots                      DailySnapshot[]
+  advices                        Advice[]
+  adviceInputSnapshots           AdviceInputSnapshot[]
+  positionSnapshots              PositionSnapshot[]
+  alertRules                     AlertRule[]
+  alertEvents                    AlertEvent[]
+  operations                     Operation[]
+  dailyReviewRuns                DailyReviewRun[]
+  gridPlans                      GridPlan[]
+  screenshotCaptures             ScreenshotCapture[]
+  externalOrderObservations      ExternalOrderObservation[]
+  externalFundLedgerEntries      ExternalFundLedgerEntry[]
+  positionSleeveAllocations      PositionSleeveAllocation[]
+  positionSleeveLedgerEntries    PositionSleeveLedgerEntry[]
+  volatilityStrategyBacktests    VolatilityStrategyBacktest[]
+  volatilityTradeDrafts          VolatilityTradeDraft[]
   relativeRotationWatchlistItems RelativeRotationWatchlistItem[]
+  relativeRotationResearchStudies RelativeRotationResearchStudy[]
+  analysisWorkflowProfiles        AnalysisWorkflowProfile[]
 }
 
 // 资产主表
@@ -67,75 +70,78 @@ model Asset {
   gridPlans                 GridPlan[]
   screenshotCaptureRows     ScreenshotCaptureRow[]
   externalOrderObservations ExternalOrderObservation[]
+  externalFundLedgerEntries ExternalFundLedgerEntry[]
 }
 
 // 仓位
 model Position {
-  id            String    @id @default(uuid())
-  userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assetId       String
-  asset         Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  quantity      Float // 数量
-  avgCost       Float // 平均成本
-  currentPrice  Float? // 当前价格
-  marketValue   Float? // 市值
-  costBasis     Float? // 成本
-  unrealizedPnl Float? // 浮动盈亏
-  realizedPnl   Float     @default(0) // 已实现盈亏
-  positionType  String    @default("long") // long, short
-  status        String    @default("open") // open, closed, pending
-  stopLoss      Float? // 止损收益率阈值（百分比，如 -5 表示亏损 5%）
-  takeProfit    Float? // 止盈收益率阈值（百分比，如 5 表示盈利 5%）
-  tags          String    @default("[]") // JSON数组
-  labels        String    @default("[]") // JSON数组
-  notes         String?
-  source        String? // manual, import
-  openKey       String?   @unique // open position uniqueness key: userId:assetId, null for closed positions
-  openedAt      DateTime  @default(now())
-  closedAt      DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assetId           String
+  asset             Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  quantity          Float // 数量
+  avgCost           Float // 平均成本
+  currentPrice      Float? // 当前价格
+  marketValue       Float? // 市值
+  costBasis         Float? // 成本
+  unrealizedPnl     Float? // 浮动盈亏
+  realizedPnl       Float     @default(0) // 已实现盈亏
+  positionType      String    @default("long") // long, short
+  status            String    @default("open") // open, closed, pending
+  stopLoss          Float? // 止损收益率阈值（百分比，如 -5 表示亏损 5%）
+  takeProfit        Float? // 止盈收益率阈值（百分比，如 5 表示盈利 5%）
+  tags              String    @default("[]") // JSON数组
+  labels            String    @default("[]") // JSON数组
+  notes             String?
+  source            String? // manual, import
+  valuationBasis    String    @default("unit_price") // unit_price, market_value_total
+  sourcePayloadJson String    @default("{}")
+  openKey           String?   @unique // open position uniqueness key: userId:assetId, null for closed positions
+  openedAt          DateTime  @default(now())
+  closedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  transactions Transaction[]
-  snapshots    PositionSnapshot[]
-  sleeveAllocation PositionSleeveAllocation?
-  sleeveLedgerEntries PositionSleeveLedgerEntry[]
-  volatilityBacktests VolatilityStrategyBacktest[]
+  transactions          Transaction[]
+  snapshots             PositionSnapshot[]
+  sleeveAllocation      PositionSleeveAllocation?
+  sleeveLedgerEntries   PositionSleeveLedgerEntry[]
+  volatilityBacktests   VolatilityStrategyBacktest[]
   volatilityTradeDrafts VolatilityTradeDraft[]
 }
 
 // 交易记录
 model Transaction {
-  id                 String                @id @default(uuid())
-  positionId         String?
-  position           Position?             @relation(fields: [positionId], references: [id], onDelete: SetNull)
-  userId             String
-  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assetId            String
-  asset              Asset                 @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  type               String // buy, sell, dividend, split, transfer, fee
-  quantity           Float
-  price              Float
-  fee                Float                 @default(0)
-  amount             Float
-  broker             String?
-  confirmationNo     String?
-  status             String                @default("confirmed") // pending, confirmed, cancelled
-  executedAt         DateTime
-  notes              String?
-  source             String? // manual, imported, advice_confirmed
-  adviceActionId     String?
-  adviceAction       AdviceAction?         @relation(fields: [adviceActionId], references: [id], onDelete: SetNull)
-  sourceImportKey    String?               @unique
-  sourceCaptureRowId String?               @unique
-  sourceCaptureRow   ScreenshotCaptureRow? @relation(fields: [sourceCaptureRowId], references: [id], onDelete: SetNull)
-  sleeveType     String?  // core, volatility; required for buy/sell after sleeve activation
-  volatilityTradeDraftId String? @unique
-  volatilityTradeDraft VolatilityTradeDraft? @relation(fields: [volatilityTradeDraftId], references: [id], onDelete: SetNull)
-  sleeveLedgerEntry PositionSleeveLedgerEntry?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  id                     String                     @id @default(uuid())
+  positionId             String?
+  position               Position?                  @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  userId                 String
+  user                   User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assetId                String
+  asset                  Asset                      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  type                   String // buy, sell, dividend, split, transfer, fee
+  quantity               Float
+  price                  Float
+  fee                    Float                      @default(0)
+  amount                 Float
+  broker                 String?
+  confirmationNo         String?
+  status                 String                     @default("confirmed") // pending, confirmed, cancelled
+  executedAt             DateTime
+  notes                  String?
+  source                 String? // manual, imported, advice_confirmed
+  adviceActionId         String?
+  adviceAction           AdviceAction?              @relation(fields: [adviceActionId], references: [id], onDelete: SetNull)
+  sourceImportKey        String?                    @unique
+  sourceCaptureRowId     String?                    @unique
+  sourceCaptureRow       ScreenshotCaptureRow?      @relation(fields: [sourceCaptureRowId], references: [id], onDelete: SetNull)
+  sleeveType             String? // core, volatility; required for buy/sell after sleeve activation
+  volatilityTradeDraftId String?                    @unique
+  volatilityTradeDraft   VolatilityTradeDraft?      @relation(fields: [volatilityTradeDraftId], references: [id], onDelete: SetNull)
+  sleeveLedgerEntry      PositionSleeveLedgerEntry?
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
 
   @@index([userId, executedAt])
   @@index([assetId, executedAt])
@@ -223,26 +229,28 @@ model AdviceInputSnapshot {
 }
 
 model PositionSnapshot {
-  id               String             @id @default(uuid())
-  userId           String
-  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  positionId       String
-  position         Position           @relation(fields: [positionId], references: [id], onDelete: Cascade)
-  assetId          String
-  asset            Asset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  capturedAt       DateTime           @default(now())
-  quantity         Float
-  avgCost          Float
-  currentPrice     Float?
-  marketValue      Float?
-  costBasis        Float?
-  actualWeightPct  Float?
-  costWeightPct    Float?
-  createdAt        DateTime           @default(now())
-  dailyReviewRunId String?
-  dailyReviewRun   DailyReviewRun?    @relation(fields: [dailyReviewRunId], references: [id], onDelete: SetNull)
-  sourceCaptureId  String?
-  sourceCapture    ScreenshotCapture? @relation(fields: [sourceCaptureId], references: [id], onDelete: SetNull)
+  id                String             @id @default(uuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId        String
+  position          Position           @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  assetId           String
+  asset             Asset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  capturedAt        DateTime           @default(now())
+  quantity          Float
+  avgCost           Float
+  currentPrice      Float?
+  marketValue       Float?
+  costBasis         Float?
+  actualWeightPct   Float?
+  costWeightPct     Float?
+  valuationBasis    String             @default("unit_price") // unit_price, market_value_total
+  sourcePayloadJson String             @default("{}")
+  createdAt         DateTime           @default(now())
+  dailyReviewRunId  String?
+  dailyReviewRun    DailyReviewRun?    @relation(fields: [dailyReviewRunId], references: [id], onDelete: SetNull)
+  sourceCaptureId   String?
+  sourceCapture     ScreenshotCapture? @relation(fields: [sourceCaptureId], references: [id], onDelete: SetNull)
 
   @@index([userId, capturedAt])
   @@index([positionId, capturedAt])
@@ -288,6 +296,7 @@ model PriceHistory {
   isValid    Boolean  @default(true)
   createdAt  DateTime @default(now())
 
+  @@unique([assetId, timestamp, source])
   @@index([assetId, timestamp])
 }
 
@@ -637,29 +646,52 @@ model SchedulerLease {
   @@index([leaseExpiresAt])
 }
 
+// 版本化、可调度的分析工作流合同。运行历史继续复用 Operation / DailyReviewRun。
+model AnalysisWorkflowProfile {
+  id                        String   @id @default(uuid())
+  userId                    String
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflowKey               String
+  profileVersion            String
+  contractHash              String
+  contractJson              String
+  isActive                  Boolean  @default(true)
+  schedulerEnabled          Boolean  @default(false)
+  timezone                  String   @default("Asia/Shanghai")
+  scheduleSlotsJson         String   @default("[\"09:40\",\"14:40\"]")
+  snapshotAuthorizationJson String   @default("{}")
+  lastRunAt                 DateTime?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@unique([userId, workflowKey, profileVersion])
+  @@index([workflowKey, isActive, schedulerEnabled])
+  @@index([userId, workflowKey, isActive])
+}
+
 // 同一真实持仓内部的核心仓 / 波动仓当前状态。Position 仍是真实总仓位来源。
 model PositionSleeveAllocation {
-  id                     String   @id @default(uuid())
-  userId                 String
-  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  positionId             String   @unique
-  position               Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
-  status                 String   @default("active") // proposed, active, paused, closed
-  coreQuantity           Float
-  volatilityQuantity     Float
-  volatilityCash         Float    @default(0)
-  volatilityCostBasis    Float    @default(0)
-  volatilityRealizedPnl  Float    @default(0)
-  recommendedRatio       Float?
-  confirmedRatio         Float
-  strategyProfile        String   @default("conservative") // conservative, strict
-  strategyVersion        String   @default("volatility_swing.v1")
-  sourceBacktestId       String?
-  version                Int      @default(1)
-  activatedAt            DateTime @default(now())
-  closedAt               DateTime?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                    String    @id @default(uuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId            String    @unique
+  position              Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  status                String    @default("active") // proposed, active, paused, closed
+  coreQuantity          Float
+  volatilityQuantity    Float
+  volatilityCash        Float     @default(0)
+  volatilityCostBasis   Float     @default(0)
+  volatilityRealizedPnl Float     @default(0)
+  recommendedRatio      Float?
+  confirmedRatio        Float
+  strategyProfile       String    @default("conservative") // conservative, strict
+  strategyVersion       String    @default("volatility_swing.v1")
+  sourceBacktestId      String?
+  version               Int       @default(1)
+  activatedAt           DateTime  @default(now())
+  closedAt              DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   ledgerEntries PositionSleeveLedgerEntry[]
   tradeDrafts   VolatilityTradeDraft[]
@@ -670,27 +702,27 @@ model PositionSleeveAllocation {
 
 // 分仓不可变台账；交易归属、跨仓划转和波动现金变化均写入这里。
 model PositionSleeveLedgerEntry {
-  id                String   @id @default(uuid())
-  allocationId      String
-  allocation        PositionSleeveAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  positionId        String
-  position          Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
-  transactionId     String?  @unique
-  transaction       Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
-  entryType         String   // activate, buy, sell, security_transfer, cash_transfer, adjustment, close
-  sleeveType        String   // core, volatility
-  quantityDelta     Float    @default(0)
-  cashDelta         Float    @default(0)
-  costBasisDelta    Float    @default(0)
-  realizedPnlDelta  Float    @default(0)
-  price             Float?
-  fee               Float    @default(0)
-  notes             String?
-  metadataJson      String   @default("{}")
-  occurredAt        DateTime @default(now())
-  createdAt         DateTime @default(now())
+  id               String                   @id @default(uuid())
+  allocationId     String
+  allocation       PositionSleeveAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId       String
+  position         Position                 @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  transactionId    String?                  @unique
+  transaction      Transaction?             @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  entryType        String // activate, buy, sell, security_transfer, cash_transfer, adjustment, close
+  sleeveType       String // core, volatility
+  quantityDelta    Float                    @default(0)
+  cashDelta        Float                    @default(0)
+  costBasisDelta   Float                    @default(0)
+  realizedPnlDelta Float                    @default(0)
+  price            Float?
+  fee              Float                    @default(0)
+  notes            String?
+  metadataJson     String                   @default("{}")
+  occurredAt       DateTime                 @default(now())
+  createdAt        DateTime                 @default(now())
 
   @@index([allocationId, occurredAt])
   @@index([userId, positionId, occurredAt])
@@ -698,27 +730,27 @@ model PositionSleeveLedgerEntry {
 
 // 透明相对轮动坐标，不使用专有 JdK 字段命名。
 model RelativeRotationPoint {
-  id                    String   @id @default(uuid())
-  symbol                String
-  benchmarkId           String
-  frequency             String   @default("weekly")
-  tradeDate             DateTime
-  relativePrice         Float
-  relativeTrend         Float
-  relativeMomentum      Float
-  quadrant              String
-  deltaX                Float?
-  deltaY                Float?
-  speed                 Float?
-  adjustType            String   @default("qfq")
-  formulaVersion        String   @default("transparent_relative_rotation.v1")
-  dataVersion           String   @default("relative_rotation.v1")
-  dataStatus            String   @default("ready") // ready, partial, insufficient, stale
-  coveragePercent       Float    @default(0)
-  evidenceRefsJson      String   @default("[]")
-  computedAt            DateTime @default(now())
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id               String   @id @default(uuid())
+  symbol           String
+  benchmarkId      String
+  frequency        String   @default("weekly")
+  tradeDate        DateTime
+  relativePrice    Float
+  relativeTrend    Float
+  relativeMomentum Float
+  quadrant         String
+  deltaX           Float?
+  deltaY           Float?
+  speed            Float?
+  adjustType       String   @default("qfq")
+  formulaVersion   String   @default("transparent_relative_rotation.v1")
+  dataVersion      String   @default("relative_rotation.v1")
+  dataStatus       String   @default("ready") // ready, partial, insufficient, stale
+  coveragePercent  Float    @default(0)
+  evidenceRefsJson String   @default("[]")
+  computedAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([symbol, benchmarkId, frequency, tradeDate, formulaVersion])
   @@index([symbol, benchmarkId, frequency, tradeDate])
@@ -750,7 +782,7 @@ model RelativeRotationWatchlistItem {
 }
 
 model RelativeRotationWatchlistSeries {
-  id                  String   @id @default(uuid())
+  id                  String                        @id @default(uuid())
   watchlistItemId     String
   watchlistItem       RelativeRotationWatchlistItem @relation(fields: [watchlistItemId], references: [id], onDelete: Cascade)
   benchmarkId         String
@@ -759,19 +791,19 @@ model RelativeRotationWatchlistSeries {
   formulaVersion      String
   dataVersion         String
   adjustType          String
-  readiness           String   @default("unavailable") // verified, limited, insufficient, unavailable
-  freshness           String   @default("unknown") // fresh, delayed, stale, unknown
+  readiness           String                        @default("unavailable") // verified, limited, insufficient, unavailable
+  freshness           String                        @default("unknown") // fresh, delayed, stale, unknown
   freshnessLag        Int?
-  coveragePercent     Float    @default(0)
-  sampleDays          Int      @default(0)
-  benchmarkSampleDays Int      @default(0)
+  coveragePercent     Float                         @default(0)
+  sampleDays          Int                           @default(0)
+  benchmarkSampleDays Int                           @default(0)
   commonAsOfDate      DateTime?
-  sourceProvidersJson String   @default("[]")
-  blockersJson        String   @default("[]")
-  warningsJson        String   @default("[]")
-  refreshedAt         DateTime @default(now())
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  sourceProvidersJson String                        @default("[]")
+  blockersJson        String                        @default("[]")
+  warningsJson        String                        @default("[]")
+  refreshedAt         DateTime                      @default(now())
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
 
   points RelativeRotationWatchlistPoint[]
 
@@ -780,7 +812,7 @@ model RelativeRotationWatchlistSeries {
 }
 
 model RelativeRotationWatchlistPoint {
-  id               String   @id @default(uuid())
+  id               String                          @id @default(uuid())
   seriesId         String
   series           RelativeRotationWatchlistSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   tradeDate        DateTime
@@ -791,83 +823,124 @@ model RelativeRotationWatchlistPoint {
   deltaX           Float?
   deltaY           Float?
   speed            Float?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime                        @default(now())
 
   @@unique([seriesId, tradeDate])
   @@index([seriesId, tradeDate])
 }
 
 model RelativeRotationWatchlistRefreshRun {
-  id                   String    @id @default(uuid())
+  id                   String                        @id @default(uuid())
   watchlistItemId      String
   watchlistItem        RelativeRotationWatchlistItem @relation(fields: [watchlistItemId], references: [id], onDelete: Cascade)
-  status               String    @default("running") // running, completed, partial, failed
-  requestedYears       Int       @default(8)
-  providerAttemptsJson String    @default("[]")
-  summaryJson          String    @default("{}")
+  status               String                        @default("running") // running, completed, partial, failed
+  requestedYears       Int                           @default(8)
+  providerAttemptsJson String                        @default("[]")
+  summaryJson          String                        @default("{}")
   errorMessage         String?
-  startedAt            DateTime  @default(now())
+  startedAt            DateTime                      @default(now())
   completedAt          DateTime?
-  createdAt            DateTime  @default(now())
+  createdAt            DateTime                      @default(now())
 
   @@index([watchlistItemId, startedAt])
 }
 
+// 用户保存的 RRG 专题研究。行情与 RRG 坐标按需从共享 canonical 缓存计算，
+// 这里仅保存用户的研究配置，不保存或影响真实持仓、自选与交易记录。
+model RelativeRotationResearchStudy {
+  id                         String   @id @default(uuid())
+  userId                     String
+  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                       String
+  market                     String
+  frequency                  String   @default("weekly")
+  historyYears               Int      @default(8)
+  benchmarkMode              String   @default("market_default") // market_default, equal_weight_targets
+  benchmarkTargetKeysJson    String   @default("[]")
+  periodMode                 String   @default("rolling") // rolling, fixed
+  rollingWeeks               Int      @default(52)
+  startDate                  DateTime?
+  endDate                    DateTime?
+  comparisonTargetKeysJson   String   @default("[]")
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  targets RelativeRotationResearchStudyTarget[]
+
+  @@index([userId, updatedAt])
+}
+
+model RelativeRotationResearchStudyTarget {
+  id        String                       @id @default(uuid())
+  studyId   String
+  study     RelativeRotationResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  targetKey String
+  symbol    String
+  name      String
+  kind      String                       @default("equity") // equity, index
+  sortOrder Int                          @default(0)
+  createdAt DateTime                     @default(now())
+  updatedAt DateTime                     @updatedAt
+
+  @@unique([studyId, targetKey])
+  @@index([studyId, sortOrder])
+}
+
 model VolatilityStrategyBacktest {
-  id                    String   @id @default(uuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  positionId            String
-  position              Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
-  status                String   @default("queued") // queued, running, passed, insufficient, failed
-  benchmarkId           String   @default("csi300_price_index")
-  formulaVersion        String   @default("transparent_relative_rotation.v1")
-  strategyVersion       String   @default("volatility_swing.v1")
-  historyStart          DateTime?
-  historyEnd            DateTime?
-  sampleDays            Int      @default(0)
-  recommendedRatio      Float    @default(0)
-  recommendedProfile    String   @default("conservative")
-  metricsJson           String   @default("{}")
-  candidatesJson        String   @default("[]")
-  blockersJson          String   @default("[]")
-  warningsJson          String   @default("[]")
-  operationId           String?
-  completedAt           DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                 String    @id @default(uuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId         String
+  position           Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  status             String    @default("queued") // queued, running, passed, insufficient, failed
+  benchmarkId        String    @default("csi300_price_index")
+  formulaVersion     String    @default("transparent_relative_rotation.v1")
+  strategyVersion    String    @default("volatility_swing.v1")
+  historyStart       DateTime?
+  historyEnd         DateTime?
+  sampleDays         Int       @default(0)
+  recommendedRatio   Float     @default(0)
+  recommendedProfile String    @default("conservative")
+  metricsJson        String    @default("{}")
+  candidatesJson     String    @default("[]")
+  blockersJson       String    @default("[]")
+  warningsJson       String    @default("[]")
+  operationId        String?
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([userId, positionId, createdAt])
   @@index([status, createdAt])
 }
 
 model VolatilityTradeDraft {
-  id                    String   @id @default(uuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  positionId            String
-  position              Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
-  allocationId          String
-  allocation            PositionSleeveAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
-  analysisDate          DateTime
-  side                  String   // buy, sell
-  status                String   @default("pending") // pending, confirmed, dismissed, expired, blocked
-  suggestedQuantity     Float
-  referencePriceLow     Float?
-  referencePriceHigh    Float?
-  rrgQuadrant           String?
-  rrgEntryFactor        Float?
-  timingJson            String   @default("{}")
-  rationaleJson         String   @default("[]")
-  strategyProfile       String
-  strategyVersion       String   @default("volatility_swing.v1")
-  formulaVersion        String   @default("transparent_relative_rotation.v1")
-  operationId           String?
-  expiresAt             DateTime
-  dismissedAt           DateTime?
-  confirmedAt           DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                 String                   @id @default(uuid())
+  userId             String
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId         String
+  position           Position                 @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  allocationId       String
+  allocation         PositionSleeveAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  analysisDate       DateTime
+  side               String // buy, sell
+  status             String                   @default("pending") // pending, confirmed, dismissed, expired, blocked
+  suggestedQuantity  Float
+  referencePriceLow  Float?
+  referencePriceHigh Float?
+  rrgQuadrant        String?
+  rrgEntryFactor     Float?
+  timingJson         String                   @default("{}")
+  rationaleJson      String                   @default("[]")
+  strategyProfile    String
+  strategyVersion    String                   @default("volatility_swing.v1")
+  formulaVersion     String                   @default("transparent_relative_rotation.v1")
+  operationId        String?
+  expiresAt          DateTime
+  dismissedAt        DateTime?
+  confirmedAt        DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   confirmedTransaction Transaction?
 
@@ -978,6 +1051,78 @@ model MarketDataCoverage {
   @@index([market, timeframe, adjustType, dataVersion, status])
   @@index([symbol, market, status])
   @@index([completeTo])
+}
+
+// 东方财富行业板块（非概念/地域板块）目录。该分类用于“板块拥挤度”研究，
+// 不与申万行业或机构真实持仓数据混用。
+model IndustryCrowdingBoard {
+  code            String   @id
+  name            String
+  boardType       String   @default("industry")
+  provider        String   @default("eastmoney_industry")
+  isActive        Boolean  @default(true)
+  sourceUpdatedAt DateTime?
+  priceStatus     String   @default("unknown") // ready, partial, unavailable, failed
+  flowStatus      String   @default("unknown") // ready, partial, unavailable, failed
+  lastPriceDate   DateTime?
+  lastFlowDate    DateTime?
+  lastAttemptAt   DateTime?
+  retryCount      Int      @default(0)
+  nextRetryAt     DateTime?
+  lastError       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  daily IndustryCrowdingDaily[]
+
+  @@index([isActive, name])
+}
+
+// 行业价格、成交额与公开主力资金流的同源日频快照。分数在读取时由透明公式
+// 计算，避免历史公式变更后缓存坐标被误用。
+model IndustryCrowdingDaily {
+  id                    String                 @id @default(uuid())
+  boardCode             String
+  board                 IndustryCrowdingBoard  @relation(fields: [boardCode], references: [code], onDelete: Cascade)
+  tradeDate             DateTime
+  openPrice             Float?
+  highPrice             Float?
+  lowPrice              Float?
+  closePrice            Float
+  volume                Float?
+  amount                Float?
+  mainNetInflow         Float?
+  mainNetInflowRatio    Float?
+  priceProvider         String                 @default("eastmoney_industry_kline")
+  flowProvider          String?
+  sourceTimestamp       DateTime?
+  qualityFlagsJson      String                 @default("[]")
+  rawPayloadJson        String                 @default("{}")
+  fetchedAt             DateTime               @default(now())
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@unique([boardCode, tradeDate])
+  @@index([tradeDate, boardCode])
+}
+
+// 沪深两市的独立资金流序列。它不能由行业板块相加得到，避免分类交叉导致重复统计。
+model IndustryCrowdingMarketDaily {
+  id                    String   @id @default(uuid())
+  marketKey             String
+  tradeDate             DateTime
+  mainNetInflow         Float?
+  mainNetInflowRatio    Float?  // 小数，如 0.0123 表示 1.23%
+  provider              String   @default("eastmoney_sh_sz_main_flow")
+  sourceTimestamp       DateTime?
+  qualityFlagsJson      String   @default("[]")
+  rawPayloadJson        String   @default("{}")
+  fetchedAt             DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([marketKey, tradeDate])
+  @@index([marketKey, tradeDate])
 }
 
 model MarketFeatureDaily {
@@ -1414,6 +1559,7 @@ model ScreenshotCaptureRow {
 
   transaction              Transaction?
   externalOrderObservation ExternalOrderObservation?
+  externalFundLedgerEntry  ExternalFundLedgerEntry?
 
   @@unique([captureId, rowIndex])
   @@index([captureId, status])
@@ -1444,4 +1590,30 @@ model ExternalOrderObservation {
 
   @@index([userId, assetId, status, observedAt])
   @@index([externalOrderId])
+}
+
+// 支付宝等场外基金平台展示的金额型流水。该表只保存外部事实，绝不回放修改当前仓位。
+model ExternalFundLedgerEntry {
+  id                 String               @id @default(uuid())
+  userId             String
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId          String               @default("alipay")
+  assetId            String?
+  asset              Asset?               @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  sourceCaptureRowId String               @unique
+  sourceCaptureRow   ScreenshotCaptureRow @relation(fields: [sourceCaptureRowId], references: [id], onDelete: Cascade)
+  sourceImportKey    String?              @unique
+  entryType          String // buy, sell, recurring_buy, dividend_cash, dividend_reinvest, fee, transfer
+  amount             Float?
+  shares             Float?
+  nav                Float?
+  status             String               @default("confirmed") // pending, confirmed, cancelled
+  executedAt         DateTime
+  rawJson            String               @default("{}")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([userId, accountId, executedAt])
+  @@index([assetId, executedAt])
+  @@index([status, executedAt])
 }

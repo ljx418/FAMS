@@ -26,7 +26,11 @@ function buildUrl(url: string, params?: Record<string, unknown>) {
 
 async function curlText(method: 'GET' | 'POST', url: string, options: AxiosRequestConfig = {}): Promise<string> {
   const timeoutSeconds = Math.max(1, Math.ceil((options.timeout || 10000) / 1000))
-  const args = ['-sS', '-L', '--max-time', String(timeoutSeconds), '-X', method]
+  // Some public market-data nodes leave a proxy socket half-open unless curl
+  // has a bounded connection phase.  --max-time alone retries the same stuck
+  // state and made an otherwise available alternate node look unavailable.
+  const connectTimeoutSeconds = Math.max(1, Math.min(5, timeoutSeconds))
+  const args = ['-sS', '-L', '--connect-timeout', String(connectTimeoutSeconds), '--max-time', String(timeoutSeconds), '-X', method]
   const headers = options.headers as Record<string, string> | undefined
 
   for (const [key, value] of Object.entries(headers || {})) {

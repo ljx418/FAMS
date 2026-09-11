@@ -60,6 +60,63 @@ export interface StructuredAdvice {
     current_pct: number
     target_pct: number
     suggestion: 'increase' | 'decrease' | 'maintain'
+    current_value?: number
+    target_value?: number
+    gap_value?: number
+    deviation_pct_point?: number
+    triggered?: boolean
+  }>
+  allocation_plan?: {
+    schema_version: string
+    account: string
+    threshold_pct_point: number
+    comparison: string
+    execution_boundary: string
+    tranches: Array<{
+      index: number
+      ratio: number
+      state: 'draft_ready' | 'pending_rrg_data'
+      gate: string
+    }>
+    target_gates: Array<{
+      symbol: string
+      group: string
+      quadrant: string | null
+      readiness: string
+      freshness_lag: number | null
+      current_condition_passed: boolean
+      later_tranche_state: string
+      reason: string
+    }>
+  }
+  account_summaries?: Array<{
+    account_id: 'alipay' | 'tonghuashun'
+    account_name: string
+    strategy: string
+    current_value: number
+    status: 'rebalance_required' | 'risk_reduction_required' | 'within_policy'
+    trade_action_ready: false
+    buckets: Array<{
+      key: string
+      label: string
+      current_pct: number
+      target_pct: number
+      current_value: number
+      target_value: number
+      gap_value: number
+      triggered: boolean
+    }>
+    actions: Array<{
+      sequence: number
+      action: string
+      symbol?: string
+      amount: number
+      first_tranche_amount?: number
+      candidate_symbols?: string[]
+      state: 'manual_review' | 'blocked_pending_research'
+      reason: string
+    }>
+    guardrails: string[]
   }>
   actions: StructuredAdviceAction[]
   risks: string[]
@@ -2918,6 +2975,23 @@ export async function executeAdviceAction(actionId: string): Promise<any> {
   return response.json()
 }
 
+export async function confirmNotionalAdviceAction(actionId: string, executedAmount: number): Promise<any> {
+  const response = await fetch(`${API_BASE}/api/v1/analysis/advice-actions/${actionId}/confirm-notional`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: 'default',
+      executedAmount,
+      confirmationRef: `analysis-ui-${Date.now()}`,
+    }),
+  })
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || `HTTP error! status: ${response.status}`)
+  }
+  return response.json()
+}
+
 // 创建网格挂单建议
 export async function createGridOrder(symbol: string, basePrice: number, gridCount: number = 5): Promise<Suggestion> {
   const grids = []
@@ -3059,6 +3133,7 @@ export default {
   getWeeklySuggestions,
   generateTradingPlan,
   executeAdviceAction,
+  confirmNotionalAdviceAction,
   createGridOrder,
   createDCAPlan,
   createStopLossAlert,

@@ -4,6 +4,7 @@ export type PortfolioBacktestProhibitedAction = 'ADD' | 'REDUCE' | 'ORDER_CREATE
 export type PortfolioStrategySource = 'preset' | 'current_holdings' | 'dividend_low_vol' | 'custom'
 export type PortfolioAssetClass = 'stock' | 'bond' | 'gold' | 'commodity' | 'cash' | 'fund' | 'etf'
 export type PortfolioRebalanceFrequency = 'none' | 'monthly' | 'quarterly' | 'annually'
+export type PortfolioScenarioPolicyId = 'buy_and_hold' | 'weekly' | 'semi_monthly' | 'monthly' | 'quarterly' | 'drift_3pp'
 export type PortfolioDividendPolicy = 'cash' | 'reinvest'
 export type PortfolioBacktestGradeMode = 'research' | 'formal_review'
 export type PortfolioBenchmarkStatus = 'official_total_return' | 'trusted_total_return' | 'free_source_total_return' | 'price_index' | 'research_proxy' | 'unavailable'
@@ -449,6 +450,12 @@ export interface PortfolioBacktestRequest {
     strategyId: string
     reason: string
   }>
+  ruleMode?: 'request_override' | 'registry_fixed'
+  startDateSensitivity?: {
+    enabled: boolean
+    sampling: 'weekly_first_trading_day'
+    minimumTradingDaysForAnnualization: number
+  }
   customStrategies?: Array<{
     strategyId?: string
     displayName?: string
@@ -459,6 +466,214 @@ export interface PortfolioBacktestRequest {
       targetWeightPercent: number
     }>
   }>
+  scenarioAnalysis?: {
+    enabled: boolean
+    policyIds: PortfolioScenarioPolicyId[]
+    executionPrice: 'next_open'
+    lotSize: number
+    minCommissionCny: number
+    cashAnnualRate: number
+    driftThresholdPercentagePoints: number
+    validationMonths: number
+  }
+}
+
+export interface PortfolioScenarioTrade {
+  decisionDate: string
+  executionDate: string
+  reason: 'initial_allocation' | 'calendar_rebalance' | 'drift_threshold' | 'dividend_reinvestment'
+  symbol: string
+  name: string
+  side: 'BUY' | 'SELL'
+  quantity: number
+  lots: number
+  rawOpenPrice: number
+  simulatedPrice: number
+  grossAmount: number
+  commission: number
+  slippageCost: number
+  totalCost: number
+  postTradeWeightPercent: number
+  cashAfter: number
+}
+
+export interface PortfolioScenarioMetrics {
+  totalReturnPercent: number
+  annualizedReturnPercent: number
+  maxDrawdownPercent: number
+  volatilityPercent: number
+  sharpe: number | null
+  calmar: number | null
+  turnoverRatePercent: number
+  totalCostCny: number
+  costDragPercent: number
+  tradeCount: number
+  endingValue: number
+}
+
+export interface PortfolioScenarioResult {
+  scenarioId: PortfolioScenarioPolicyId
+  scenarioLabel: string
+  status: 'completed' | 'insufficient'
+  metrics: PortfolioScenarioMetrics
+  validationMetrics: PortfolioScenarioMetrics
+  equityCurve: PortfolioBacktestCurvePoint[]
+  positionCurve: PortfolioPositionCurvePoint[]
+  trades: PortfolioScenarioTrade[]
+  decisionDates: string[]
+  blockedReasons: string[]
+  warnings: string[]
+}
+
+export interface PortfolioPositionCurvePoint {
+  date: string
+  portfolioValue: number
+  pnlAmount: number
+  cashAmount: number
+  cashWeightPercent: number
+  components: Array<{
+    symbol: string
+    name: string
+    quantity: number
+    marketValue: number
+    weightPercent: number
+  }>
+}
+
+export interface PortfolioStartDateSensitivityPoint {
+  startDate: string
+  actualStartDate: string
+  endDate: string
+  holdingTradingDays: number
+  status: 'completed' | 'insufficient'
+  totalReturnPercent: number
+  peakReturnPercent: number
+  annualizedReturnPercent: number | null
+  maxDrawdownPercent: number
+  endingValue: number
+  pnlAmount: number
+  tradeCount: number
+  totalCostCny: number
+  warnings: string[]
+}
+
+export interface PortfolioFixedRuleStudy {
+  schemaVersion: 'portfolio.fixed_rule_study.v1'
+  generatedAt: string
+  requestedPeriod: { startDate: string; endDate: string }
+  actualPeriod: { startDate: string | null; endDate: string | null; tradingDays: number }
+  initialCapital: number
+  ruleMode: 'registry_fixed'
+  executionAssumptions: PortfolioClassicStudy['executionAssumptions']
+  dataTruthAudit: PortfolioClassicStudy['dataTruthAudit']
+  strategies: Array<{
+    strategyId: string
+    displayName: string
+    strategyVersion: string
+    components: PortfolioStrategyComponent[]
+    appliedPolicy: {
+      source: 'strategy_registry'
+      frequency: PortfolioRebalanceFrequency
+      scenarioId: PortfolioScenarioPolicyId
+      frozenBeforeMarketDataEvaluation: true
+    }
+    primaryRun: PortfolioScenarioResult
+    sensitivity: PortfolioStartDateSensitivityPoint[]
+  }>
+  aggregateSensitivity: Array<{
+    startDate: string
+    endDate: string
+    holdingTradingDays: number
+    strategyCount: number
+    maximumTerminalReturnPercent: number
+    averageTerminalReturnPercent: number
+    worstMaxDrawdownPercent: number
+    bestStrategyId: string
+  }>
+  sensitivityConfig: {
+    sampling: 'weekly_first_trading_day'
+    minimumTradingDaysForAnnualization: number
+    startPointCount: number
+  }
+  methodology: {
+    historicalRuleOptimizationUsed: false
+    futureDataUsedToChooseRule: false
+    summary: string
+  }
+  allowedActions: PortfolioBacktestAllowedAction[]
+  prohibitedActions: PortfolioBacktestProhibitedAction[]
+  notTradingAdvice: true
+}
+
+export interface PortfolioClassicStudy {
+  schemaVersion: 'portfolio.classic_strategy_study.v1'
+  generatedAt: string
+  requestedPeriod: { startDate: string; endDate: string }
+  actualPeriod: { startDate: string | null; endDate: string | null; tradingDays: number }
+  initialCapital: number
+  executionAssumptions: {
+    signalTime: 'previous_close'
+    executionPrice: 'next_open'
+    lotSize: number
+    feeRate: number
+    minCommissionCny: number
+    slippageRate: number
+    stampDutyRate: 0
+    cashAssetId: 'CNY_FIXED_1PCT'
+    cashAnnualRate: number
+  }
+  dataTruthAudit: {
+    status: 'passed' | 'blocked'
+    minimumRequiredCoveragePercent: 98
+    items: Array<{
+      symbol: string
+      name: string
+      firstDate: string | null
+      lastDate: string | null
+      bars: number
+      coveragePercent: number
+      sourceProviders: string[]
+      crossCheckProvider: string
+      crossCheckedBars: number
+      medianCloseDeviationPercent: number | null
+      latestCloseDeviationPercent: number | null
+      crossCheckStatus: 'passed' | 'blocked'
+      distributionEvents: number
+      distributionEventSource: 'official_sse_registry' | 'not_detected'
+      officialDistributionEvidenceRefs: string[]
+      totalReturnAdjustmentStatus: 'official_cash_distributions' | 'not_detected' | 'insufficient'
+      status: 'passed' | 'blocked'
+      warnings: string[]
+    }>
+    blockers: string[]
+    warnings: string[]
+    evidenceRefs: string[]
+  }
+  strategies: Array<{
+    strategyId: string
+    displayName: string
+    components: PortfolioStrategyComponent[]
+    scenarios: PortfolioScenarioResult[]
+    preferredScenarioId: PortfolioScenarioPolicyId | null
+    preferenceReason: string
+    nextDecision: {
+      decisionDate: string | null
+      executionDate: string | null
+      rule: string
+      calendarSource: string
+    }
+  }>
+  conclusion: {
+    bestStrategyId: string | null
+    bestScenarioId: PortfolioScenarioPolicyId | null
+    summary: string
+    confidence: 'medium' | 'low' | 'insufficient'
+    horizon: 'three_year_research'
+    caveats: string[]
+  }
+  allowedActions: PortfolioBacktestAllowedAction[]
+  prohibitedActions: PortfolioBacktestProhibitedAction[]
+  notTradingAdvice: true
 }
 
 export interface PortfolioBacktestInputBuildResult {
@@ -482,6 +697,8 @@ export interface PortfolioBacktestInputBuildResult {
 export interface PortfolioBacktestCurvePoint {
   date: string
   netValue: number
+  portfolioValue?: number
+  pnlAmount?: number
   cumulativeReturnPercent: number
   dailyReturnPercent?: number
   drawdownPercent: number
@@ -562,6 +779,8 @@ export interface PortfolioBacktestResult {
   longHorizonDataCoverageAudit?: PortfolioLongHorizonDataCoverageAudit
   multiPeriodBacktestResult?: PortfolioMultiPeriodBacktestResult
   dividendTotalReturnAudit?: PortfolioDividendTotalReturnAudit
+  classicPortfolioStudy?: PortfolioClassicStudy
+  fixedRuleStudy?: PortfolioFixedRuleStudy
 }
 
 export const PORTFOLIO_BACKTEST_ALLOWED_ACTIONS: PortfolioBacktestAllowedAction[] = [

@@ -4,7 +4,8 @@ import cors from '@fastify/cors'
 import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
 import multipart from '@fastify/multipart'
-import { initializePrisma, prisma } from './db/prisma.js'
+import { databaseConfig, initializePrisma, prisma } from './db/prisma.js'
+import { acquireSqliteWriterLock, type SqliteWriterLock } from './db/sqliteWriterLock.js'
 import { positionRoutes } from './routes/position.js'
 import { assetRoutes } from './routes/asset.js'
 import { transactionRoutes } from './routes/transaction.js'
@@ -38,10 +39,14 @@ import { dailyReviewRoutes } from './routes/dailyReview.js'
 import { captureRoutes } from './routes/capture.js'
 import { dailyReviewScheduler } from './services/review/dailyReviewScheduler.js'
 import { dailyReviewService } from './services/review/dailyReviewService.js'
+import { alipayResearchWorkflowScheduler } from './services/review/alipayResearchWorkflowScheduler.js'
+import { brokerReviewReminderScheduler } from './services/review/brokerReviewReminderScheduler.js'
+import { industryCrowdingBackfillScheduler } from './services/relative-rotation/industryCrowdingBackfillScheduler.js'
 
 const app = Fastify({ logger: true, maxParamLength: 1024 })
 const configuredPort = Number(process.env.PORT || 4000)
 const appPort = Number.isInteger(configuredPort) && configuredPort > 0 ? configuredPort : 4000
+let sqliteWriterLock: SqliteWriterLock | null = null
 
 // 初始化Fastify插件
 async function initPlugins() {
@@ -127,6 +132,9 @@ async function registerRoutes() {
       schedulers: {
         factsetRefresh: schedulerStatus,
         dailyPortfolioReview: await dailyReviewScheduler.getStatus().catch(() => null),
+        alipayResearchWorkflow: await alipayResearchWorkflowScheduler.getStatus().catch(() => null),
+        brokerReviewReminder: await brokerReviewReminderScheduler.getStatus().catch(() => null),
+        industryCrowdingBackfill: await industryCrowdingBackfillScheduler.getStatus().catch(() => null),
       },
     }
   })
@@ -169,6 +177,9 @@ app.setErrorHandler(errorHandler)
 // 启动服务
 async function start() {
   try {
+    if (databaseConfig.kind === 'sqlite' && databaseConfig.sqlitePath) {
+      sqliteWriterLock = await acquireSqliteWriterLock(databaseConfig.sqlitePath)
+    }
     await initializePrisma()
     await initPlugins()
     await registerRoutes()
@@ -187,22 +198,36 @@ async function start() {
     await app.listen({ port: appPort, host: '0.0.0.0' })
     factsetRefreshScheduler.start(app.log)
     dailyReviewScheduler.start(app.log)
+    alipayResearchWorkflowScheduler.start(app.log)
+    brokerReviewReminderScheduler.start(app.log)
+    industryCrowdingBackfillScheduler.start(app.log)
     console.log(`🚀 FAMS API Server running at http://localhost:${appPort}`)
     console.log(`📖 API Docs available at http://localhost:${appPort}/api-docs`)
     console.log(`🤖 MCP Router available at http://localhost:${appPort}/api/v1/mcp`)
   } catch (err) {
+    await sqliteWriterLock?.release().catch(() => undefined)
     app.log.error(err)
     process.exit(1)
   }
 }
 
 // 优雅关闭
-process.on('SIGTERM', async () => {
+let shuttingDown = false
+async function shutdown() {
+  if (shuttingDown) return
+  shuttingDown = true
   factsetRefreshScheduler.stop()
   dailyReviewScheduler.stop()
-  await prisma.$disconnect()
-  await app.close()
-})
+  alipayResearchWorkflowScheduler.stop()
+  brokerReviewReminderScheduler.stop()
+  industryCrowdingBackfillScheduler.stop()
+  await app.close().catch(() => undefined)
+  await prisma.$disconnect().catch(() => undefined)
+  await sqliteWriterLock?.release().catch(() => undefined)
+}
+
+process.on('SIGTERM', () => { void shutdown() })
+process.on('SIGINT', () => { void shutdown() })
 
 start()
 

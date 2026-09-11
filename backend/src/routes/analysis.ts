@@ -415,6 +415,19 @@ export async function analysisRoutes(app: FastifyInstance) {
     return analysisService.executeAdviceAction(userId || 'default', id, overrides || {})
   })
 
+  // 支付宝总额型持仓：人工确认后仅记名义金额流水，等待后续份额/持仓截图对账。
+  app.post('/advice-actions/:id/confirm-notional', async (request) => {
+    const { id } = request.params as any
+    const body = request.body as any
+    return analysisService.confirmNotionalAdviceAction(body.userId || 'default', id, {
+      executedAmount: body.executedAmount,
+      executedAt: body.executedAt,
+      confirmationRef: body.confirmationRef,
+      fee: body.fee,
+      notes: body.notes,
+    })
+  })
+
   // 获取每日快照
   app.get('/daily-snapshot', async (request) => {
     const { userId, date } = request.query as any

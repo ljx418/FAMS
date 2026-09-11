@@ -4,8 +4,112 @@ import { operationService } from '../services/operation/operationService.js'
 import { volatilitySleeveService } from '../services/volatility-sleeve/volatilitySleeveService.js'
 import { relativeRotationService } from '../services/relative-rotation/relativeRotationService.js'
 import { relativeRotationUniverseService } from '../services/relative-rotation/relativeRotationUniverseService.js'
+import { portfolioRelativeRotationService } from '../services/relative-rotation/portfolioRelativeRotationService.js'
+import { industryCrowdingService } from '../services/relative-rotation/industryCrowdingService.js'
+import {
+  relativeRotationResearchStudyService,
+  type ResearchStudyInput,
+  type ResearchTimelineRequest,
+} from '../services/relative-rotation/relativeRotationResearchStudyService.js'
 
 export async function relativeRotationRoutes(app: FastifyInstance) {
+  app.get('/industry-crowding', async (request) => {
+    const query = request.query as Record<string, string | undefined>
+    const boardCodes = query.boardCodes
+      ? query.boardCodes.split(',').map((code) => code.trim()).filter(Boolean)
+      : undefined
+    return industryCrowdingService.getReport(query.userId || 'default', {
+      year: Number(query.year),
+      frequency: query.frequency,
+      boardCodes,
+    })
+  })
+
+  app.post('/industry-crowding/refresh', async (request) => {
+    const body = request.body as Record<string, unknown>
+    return industryCrowdingService.refresh(
+      typeof body.userId === 'string' ? body.userId : 'default',
+      { year: Number(body.year) },
+    )
+  })
+
+  app.post('/industry-crowding/backfill', async (request) => {
+    const body = request.body as Record<string, unknown>
+    return operationService.startIndustryCrowdingBackfillOperation({
+      userId: typeof body.userId === 'string' ? body.userId : 'default',
+      year: typeof body.year === 'number' ? body.year : undefined,
+      boardCodes: Array.isArray(body.boardCodes) ? body.boardCodes.map(String) : undefined,
+      executionMode: body.executionMode === 'queued' ? 'queued' : 'inline',
+      createdBy: typeof body.createdBy === 'string' ? body.createdBy : 'user',
+      idempotencyKey: typeof body.idempotencyKey === 'string' ? body.idempotencyKey : undefined,
+    })
+  })
+
+  app.post('/industry-crowding/market-flow/refresh', async (request) => {
+    const body = request.body as Record<string, unknown>
+    return industryCrowdingService.refreshMarketFlow(typeof body.userId === 'string' ? body.userId : 'default')
+  })
+
+  app.get('/portfolio-universe', async (request) => {
+    const query = request.query as Record<string, string | undefined>
+    return portfolioRelativeRotationService.getReport(query.userId || 'default', {
+      frequency: query.frequency,
+      years: Number(query.years || 8),
+    })
+  })
+
+  app.post('/portfolio-universe/refresh', async (request) => {
+    const body = request.body as Record<string, unknown>
+    return portfolioRelativeRotationService.refresh(typeof body.userId === 'string' ? body.userId : 'default')
+  })
+
+  app.get('/research/studies', async (request) => {
+    const query = request.query as Record<string, string | undefined>
+    return relativeRotationResearchStudyService.listStudies(query.userId || 'default')
+  })
+
+  app.post('/research/studies', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    const study = await relativeRotationResearchStudyService.createStudy(
+      typeof body.userId === 'string' ? body.userId : 'default',
+      body.study as ResearchStudyInput,
+    )
+    reply.code(201)
+    return study
+  })
+
+  app.patch('/research/studies/:studyId', async (request) => {
+    const { studyId } = request.params as { studyId: string }
+    const body = request.body as Record<string, unknown>
+    return relativeRotationResearchStudyService.updateStudy(
+      typeof body.userId === 'string' ? body.userId : 'default',
+      studyId,
+      body.study as ResearchStudyInput,
+    )
+  })
+
+  app.delete('/research/studies/:studyId', async (request) => {
+    const { studyId } = request.params as { studyId: string }
+    const query = request.query as Record<string, string | undefined>
+    return relativeRotationResearchStudyService.deleteStudy(query.userId || 'default', studyId)
+  })
+
+  app.post('/research/timeline', async (request) => {
+    const body = request.body as Record<string, unknown>
+    return relativeRotationResearchStudyService.getTimeline(
+      typeof body.userId === 'string' ? body.userId : 'default',
+      { studyId: typeof body.studyId === 'string' ? body.studyId : undefined, study: body.study as ResearchStudyInput | undefined } as ResearchTimelineRequest,
+    )
+  })
+
+  app.post('/research/refresh', async (request) => {
+    const body = request.body as Record<string, unknown>
+    return relativeRotationResearchStudyService.refreshTimeline(
+      typeof body.userId === 'string' ? body.userId : 'default',
+      { studyId: typeof body.studyId === 'string' ? body.studyId : undefined, study: body.study as ResearchStudyInput | undefined } as ResearchTimelineRequest,
+    )
+  })
+
   app.get('/watchlist', async (request) => {
     const query = request.query as Record<string, string | undefined>
     return relativeRotationUniverseService.listWatchlist(query.userId || 'default')

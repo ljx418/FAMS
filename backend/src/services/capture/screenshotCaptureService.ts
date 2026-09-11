@@ -59,6 +59,32 @@ function asFinite(value: unknown) {
   return Number.isFinite(number) ? number : null
 }
 
+function isMarketValueHolding(fields: Record<string, unknown>) {
+  return String(fields.valueBasis || '').toLowerCase() === 'market_value_total'
+}
+
+function isExternalFundTrade(fields: Record<string, unknown>) {
+  return String(fields.transactionBasis || '').toLowerCase() === 'fund_notional'
+    || String(fields.accountId || '').toLowerCase() === 'alipay'
+}
+
+function normalizedFundEntryType(fields: Record<string, unknown>) {
+  const raw = String(fields.entryType || fields.type || fields.side || '').toLowerCase()
+  if (raw === 'dividend') return asPositive(fields.shares) !== null ? 'dividend_reinvest' : 'dividend_cash'
+  return raw
+}
+
+function positionMatchesCaptureAccount(position: { tags: string; labels: string }, accountIds: Set<string>) {
+  if (accountIds.size !== 1) return true
+  const accountId = Array.from(accountIds)[0]
+  const markers = `${position.tags || ''} ${position.labels || ''}`
+  if (accountId === 'alipay') return markers.includes('账户:支付宝') || markers.includes('支付宝·')
+  if (['broker', 'tonghuashun', 'ths'].includes(accountId)) {
+    return markers.includes('账户:同花顺') || markers.includes('同花顺·')
+  }
+  return true
+}
+
 function decimalPlaces(value: unknown) {
   const text = String(value)
   if (/e-/i.test(text)) return Number(text.split(/e-/i)[1]) || 0
@@ -168,18 +194,49 @@ class ScreenshotCaptureService {
     if (row.rowType !== 'account_summary' && !String(fields.symbol || '').trim()) issues.push('symbol_missing')
     if (row.rowType === 'account_summary') {
       if (asPositive(fields.availableCash, true) === null) issues.push('available_cash_invalid')
-      for (const key of ['cashBalance', 'withdrawableCash', 'stockMarketValue', 'totalAssets', 'holdingPnl', 'dayPnl', 'dayPnlPct']) {
+      for (const key of ['cashBalance', 'withdrawableCash', 'stockMarketValue', 'investmentMarketValue', 'totalAssets', 'holdingPnl', 'cumulativePnl', 'monthChange', 'dayPnl', 'dayPnlPct']) {
         if (fields[key] !== undefined && asFinite(fields[key]) === null) issues.push(`${key}_invalid`)
       }
     }
     if (row.rowType === 'holding') {
-      if (asPositive(fields.quantity) === null) issues.push('quantity_invalid')
-      if (asPositive(fields.avgCost) === null) issues.push('avg_cost_invalid')
+      if (isMarketValueHolding(fields)) {
+        if (asPositive(fields.marketValue, true) === null) issues.push('market_value_invalid')
+        if (asFinite(fields.holdingPnl) === null) issues.push('holding_pnl_invalid')
+        const marketValue = asPositive(fields.marketValue, true)
+        const holdingPnl = asFinite(fields.holdingPnl)
+        if (marketValue !== null && holdingPnl !== null && marketValue - holdingPnl <= 0) issues.push('derived_cost_basis_invalid')
+      } else {
+        if (asPositive(fields.quantity) === null) issues.push('quantity_invalid')
+        if (asPositive(fields.avgCost) === null) issues.push('avg_cost_invalid')
+        const quantity = asPositive(fields.quantity, true)
+        const available = asPositive(fields.availableQuantity ?? fields.sellableQuantity, true)
+        const frozen = asPositive(fields.frozenQuantity, true)
+        const unavailable = asPositive(fields.unavailableQuantity ?? fields.t1UnavailableQuantity, true)
+        const nonAdditiveBrokerFields = fields.quantityBalanceStatus === 'broker_fields_not_additive_user_override'
+        if (available === null && frozen === null) issues.push('sellable_quantity_missing')
+        if (available !== null && quantity !== null && available > quantity) issues.push('available_quantity_exceeds_quantity')
+        if (frozen !== null && quantity !== null && frozen > quantity) issues.push('frozen_quantity_exceeds_quantity')
+        if (!nonAdditiveBrokerFields && available !== null && frozen !== null && quantity !== null && Math.abs(available + frozen + (unavailable || 0) - quantity) > 0.0001) {
+          issues.push('available_plus_frozen_does_not_equal_quantity')
+        }
+      }
     }
     if (row.rowType === 'trade') {
-      if (!['buy', 'sell', 'dividend', 'fee', 'deposit', 'withdraw'].includes(String(fields.type || fields.side || '').toLowerCase())) issues.push('trade_type_invalid')
-      if (asPositive(fields.quantity) === null) issues.push('quantity_invalid')
-      if (asPositive(fields.price) === null) issues.push('price_invalid')
+      if (isExternalFundTrade(fields)) {
+        const entryType = normalizedFundEntryType(fields)
+        if (!['buy', 'sell', 'recurring_buy', 'dividend_cash', 'dividend_reinvest', 'fee', 'transfer'].includes(entryType)) issues.push('fund_entry_type_invalid')
+        if (entryType === 'dividend_reinvest') {
+          if (asPositive(fields.shares ?? fields.quantity) === null) issues.push('shares_invalid')
+        } else if (asPositive(fields.amount) === null) {
+          issues.push('amount_invalid')
+        }
+        const status = String(fields.status || 'confirmed').toLowerCase()
+        if (!['pending', 'confirmed', 'cancelled'].includes(status)) issues.push('fund_entry_status_invalid')
+      } else {
+        if (!['buy', 'sell', 'dividend', 'fee', 'deposit', 'withdraw'].includes(String(fields.type || fields.side || '').toLowerCase())) issues.push('trade_type_invalid')
+        if (asPositive(fields.quantity) === null) issues.push('quantity_invalid')
+        if (asPositive(fields.price) === null) issues.push('price_invalid')
+      }
     }
     if (row.rowType === 'order') {
       if (!['buy', 'sell'].includes(String(fields.side || '').toLowerCase())) issues.push('order_side_invalid')
@@ -192,7 +249,7 @@ class ScreenshotCaptureService {
   async applyExtraction(input: {
     captureId: string
     userId?: string
-    documentType: 'holding' | 'trade' | 'order' | 'mixed'
+    documentType: 'holding' | 'trade' | 'order' | 'ordinary_order' | 'conditional_order' | 'mixed' | 'fund_portfolio' | 'fund_transaction'
     rows: unknown[]
     rawText?: string
     visionProvider?: string
@@ -208,6 +265,9 @@ class ScreenshotCaptureService {
       include: { asset: true },
     })
     const prepared = []
+    const accountIds = new Set(parsed
+      .map((row) => String((row.fields as Record<string, unknown>).accountId || '').trim().toLowerCase())
+      .filter(Boolean))
     const seenHoldingSymbols = new Set<string>()
     let accountSummaryCount = 0
     for (let rowIndex = 0; rowIndex < parsed.length; rowIndex += 1) {
@@ -230,8 +290,15 @@ class ScreenshotCaptureService {
         ? existingPositions.find((position) => position.assetId === matchedAsset.id)
         : null
       const importKey = `${capture.sha256}:${rowIndex}:${row.rowType}`
-      const costResolution = row.rowType === 'holding' && currentPosition && asPositive(fields.avgCost) !== null
-        ? resolveScreenshotCost(currentPosition.avgCost, asPositive(fields.avgCost)!)
+      const displayedCost = isMarketValueHolding(fields)
+        ? (() => {
+            const marketValue = asPositive(fields.marketValue, true)
+            const holdingPnl = asFinite(fields.holdingPnl)
+            return marketValue !== null && holdingPnl !== null ? marketValue - holdingPnl : null
+          })()
+        : asPositive(fields.avgCost)
+      const costResolution = row.rowType === 'holding' && currentPosition && displayedCost !== null
+        ? resolveScreenshotCost(currentPosition.avgCost, displayedCost)
         : null
       const diff = row.rowType === 'account_summary'
         ? { type: 'update_account_summary_and_cash', before: null, after: fields }
@@ -252,9 +319,14 @@ class ScreenshotCaptureService {
     }
     const shownHoldingAssetIds = new Set(prepared.filter((item) => item.row.rowType === 'holding' && item.matchedAsset).map((item) => item.matchedAsset!.id))
     if (prepared.some((item) => item.row.rowType === 'account_summary')) {
-      for (const position of existingPositions.filter((item) => item.asset.type === 'cash')) shownHoldingAssetIds.add(position.assetId)
+      for (const position of existingPositions
+        .filter((item) => item.asset.type === 'cash')
+        .filter((item) => positionMatchesCaptureAccount(item, accountIds))) {
+        shownHoldingAssetIds.add(position.assetId)
+      }
     }
     const missingHoldings = existingPositions
+      .filter((position) => positionMatchesCaptureAccount(position, accountIds))
       .filter((position) => !shownHoldingAssetIds.has(position.assetId))
       .map((position) => ({
         positionId: position.id,
@@ -385,8 +457,15 @@ class ScreenshotCaptureService {
     const currentPosition = matchedAsset && candidate.rowType === 'holding'
       ? await prisma.position.findFirst({ where: { userId: row.capture.userId, assetId: matchedAsset.id, status: 'open' } })
       : null
-    const costResolution = candidate.rowType === 'holding' && currentPosition && asPositive(candidate.fields.avgCost) !== null
-      ? resolveScreenshotCost(currentPosition.avgCost, asPositive(candidate.fields.avgCost)!)
+    const displayedCost = isMarketValueHolding(candidate.fields)
+      ? (() => {
+          const marketValue = asPositive(candidate.fields.marketValue, true)
+          const holdingPnl = asFinite(candidate.fields.holdingPnl)
+          return marketValue !== null && holdingPnl !== null ? marketValue - holdingPnl : null
+        })()
+      : asPositive(candidate.fields.avgCost)
+    const costResolution = candidate.rowType === 'holding' && currentPosition && displayedCost !== null
+      ? resolveScreenshotCost(currentPosition.avgCost, displayedCost)
       : null
     const diff = candidate.rowType === 'account_summary'
       ? { type: 'update_account_summary_and_cash', before: null, after: candidate.fields }
@@ -434,13 +513,21 @@ class ScreenshotCaptureService {
       prisma.position.findMany({ where: { userId, status: 'open' }, include: { asset: true } }),
     ])
     if (!capture) throw new Error('Screenshot capture not found')
+    const accountIds = new Set(rows
+      .map((row) => String(parseJson<Record<string, unknown>>(row.fieldsJson, {}).accountId || '').trim().toLowerCase())
+      .filter(Boolean))
     const shownHoldingAssetIds = new Set(rows
       .filter((row) => row.rowType === 'holding' && row.status !== 'ignored' && row.assetId)
       .map((row) => row.assetId!))
     if (rows.some((row) => row.rowType === 'account_summary' && row.status !== 'ignored')) {
-      for (const position of positions.filter((item) => item.asset.type === 'cash')) shownHoldingAssetIds.add(position.assetId)
+      for (const position of positions
+        .filter((item) => item.asset.type === 'cash')
+        .filter((item) => positionMatchesCaptureAccount(item, accountIds))) {
+        shownHoldingAssetIds.add(position.assetId)
+      }
     }
     const missingHoldings = positions
+      .filter((position) => positionMatchesCaptureAccount(position, accountIds))
       .filter((position) => !shownHoldingAssetIds.has(position.assetId))
       .map((position) => ({
         positionId: position.id,
@@ -484,24 +571,26 @@ class ScreenshotCaptureService {
         const currentPrice = asPositive(fields.currentPrice)
         return sum + (explicit ?? (quantity !== null && currentPrice !== null ? quantity * currentPrice : 0))
       }, 0)
-    const brokerStockMarketValue = asFinite(accountFields?.stockMarketValue)
+    const brokerStockMarketValue = asFinite(accountFields?.stockMarketValue ?? accountFields?.investmentMarketValue)
     const availableCash = asPositive(accountFields?.availableCash, true)
     const brokerTotalAssets = asFinite(accountFields?.totalAssets)
     const calculatedTotalAssets = availableCash === null ? null : rowMarketValueSum + availableCash
+    const investmentVariance = brokerStockMarketValue === null ? null : brokerStockMarketValue - rowMarketValueSum
+    const totalVariance = brokerTotalAssets === null || calculatedTotalAssets === null ? null : brokerTotalAssets - calculatedTotalAssets
     const accountReconciliation = accountFields ? {
-      status: brokerStockMarketValue === null
-        ? 'unavailable'
-        : Math.abs(brokerStockMarketValue - rowMarketValueSum) <= 0.01 ? 'exact' : 'warning',
+      status: investmentVariance !== null
+        ? Math.abs(investmentVariance) <= 0.01 ? 'exact' : 'warning'
+        : totalVariance !== null
+          ? Math.abs(totalVariance) <= 0.01 ? 'exact' : 'warning'
+          : 'unavailable',
       accountSummary: accountFields,
       rowMarketValueSum: Number(rowMarketValueSum.toFixed(2)),
       brokerStockMarketValue,
-      stockMarketValueVariance: brokerStockMarketValue === null ? null : Number((brokerStockMarketValue - rowMarketValueSum).toFixed(2)),
+      stockMarketValueVariance: investmentVariance === null ? null : Number(investmentVariance.toFixed(2)),
       availableCash,
       calculatedTotalAssets: calculatedTotalAssets === null ? null : Number(calculatedTotalAssets.toFixed(2)),
       brokerTotalAssets,
-      totalAssetsVariance: brokerTotalAssets === null || calculatedTotalAssets === null
-        ? null
-        : Number((brokerTotalAssets - calculatedTotalAssets).toFixed(2)),
+      totalAssetsVariance: totalVariance === null ? null : Number(totalVariance.toFixed(2)),
       ledgerBasis: 'holding_rows_plus_available_cash',
     } : null
     return {
@@ -527,7 +616,14 @@ class ScreenshotCaptureService {
     }
   }
 
-  async confirm(input: { captureId: string; userId?: string; rowIds?: string[]; confirmed: boolean; confirmedBy: string }) {
+  async confirm(input: {
+    captureId: string
+    userId?: string
+    rowIds?: string[]
+    confirmed: boolean
+    confirmedBy: string
+    tradePositionEffectPolicy?: 'apply' | 'included_in_latest_snapshot'
+  }) {
     if (input.confirmed !== true || !input.confirmedBy?.trim()) throw new Error('Explicit human confirmation and confirmedBy are required')
     const capture = await prisma.screenshotCapture.findUnique({
       where: { id: input.captureId },
@@ -549,16 +645,50 @@ class ScreenshotCaptureService {
       if (row.rowType === 'account_summary') {
         const availableCash = asPositive(fields.availableCash, true)
         if (availableCash === null) throw new Error(`Row ${row.rowIndex} does not have a valid availableCash`)
-        const existing = await prisma.position.findFirst({
+        const accountId = String(fields.accountId || '').trim().toLowerCase()
+        const accountIds = new Set(accountId ? [accountId] : [])
+        const cashPositions = await prisma.position.findMany({
           where: { userId: capture.userId, status: 'open', asset: { type: 'cash' } },
           include: { asset: true },
         })
-        const cashAsset = existing?.asset || await prisma.asset.findFirst({ where: { type: 'cash' } })
+        const existing = cashPositions.find((position) => positionMatchesCaptureAccount(position, accountIds))
+          // ALIPAY-YUEBAO is an account-specific cash asset. Older confirmed
+          // snapshots can predate the account labels introduced by this
+          // workflow, so reuse that open position before attempting a create.
+          // This keeps repeated Alipay snapshot confirmation idempotent and
+          // avoids colliding with Position.openKey.
+          || (accountId === 'alipay'
+            ? cashPositions.find((position) => position.asset.symbol === 'ALIPAY-YUEBAO')
+            : null)
+          || null
+        const cashAsset = existing?.asset || await prisma.asset.findFirst({
+          where: accountId === 'alipay' ? { symbol: 'ALIPAY-YUEBAO' } : { type: 'cash' },
+        })
         if (!cashAsset) throw new Error('Cash asset is required before confirming account summary')
         const position = existing
           ? await prisma.position.update({
               where: { id: existing.id },
-              data: { quantity: availableCash, avgCost: 1, currentPrice: 1, marketValue: availableCash, costBasis: availableCash, unrealizedPnl: 0, source: 'screenshot_confirmed' },
+              data: {
+                quantity: availableCash,
+                avgCost: 1,
+                currentPrice: 1,
+                marketValue: availableCash,
+                costBasis: availableCash,
+                unrealizedPnl: 0,
+                source: 'screenshot_confirmed',
+                valuationBasis: 'unit_price',
+                sourcePayloadJson: JSON.stringify(fields),
+                tags: accountId === 'alipay'
+                  ? JSON.stringify(['支付宝·现金'])
+                  : ['broker', 'tonghuashun', 'ths'].includes(accountId)
+                    ? JSON.stringify(['同花顺·交易现金'])
+                    : existing.tags,
+                labels: accountId === 'alipay'
+                  ? JSON.stringify(['账户:支付宝'])
+                  : ['broker', 'tonghuashun', 'ths'].includes(accountId)
+                    ? JSON.stringify(['账户:同花顺', '策略:核心波动现金', '资产桶:交易现金'])
+                    : existing.labels,
+              },
             })
           : await prisma.position.create({
               data: {
@@ -572,6 +702,18 @@ class ScreenshotCaptureService {
                 costBasis: availableCash,
                 unrealizedPnl: 0,
                 source: 'screenshot_confirmed',
+                valuationBasis: 'unit_price',
+                sourcePayloadJson: JSON.stringify(fields),
+                tags: accountId === 'alipay'
+                  ? JSON.stringify(['支付宝·现金'])
+                  : ['broker', 'tonghuashun', 'ths'].includes(accountId)
+                    ? JSON.stringify(['同花顺·交易现金'])
+                    : JSON.stringify([]),
+                labels: accountId === 'alipay'
+                  ? JSON.stringify(['账户:支付宝'])
+                  : ['broker', 'tonghuashun', 'ths'].includes(accountId)
+                    ? JSON.stringify(['账户:同花顺', '策略:核心波动现金', '资产桶:交易现金'])
+                    : JSON.stringify([]),
               },
             })
         await prisma.positionSnapshot.create({
@@ -585,6 +727,9 @@ class ScreenshotCaptureService {
             currentPrice: 1,
             marketValue: availableCash,
             costBasis: availableCash,
+            valuationBasis: 'unit_price',
+            sourcePayloadJson: JSON.stringify(fields),
+            capturedAt: asDate(fields.asOfDate) || capture.capturedAt || new Date(),
           },
         })
         results.push({ rowId: row.id, status: 'confirmed', entity: 'cash_position', entityId: position.id, availableCash })
@@ -593,18 +738,33 @@ class ScreenshotCaptureService {
       }
       const assetId = row.assetId
       if (row.rowType === 'holding') {
-        const quantity = asPositive(fields.quantity, true)!
-        const screenshotCost = asPositive(fields.avgCost)!
-        const currentPrice = asPositive(fields.currentPrice) || screenshotCost
-        const marketValue = asPositive(fields.marketValue, true) ?? quantity * currentPrice
+        const valueBased = isMarketValueHolding(fields)
+        const marketValue = valueBased
+          ? asPositive(fields.marketValue, true)!
+          : asPositive(fields.marketValue, true) ?? asPositive(fields.quantity, true)! * (asPositive(fields.currentPrice) || asPositive(fields.avgCost)!)
+        const holdingPnl = valueBased ? asFinite(fields.holdingPnl)! : null
+        const quantity = valueBased ? 1 : asPositive(fields.quantity, true)!
+        const screenshotCost = valueBased ? marketValue - holdingPnl! : asPositive(fields.avgCost)!
+        const currentPrice = valueBased ? marketValue : asPositive(fields.currentPrice) || screenshotCost
         const existing = await prisma.position.findFirst({ where: { userId: capture.userId, assetId: assetId!, status: 'open' } })
         const costResolution = resolveScreenshotCost(existing?.avgCost, screenshotCost)
         const avgCost = costResolution.resolvedCost
-        const costBasis = quantity * avgCost
+        const costBasis = valueBased ? avgCost : quantity * avgCost
+        const valuationBasis = valueBased ? 'market_value_total' : 'unit_price'
         const position = existing
           ? await prisma.position.update({
               where: { id: existing.id },
-              data: { quantity, avgCost, currentPrice, marketValue, costBasis, unrealizedPnl: marketValue - costBasis, source: 'screenshot_confirmed' },
+              data: {
+                quantity,
+                avgCost,
+                currentPrice,
+                marketValue,
+                costBasis,
+                unrealizedPnl: marketValue - costBasis,
+                source: 'screenshot_confirmed',
+                valuationBasis,
+                sourcePayloadJson: JSON.stringify(fields),
+              },
             })
           : await prisma.position.create({
               data: {
@@ -618,6 +778,8 @@ class ScreenshotCaptureService {
                 costBasis,
                 unrealizedPnl: marketValue - costBasis,
                 source: 'screenshot_confirmed',
+                valuationBasis,
+                sourcePayloadJson: JSON.stringify(fields),
               },
             })
         await prisma.positionSnapshot.create({
@@ -631,27 +793,64 @@ class ScreenshotCaptureService {
             currentPrice,
             marketValue,
             costBasis,
+            valuationBasis,
+            sourcePayloadJson: JSON.stringify(fields),
+            capturedAt: asDate(fields.asOfDate) || capture.capturedAt || new Date(),
           },
         })
         results.push({ rowId: row.id, status: 'confirmed', entity: 'position', entityId: position.id, costResolution })
       } else if (row.rowType === 'trade') {
-        const existing = row.importKey ? await prisma.transaction.findUnique({ where: { sourceImportKey: row.importKey } }) : null
-        const transaction = existing || await transactionService.createTransaction({
-          userId: capture.userId,
-          assetId: assetId!,
-          type: String(fields.type || fields.side).toLowerCase() as any,
-          quantity: asPositive(fields.quantity)!,
-          price: asPositive(fields.price)!,
-          fee: asPositive(fields.fee, true) || 0,
-          broker: fields.broker ? String(fields.broker) : undefined,
-          confirmationNo: fields.confirmationNo ? String(fields.confirmationNo) : undefined,
-          executedAt: asDate(fields.executedAt) || capture.capturedAt || new Date(),
-          notes: `由截图 ${capture.id} 经人工确认导入`,
-          source: 'screenshot_confirmed',
-          sourceImportKey: row.importKey || undefined,
-          sourceCaptureRowId: row.id,
-        })
-        results.push({ rowId: row.id, status: existing ? 'already_confirmed' : 'confirmed', entity: 'transaction', entityId: transaction.id })
+        if (isExternalFundTrade(fields)) {
+          const existing = row.importKey
+            ? await prisma.externalFundLedgerEntry.findUnique({ where: { sourceImportKey: row.importKey } })
+            : null
+          const entry = existing || await prisma.externalFundLedgerEntry.create({
+            data: {
+              userId: capture.userId,
+              accountId: String(fields.accountId || 'alipay').toLowerCase(),
+              assetId: assetId!,
+              sourceCaptureRowId: row.id,
+              sourceImportKey: row.importKey || undefined,
+              entryType: normalizedFundEntryType(fields),
+              amount: asPositive(fields.amount),
+              shares: asPositive(fields.shares ?? fields.quantity),
+              nav: asPositive(fields.nav ?? fields.price),
+              status: String(fields.status || 'confirmed').toLowerCase(),
+              executedAt: asDate(fields.executedAt) || capture.capturedAt || new Date(),
+              rawJson: JSON.stringify(fields),
+            },
+          })
+          results.push({ rowId: row.id, status: existing ? 'already_confirmed' : 'confirmed', entity: 'external_fund_ledger_entry', entityId: entry.id })
+        } else {
+          const existing = row.importKey ? await prisma.transaction.findUnique({ where: { sourceImportKey: row.importKey } }) : null
+          const transaction = existing || await transactionService.createTransaction({
+            userId: capture.userId,
+            assetId: assetId!,
+            type: String(fields.type || fields.side).toLowerCase() as any,
+            quantity: asPositive(fields.quantity)!,
+            price: asPositive(fields.price)!,
+            fee: asPositive(fields.fee, true) || 0,
+            broker: fields.broker ? String(fields.broker) : undefined,
+            confirmationNo: fields.confirmationNo ? String(fields.confirmationNo) : undefined,
+            executedAt: asDate(fields.executedAt) || capture.capturedAt || new Date(),
+            notes: input.tradePositionEffectPolicy === 'included_in_latest_snapshot'
+              ? `由截图 ${capture.id} 经人工确认导入；成交已包含在最新持仓快照，不重放仓位与现金。`
+              : `由截图 ${capture.id} 经人工确认导入`,
+            source: input.tradePositionEffectPolicy === 'included_in_latest_snapshot'
+              ? 'screenshot_confirmed_snapshot_included'
+              : 'screenshot_confirmed',
+            sourceImportKey: row.importKey || undefined,
+            sourceCaptureRowId: row.id,
+            positionEffect: input.tradePositionEffectPolicy === 'included_in_latest_snapshot' ? 'record_only' : 'apply',
+          })
+          results.push({
+            rowId: row.id,
+            status: existing ? 'already_confirmed' : 'confirmed',
+            entity: 'transaction',
+            entityId: transaction.id,
+            positionEffect: input.tradePositionEffectPolicy === 'included_in_latest_snapshot' ? 'included_in_latest_snapshot' : 'applied',
+          })
+        }
       } else if (row.rowType === 'order') {
         const order = await prisma.externalOrderObservation.upsert({
           where: { captureRowId: row.id },

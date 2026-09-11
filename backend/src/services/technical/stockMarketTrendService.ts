@@ -16,6 +16,7 @@ export interface StockMarketTrendBar {
   close: number
   volume: number
   source: string
+  adjustType?: 'none' | 'qfq'
 }
 
 export interface StockMarketTrendSnapshot {
@@ -32,6 +33,8 @@ export interface StockMarketTrendSnapshot {
     source: string
     sessionStatus: MarketSessionStatus
     fallbackUsed: boolean
+    freshnessStatus: 'fresh' | 'stale' | 'fallback'
+    ageSeconds: number | null
   }
   latestClose: {
     date: string
@@ -116,6 +119,7 @@ function normalizeHistory(history: StockHistoryData[]): StockMarketTrendBar[] {
       close: row.close,
       volume: Number.isFinite(row.volume) && row.volume >= 0 ? row.volume : 0,
       source: row.source || 'unknown',
+      adjustType: row.adjustType,
     })
   }
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date))
@@ -169,8 +173,15 @@ export function buildStockMarketTrendSnapshot(params: {
   const quoteChangePercent = validRealtime?.priceChangePercent ?? (previousClose > 0 ? (fallbackChange / previousClose) * 100 : 0)
   const historySources = [...new Set(recentCompleted.map((bar) => bar.source))]
   const warnings: string[] = []
+  const sessionStatus = getSessionStatus(clock)
+  const realtimeAgeSeconds = validRealtime
+    ? Math.max(0, Math.round((now.getTime() - validRealtime.timestamp.getTime()) / 1000))
+    : null
+  const realtimeFresh = realtimeAgeSeconds !== null
+    && realtimeAgeSeconds <= (sessionStatus === 'intraday' ? 15 * 60 : 7 * 24 * 60 * 60)
 
   if (!validRealtime) warnings.push('实时行情不可用，最新价已回退到行情源最近可用价格。')
+  else if (!realtimeFresh) warnings.push(`最新价时间已超出${sessionStatus === 'intraday' ? '15分钟盘中' : '7天非盘中'}新鲜度门槛，不能标记为实时。`)
   if (normalized.some((bar) => bar.date === clock.date) && getSessionStatus(clock) !== 'closed') {
     warnings.push('当日尚未收盘，MA 与最近30日收盘价均排除当日盘中K线。')
   }
@@ -188,8 +199,10 @@ export function buildStockMarketTrendSnapshot(params: {
       changePercent: round(quoteChangePercent, 2),
       asOf: validRealtime?.timestamp.toISOString() || `${fallbackQuote.date}T15:00:00+08:00`,
       source: validRealtime?.source || fallbackQuote.source,
-      sessionStatus: getSessionStatus(clock),
+      sessionStatus,
       fallbackUsed: !validRealtime,
+      freshnessStatus: !validRealtime ? 'fallback' : realtimeFresh ? 'fresh' : 'stale',
+      ageSeconds: realtimeAgeSeconds,
     },
     latestClose: {
       date: latestCompleted.date,

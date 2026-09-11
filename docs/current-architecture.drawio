@@ -17,7 +17,7 @@
         <mxCell id="browser" value="Browser App&#xa;React 18 + Vite + TypeScript" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;arcSize=8;" vertex="1" parent="frontend-group">
           <mxGeometry x="35" y="55" width="260" height="75" as="geometry"/>
         </mxCell>
-        <mxCell id="routing" value="App Routing&#xa;/dashboard, /assets, /positions&#xa;/fund/:code, /stock/:code&#xa;/transactions, /analysis, /backtest, /portfolios" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="frontend-group">
+        <mxCell id="routing" value="App Routing&#xa;/dashboard, /assets, /positions&#xa;/fund/:code, /stock/:code&#xa;/transactions, /analysis, /backtest&#xa;/portfolio-comparison" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="frontend-group">
           <mxGeometry x="35" y="155" width="260" height="105" as="geometry"/>
         </mxCell>
         <mxCell id="ui-components" value="UI And Charts&#xa;Ant Design, TailwindCSS&#xa;ECharts K-line, allocation, heatmap, gauges&#xa;stock/fund detail components" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;arcSize=8;" vertex="1" parent="frontend-group">

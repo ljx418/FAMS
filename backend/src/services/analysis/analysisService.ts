@@ -27,6 +27,8 @@ import { deriveProhibitedActions } from './fivdRProhibitedActions.js'
 import { researchAssetIdentityService } from '../asset/researchAssetIdentityService.js'
 import { alternativeAssetFactsetService } from '../valuation/alternativeAssetFactsetService.js'
 import { ensureUser } from '../../utils/user.js'
+import { allocationPolicyService } from '../allocation/allocationPolicyService.js'
+import { portfolioRelativeRotationService } from '../relative-rotation/portfolioRelativeRotationService.js'
 
 type AdviceActionType = 'buy' | 'sell' | 'hold' | 'rebalance' | 'grid_order' | 'dca'
 type SuggestionType = 'grid_order' | 'dca_plan' | 'stop_loss' | 'take_profit' | 'rebalance' | 'buy_candidate' | 'reduce_position' | 'hold_review'
@@ -88,6 +90,63 @@ interface StructuredAdvicePayload {
     current_pct: number
     target_pct: number
     suggestion: 'increase' | 'decrease' | 'maintain'
+    current_value?: number
+    target_value?: number
+    gap_value?: number
+    deviation_pct_point?: number
+    triggered?: boolean
+  }>
+  allocation_plan?: {
+    schema_version: string
+    account: string
+    threshold_pct_point: number
+    comparison: string
+    execution_boundary: string
+    tranches: Array<{
+      index: number
+      ratio: number
+      state: 'draft_ready' | 'pending_rrg_data'
+      gate: string
+    }>
+    target_gates: Array<{
+      symbol: string
+      group: string
+      quadrant: string | null
+      readiness: string
+      freshness_lag: number | null
+      current_condition_passed: boolean
+      later_tranche_state: string
+      reason: string
+    }>
+  }
+  account_summaries?: Array<{
+    account_id: 'alipay' | 'tonghuashun'
+    account_name: string
+    strategy: string
+    current_value: number
+    status: 'rebalance_required' | 'risk_reduction_required' | 'within_policy'
+    trade_action_ready: false
+    buckets: Array<{
+      key: string
+      label: string
+      current_pct: number
+      target_pct: number
+      current_value: number
+      target_value: number
+      gap_value: number
+      triggered: boolean
+    }>
+    actions: Array<{
+      sequence: number
+      action: string
+      symbol?: string
+      amount: number
+      first_tranche_amount?: number
+      candidate_symbols?: string[]
+      state: 'manual_review' | 'blocked_pending_research'
+      reason: string
+    }>
+    guardrails: string[]
   }>
   actions: StructuredAdviceAction[]
   risks: string[]
@@ -164,6 +223,7 @@ interface AdviceExecutionReviewAction {
   transactions: Array<{
     quantity: number
     price: number
+    amount: number
   }>
 }
 
@@ -231,9 +291,222 @@ class AnalysisService {
     return Array.from(hints)
   }
 
-  private buildPortfolioTargets(allocation: AllocationSummary) {
-    void allocation
-    return []
+  private buildPortfolioTargets(allocationPlan?: any) {
+    const alipay = allocationPlan?.accounts?.find((account: any) => account.id === 'alipay')
+    if (!alipay) return []
+    return alipay.buckets.map((bucket: any) => ({
+      bucket: bucket.label,
+      current_pct: Number((bucket.currentRatio / 100).toFixed(6)),
+      target_pct: Number((bucket.targetRatio / 100).toFixed(6)),
+      suggestion: bucket.triggered ? (bucket.gapValue > 0 ? 'increase' : 'decrease') : 'maintain',
+      current_value: bucket.currentValue,
+      target_value: bucket.targetValue,
+      gap_value: bucket.gapValue,
+      deviation_pct_point: bucket.deviationPctPoint,
+      triggered: bucket.triggered,
+    }))
+  }
+
+  private allocationGateItems(portfolioRrg?: any) {
+    const groups = portfolioRrg?.groups || []
+    const allocationGroup = groups.find((group: any) => group.key === 'all' && group.purpose === 'allocation_gate')
+    return allocationGroup?.items || groups.flatMap((group: any) => group.items)
+  }
+
+  private buildAccountSummaries(allocationPlan?: any): StructuredAdvicePayload['account_summaries'] {
+    if (!allocationPlan) return undefined
+    const firstTranche = (amount: number) => Number((Math.max(0, amount) * 0.25).toFixed(2))
+    const accountById = new Map((allocationPlan.accounts || []).map((account: any) => [account.id, account]))
+    const alipay: any = accountById.get('alipay')
+    const broker: any = accountById.get('tonghuashun')
+    const actionPlan = allocationPlan.strategyActions
+    const buckets = (account: any) => (account?.buckets || []).map((bucket: any) => ({
+      key: bucket.key,
+      label: bucket.label,
+      current_pct: Number((bucket.currentRatio / 100).toFixed(6)),
+      target_pct: Number((bucket.targetRatio / 100).toFixed(6)),
+      current_value: bucket.currentValue,
+      target_value: bucket.targetValue,
+      gap_value: bucket.gapValue,
+      triggered: bucket.triggered,
+    }))
+    const brokerBucket = (key: string) => broker?.buckets?.find((bucket: any) => bucket.key === key)
+    return [
+      {
+        account_id: 'alipay',
+        account_name: '支付宝',
+        strategy: '长期配置：现金5% / 黄金25% / 债券25% / 权益45%',
+        current_value: alipay?.currentValue || 0,
+        status: alipay?.buckets?.some((bucket: any) => bucket.triggered) ? 'rebalance_required' : 'within_policy',
+        trade_action_ready: false,
+        buckets: buckets(alipay),
+        actions: [
+          {
+            sequence: 1, action: 'reduce_bond', symbol: '009725/013785', amount: actionPlan.bondReductionTarget,
+            first_tranche_amount: firstTranche(actionPlan.bondReductionTarget), state: 'manual_review',
+            reason: '先核验可赎回份额与实际费用，低成本优先，尽量保留014086；释放资金用于其余三个缺口。',
+          },
+          ...actionPlan.equityExits.map((item: any, index: number) => ({
+            sequence: index + 2, action: 'sell_transition_equity', symbol: item.symbol, amount: item.amount,
+            first_tranche_amount: firstTranche(item.amount), state: 'manual_review' as const, reason: item.reason,
+          })),
+          {
+            sequence: 4, action: 'increase_gold', symbol: '002611', amount: actionPlan.goldIncreaseTarget,
+            first_tranche_amount: firstTranche(actionPlan.goldIncreaseTarget), state: 'manual_review',
+            reason: '补足黄金目标；后续批次只读取统一跨资产RRG，不再读取同类黄金ETF跟踪差。',
+          },
+          ...actionPlan.equityBuys.map((item: any, index: number) => ({
+            sequence: index + 5, action: 'increase_target_equity', symbol: item.symbol, amount: item.amount,
+            first_tranche_amount: firstTranche(item.amount), state: 'manual_review' as const,
+            reason: `补到单项最终目标市值 ¥${item.finalTargetValue.toFixed(2)}；后续批次等待统一RRG新周频点。`,
+          })),
+          {
+            sequence: 7, action: 'retain_cash', amount: actionPlan.cashIncreaseTarget,
+            first_tranche_amount: firstTranche(actionPlan.cashIncreaseTarget), state: 'manual_review',
+            reason: '债券减持资金不全部再投入，保留到现金5%的目标水平。',
+          },
+        ],
+        guardrails: [
+          '严格偏离大于3个百分点才触发；触发后以完整目标为方向。',
+          '第一批25%只进入人工复核；第二至四批必须等待统一RRG新的周频点。',
+          '支付宝总额型基金只记名义金额流水，真实份额继续等待截图对账。',
+        ],
+      },
+      {
+        account_id: 'tonghuashun',
+        account_name: '同花顺',
+        strategy: '交易账户：核心仓50% / 波动仓上限25% / 交易现金下限25%',
+        current_value: broker?.currentValue || 0,
+        status: (brokerBucket('volatility')?.gapValue || 0) < 0 || (brokerBucket('trading_cash')?.gapValue || 0) > 0
+          ? 'risk_reduction_required'
+          : 'within_policy',
+        trade_action_ready: false,
+        buckets: buckets(broker),
+        actions: [
+          {
+            sequence: 1, action: 'pause_new_volatility_buys', amount: 0, state: 'manual_review',
+            candidate_symbols: ['513770', '159851', '601127'],
+            reason: '波动仓已经超过25%上限，完成结构降仓前不新增波动仓。',
+          },
+          {
+            sequence: 2, action: 'reduce_volatility_exposure', amount: Math.max(0, -(brokerBucket('volatility')?.gapValue || 0)),
+            state: 'blocked_pending_research', candidate_symbols: ['513770', '159851', '601127'],
+            reason: '优先复核标记为待退出非A股的513770；其余标的须经过最新基本面、趋势和交易成本复核，不按亏损幅度机械卖出。',
+          },
+          {
+            sequence: 3, action: 'increase_core_exposure', amount: Math.max(0, brokerBucket('core')?.gapValue || 0),
+            state: 'blocked_pending_research', candidate_symbols: ['000651', '600276', '601318'],
+            reason: '核心仓候选限于现有格力电器、恒瑞医药、中国平安；正式数量须等待统一RRG和基本面复核，不把高波动亏损仓直接改名为核心仓。',
+          },
+          {
+            sequence: 4, action: 'restore_trading_cash', amount: Math.max(0, brokerBucket('trading_cash')?.gapValue || 0),
+            state: 'manual_review', reason: '减仓所得至少保留到交易现金25%的下限，其余资金才可进入已通过复核的核心仓。',
+          },
+        ],
+        guardrails: [
+          '同花顺目标是账户内部子层，不与支付宝缺口相互抵消。',
+          '当前策略验证仍为研究观察状态，禁止把结构金额直接转换为券商订单。',
+          '波动仓减持顺序由退出标签、基本面失效、趋势和交易成本共同决定，不能只因为账面亏损执行。',
+        ],
+      },
+    ]
+  }
+
+  private buildAlipayAllocationSuggestions(allocationPlan: any, positions: any[], generatedAt: Date, portfolioRrg?: any): SuggestionRecord[] {
+    const positionBySymbol = new Map(positions.map((position) => [position.asset.symbol, position]))
+    const rrgItems = this.allocationGateItems(portfolioRrg).map((item: any) => ({ ...item, groupKey: 'all' }))
+    const rrgBySymbol = new Map(rrgItems.map((item: any) => [item.symbol, item]))
+    const firstTranche = (amount: number) => Number((amount * 0.25).toFixed(2))
+    const sharedGate = {
+      trancheCount: 4,
+      currentTranche: 1,
+      currentTrancheState: 'draft_ready',
+      laterTrancheGate: '仅在出现新的周频点，目标标的位于 Improving/Leading，公式充分、数据延迟不超过1且无硬阻断时，才释放下一批。',
+      confirmationMode: 'notional_ledger_only',
+      mutatesPositionOnConfirmation: false,
+      createsExternalOrder: false,
+    }
+    const actionPlan = allocationPlan.strategyActions
+    const rows: Array<{
+      symbol: string
+      type: SuggestionType
+      actionType: AdviceActionType
+      title: string
+      description: string
+      fullAmount: number
+      priority: 'low' | 'medium' | 'high'
+      extra?: Record<string, unknown>
+    }> = [
+      {
+        symbol: '009725', type: 'rebalance', actionType: 'rebalance', priority: 'high',
+        title: '债券减持来源复核 - 东方红优质甄选',
+        description: `债券仓需合计降低 ¥${actionPlan.bondReductionTarget.toFixed(2)}。第一批参考 ¥${firstTranche(actionPlan.bondReductionTarget).toFixed(2)}；必须先核验 009725/013785 可赎回份额和实际费用，低成本优先，并尽量保留 014086。证据不足前不记成交。`,
+        fullAmount: actionPlan.bondReductionTarget,
+        extra: { blockedUntil: ['redeemability_verified', 'actual_fee_verified'], sourceCandidates: ['009725', '013785'], preserve: ['014086'] },
+      },
+      ...actionPlan.equityExits.map((item: any) => ({
+        symbol: item.symbol, type: 'reduce_position' as const, actionType: 'sell' as const, priority: 'high' as const,
+        title: `退出过渡权益 - ${positionBySymbol.get(item.symbol)?.asset?.name || item.symbol}`,
+        description: `${item.reason}；完整退出金额 ¥${item.amount.toFixed(2)}，第一批名义金额 ¥${firstTranche(item.amount).toFixed(2)}。确认后只记本地名义金额流水并等待真实份额对账。`,
+        fullAmount: item.amount,
+      })),
+      {
+        symbol: '002611', type: 'buy_candidate', actionType: 'buy', priority: 'high',
+        title: `增配黄金 - ${positionBySymbol.get('002611')?.asset?.name || '博时黄金ETF联接C'}`,
+        description: `黄金目标缺口 ¥${actionPlan.goldIncreaseTarget.toFixed(2)}，第一批名义金额 ¥${firstTranche(actionPlan.goldIncreaseTarget).toFixed(2)}；后续批次受黄金组周频 RRG 门控。`,
+        fullAmount: actionPlan.goldIncreaseTarget,
+      },
+      ...actionPlan.equityBuys.map((item: any) => ({
+        symbol: item.symbol, type: 'buy_candidate' as const, actionType: 'buy' as const, priority: 'high' as const,
+        title: `增配目标权益 - ${positionBySymbol.get(item.symbol)?.asset?.name || item.symbol}`,
+        description: `最终目标市值 ¥${item.finalTargetValue.toFixed(2)}，尚需增配 ¥${item.amount.toFixed(2)}，第一批名义金额 ¥${firstTranche(item.amount).toFixed(2)}；后续批次受对应权益组周频 RRG 门控。`,
+        fullAmount: item.amount,
+      })),
+    ]
+    return rows.map((row, index) => {
+      const position = positionBySymbol.get(row.symbol)
+      const amount = firstTranche(row.fullAmount)
+      const rrg = rrgBySymbol.get(row.symbol) as any
+      const laterTrancheState = row.actionType === 'buy'
+        ? rrg?.gateEligible
+          ? 'rrg_condition_met_wait_new_weekly_point'
+          : 'blocked_by_current_rrg'
+        : row.actionType === 'sell'
+          ? 'structural_exit_wait_manual_confirmation'
+          : 'blocked_by_redeemability_and_fee_evidence'
+      return {
+        id: `allocation_v2_${row.symbol}_${generatedAt.getTime()}_${index}`,
+        type: row.type,
+        title: row.title,
+        description: row.description,
+        priority: row.priority,
+        targetSymbol: row.symbol,
+        assetId: position?.assetId,
+        actionType: row.actionType,
+        suggestedAmount: amount,
+        confidence: row.actionType === 'rebalance' ? 0.7 : 0.85,
+        parameters: {
+          strategy: 'alipay_5_25_25_45',
+          fullAmount: row.fullAmount,
+          firstTrancheAmount: amount,
+          ...sharedGate,
+          laterTrancheState,
+          rrgCurrent: rrg ? {
+            group: rrg.groupKey,
+            quadrant: rrg.latestQuadrant,
+            readiness: rrg.readiness,
+            formulaSufficient: rrg.formulaSufficient,
+            freshness: rrg.freshness,
+            freshnessLag: rrg.freshnessLag,
+            gateEligible: rrg.gateEligible,
+            gateReason: rrg.gateReason,
+            commonAsOfDate: rrg.commonAsOfDate,
+          } : null,
+          ...(row.extra || {}),
+        },
+        createdAt: generatedAt.toISOString(),
+      }
+    })
   }
 
   private summarizeReliability(params: {
@@ -333,7 +606,7 @@ class AnalysisService {
         )
       const suggestedNotional = action.suggestedAmount || (suggestedQuantity > 0 && suggestedPrice > 0 ? suggestedQuantity * suggestedPrice : 0)
       const executedQuantity = action.transactions.reduce((sum: number, transaction) => sum + transaction.quantity, 0)
-      const executedNotional = action.transactions.reduce((sum: number, transaction) => sum + (transaction.quantity * transaction.price), 0)
+      const executedNotional = action.transactions.reduce((sum: number, transaction) => sum + (transaction.amount || transaction.quantity * transaction.price), 0)
 
       summary.suggestedNotional += suggestedNotional
       summary.executedNotional += executedNotional
@@ -401,6 +674,8 @@ class AnalysisService {
     scope: StructuredAdvicePayload['scope']
     summary: string
     riskLevel: 'low' | 'medium' | 'high'
+    allocationPlan?: any
+    portfolioRrg?: any
   }): StructuredAdvicePayload {
     const totalValue = params.positions.reduce((sum, position) => sum + (position.marketValue || 0), 0)
     const cashValue = params.positions
@@ -428,7 +703,35 @@ class AnalysisService {
         concentration_risk: concentrationRisk,
         primary_observations: this.getActionRiskHints(params.suggestions),
       },
-      portfolio_targets: this.buildPortfolioTargets(params.allocation),
+      portfolio_targets: this.buildPortfolioTargets(params.allocationPlan),
+      account_summaries: this.buildAccountSummaries(params.allocationPlan),
+      allocation_plan: params.allocationPlan ? {
+        schema_version: params.allocationPlan.schemaVersion,
+        account: 'alipay',
+        threshold_pct_point: params.allocationPlan.rebalancePolicy.thresholdPctPoint,
+        comparison: params.allocationPlan.rebalancePolicy.comparison,
+        execution_boundary: '人工确认后仅记名义金额流水；不自动下单，不在未对账时修改总额型基金持仓。',
+        tranches: [1, 2, 3, 4].map((index) => ({
+          index,
+          ratio: 0.25,
+          state: index === 1 ? 'draft_ready' as const : 'pending_rrg_data' as const,
+          gate: index === 1
+            ? '配置偏离已严格超过3个百分点，可进入人工复核。'
+            : '等待新的周频点，且目标位于Improving/Leading、公式充分、延迟≤1、无硬阻断。',
+        })),
+        target_gates: this.allocationGateItems(params.portfolioRrg)
+          .filter((item: any) => ['002611', '007467', '022430', '009725', '013785'].includes(item.symbol))
+          .map((item: any) => ({
+            symbol: item.symbol,
+            group: 'all',
+            quadrant: item.latestQuadrant,
+            readiness: item.readiness,
+            freshness_lag: item.freshnessLag,
+            current_condition_passed: item.gateEligible,
+            later_tranche_state: item.gateEligible ? 'condition_met_wait_new_weekly_point' : 'blocked_by_current_rrg',
+            reason: item.gateReason,
+          })),
+      } : undefined,
       actions: params.suggestions.map((suggestion) => ({
         asset_code: suggestion.targetSymbol,
         asset_name: suggestion.title.split(' - ')[1] || suggestion.title,
@@ -1008,6 +1311,93 @@ class AnalysisService {
     return this.getDailySnapshot(userId, date)
   }
 
+  async getAlipayOneClickContext(userId: string, options: { refreshRrg?: boolean } = {}) {
+    const normalizedUserId = userId || 'default'
+    await this.ensureUser(normalizedUserId)
+    const rrgRefresh = options.refreshRrg === false
+      ? null
+      : await portfolioRelativeRotationService.refresh(normalizedUserId)
+    const [positions, allocationPlan, portfolioRrg, ledgerEntries] = await Promise.all([
+      prisma.position.findMany({
+        where: { userId: normalizedUserId, status: 'open' },
+        include: { asset: true },
+      }),
+      allocationPolicyService.getCurrentPlan(normalizedUserId),
+      portfolioRelativeRotationService.getReport(normalizedUserId, { frequency: 'weekly', years: 8 }),
+      prisma.externalFundLedgerEntry.findMany({
+        where: { userId: normalizedUserId, accountId: 'alipay' },
+        include: { asset: true },
+        orderBy: [{ executedAt: 'desc' }, { createdAt: 'desc' }],
+        take: 100,
+      }),
+    ])
+    const generatedAt = new Date()
+    const suggestions = this.buildAlipayAllocationSuggestions(allocationPlan, positions, generatedAt, portfolioRrg)
+    const accountSummary = this.buildAccountSummaries(allocationPlan)?.find((account) => account.account_id === 'alipay') || null
+    const allocationGroup = (portfolioRrg.groups || []).find((group: any) => group.key === 'all' && group.purpose === 'allocation_gate')
+    const relevantSymbols = new Set(['002611', '009725', '013785', '013597', '021634', '007467', '022430'])
+    const rotationItems = (allocationGroup?.items || [])
+      .filter((item: any) => relevantSymbols.has(item.symbol))
+      .map((item: any) => ({
+        symbol: item.symbol,
+        name: item.name,
+        quadrant: item.latestQuadrant,
+        readiness: item.readiness,
+        formulaSufficient: item.formulaSufficient,
+        freshness: item.freshness,
+        freshnessLag: item.freshnessLag,
+        commonAsOfDate: item.commonAsOfDate,
+        gateEligible: item.gateEligible,
+        gateReason: item.gateReason,
+      }))
+    const tradeDrafts = suggestions.map((suggestion) => ({
+      symbol: suggestion.targetSymbol,
+      action: suggestion.actionType,
+      title: suggestion.title,
+      fullAmount: suggestion.parameters.fullAmount,
+      firstTrancheAmount: suggestion.parameters.firstTrancheAmount,
+      currentTranche: 1,
+      trancheCount: 4,
+      currentState: suggestion.actionType === 'rebalance' ? 'blocked_pending_redeemability_and_fee' : 'manual_confirmation_required',
+      laterTrancheState: suggestion.parameters.laterTrancheState,
+      rrgCurrent: suggestion.parameters.rrgCurrent,
+      blockers: suggestion.actionType === 'rebalance' ? suggestion.parameters.blockedUntil || [] : [],
+      reason: suggestion.description,
+    }))
+    const pendingLedger = ledgerEntries.filter((entry) => entry.status === 'pending')
+    return {
+      schemaVersion: 'fams.alipay-one-click-context.v1',
+      generatedAt: generatedAt.toISOString(),
+      allocation: {
+        plan: allocationPlan,
+        accountSummary,
+        classificationStatus: allocationPlan.classification.status,
+      },
+      tradeDrafts,
+      recentLedger: {
+        entryCount: ledgerEntries.length,
+        pendingCount: pendingLedger.length,
+        latestExecutedAt: ledgerEntries[0]?.executedAt?.toISOString() || null,
+        entries: ledgerEntries.slice(0, 20).map((entry) => ({
+          id: entry.id,
+          symbol: entry.asset?.symbol || null,
+          entryType: entry.entryType,
+          amount: entry.amount,
+          shares: entry.shares,
+          status: entry.status,
+          executedAt: entry.executedAt.toISOString(),
+        })),
+      },
+      relativeRotation: {
+        refresh: rrgRefresh,
+        benchmark: allocationGroup?.benchmark || null,
+        freshnessReferenceDate: portfolioRrg.freshnessReferenceDate,
+        items: rotationItems,
+      },
+      executionBoundary: allocationPlan.executionBoundary,
+    }
+  }
+
   /**
    * 生成投资建议（网格挂单、定投计划、止损提醒）
    */
@@ -1223,28 +1613,21 @@ class AnalysisService {
       }
     }
 
-    // 再平衡建议
+    // 组合级配置建议：使用已批准的支付宝口径，替代旧的全资产类型默认比例。
     const allocation = this.calculateAllocation(positions)
-    const rebalancing = await this.checkRebalancingNeed(allocation, normalizedUserId)
-    if (!query && rebalancing.needed) {
-      suggestions.push({
-        id: `rebalance_${Date.now()}`,
-        type: 'rebalance',
-        title: '资产再平衡',
-        description: '当前配置偏离目标，建议调整',
-        priority: 'medium',
-        parameters: rebalancing,
-        actionType: 'rebalance',
-        confidence: 0.7,
-        createdAt: new Date().toISOString(),
-      })
-    }
+    const generatedAt = new Date()
+    const [allocationPlan, portfolioRrg] = !query
+      ? await Promise.all([
+          allocationPolicyService.getCurrentPlan(normalizedUserId),
+          portfolioRelativeRotationService.getReport(normalizedUserId, { frequency: 'weekly', years: 8 }),
+        ])
+      : [null, null]
+    if (allocationPlan) suggestions.push(...this.buildAlipayAllocationSuggestions(allocationPlan, positions, generatedAt, portfolioRrg))
 
     // 计算风险等级
     const riskScore = this.calculateRiskScore(positions)
     const riskLevel = riskScore > 70 ? 'high' : riskScore > 40 ? 'medium' : 'low'
     const dataReliability = this.summarizeReliability({ quoteResults })
-    const generatedAt = new Date()
     const marketDataTrace = nonCashPositions.map((position) => {
       const quote = quoteByPositionId.get(position.id)
       return {
@@ -1289,9 +1672,24 @@ class AnalysisService {
       generatedAt,
       scope: query ? (scope === 'asset' ? 'holding' : 'candidate') : 'portfolio',
       summary: sortedSuggestions.length > 0
-        ? `已生成 ${sortedSuggestions.length} 条结构化建议，优先处理高优先级纪律和仓位相关动作。`
+        ? allocationPlan
+          ? (() => {
+              const gateItems = this.allocationGateItems(portfolioRrg)
+              const describe = (symbol: string) => {
+                const item = gateItems.find((candidate: any) => candidate.symbol === symbol)
+                return item ? `${symbol} ${item.latestQuadrant}/${item.readiness}/${item.gateEligible ? '当前条件通过' : '当前阻断'}` : `${symbol} 无RRG证据`
+              }
+              const broker = allocationPlan.accounts.find((account: any) => account.id === 'tonghuashun')
+              const core = broker?.buckets.find((bucket: any) => bucket.key === 'core')
+              const volatility = broker?.buckets.find((bucket: any) => bucket.key === 'volatility')
+              const cash = broker?.buckets.find((bucket: any) => bucket.key === 'trading_cash')
+              return `支付宝按现金5%、黄金25%、债券25%、权益45%管理，第一批25%仅进入人工复核；统一RRG门控：${describe('007467')}，${describe('022430')}，${describe('002611')}。同花顺当前核心仓${core?.currentRatio.toFixed(1)}%、波动仓${volatility?.currentRatio.toFixed(1)}%、交易现金${cash?.currentRatio.toFixed(1)}%，先停止新增波动仓并恢复50/25/25结构。`
+            })()
+          : `已生成 ${sortedSuggestions.length} 条结构化建议，优先处理高优先级纪律和仓位相关动作。`
         : '当前未生成明确动作建议，建议继续观察仓位与市场信号。',
       riskLevel,
+      allocationPlan,
+      portfolioRrg,
     })
 
     const adviceInputSnapshot = await prisma.adviceInputSnapshot.create({
@@ -1581,6 +1979,7 @@ class AnalysisService {
         type: transaction.type,
         quantity: transaction.quantity,
         price: transaction.price,
+        amount: transaction.amount,
         executedAt: transaction.executedAt,
       })),
     }))
@@ -1694,6 +2093,103 @@ class AnalysisService {
       adviceId: action.adviceId,
       status: 'executed',
       transaction,
+    }
+  }
+
+  async confirmNotionalAdviceAction(userId: string, actionId: string, input: {
+    executedAmount: number
+    executedAt?: string
+    confirmationRef: string
+    fee?: number
+    notes?: string
+  }) {
+    const normalizedUserId = userId || 'default'
+    await this.ensureUser(normalizedUserId)
+    const executedAmount = Number(input.executedAmount)
+    const fee = Number(input.fee || 0)
+    const confirmationRef = String(input.confirmationRef || '').trim()
+    const executedAt = input.executedAt ? new Date(input.executedAt) : new Date()
+    if (!Number.isFinite(executedAmount) || executedAmount <= 0) throw new Error('executedAmount must be positive')
+    if (!Number.isFinite(fee) || fee < 0) throw new Error('fee must be non-negative')
+    if (!confirmationRef) throw new Error('confirmationRef is required')
+    if (Number.isNaN(executedAt.getTime())) throw new Error('executedAt is invalid')
+
+    const action = await prisma.adviceAction.findUnique({
+      where: { id: actionId },
+      include: { asset: true, advice: true },
+    })
+    if (!action || action.advice.userId !== normalizedUserId) throw new Error('Advice action not found')
+    if (action.actionType !== 'buy' && action.actionType !== 'sell') throw new Error('Only buy/sell advice actions support notional confirmation')
+    if (!action.assetId || !action.asset) throw new Error('Advice action has no linked asset')
+    const sourceImportKey = `advice-notional:${action.id}:${confirmationRef}`
+    const existing = await prisma.transaction.findUnique({ where: { sourceImportKey } })
+    if (existing) {
+      return {
+        actionId: action.id,
+        adviceId: action.adviceId,
+        status: 'recorded_pending_reconciliation',
+        transaction: existing,
+        idempotentReplay: true,
+        positionMutation: false,
+        createsExternalOrder: false,
+      }
+    }
+    const position = await prisma.position.findFirst({
+      where: { userId: normalizedUserId, assetId: action.assetId, status: 'open' },
+    })
+    const transaction = await prisma.$transaction(async (tx) => {
+      const created = await tx.transaction.create({
+        data: {
+          userId: normalizedUserId,
+          assetId: action.assetId!,
+          positionId: position?.id || null,
+          type: action.actionType,
+          quantity: 0,
+          price: 0,
+          fee,
+          amount: executedAmount,
+          broker: 'alipay_manual_confirmation',
+          confirmationNo: confirmationRef,
+          status: 'confirmed',
+          executedAt,
+          notes: input.notes || `支付宝名义金额确认：${action.reason || action.actionType}；真实份额待后续截图对账，当前持仓不变。`,
+          source: 'advice_confirmed_notional',
+          adviceActionId: action.id,
+          sourceImportKey,
+        },
+      })
+      await tx.adviceExecution.upsert({
+        where: { adviceActionId: action.id },
+        create: {
+          adviceActionId: action.id,
+          decision: 'accepted',
+          overrideJson: JSON.stringify({ executedAmount, fee, confirmationRef, reconciliationStatus: 'pending' }),
+          executedAt,
+          notes: '人工已确认名义金额流水；等待真实份额/持仓截图对账。',
+        },
+        update: {
+          decision: 'accepted',
+          overrideJson: JSON.stringify({ executedAmount, fee, confirmationRef, reconciliationStatus: 'pending' }),
+          executedAt,
+          notes: '人工已确认名义金额流水；等待真实份额/持仓截图对账。',
+        },
+      })
+      await tx.adviceAction.update({
+        where: { id: action.id },
+        data: { status: 'recorded_pending_reconciliation', executedAt },
+      })
+      await tx.advice.update({ where: { id: action.adviceId }, data: { status: 'partially_executed' } })
+      return created
+    })
+    return {
+      actionId: action.id,
+      adviceId: action.adviceId,
+      status: 'recorded_pending_reconciliation',
+      transaction,
+      idempotentReplay: false,
+      positionMutation: false,
+      reconciliationStatus: 'pending',
+      createsExternalOrder: false,
     }
   }
 
