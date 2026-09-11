@@ -11,6 +11,9 @@ assert.equal(externalBrainPolicyService.isExternalBrainOriginAllowed(`chrome-ext
 process.env.FAMS_V2_PX_EXTENSION_IDS = allowedId
 assert.equal(externalBrainPolicyService.isExternalBrainOriginAllowed(`chrome-extension://${allowedId}`), true)
 assert.equal(externalBrainPolicyService.isExternalBrainOriginAllowed('http://localhost:3000'), false)
+assert.equal(externalBrainPolicyService.isExternalBrainOriginAllowed('http://127.0.0.1:3100'), false)
+assert.equal(externalBrainPolicyService.isCorsOriginAllowed('http://localhost:3100'), true)
+assert.equal(externalBrainPolicyService.isCorsOriginAllowed('http://127.0.0.1:3100'), true)
 assert.equal(externalBrainPolicyService.isExternalBrainOriginAllowed('chrome-extension://pppppppppppppppppppppppppppppppp'), false)
 
 const callerMatrix = [
@@ -69,5 +72,6 @@ console.log(JSON.stringify({
   permanentHardFail: true,
   prohibitedActionLeakBlocked: true,
   callerIdentityMatrixPassed: true,
+  localFrontendCorsOriginsPassed: true,
   tradingBoundaryLocked: true,
 }, null, 2))

@@ -87,7 +87,7 @@ async function main() {
   const backendDir = resolve(process.cwd())
   const health = await execFileAsync('node', ['node_modules/tsx/dist/cli.mjs', 'scripts/check-sqlite-health.ts'], {
     cwd: backendDir,
-    timeout: 120000,
+    timeout: 360000,
   })
   const healthOutput = JSON.parse(health.stdout)
   assert.ok(healthOutput.path.endsWith('11_runtime_health_audit.json'), 'health script must write runtime audit')

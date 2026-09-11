@@ -5,7 +5,12 @@ import {
   LOCKED_EXECUTION_BOUNDARY,
 } from './externalBrainTypes.js'
 
-const WEB_ORIGINS = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
+const WEB_ORIGINS = new Set([
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:3100',
+  'http://127.0.0.1:3100',
+])
 const READ_PERMISSIONS = new Set(['read_only_direct', 'compute_quick_run'])
 const EXTENSION_ID_PATTERN = /^[a-p]{32}$/
 

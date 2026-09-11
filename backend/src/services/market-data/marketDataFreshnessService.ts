@@ -59,6 +59,7 @@ const DEFAULT_USER_ID = 'default'
 export const DEFAULT_MARKET_DATA_TIMEZONE = 'Asia/Shanghai'
 export const DEFAULT_MARKET_DATA_AFTER_CLOSE_MINUTES = 17 * 60
 const PORTFOLIO_PROXY_SYMBOLS = ['510300', '510500', '512100', '511010', '518880']
+const CANONICAL_MARKET_BAR_ASSET_TYPES = ['stock', 'etf', 'reit']
 
 function normalizeSymbol(symbol: string) {
   return String(symbol || '').trim().toUpperCase().replace(/\.(SH|SZ|BJ|SS)$/, '')
@@ -182,7 +183,11 @@ export class MarketDataFreshnessService {
     const symbols: string[] = []
     if (scope === 'active_strategy' || scope === 'holdings') {
       const positions = await prisma.position.findMany({
-        where: { userId, status: 'open' },
+        where: {
+          userId,
+          status: 'open',
+          asset: { type: { in: CANONICAL_MARKET_BAR_ASSET_TYPES } },
+        },
         include: { asset: true },
         orderBy: [{ marketValue: 'desc' }, { updatedAt: 'desc' }],
         take: limit,

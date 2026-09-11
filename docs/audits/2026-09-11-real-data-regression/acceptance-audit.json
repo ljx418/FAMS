@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "fams.s2.real_data_regression_acceptance.v1",
+  "generatedAt": "2026-09-12T01:08:01+08:00",
+  "stageId": "S2",
+  "status": "passed",
+  "decision": "PASS_FOR_NEXT_HIGH_RISK_GATE",
+  "realData": {
+    "latestMarketTradeDate": "2026-09-11",
+    "expectedMarketTradeDate": "2026-09-11",
+    "activeStrategySymbolCount": 300,
+    "freshSymbolCount": 46,
+    "delayedOneTradingDaySymbolCount": 254,
+    "staleSymbolCount": 0,
+    "unknownSymbolCount": 0,
+    "fullAccountNonCashAssetCoverage": "14/14",
+    "currentAccountSnapshotAsOfDate": "2026-09-08",
+    "persistentResearchTradingDays": 719,
+    "persistentResearchStrategyCount": 10
+  },
+  "fullSystemE2e": {
+    "status": "passed",
+    "reportPath": "backend/data/gpt-audit/full-system-e2e/2026-09-11T16-58-08-430Z/acceptance-report.html",
+    "commandStageExpectations": "17/17",
+    "apiChecks": "7/7",
+    "browserScreenshotCount": 24,
+    "browserConsoleErrorCount": 0,
+    "sqliteHealth": "healthy",
+    "dividendLowVolAuditFileCount": 42,
+    "dividendLowVolCandidateSource": "latest_persisted"
+  },
+  "privacy": {
+    "accountAmountsPublished": false,
+    "accountSymbolsPublished": false,
+    "privateEvidenceTrackedByGit": false
+  },
+  "tradeBoundary": {
+    "formalTradingUnlocked": false,
+    "autoTradeUnlocked": false,
+    "canCreateOrder": false,
+    "orderCreateAllowed": false,
+    "prohibitedActions": [
+      "ADD",
+      "REDUCE",
+      "ORDER_CREATE",
+      "AUTO_TRADE"
+    ]
+  },
+  "remainingHighRiskGates": [
+    "v2_px_px6_02_human_product_experience_acceptance",
+    "formal_data_provider_and_benchmark_qualification",
+    "formal_validation_and_manual_release_signoff",
+    "git_remote_push_authorization"
+  ]
+}

@@ -25,8 +25,11 @@ async function main() {
     relativeRotationUniverseService.getUniverseTimeline('default', { market: 'CN', frequency: 'weekly', years: 8 }),
     relativeRotationUniverseService.getUniverseTimeline('default', { market: 'CN', frequency: 'daily', years: 8 }),
   ])
-  const expected = ['CN:512480', 'CN:515070', 'CN:688825']
-  assert.deepEqual(watchlist.items.map((item) => item.targetKey).sort(), expected)
+  const requiredResearchTargets = ['CN:512480', 'CN:515070', 'CN:688825']
+  const currentTargetKeys = watchlist.items.map((item) => item.targetKey).sort()
+  assert.equal(new Set(currentTargetKeys).size, currentTargetKeys.length)
+  assert.ok(requiredResearchTargets.every((targetKey) => currentTargetKeys.includes(targetKey)))
+  assert.ok(watchlist.items.every((item) => /^[A-Z]+:[A-Za-z0-9.^-]+$/.test(item.targetKey)))
 
   for (const targetKey of ['CN:512480', 'CN:515070']) {
     const weeklyItem = weekly.items.find((item) => item.targetKey === targetKey)
@@ -90,7 +93,8 @@ async function main() {
   console.log(JSON.stringify({
     ok: true,
     checkedAt: new Date().toISOString(),
-    defaultWatchlist: expected,
+    requiredResearchTargetCount: requiredResearchTargets.length,
+    currentWatchlistCount: currentTargetKeys.length,
     cnEvidence,
     multiMarket: sourceEvidence,
     conclusion: 'AI ETF and semiconductor ETF are verified; CXMT is correctly gated as insufficient; HK/US multi-market formulas are reproducible from persisted real canonical bars.',

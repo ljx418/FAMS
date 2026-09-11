@@ -108,7 +108,7 @@ export function Layout() {
             message: '券商波动交易复盘提醒',
             description: alert.message,
             duration: 0,
-            btn: <Button type="primary" size="small" onClick={() => navigate('/daily-reviews')}>进入每日复盘</Button>,
+            actions: <Button type="primary" size="small" onClick={() => navigate('/daily-reviews')}>进入每日复盘</Button>,
           })
           if ('Notification' in window && window.Notification.permission === 'granted') {
             new window.Notification('FAMS 券商复盘提醒', { body: alert.message, tag: alert.id })

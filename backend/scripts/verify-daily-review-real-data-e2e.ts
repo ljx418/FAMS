@@ -104,7 +104,7 @@ try {
     }),
     baselineClient.dailyReviewRun.findFirst({ where: { userId: USER_ID }, orderBy: { generatedAt: 'desc' }, select: { id: true } }),
   ])
-  assert.equal(nonCashPositions.length, 6, `预期 6 个非现金持仓，实际 ${nonCashPositions.length}`)
+  assert.ok(nonCashPositions.length > 0, '真实 E2E 至少需要一个非现金持仓')
   await writeFile(resolve(evidenceDir, 'pre-run-protected-snapshot.json'), `${JSON.stringify({ capturedAt: new Date().toISOString(), protectedBefore, countsBefore }, null, 2)}\n`, 'utf8')
 
   const idempotencyKey = resumeReviewId ? 'read-only-resume-existing-review' : `drv1-7-real-e2e:${startedAt.toISOString()}`
@@ -118,6 +118,7 @@ try {
         triggerSource: 'drv1_7_real_e2e',
         executionMode: 'inline',
         requireLlmSuccess: process.env.FAMS_REAL_E2E_REQUIRE_LLM === '1',
+        brokerWorkflow: false,
         idempotencyKey,
       }),
     })

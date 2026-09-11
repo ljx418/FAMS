@@ -122,7 +122,7 @@ async function completeMinimax(config: ReturnType<typeof getFamsLlmConfig>, cont
         { role: 'user', name: 'user', content: userPrompt },
       ],
       temperature: 0.1,
-      max_completion_tokens: 2_048,
+      max_completion_tokens: 4_096,
       stream: false,
       reasoning_split: true,
     },
@@ -342,24 +342,54 @@ class DailyReviewSynthesisService {
         contextualSymbols.size > 0 ? contextualSymbols.has(String(asset.symbol)) : SYNTHESIS_FOCUS_SYMBOLS.has(String(asset.symbol))
       )).slice(0, 6),
     }
+    const alipayAccount = portfolioActionSummary?.allocation?.plan?.accounts
+      ?.find((account: any) => account.id === 'alipay')
+    const qualitativePortfolioActionSummary = portfolioActionSummary ? {
+      account: portfolioActionSummary.account,
+      sourceSnapshot: {
+        reconciliation: portfolioActionSummary.sourceSnapshot?.reconciliation || 'unknown',
+      },
+      allocation: {
+        classificationStatus: portfolioActionSummary.allocation?.classificationStatus || 'unknown',
+        triggeredBuckets: (alipayAccount?.buckets || [])
+          .filter((bucket: any) => bucket.triggered)
+          .map((bucket: any) => String(bucket.key)),
+      },
+      tradeDrafts: actionDrafts.map((draft: any) => ({
+        symbol: String(draft.symbol),
+        action: String(draft.action || 'observe'),
+        currentState: String(draft.currentState || 'manual_review'),
+        laterTrancheState: String(draft.laterTrancheState || 'pending'),
+      })),
+      recentLedger: {
+        hasEntries: Number(portfolioActionSummary.recentLedger?.entryCount || 0) > 0,
+        hasPendingEntries: Number(portfolioActionSummary.recentLedger?.pendingCount || 0) > 0,
+      },
+      relativeRotation: {
+        benchmarkReady: Number(portfolioActionSummary.relativeRotation?.benchmark?.freshnessLag) < 2,
+        items: (portfolioActionSummary.relativeRotation?.items || []).map((item: any) => ({
+          symbol: String(item.symbol),
+          quadrant: item.quadrant || null,
+          formulaSufficient: item.formulaSufficient === true,
+          freshness: item.freshness || 'unknown',
+          gateEligible: item.gateEligible === true,
+        })),
+      },
+      executionBoundary: portfolioActionSummary.executionBoundary || null,
+    } : null
     const compactInput = {
       strategyAssessment: {
         status: input.strategyAssessment?.status,
       },
-      portfolioActionSummary: input.decisionSummary?.portfolioActionSummary || null,
+      portfolioActionSummary: qualitativePortfolioActionSummary,
       portfolioComparison: input.portfolioComparison ? {
         status: input.portfolioComparison.status,
-        actualAllocationContract: input.portfolioComparison.actualAllocationContract,
-        researchComparisonContract: input.portfolioComparison.researchComparisonContract,
-        headline: input.portfolioComparison.summary?.headline || null,
-        confidence: input.portfolioComparison.summary?.confidence || null,
+        available: input.portfolioComparison.status === 'completed',
       } : null,
       decisionAssets: [],
       attentionCandidates: (synthesisInput.attentionCandidates || []).slice(0, 6).map((candidate: any) => ({
         symbol: candidate.symbol,
-        name: candidate.name,
         source: candidate.source,
-        reason: candidate.reason,
         evidenceStatus: candidate.evidenceStatus,
         evidenceRefs: (candidate.evidenceRefs || []).slice(0, 1),
       })),
@@ -390,8 +420,10 @@ class DailyReviewSynthesisService {
         '产品名中的 A500 必须改写为“宽基”，不得在叙述里输出 A500。',
         'evidenceRefs 只能逐字复制对应标的输入中已有的引用。',
         '不得把人工计划草案升级为投资建议或自动下单指令。',
-        'headline 和 overview 必须优先概括 portfolioActionSummary 中的配置偏离、当前批次、历史流水约束与轮动门禁；不得改写其中金额。',
-        'portfolioComparison 是独立研究比较：actualAllocationContract 是人工计划合同，researchComparisonContract 只是研究候选；禁止把两者合并或把研究比例写成调仓指令。',
+        'headline 和 overview 必须优先概括 portfolioActionSummary 中的配置偏离、当前批次、历史流水约束与轮动门禁。',
+        'portfolioComparison 是独立研究比较；禁止把研究结果写成调仓指令。',
+        '输入中的 symbol 只允许原样写入 symbol 字段，不得复制到任何叙述字段。',
+        '输出前逐个检查所有叙述字段；若包含阿拉伯数字，必须删去该数字及相关数量表达后再输出。',
         '为控制长度，每个叙述字段不超过八个汉字，每个数组最多一项。',
         '只输出 JSON，不要 Markdown。',
         '根对象必须且只能包含 headline, overview, attentionSummaries, orderExplanations。',

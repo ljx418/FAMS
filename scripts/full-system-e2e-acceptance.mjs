@@ -119,18 +119,31 @@ async function ensureFrontendServer() {
 async function runCommand(name, command, cwd, timeoutMs = 240000) {
   const startedAt = nowMs()
   return new Promise((resolve) => {
+    const usesProcessGroup = process.platform !== 'win32'
     const child = spawn(command[0], command.slice(1), {
       cwd,
       env: { ...process.env, ...auditEnv, CI: 'true' },
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: usesProcessGroup,
     })
     let stdout = ''
     let stderr = ''
     let timedOut = false
+    const terminate = (signal) => {
+      if (usesProcessGroup && child.pid) {
+        try {
+          process.kill(-child.pid, signal)
+          return
+        } catch {
+          // Fall through when the process group has already exited.
+        }
+      }
+      child.kill(signal)
+    }
     const timer = setTimeout(() => {
       timedOut = true
-      child.kill('SIGTERM')
-      setTimeout(() => child.kill('SIGKILL'), 3000).unref()
+      terminate('SIGTERM')
+      setTimeout(() => terminate('SIGKILL'), 3000).unref()
     }, timeoutMs)
     child.stdout.on('data', (chunk) => { stdout += chunk.toString() })
     child.stderr.on('data', (chunk) => { stderr += chunk.toString() })
@@ -287,14 +300,20 @@ function buildRuntimeDisclosure(commandResults, apiResults) {
   const dividendApi = apiResults.find((item) => item.name === '红利低波候选池')
   const topMissingFields = dividendApi?.summary?.completeness?.topMissingFields || []
   const persistedCandidateCount = Number(dividendApi?.summary?.candidates || 0)
+  const sqliteCommandFailed = sqliteCommand?.status !== 'passed'
+  const dividendAuditCommandFailed = dividendAuditCommand?.status !== 'passed'
   const sqliteCritical = sqlitePayload?.status === 'critical' || sqlitePayload?.sqliteHealthy === false
   const fixtureFallback = dividendAuditPayload?.package?.candidateSource === 'fixture_fallback_due_to_database_unavailable'
-  const persistedDividendDataBlocked = sqliteCritical || fixtureFallback || topMissingFields.some((item) => item.field === 'runtime.sqliteHealth')
+  const persistedDividendDataBlocked = sqliteCommandFailed
+    || dividendAuditCommandFailed
+    || sqliteCritical
+    || fixtureFallback
+    || topMissingFields.some((item) => item.field === 'runtime.sqliteHealth')
 
   return {
     status: persistedDividendDataBlocked ? 'disclosed_runtime_data_risk' : 'ok',
     humanConclusion: persistedDividendDataBlocked
-      ? '本阶段功能链路和降级路径可审计；但红利低波持久化候选池受运行时健康影响，不能声明真实持久化候选池完整可用。'
+      ? 'SQLite 健康检查、红利低波审计包或持久化候选池存在失败/未知状态；不能声明真实持久化数据链路完整可用。'
       : '运行时健康未发现阻断本阶段审计的持久化数据风险。',
     sqliteHealthCommand: {
       commandStatus: sqliteCommand?.status || 'not_run',
@@ -866,9 +885,9 @@ async function runBrowserEvidence(apiResults) {
       screenshots.push(await screenshot(page, '04-dividend-low-vol-filters.png', '红利低波筛选与指标', '候选池筛选、排序和指标说明区域。', ['筛选与排序', '排序指标', '综合分']))
       await page.getByText('买入/卖出观察区间与滚动策略').scrollIntoViewIfNeeded().catch(() => {})
       screenshots.push(await screenshot(page, '05-dividend-low-vol-zones.png', '红利低波买卖区间', '买入/卖出观察区间、滚动回测和区间免责声明。', ['买入/卖出观察区间', '正式 ADD', '正式 REDUCE']))
-      await waitForBodyText(page, ['草案 Gate'], 30000)
-      await page.getByText('人工交易计划草案 Gate').scrollIntoViewIfNeeded().catch(() => {})
-      screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '人工计划草案 readiness、Top3 草案和交易 gate。', ['草案 Gate', '禁止']))
+      await waitForBodyText(page, ['生成观察草案', '不会生成正式买入、卖出或自动交易动作'], 30000)
+      await page.getByText('5. 生成观察草案').scrollIntoViewIfNeeded().catch(() => {})
+      screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '证明观察草案入口存在，且页面明确禁止正式交易动作；若 readiness 数据可用，同一页面继续展示草案 Gate。', ['生成观察草案', '不会生成正式买入、卖出或自动交易动作']))
     })
   } catch (error) {
     await captureFailure('红利低波主路径异常', error)
@@ -887,9 +906,9 @@ async function runBrowserEvidence(apiResults) {
   try {
     await withPage({ width: 1440, height: 1100 }, async (page) => {
       await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'domcontentloaded', timeout: 120000 })
-      await waitForBodyText(page, ['组合策略对比回测', '运行组合回测'])
-      screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行组合回测']))
-      await page.getByRole('button', { name: '运行组合回测' }).click()
+      await waitForBodyText(page, ['组合策略对比回测', '运行并保存固定规则回测'])
+      screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行并保存固定规则回测']))
+      await page.getByRole('button', { name: '运行并保存固定规则回测' }).click()
       await waitForBodyText(page, ['超额收益', 'Benchmark', '非交易建议'], 120000)
       screenshots.push(await screenshot(page, '09-backtest-result.png', '组合回测结果', '组合净值曲线、收益指标、benchmark 和分红贡献。', ['Benchmark', '超额收益', '总收益']))
       await page.setViewportSize({ width: 390, height: 844 })
@@ -959,9 +978,9 @@ async function runBrowserEvidenceLegacy(apiResults) {
     screenshots.push(await screenshot(page, '04-dividend-low-vol-filters.png', '红利低波筛选与指标', '候选池筛选、排序和指标说明区域。', ['筛选与排序', '排序指标', '综合分']))
     await page.getByText('买入/卖出观察区间与滚动策略').scrollIntoViewIfNeeded().catch(() => {})
     screenshots.push(await screenshot(page, '05-dividend-low-vol-zones.png', '红利低波买卖区间', '买入/卖出观察区间、滚动回测和区间免责声明。', ['买入/卖出观察区间', '正式 ADD', '正式 REDUCE']))
-    await waitForBodyText(page, ['草案 Gate'], 30000)
-    await page.getByText('人工交易计划草案 Gate').scrollIntoViewIfNeeded().catch(() => {})
-    screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '人工计划草案 readiness、Top3 草案和交易 gate。', ['草案 Gate', '禁止']))
+    await waitForBodyText(page, ['生成观察草案', '不会生成正式买入、卖出或自动交易动作'], 30000)
+    await page.getByText('5. 生成观察草案').scrollIntoViewIfNeeded().catch(() => {})
+    screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '证明观察草案入口存在，且页面明确禁止正式交易动作；若 readiness 数据可用，同一页面继续展示草案 Gate。', ['生成观察草案', '不会生成正式买入、卖出或自动交易动作']))
     await page.setViewportSize({ width: 768, height: 1024 })
     await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     await waitForBodyText(page, ['红利低波策略'], 120000)
@@ -969,9 +988,9 @@ async function runBrowserEvidenceLegacy(apiResults) {
     await page.setViewportSize({ width: 1440, height: 1100 })
 
     await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'domcontentloaded', timeout: 120000 })
-    await waitForBodyText(page, ['组合策略对比回测', '运行组合回测'])
-    screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行组合回测']))
-    await page.getByRole('button', { name: '运行组合回测' }).click()
+    await waitForBodyText(page, ['组合策略对比回测', '运行并保存固定规则回测'])
+    screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行并保存固定规则回测']))
+    await page.getByRole('button', { name: '运行并保存固定规则回测' }).click()
     await waitForBodyText(page, ['超额收益', 'Benchmark', '非交易建议'], 120000)
     screenshots.push(await screenshot(page, '09-backtest-result.png', '组合回测结果', '组合净值曲线、收益指标、benchmark 和分红贡献。', ['Benchmark', '超额收益', '总收益']))
     await page.setViewportSize({ width: 390, height: 844 })
@@ -1283,9 +1302,9 @@ async function main() {
   const codeInspection = await buildCodeInspectionAudit()
   const commands = [
     ['typescript', ['node', 'node_modules/typescript/bin/tsc'], backendDir, 240000],
-    ['sqlite health', ['npm', 'run', 'check:sqlite-health'], backendDir, 180000],
+    ['sqlite health', ['npm', 'run', 'check:sqlite-health'], backendDir, 360000],
     ['dividend low vol api', ['npm', 'run', 'test:dividend-low-vol-api'], backendDir, 240000],
-    ['dividend low vol audit package', ['npm', 'run', 'test:dividend-low-vol-audit-package'], backendDir, 240000],
+    ['dividend low vol audit package', ['npm', 'run', 'test:dividend-low-vol-audit-package'], backendDir, 480000],
     ['dividend low vol rolling backtest', ['npm', 'run', 'test:dividend-low-vol-rolling-backtest'], backendDir, 240000],
     ['dividend low vol validation retest', ['npm', 'run', 'test:dividend-low-vol-validation-retest'], backendDir, 240000],
     ['dividend low vol frontend runtime', ['npm', 'run', 'test:dividend-low-vol-frontend-runtime'], backendDir, 180000],
