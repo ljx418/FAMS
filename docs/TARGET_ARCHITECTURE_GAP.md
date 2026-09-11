@@ -1,12 +1,12 @@
 # FAMS 目标架构 Gap 与演进路线
 
-更新时间：2026-07-16
+更新时间：2026-09-11
 
 ## 1. 下一阶段唯一目标
 
 ```text
-当前：S0-S8 受控开发已验收，formal release blocked
-下一阶段：Formal Release Readiness Closure
+当前：研究功能与 FTR-0..FTR-6 工程已实现，formal business gates blocked
+下一阶段：PRD 基线闭环 -> 真实数据回归 -> Formal Release 业务门禁
 自动化出门：formalTradingReleaseReviewReady=true
 人工高风险门：releaseApprovalStatus=pending_human_approval
 始终保持：formalTradingUnlocked=false / autoTradeUnlocked=false / canCreateOrder=false / orderCreateAllowed=false
@@ -19,20 +19,25 @@
 | 分层 | 已实现实体 | 当前状态/风险 | 下一阶段实体 | 用户可见结果 | 验收证据 |
 | --- | --- | --- | --- | --- | --- |
 | 体验 | `FamsChatBox.tsx`、`Dashboard.tsx`、`Backtest.tsx`、`DividendLowVol.tsx`、`Operations.tsx` | 双轨体验已验收；正式 gate 仍以技术状态为主 | 在现有页面增加 candidate、provider、validation、signoff 和 release review 视图 | 普通用户看结论和 blocker，专家看完整 evidence | Headless E2E + HTML 报告 |
-| API | `chat.ts`、`portfolioBacktest.ts`、`strategy.ts`、`operation.ts` | API 已返回 audit；职责由引擎集中构建 | 保持 API，改为编排独立 FTR services | 页面、ChatBox、审计包读取同一状态 | API contract audit |
+| API | `chat.ts`、`portfolioBacktest.ts`、`strategy.ts`、`operation.ts`、`dailyReview.ts`、`relativeRotation.ts`、`formalRelease.ts` | 日常复盘/RRG/FTR API 已实现；正式业务 gate 仍 blocked | 保持 Fastify 模块边界，统一读取状态源和 FTR services | 页面、ChatBox、审计包读取同一状态 | API contract audit |
 | 输入 | `PortfolioBacktestInputBuilder` | 可构建 7 类策略；没有正式 candidate 集合 | `ReleaseCandidateSet` | 用户明确知道哪些策略参与 release 评审 | `release_candidate_set.json` |
-| 计算 | `PortfolioBacktestEngine` | 计算与 release 决策耦合 | 引擎保留回测；gate 决策拆出 | 计算结果与放行结论可分别审计 | deterministic replay + service contract |
-| 数据 | `formalProviderIngestionService`、`marketDataFreshnessService`、本地缓存 | 部分 provider/freshness/coverage unknown | `FormalDataProviderService`、`FormalDataFreshnessPolicy`、`FieldEvidenceValidator` | 每字段来源、日期、覆盖和恢复动作可见 | `15_data_governance_audit.json` |
-| Benchmark | `portfolioBenchmarkService`、内嵌 qualification builder | 免费源可评审，官方/可信资格未通过 | `BenchmarkQualificationService` + official/trusted adapter | 总回报与降级原因可见 | `16_benchmark_qualification_audit.json` |
-| 验证 | 内嵌 formal validation builder | `0/7 passed`，整体 insufficient | `FormalValidationService` | OOS、walk-forward、参数和分组状态可见 | `17_formal_validation_audit.json` |
-| 签核 | `portfolioBacktestReviewService`、内嵌 signoff builder | 五角色 missing | `ManualSignoffService` | 审核人逐角色签核，用户看状态 | `18_manual_signoff_audit.json` |
-| 隔离 | `buildExecutionIsolationAudit`、`portfolioBacktest.ts` 与 `famsChatService.ts` 内嵌阻断 | paper ready，production disabled；尚无独立边界服务 | `ExecutionIsolationService` | paper intent 可见，真实动作 blocked | `13_execution_isolation_audit.json` |
-| Release | 内嵌 release gate builder | 正确 blocked | `ReleaseGateService` | 一份报告展示全部 gate 和责任人 | `14_release_gate_audit.json` + HTML |
+| 计算 | `PortfolioBacktestEngine` + `formal-release/*Service` | 工程职责已拆分；真实数据和验证结果仍 blocked/insufficient | 保持引擎只负责回测，业务门禁由独立服务消费 artifact | 计算结果与放行结论可分别审计 | deterministic replay + service contract |
+| 数据 | `FormalDataProviderService`、`FormalDataFreshnessPolicy`、`FieldEvidenceValidator` | 工程已实现；部分 provider/freshness/coverage unknown | 导入经授权正式数据并取得字段级 PASS | 每字段来源、日期、覆盖和恢复动作可见 | `15_data_governance_audit.json` |
+| Benchmark | `FormalBenchmarkService`、`portfolioBenchmarkService` | 工程已实现；免费源可评审，官方/可信资格未通过 | 导入合格 official/trusted total-return artifact | 总回报与降级原因可见 | `16_benchmark_qualification_audit.json` |
+| 验证 | `FormalValidationService` | 工程已实现；`0/7 passed`，整体 insufficient | 保持冻结阈值，以真实样本重新验证 | OOS、walk-forward、参数和分组状态可见 | `17_formal_validation_audit.json` |
+| 签核 | `ManualSignoffService`、`formalReviewerAuthService` | 工程已实现；五角色 missing | 授权人对不可变 artifact hash 签核 | 审核人逐角色签核，用户看状态 | `18_manual_signoff_audit.json` |
+| 隔离 | `ExecutionIsolationService` | 工程已实现并通过；paper ready、production disabled | 持续回归，任何业务门禁不得绕过 | paper intent 可见，真实动作 blocked | `13_execution_isolation_audit.json` |
+| Release | `ReleaseGateService`、`FormalReleasePackageService` | 工程已实现；正确输出 blocked | 仅消费通过的 FTR-1 至 FTR-5 和人工签核 | 一份报告展示全部 gate 和责任人 | `14_release_gate_audit.json` + HTML |
+
+日常产品链已实现：`FamsChatBox.tsx / DailyReviews.tsx / PortfolioComparison.tsx / RelativeRotation.tsx / Positions.tsx -> dailyReview.ts / portfolioBacktest.ts / relativeRotation.ts -> AlipayOneClickReviewService / AlipayResearchWorkflowService / portfolioRelativeRotationService -> Operation / 私有真实数据证据`。该链覆盖 DPR-001 至 DPR-030，但人工体验仍待执行。
 
 ## 3. 开发顺序
 
 ```text
-FTR-0 文档与状态冻结
+S0 PRD/状态/架构一致性闭环
+  -> S1 已知接口缺陷修复
+  -> S2 真实数据全量回归
+  -> FTR-0 文档与状态冻结
   -> FTR-1 正式数据治理
   -> FTR-2 官方/可信 total-return benchmark
   -> FTR-3 Formal validation

@@ -1,6 +1,6 @@
 # 每日持仓复盘需求追踪矩阵
 
-更新时间：2026-08-27
+更新时间：2026-09-11
 
 | 需求 | 主要实现 | 自动化证据 | 人类验收项 | 当前状态 |
 | --- | --- | --- | --- | --- |
@@ -23,19 +23,32 @@
 | DPR-017 | GridStrategyService、conditional_buyback GridPlan、DecisionPanel | 双计划持久化；父卖单绑定契约；成交前 `awaiting_parent_fill` 且不占现金；真实页面双清单通过四视口验收 | 7 | implemented_and_automated_accepted |
 | DPR-018 | 市场步长、最大余数整手分配、组合现金池 | 0.01/0.001 tick、100 整手、5,000 元跨资产预算、15:00 关闭及真实收盘后运行 | 7 | implemented_and_automated_accepted |
 | DPR-019 | 四标的买回摘要与上一轮比较 | 最终真实运行逐项核对；收盘后明确 `session_closed` 与父卖单不可用，不把技术锚伪装成买回点；四视口可见 | 7、8 | implemented_and_automated_accepted |
+| DPR-020 | `ScreenshotCaptureService`、总额型 `Position`、基金金额流水导入合同 | 本地私有真实截图逐分对账、幂等重放和非支付宝持仓零漂移；公开矩阵不记录金额 | 支付宝数据核对 | implemented_and_automated_accepted |
+| DPR-021 | `AlipayOneClickReviewService`、`dailyReview.ts` 一键运行 API、数据/RRG/LLM 预检 | 私有真实数据验收覆盖无变化复用、变化未确认阻断、RRG 滞后阻断和失败运行不冒充成功 | 支付宝一键运行 | implemented_and_automated_accepted |
+| DPR-022 | `AllocationPolicyService`、`AlipayOneClickReviewService`、RRG 后续批次门禁 | 六项名义金额独立复算；5/25/25/45 偏离、流水约束、完整净值日和后续批次状态通过私有真实数据验收 | 支付宝报告复核 | implemented_and_automated_accepted |
+| DPR-023 | `DailyReviewSynthesisService` 严格白名单与重试历史 | 首次失败证据保留；确定性数据仍新鲜时显式重试；新增数值、标的或事实均被拒绝 | LLM 摘要复核 | implemented_and_automated_accepted |
+| DPR-024 | `AdviceExecution`、`AdviceAction`、`DailyReviews.tsx` 决定交互 | 接受/修改/拒绝只写审计决定；阻断项不可操作；Transaction、Position、外部订单零变化 | 人工计划交互 | implemented_and_automated_accepted |
+| DPR-025 | `AnalysisWorkflowProfile`、工作流合同哈希 | 同版本合同漂移阻断；合同版本、步骤、用途和执行边界可重放 | 工作流合同复核 | implemented_and_automated_accepted |
+| DPR-026 | `AlipayResearchWorkflowService`、`/portfolio-comparison`、`PortfolioComparison.tsx` | 三场次入口完成真实 HTTP 运行并关联 Operation/DailyReviewRun；历史读取保存结果不重算 | 固定入口体验 | implemented_and_automated_accepted |
+| DPR-027 | `AlipayResearchWorkflowScheduler`、授权/租约/幂等合同 | 七天授权到期、撤销和截图变化均阻断；默认关闭；09:40/14:40 时槽及重复运行收敛通过 | 调度授权复核 | implemented_and_automated_accepted |
+| DPR-028 | `AlipayPortfolioComparisonService`、压缩快照与 SHA-256 校验 | 私有真实运行保存完整行情、曲线、交易事件、规则和摘要；损坏/缺失拒绝静默重算 | 历史证据复核 | implemented_and_automated_accepted |
+| DPR-029 | `AlipayPortfolioComparisonService` 双窗口径、`PortfolioComparison.tsx` | 连续路径切片和窗口重启共享同一快照与有效区间；不足 20 个共同交易日阻断 | 双窗口径体验 | implemented_and_automated_accepted |
+| DPR-030 | `AllocationPolicyService`、`AnalysisWorkflowProfile`、LLM 投影和页面用途标签 | 5/25/25/45 仅进入手工草案，10/25/40/25 仅进入研究比较；API、调度、LLM 和页面均保持隔离 | 用途边界复核 | implemented_and_automated_accepted |
 
 ## 产品化工作台映射
 
 | 页面区域 | 路由/组件责任 | 覆盖需求 | 产品化状态 |
 | --- | --- | --- | --- |
 | 运行与历史 | `/daily-reviews`、运行栏、历史选择器 | DPR-001、DPR-008 | implemented_and_automated_accepted |
-| 十节点 DAG 审计 | DailyReviewWorkflowDag、DailyReviewAuditDrawer | DPR-001～DPR-019 | implemented_and_automated_accepted |
+| 十节点 DAG 审计 | DailyReviewWorkflowDag、DailyReviewAuditDrawer | DPR-001～DPR-030 | implemented_and_automated_accepted |
 | 资产价格与均线 | AssetTrendChart | DPR-003 | implemented_and_automated_accepted |
 | 事实、策略与关注项 | ResearchAssessment、DailyReviewDecisionPanel | DPR-004～DPR-006、DPR-012～DPR-015 | implemented_and_automated_accepted |
 | 网格与历史比较 | DecisionSummary、OrderPlan、DerivationTrace、GridPlanTable | DPR-007、DPR-008、DPR-014、DPR-015、DPR-017～DPR-019 | implemented_and_automated_accepted |
 | 截图台账 | 复用 ScreenshotCapturePanel | DPR-002、DPR-009、DPR-016 | implemented_and_automated_accepted |
 | 执行锁 | ExecutionBoundaryBanner | DPR-010 | implemented_and_automated_accepted |
+| 支付宝一键复核 | AlipayOneClickReviewService、DailyReviews 支付宝工作区 | DPR-020～DPR-024 | implemented_and_automated_accepted |
+| 持久化组合研究 | AlipayResearchWorkflowService、PortfolioComparison | DPR-025～DPR-030 | implemented_and_automated_accepted |
 
-总体状态：需求追踪覆盖 `19/19`，DPR-001～DPR-019 均已完成实现和真实数据自动功能验收。最终强制真实 LLM 复盘已通过；2026-08-27 使用 Playwright 完成 1440×900、1024×768、768×1024、390×844 四视口验收，并使用 Windows Google Chrome CDP 完成桌面与手机抽检。原始 JSON、截图和账户数据仅保存在 Git 忽略的本地私有目录。人工验收未执行。
+总体状态：需求追踪覆盖 `30/30`，DPR-001～DPR-030 均有实现和自动化证据。DPR-001～DPR-019 已完成真实数据与四视口/Chrome CDP 验收；DPR-020～DPR-030 的真实账户输入、金额断言、截图和原始报告仅保存在 Git 忽略的本地私有目录，公开矩阵只记录脱敏结论。人工验收未执行。
 
 延期项：六项正式发布外部门禁及权威基线未冻结的 V2-PX 需求不计入本矩阵完成率。

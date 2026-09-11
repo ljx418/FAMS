@@ -1,14 +1,14 @@
 # FAMS 当前架构与下一阶段目标架构
 
-更新时间：2026-07-16
+更新时间：2026-09-11
 
 ## 1. 架构结论
 
-FAMS 当前是 React/Vite + Fastify + Prisma/SQLite 的模块化单体。S0-S8 已完成 ChatBox、普通用户工作台、专家多 Tab、资产 Excel、真实数据研究回测、Operation 审计、release gate 合同和交易阻断。下一阶段不重写系统，只从现有回测引擎中拆分 Formal Release Readiness 的决策职责。
+FAMS 当前是 React/Vite + Fastify + Prisma/SQLite 的模块化单体。已完成 ChatBox、普通用户工作台、专家多 Tab、资产 Excel、每日持仓复盘、支付宝受控研究工作流、RRG、组合比较、真实数据研究回测、Operation 审计、Formal Release Readiness 工程服务和交易阻断。下一步不是重写系统，而是先保持 PRD/状态/架构可审计，再闭环正式数据、Benchmark、Formal Validation 和人工签核业务门禁。
 
 ```text
-当前能力：research / formal-review-ready / manual draft / paper-sandbox audit
-下一阶段目标：formal release review package ready
+当前能力：research / formal-review-ready / manual draft / paper-sandbox audit / FTR engineering complete
+下一阶段目标：PRD baseline consistent -> formal business gates evidenced
 不在本阶段：production order enablement / AUTO_TRADE / unattended release
 ```
 
@@ -22,13 +22,17 @@ FAMS 当前是 React/Vite + Fastify + Prisma/SQLite 的模块化单体。S0-S8 �
 
 | 实体 | 当前状态 | 职责 |
 | --- | --- | --- |
-| `frontend/src/components/FamsChatBox.tsx` | 已开发并验收 | 普通用户第一入口、受控 intent、结构化结果、数据健康和交易阻断解释 |
+| `frontend/src/components/chat/FamsChatBox.tsx` | 已开发并验收 | 普通用户第一入口、受控 intent、结构化结果、数据健康和交易阻断解释 |
 | `frontend/src/pages/Dashboard.tsx` | 已开发并验收 | 普通用户工作台、资产/任务/风险摘要 |
 | `frontend/src/pages/Assets.tsx` | 已开发并验收 | 本地资产账本、Excel 模板/预览/导入/导出 |
 | `frontend/src/pages/Backtest.tsx` | 已开发并验收，release 视图待增强 | 组合比较、收益/回撤、数据等级、validation 和 release blockers |
 | `frontend/src/pages/DividendLowVol.tsx` | 已开发并验收，正式证据待增强 | 候选、观察区间、回测和人工计划草案 |
 | `frontend/src/pages/Operations.tsx` | 已开发并验收，签核视图待增强 | Operation、artifactRefs、失败原因和审计报告 |
 | `frontend/src/pages/Analysis.tsx` | 已开发并验收 | 专家分析和 gate 解释 |
+| `frontend/src/pages/DailyReviews.tsx` | 已开发并自动验收，人工体验待执行 | 每日持仓复盘、支付宝一键复核、审计 DAG 和人工计划决定 |
+| `frontend/src/pages/PortfolioComparison.tsx` | 已开发并自动验收，人工体验待执行 | 持久化十组组合比较和连续/重启双窗口径 |
+| `frontend/src/pages/RelativeRotation.tsx` | 已开发并自动验收 | 观察池、组合 RRG、研究工作台和行业拥挤度 |
+| `frontend/src/pages/Positions.tsx` | 已开发并自动验收 | 账户分组、配置偏离和资产明细；不创建订单 |
 
 ChatBox 是第一入口但不是唯一入口；上述专家页必须继续保留。
 
@@ -40,6 +44,9 @@ ChatBox 是第一入口但不是唯一入口；上述专家页必须继续保留
 | `backend/src/routes/portfolioBacktest.ts` | 已开发并验收 | 回测、review、Operation artifact 和 13-18 audit 输出 |
 | `backend/src/routes/strategy.ts` | 已开发并验收 | 红利低波候选、观察区间、rolling validation |
 | `backend/src/routes/operation.ts` | 已开发并验收 | 任务与 artifact 追溯 |
+| `backend/src/routes/dailyReview.ts` | 已开发并自动验收 | 每日复盘、一键研究、工作流授权、调度和人工计划决定 |
+| `backend/src/routes/relativeRotation.ts` | 已开发并自动验收 | 观察池、组合 RRG、研究运行和行业拥挤度 |
+| `backend/src/routes/formalRelease.ts` | 已开发，业务 gate blocked | 正式 provider 授权、Benchmark 导入、签核和 review package 受控 API |
 | `PortfolioBacktestInputBuilder` | 已开发并验收 | 构建持仓、永久组合、全天候、红利低波和自定义输入 |
 | `portfolioBacktestReviewService` | 已开发，签核能力不足 | 保存复核材料；不能创建订单 |
 | `operationService` | 已开发并验收 | 持久化任务状态和 artifact refs |
@@ -48,7 +55,7 @@ ChatBox 是第一入口但不是唯一入口；上述专家页必须继续保留
 
 | 实体 | 当前状态 | 职责/缺口 |
 | --- | --- | --- |
-| `PortfolioBacktestEngine` | 已开发并验收，职责过重 | 计算策略曲线，同时内嵌六类 release audit 构建逻辑 |
+| `PortfolioBacktestEngine` | 已开发并验收 | 计算策略曲线、成本、收益与回撤；正式 release 决策由独立服务复核 |
 | `portfolioBenchmarkService` | 已开发，formal trading blocked | 提供 price index、research proxy、free-source total return |
 | `formalProviderIngestionService` | 已开发基础，覆盖域有限 | 红利低波 provider 导入，不是组合级统一正式数据服务 |
 | `marketDataFreshnessService` | 已开发 | 本地缓存 freshness；部分候选仍 unknown/blocked |
@@ -61,21 +68,24 @@ ChatBox 是第一入口但不是唯一入口；上述专家页必须继续保留
 | `buildManualSignoffAudit` | 已开发内嵌 | 五角色全部 missing |
 | `buildExecutionIsolationAudit` | 已开发内嵌 | paper/sandbox ready，生产适配器 disabled |
 | `buildReleaseGateAudit` | 已开发内嵌 | 正确输出 blocked，不是正式 release 通过 |
+| `AlipayOneClickReviewService` / `AlipayResearchWorkflowService` | 已开发并自动验收 | 私有真实账户输入上的一键复核、持久化研究、调度与双窗口径；人工体验待执行 |
+| `portfolioRelativeRotationService` / `relativeRotationResearchStudyService` | 已开发并自动验收 | 当前组合 RRG 与研究运行；研究结果不进入正式交易 |
+| `sqliteWriterLock` | 已开发并回归 | SQLite 单写者租约、陈旧锁恢复和启动保护 |
 
-## 3. 目标架构
+## 3. Formal Release Readiness 工程实现状态
 
-下一阶段保持同进程、同数据库和现有 API，拆出以下应用/领域服务：
+以下应用/领域服务已在模块化单体内实现。表中的待办是外部数据或人工业务门禁，不是“服务文件尚未开发”：
 
 | 目标实体 | 来源 | 输入 | 输出 | 状态 |
 | --- | --- | --- | --- | --- |
-| `FormalDataProviderService` | `formalProviderIngestionService` + provider adapters | candidate、字段、日期范围、授权上下文 | `FormalDataSnapshot` | 待新增 |
-| `FormalDataFreshnessPolicy` | `marketDataFreshnessService` | 市场日历、provider SLA、asOfDate | freshness decision | 待新增 |
-| `FieldEvidenceValidator` | 引擎 data governance builder | snapshot、coverage、evidenceRefs | FTR-1 gate result | 待新增 |
-| `BenchmarkQualificationService` | `portfolioBenchmarkService` + benchmark builder | benchmark snapshot、授权证据 | FTR-2 gate result | 待新增 |
-| `FormalValidationService` | 引擎 validation builder | candidate set、曲线、benchmark、约束 | FTR-3 gate result | 待新增 |
-| `ManualSignoffService` | review service + signoff builder | immutable artifacts、reviewer context | FTR-4 signoff records | 待新增 |
-| `ExecutionIsolationService` | isolation builder + blocker | paper intents、runtime route | FTR-5 gate result | 待拆分 |
-| `ReleaseGateService` | release gate builder | FTR-1 至 FTR-5 结果 | review package | 待新增 |
+| `FormalDataProviderService` | `formalProviderIngestionService` + provider adapters | candidate、字段、日期范围、授权上下文 | `FormalDataSnapshot` | 工程已实现；正式授权/覆盖 gate blocked |
+| `FormalDataFreshnessPolicy` | `marketDataFreshnessService` | 市场日历、provider SLA、asOfDate | freshness decision | 工程已实现；需正式数据证明 |
+| `FieldEvidenceValidator` | data governance builder | snapshot、coverage、evidenceRefs | FTR-1 gate result | 工程已实现；业务结果 blocked |
+| `FormalBenchmarkService` | `portfolioBenchmarkService` + benchmark builder | benchmark snapshot、授权证据 | FTR-2 gate result | 工程已实现；无合格 official/trusted 导入 |
+| `FormalValidationService` | validation builder | candidate set、曲线、benchmark、约束 | FTR-3 gate result | 工程已实现；当前 insufficient、0/7 passed |
+| `ManualSignoffService` | review service + signoff builder | immutable artifacts、reviewer context | FTR-4 signoff records | 工程已实现；五角色签核 missing |
+| `ExecutionIsolationService` | isolation builder + blocker | paper intents、runtime route | FTR-5 gate result | 工程已实现并通过；production disabled |
+| `ReleaseGateService` / `FormalReleasePackageService` | release gate builder | FTR-1 至 FTR-5 结果 | review package | 工程已实现；业务 gate blocked |
 
 `PortfolioBacktestEngine` 目标只负责输入重放、交易约束、成本、收益、回撤和策略结果，不再自行决定 provider 授权、人工签核或 release 状态。
 
@@ -108,7 +118,8 @@ FamsChatBox / Backtest / DividendLowVol
 
 ```text
 S0-S8 accepted
-  -> FTR-0 documentation frozen
+  -> FTR-0..FTR-6 engineering implemented
+  -> PRD/state/architecture baseline reconciled
   -> FTR-1 formal data passed
   -> FTR-2 benchmark qualified
   -> FTR-3 release candidates validated

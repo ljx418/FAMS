@@ -71,9 +71,9 @@ async function main() {
     drawioPageCountWithinLimit: diagramNames.length > 0 && diagramNames.length <= 8,
     requiredFlagsPresent: REQUIRED_FLAGS.every((flag) => combinedText.includes(flag)),
     stagePlanCoversS0ToS8: REQUIRED_STAGES.every((stage) => new RegExp(`\\b${stage}\\b`).test(stagePlan)),
-    drawioReadOutputGenerated: byPath['docs/read-drawio-output.txt'].content.includes('diagram')
-      || byPath['docs/read-drawio-output.txt'].content.includes('分页')
-      || byPath['docs/read-drawio-output.txt'].content.includes('Page'),
+    drawioReadOutputGenerated: diagramNames.every((name) => byPath['docs/read-drawio-output.txt'].content.includes(`## ${name}`))
+      && byPath['docs/read-drawio-output.txt'].content.includes('Nodes:')
+      && byPath['docs/read-drawio-output.txt'].content.includes('Edges:'),
     currentTargetArchitectureRelationDocumented: (combinedText.includes('当前架构') || combinedText.includes('当前/目标架构'))
       && combinedText.includes('目标架构')
       && (combinedText.includes('关联关系') || combinedText.includes('强关联') || combinedText.includes('架构关系')),

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "fams.current_stage_state.v1",
-  "effectiveAt": "2026-08-31T14:10:00+08:00",
+  "effectiveAt": "2026-09-11T16:18:03+08:00",
   "stage": "formal_release_readiness_engineering_complete_business_gates_blocked",
   "statusSourcePolicy": "automation_must_read_this_file_before_markdown_status_text",
   "substageManifestSource": "docs/S0_S8_SUBSTAGE_ACCEPTANCE_MANIFESTS.json",
@@ -12,7 +12,9 @@
   "supersedes": [
     "2026-07-01-chatbox-baseline",
     "2026-07-07-ux-f7-documentation-baseline",
-    "2026-07-14-next-stage-documentation-risk-closure"
+    "2026-07-14-next-stage-documentation-risk-closure",
+    "2026-08-31-formal-release-readiness-engineering-baseline",
+    "2026-09-06-daily-review-prd-1.4-unreconciled-state"
   ],
   "implementationApprovalRequired": false,
   "implementationEntry": "after_human_approval_and_ftr_0_gate",
@@ -21,17 +23,22 @@
     "dailyPortfolioReview": {
       "prd": "docs/DAILY_PORTFOLIO_REVIEW_PRD.md",
       "traceabilityMatrix": "docs/DAILY_PORTFOLIO_REVIEW_TRACEABILITY_MATRIX.md",
-      "implementationStatus": "productized_workflow_implemented_automated_acceptance_passed",
-      "requirementCoverage": "19/19",
+      "implementationStatus": "productized_workflow_implemented_automated_acceptance_passed_human_pending",
+      "requirementCoverage": "30/30",
       "prototypeDesignApprovalStatus": "approved_for_implementation",
       "productizedWorkflowUiStatus": "implemented",
       "automatedFunctionalAcceptanceStatus": "passed",
-      "browserAcceptanceStatus": "passed_playwright_four_viewports_and_chrome_cdp_spot_check",
+      "browserAcceptanceStatus": "passed_existing_playwright_and_chrome_cdp_evidence_human_pending",
       "browserAcceptanceEvidence": {
         "playwright": ".verification/private/daily-review/DRV1-13/playwright-runtime/frontend-runtime.json",
         "chromeCdp": ".verification/private/daily-review/DRV1-13/chrome-cdp-runtime/chrome-cdp-runtime.json",
         "rawEvidencePolicy": "local_private_git_ignored"
       },
+      "prd14PrivateAcceptanceEvidence": [
+        "docs/audits/2026-09-06-alipay-one-click-review/06_FINAL_ACCEPTANCE_AND_REALITY_AUDIT.md",
+        "docs/audits/2026-09-06-alipay-persistent-workflow-window/01_FINAL_ACCEPTANCE_AND_PRD_REVIEW.md"
+      ],
+      "publicEvidencePolicy": "source_contracts_and_redacted_status_only_no_account_amounts_or_trade_rows",
       "humanAcceptanceStatus": "not_performed",
       "formalTradingUnlocked": false,
       "autoTradeUnlocked": false,

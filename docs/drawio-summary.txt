@@ -1,21 +1,23 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-08-21
+更新时间：2026-09-11
 
 ## 1. 当前有效结论
 
-`docs/target-architecture-gap.drawio` 已重建为 FAMS 下一阶段 **Formal Release Readiness Closure** 架构、开发和验收地图，共 8 页，满足 `drawioPageCount=8`、`drawioPageLimit=8`。
+`docs/target-architecture-gap.drawio` 已同步为 FAMS **PRD 基线闭环、真实数据回归与 Formal Release 业务门禁** 架构、开发和验收地图，共 8 页，满足 `drawioPageCount=8`、`drawioPageLimit=8`。
 
 本图明确区分：
 
-- 已完成并验收：S0-S8 受控自动化开发、ChatBox 第一入口、普通用户工作台、专家页面、资产 Excel、长周期真实数据回测和 13-18 号审计合同。
+- 已完成工程实现：DPR-001 至 DPR-030、ChatBox 第一入口、每日复盘、支付宝受控研究、组合比较、RRG、专家页面、资产 Excel、长周期真实数据回测和 13-18 号审计合同；人工体验仍待执行。
 - 已实现但未达到正式 release：数据治理、benchmark、formal validation、人工签核、执行隔离和 release gate 合同。
 - 工程已实现、业务 gate 待闭环：FTR-0 至 FTR-6 的正式数据、benchmark、验证、签核、隔离和 release review 服务/合同已存在，但外部授权、合格数据和人工签核仍缺失。
 - 自动化阶段不可跨越：正式 provider/benchmark 资格、五角色人工签核、生产适配器审批和最终交易权限变更。
 
-当前不是正式交易 release，下一阶段自动化出门目标也只是：
+当前不是正式交易 release。`formalTradingReleaseReviewReady=true` 只表示工程审查包可生成；下一阶段先完成 PRD/状态/架构一致性和私有真实数据回归，再按真实证据推进业务 gate：
 
 ```text
+documentationConsistencyReady=true
+realDataRegressionPassed=true
 formalTradingReleaseReviewReady=true
 releaseApprovalStatus=pending_human_approval
 productionAdapterEnabled=false
