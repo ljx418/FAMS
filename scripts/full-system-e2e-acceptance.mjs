@@ -266,16 +266,34 @@ function git(args) {
 function buildGitSnapshot() {
   const head = git(['rev-parse', 'HEAD'])
   const branch = git(['branch', '--show-current'])
-  const status = git(['status', '--short'])
+  const trackedStatus = git(['status', '--short', '--untracked-files=no'])
+  const untracked = git(['ls-files', '--others', '--exclude-standard'])
   const origin = git(['rev-parse', 'origin/main'])
   const diffStat = git(['diff', '--stat'])
+  const generatedEvidencePrefixes = [
+    'backend/data/gpt-audit/',
+    'backend/data/formal-release/',
+    'docs/automation-audits/',
+    'docs/audits/',
+    'docs/screenshots/',
+  ]
+  const untrackedPaths = untracked.stdout.split('\n').filter(Boolean)
+  const generatedEvidencePaths = untrackedPaths.filter((entry) => (
+    generatedEvidencePrefixes.some((prefix) => entry.startsWith(prefix))
+  ))
+  const productUntrackedPaths = untrackedPaths.filter((entry) => !generatedEvidencePaths.includes(entry))
+  const productStatusLines = [
+    ...trackedStatus.stdout.split('\n').filter(Boolean),
+    ...productUntrackedPaths.map((entry) => `?? ${entry}`),
+  ]
   return {
     branch: branch.stdout || 'unknown',
     headCommit: head.stdout || 'unknown',
     originMainCommit: origin.stdout || 'unknown',
     headMatchesOriginMain: Boolean(head.stdout && origin.stdout && head.stdout === origin.stdout),
-    workingTreeClean: status.stdout.length === 0,
-    statusShort: status.stdout,
+    workingTreeClean: productStatusLines.length === 0,
+    statusShort: productStatusLines.join('\n'),
+    generatedEvidenceExcludedFromCleanlinessGate: generatedEvidencePaths,
     diffStat: diffStat.stdout,
   }
 }
