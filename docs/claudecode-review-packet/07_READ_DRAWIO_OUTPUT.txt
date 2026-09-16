@@ -1,0 +1,179 @@
+# docs/target-architecture-gap.drawio
+
+## 1 当前基线与阶段目标
+Nodes: 7; Edges: 4
+
+Nodes
+- FAMS 当前状态：FTR 与投资工作流自动范围已闭环，PRD 全量仍未出门
+- 绿=已实现并自动验收　黄=已实现但业务证据不足　橙=本阶段待开发/外部输入　蓝=审计产物　红=禁止与打回
+- 已实现基线 / ChatBox + 普通工作台 + 专家多页 / 资产 Excel / Daily Review / RRG / 红利低波 / FTR Service 链 + ExecutionIsolationService / investmentWorkflow.ts + 三类策略 Service / /backtest 统一复盘；旧组合对比路由兼容
+- 当前真实状态 / A0/FTR-1..6 自动验收通过（provisional） / 投资工作流 WF-0..7：18/20 自动范围通过 / 真实账户 16 持仓 / 57 流水 / 16 归类待确认 / 动态 point_in_time_simulation 尚未实现并明确 blocked / FTR 队列 8 pending / 0 approved；PX6-02=0/10 / 生产适配器=disabled；四项交易锁=false
+- 剩余出门路径 / 集中人工：A6 8 类 / 32 步 + 投资工作流截图纠错和归类确认 / V2-PX 4 步必须真实 Chrome 现场采证 / 产品开发：另立阶段实现冻结策略逐日动态重算 / 任一否决按 rollbackStage 打回并失效下游证据 / 全部人工通过后才允许 A7 按同一哈希重建 final review package / 任何工作台不得自签、补签授权或解锁交易
+- 目标体验 / 普通用户：基本信息确认 → 仓位策略 → 回测复盘 / 研究用户：真实 total-return + OOS/WF/敏感性 / 审核用户：冻结证据队列、策略归类与截图事实均可核验 / 审计用户：从 HTML 回到代码、API、artifact 和截图
+- 独立未来高风险阶段 / productionAdapterEnabled=false / formalTradingUnlocked=false / autoTradeUnlocked=false / canCreateOrder=false / orderCreateAllowed=false / ADD / REDUCE / ORDER_CREATE / AUTO_TRADE blocked
+
+Edges
+- 已实现基线 / ChatBox + 普通工作台 + 专家多页 / 资产 Excel / Daily Review / RRG / 红利低波 / FTR Service 链 + ExecutionIsolationService / investmentWorkflow.ts + 三类策略 Service / /backtest 统一复盘；旧组合对比路由兼容 -> 当前真实状态 / A0/FTR-1..6 自动验收通过（provisional） / 投资工作流 WF-0..7：18/20 自动范围通过 / 真实账户 16 持仓 / 57 流水 / 16 归类待确认 / 动态 point_in_time_simulation 尚未实现并明确 blocked / FTR 队列 8 pending / 0 approved；PX6-02=0/10 / 生产适配器=disabled；四项交易锁=false (事实)
+- 当前真实状态 / A0/FTR-1..6 自动验收通过（provisional） / 投资工作流 WF-0..7：18/20 自动范围通过 / 真实账户 16 持仓 / 57 流水 / 16 归类待确认 / 动态 point_in_time_simulation 尚未实现并明确 blocked / FTR 队列 8 pending / 0 approved；PX6-02=0/10 / 生产适配器=disabled；四项交易锁=false -> 剩余出门路径 / 集中人工：A6 8 类 / 32 步 + 投资工作流截图纠错和归类确认 / V2-PX 4 步必须真实 Chrome 现场采证 / 产品开发：另立阶段实现冻结策略逐日动态重算 / 任一否决按 rollbackStage 打回并失效下游证据 / 全部人工通过后才允许 A7 按同一哈希重建 final review package / 任何工作台不得自签、补签授权或解锁交易 (按门禁推进)
+- 剩余出门路径 / 集中人工：A6 8 类 / 32 步 + 投资工作流截图纠错和归类确认 / V2-PX 4 步必须真实 Chrome 现场采证 / 产品开发：另立阶段实现冻结策略逐日动态重算 / 任一否决按 rollbackStage 打回并失效下游证据 / 全部人工通过后才允许 A7 按同一哈希重建 final review package / 任何工作台不得自签、补签授权或解锁交易 -> 目标体验 / 普通用户：基本信息确认 → 仓位策略 → 回测复盘 / 研究用户：真实 total-return + OOS/WF/敏感性 / 审核用户：冻结证据队列、策略归类与截图事实均可核验 / 审计用户：从 HTML 回到代码、API、artifact 和截图 (完成后)
+- 目标体验 / 普通用户：基本信息确认 → 仓位策略 → 回测复盘 / 研究用户：真实 total-return + OOS/WF/敏感性 / 审核用户：冻结证据队列、策略归类与截图事实均可核验 / 审计用户：从 HTML 回到代码、API、artifact 和截图 -> 独立未来高风险阶段 / productionAdapterEnabled=false / formalTradingUnlocked=false / autoTradeUnlocked=false / canCreateOrder=false / orderCreateAllowed=false / ADD / REDUCE / ORDER_CREATE / AUTO_TRADE blocked (仍不解锁)
+
+## 2 存量到目标强关联映射
+Nodes: 14; Edges: 6
+
+Nodes
+- 存量架构到目标架构：六条可追踪实体链
+- 阅读顺序：每一行从存量代码出发，依次核对当前风险、目标变更、真实交互、审计证据和用户可见结果；不跨行拼接结论。
+- R1 正式数据 / 自动验收通过
+- 存量 formalDataProviderService.ts + formalRelease.ts　→　A0 公开来源用途 + immutable ReleaseCandidateSet　→　A1 coverage/freshness/evidence + FormalDataSnapshot v2　→　source replay/live → authorizationAudit → persistCandidateSnapshot　→　15_data_governance_audit.json；用户查看来源、日期、覆盖率与恢复动作
+- R2 Benchmark / 自动验收通过
+- 存量 formalBenchmarkService.ts + portfolioBenchmarkService　→　A2 H00300 / 735 点 / trusted_total_return 本机非商业用途导入　→　importBenchmark → qualificationAudit → buildSeries → semantic validator　→　16 audit + license review + replay；用户查看总回报、来源、用途、日期和成本，不宣称商业授权
+- R3 模型验证 / 自动验收通过
+- 存量 formalValidationService.ts + PortfolioBacktestInputBuilder　→　FormalValidationProfileService 冻结七对象 role/profile/component/benchmark/applicability　→　FTR 红利低波 v2 5/6、53 路径、分组 6/3/3，wf-04 失败保留　→　profile set + 17 audit + parameter/group/reconciliation；用户查看通过、失败和不适用原因
+- R4 人工签核 / 队列已实现
+- 存量 manualSignoffService.ts + formalReviewerAuthService.ts　→　DeferredHumanReviewQueueService + HumanAcceptanceDraftService + formal-release-human-checklist.html　→　8 pending / 0 approved、32 步、草稿写私有目录　→　FTR-6 manifest → versioned draft → 授权 signoff / rollbackStage；自动化无签核权限
+- R5 隔离与发布 / 自动包已就绪
+- 存量 executionIsolationService.ts + releaseGateService.ts + formalReleasePackageService.ts　→　FTR-5 隔离通过；buildProvisional 汇总 A0/FTR-1..5 并校验 28 artifact　→　engineeringPackageStatus=ready_for_human_review、manualSignoffPassed=false　→　A6 核查后 A7 只消费已签核哈希；生产适配器和交易动作仍锁定
+- R6 投资工作流 / 自动范围通过
+- 存量 Assets/Positions/RelativeRotation/DividendLowVol/Backtest + ChatBox　→　investmentWorkflow.ts、PositionStrategyAssignmentService、RotationVolatilityStrategyService、AlipayAllocationStrategy、ScenarioComparisonService　→　WF-0..7 自动验收 18/20；16 项归类与截图纠错待人工，动态逐日重算明确 blocked　→　WF-7 三视口 18 截图 + PRD matrix；用户按 基本信息确认→仓位策略→回测复盘 操作
+
+Edges
+- R1 正式数据 / 自动验收通过 -> 存量 formalDataProviderService.ts + formalRelease.ts　→　A0 公开来源用途 + immutable ReleaseCandidateSet　→　A1 coverage/freshness/evidence + FormalDataSnapshot v2　→　source replay/live → authorizationAudit → persistCandidateSnapshot　→　15_data_governance_audit.json；用户查看来源、日期、覆盖率与恢复动作
+- R2 Benchmark / 自动验收通过 -> 存量 formalBenchmarkService.ts + portfolioBenchmarkService　→　A2 H00300 / 735 点 / trusted_total_return 本机非商业用途导入　→　importBenchmark → qualificationAudit → buildSeries → semantic validator　→　16 audit + license review + replay；用户查看总回报、来源、用途、日期和成本，不宣称商业授权
+- R3 模型验证 / 自动验收通过 -> 存量 formalValidationService.ts + PortfolioBacktestInputBuilder　→　FormalValidationProfileService 冻结七对象 role/profile/component/benchmark/applicability　→　FTR 红利低波 v2 5/6、53 路径、分组 6/3/3，wf-04 失败保留　→　profile set + 17 audit + parameter/group/reconciliation；用户查看通过、失败和不适用原因
+- R4 人工签核 / 队列已实现 -> 存量 manualSignoffService.ts + formalReviewerAuthService.ts　→　DeferredHumanReviewQueueService + HumanAcceptanceDraftService + formal-release-human-checklist.html　→　8 pending / 0 approved、32 步、草稿写私有目录　→　FTR-6 manifest → versioned draft → 授权 signoff / rollbackStage；自动化无签核权限
+- R5 隔离与发布 / 自动包已就绪 -> 存量 executionIsolationService.ts + releaseGateService.ts + formalReleasePackageService.ts　→　FTR-5 隔离通过；buildProvisional 汇总 A0/FTR-1..5 并校验 28 artifact　→　engineeringPackageStatus=ready_for_human_review、manualSignoffPassed=false　→　A6 核查后 A7 只消费已签核哈希；生产适配器和交易动作仍锁定
+- R6 投资工作流 / 自动范围通过 -> 存量 Assets/Positions/RelativeRotation/DividendLowVol/Backtest + ChatBox　→　investmentWorkflow.ts、PositionStrategyAssignmentService、RotationVolatilityStrategyService、AlipayAllocationStrategy、ScenarioComparisonService　→　WF-0..7 自动验收 18/20；16 项归类与截图纠错待人工，动态逐日重算明确 blocked　→　WF-7 三视口 18 截图 + PRD matrix；用户按 基本信息确认→仓位策略→回测复盘 操作
+
+## 3 正式数据治理
+Nodes: 8; Edges: 5
+
+Nodes
+- A0-A1：授权真实数据到字段级证据
+- A0 已通过　公开来源使用依据（不是后置签核） / 本机/个人/非商业；不宣称商业授权 / H00300 request + factsheet + methodology + raw SHA-256 / FormalProviderAuthorization v2 + endpoint allowlist / ReleaseCandidateSet 七策略 / default 用户 / immutable
+- FormalDataProviderService（已实现并验收） / 公开来源用途与 endpoint allowlist / live 缺失时仅允许同窗口哈希自证重放 / 保存 sourceEndpoint/fetchedAt/version/hash
+- FormalDataSnapshot v2（7/7 passed） / price / benchmark / dividend / tradeability / fundamental / industryClassification / costModel / 49 字段 / 26 双源序列 / canonical SHA-256
+- FormalDataFreshnessPolicy + FieldEvidenceValidator（已验收） / 最近完成交易日/provider SLA / coverage >= 80% / cross-check + evidenceRefs + strict Schema / unknown/stale/blocked 不能 passed
+- 用户验收路径 / Backtest 选 candidate -> 运行正式评审 / 逐字段看 provider/日期/覆盖/交叉校验 / 缺失项显示资产、窗口和恢复动作 / Operations 打开同一 evidenceRefs
+- FTR-1 provisional 证据 / 15_data_governance_audit.json / provider_authorization_audit.json / field_evidence_validation_audit.json / automated=passed / human=pending_batch_review
+- Hard Fail / 免费源冒充 official / secret 进入日志/浏览器/artifact / stale/unknown 被隐藏 / LLM fallback 冒充 passed / Web Origin 代替 Extension identity
+
+Edges
+- A0 已通过　公开来源使用依据（不是后置签核） / 本机/个人/非商业；不宣称商业授权 / H00300 request + factsheet + methodology + raw SHA-256 / FormalProviderAuthorization v2 + endpoint allowlist / ReleaseCandidateSet 七策略 / default 用户 / immutable -> FormalDataProviderService（已实现并验收） / 公开来源用途与 endpoint allowlist / live 缺失时仅允许同窗口哈希自证重放 / 保存 sourceEndpoint/fetchedAt/version/hash
+- FormalDataProviderService（已实现并验收） / 公开来源用途与 endpoint allowlist / live 缺失时仅允许同窗口哈希自证重放 / 保存 sourceEndpoint/fetchedAt/version/hash -> FormalDataSnapshot v2（7/7 passed） / price / benchmark / dividend / tradeability / fundamental / industryClassification / costModel / 49 字段 / 26 双源序列 / canonical SHA-256
+- FormalDataSnapshot v2（7/7 passed） / price / benchmark / dividend / tradeability / fundamental / industryClassification / costModel / 49 字段 / 26 双源序列 / canonical SHA-256 -> FormalDataFreshnessPolicy + FieldEvidenceValidator（已验收） / 最近完成交易日/provider SLA / coverage >= 80% / cross-check + evidenceRefs + strict Schema / unknown/stale/blocked 不能 passed
+- FormalDataFreshnessPolicy + FieldEvidenceValidator（已验收） / 最近完成交易日/provider SLA / coverage >= 80% / cross-check + evidenceRefs + strict Schema / unknown/stale/blocked 不能 passed -> FTR-1 provisional 证据 / 15_data_governance_audit.json / provider_authorization_audit.json / field_evidence_validation_audit.json / automated=passed / human=pending_batch_review
+- FTR-1 provisional 证据 / 15_data_governance_audit.json / provider_authorization_audit.json / field_evidence_validation_audit.json / automated=passed / human=pending_batch_review -> 用户验收路径 / Backtest 选 candidate -> 运行正式评审 / 逐字段看 provider/日期/覆盖/交叉校验 / 缺失项显示资产、窗口和恢复动作 / Operations 打开同一 evidenceRefs
+
+## 4 Benchmark与模型验证
+Nodes: 8; Edges: 6
+
+Nodes
+- A2-A3：可信 Total Return Benchmark 与 Formal Validation
+- 可信 Benchmark 输入 / 中证指数公开 H00300 沪深300全收益 / 本机非商业 trust decision → trusted_total_return / source terms/request/points/sourceRefs/contentHash/replay / 不得宣称商业授权或 official_total_return；旧价格收益 proxy 禁止判绿
+- FormalBenchmarkService（FTR-2 已验收） / importBenchmark：H00300 版本化不可变导入 / qualificationAudit：用途/授权/日期/证据/alias / buildSeries：735 点按日期精确回放 / 二次运行 idempotent=true
+- FormalValidationProfileSet（已冻结并验收） / 七对象 inventory=7，不删除失败结果 / 红利低波：product_release_candidate + equity_selection_release_v1 + H00300 / 永久/全天候：research_reference / 当前持仓：diagnostic；本地样本：engineering / not_applicable 不得冒充 passed
+- FormalValidationService（FTR-3 v2 自动验收通过） / 免费来源 5216/5216；六冻结时点 6/6 ready / 红利低波 OOS/WF/5 参数重放为 5/6；53 paths；分组 6/3/3 / wf-04 failed 保留，人工模型复核 pending / 注意：这不等于建议级 point_in_time_simulation 已实现；ScenarioComparisonService 的冻结策略逐日动态重算仍 blocked
+- 冻结硬门槛（仅适用产品候选） / releaseEffectivePathCount >= 30；tradeability >= 80% / sample >= 60 日；max drawdown >= -35% / industry/market/liquidity groups >= 3 / walkForwardWindows >= 6；passedRatio >= 0.6 / testedParameterSets >= 5；stableRatio >= 0.6 / annual turnover <= 200% / return spread <= 15pp；drawdown spread <= 10pp / allReleaseCandidatesPassed=true
+- provisional artifacts / 16_benchmark_qualification_audit.json / benchmark_total_return_replay.json / 17_formal_validation_audit.json / release_candidate_set.json / humanAcceptanceStatus=pending_batch_review
+- 用户操作 / Backtest 选择建议复盘或组合回测 / saved advice：按建议 / 不执行 / 实际流水同一冻结时间轴 / 正式验证：策略/benchmark 的 OOS/WF/参数/分组 / 动态逐日重算未实现时必须显示 insufficient，不得借 saved replay 冒充
+
+Edges
+- 可信 Benchmark 输入 / 中证指数公开 H00300 沪深300全收益 / 本机非商业 trust decision → trusted_total_return / source terms/request/points/sourceRefs/contentHash/replay / 不得宣称商业授权或 official_total_return；旧价格收益 proxy 禁止判绿 -> FormalBenchmarkService（FTR-2 已验收） / importBenchmark：H00300 版本化不可变导入 / qualificationAudit：用途/授权/日期/证据/alias / buildSeries：735 点按日期精确回放 / 二次运行 idempotent=true
+- FormalBenchmarkService（FTR-2 已验收） / importBenchmark：H00300 版本化不可变导入 / qualificationAudit：用途/授权/日期/证据/alias / buildSeries：735 点按日期精确回放 / 二次运行 idempotent=true -> FormalValidationProfileSet（已冻结并验收） / 七对象 inventory=7，不删除失败结果 / 红利低波：product_release_candidate + equity_selection_release_v1 + H00300 / 永久/全天候：research_reference / 当前持仓：diagnostic；本地样本：engineering / not_applicable 不得冒充 passed
+- FormalValidationProfileSet（已冻结并验收） / 七对象 inventory=7，不删除失败结果 / 红利低波：product_release_candidate + equity_selection_release_v1 + H00300 / 永久/全天候：research_reference / 当前持仓：diagnostic；本地样本：engineering / not_applicable 不得冒充 passed -> FormalValidationService（FTR-3 v2 自动验收通过） / 免费来源 5216/5216；六冻结时点 6/6 ready / 红利低波 OOS/WF/5 参数重放为 5/6；53 paths；分组 6/3/3 / wf-04 failed 保留，人工模型复核 pending / 注意：这不等于建议级 point_in_time_simulation 已实现；ScenarioComparisonService 的冻结策略逐日动态重算仍 blocked
+- FormalValidationService（FTR-3 v2 自动验收通过） / 免费来源 5216/5216；六冻结时点 6/6 ready / 红利低波 OOS/WF/5 参数重放为 5/6；53 paths；分组 6/3/3 / wf-04 failed 保留，人工模型复核 pending / 注意：这不等于建议级 point_in_time_simulation 已实现；ScenarioComparisonService 的冻结策略逐日动态重算仍 blocked -> 冻结硬门槛（仅适用产品候选） / releaseEffectivePathCount >= 30；tradeability >= 80% / sample >= 60 日；max drawdown >= -35% / industry/market/liquidity groups >= 3 / walkForwardWindows >= 6；passedRatio >= 0.6 / testedParameterSets >= 5；stableRatio >= 0.6 / annual turnover <= 200% / return spread <= 15pp；drawdown spread <= 10pp / allReleaseCandidatesPassed=true
+- 冻结硬门槛（仅适用产品候选） / releaseEffectivePathCount >= 30；tradeability >= 80% / sample >= 60 日；max drawdown >= -35% / industry/market/liquidity groups >= 3 / walkForwardWindows >= 6；passedRatio >= 0.6 / testedParameterSets >= 5；stableRatio >= 0.6 / annual turnover <= 200% / return spread <= 15pp；drawdown spread <= 10pp / allReleaseCandidatesPassed=true -> provisional artifacts / 16_benchmark_qualification_audit.json / benchmark_total_return_replay.json / 17_formal_validation_audit.json / release_candidate_set.json / humanAcceptanceStatus=pending_batch_review
+- provisional artifacts / 16_benchmark_qualification_audit.json / benchmark_total_return_replay.json / 17_formal_validation_audit.json / release_candidate_set.json / humanAcceptanceStatus=pending_batch_review -> 用户操作 / Backtest 选择建议复盘或组合回测 / saved advice：按建议 / 不执行 / 实际流水同一冻结时间轴 / 正式验证：策略/benchmark 的 OOS/WF/参数/分组 / 动态逐日重算未实现时必须显示 insufficient，不得借 saved replay 冒充
+
+## 5 集中人工核查与证据失效
+Nodes: 7; Edges: 5
+
+Nodes
+- A4-A7：Provisional 证据、集中人工核查、Final 评审包
+- A0-A5 自动产物状态 / FTR-1 data / FTR-2 benchmark / FTR-3 validation=passed（provisional） / FTR-3 v2=5/6、53 paths；wf-04 failed 保留 / FTR-5 execution isolation=passed / FTR-6 覆盖 A0/FTR-1..5 与 28 个来源 artifact / 全部哈希逐字节验证；人工状态仍 pending / 生产适配器与四项交易锁未放行
+- DeferredHumanReviewQueueService（已实现） / FTR 队列 8 项：Daily UX / V2-PX / data / benchmark / model / risk / compliance / final / 当前 8 pending / 0 approved；artifactRefs + SHA-256 + rollbackStage / 投资工作流另有截图逐行纠错、16 项策略归类与语义可读性集中核验，不得混写为 FTR 已签核 / 自动化不得写 passed
+- A6 图文工作台（工程已实现 / 人工仍 pending） / formal-release-human-checklist.html：8 类 / 32 步 / 32 图 / 28 张真实运行或冻结证据图；V2-PX 4 张非证据操作示意 / V2-PX 仍必须回填真实 Chrome 截图/trace / HumanAcceptanceDraftService：revision / package hash / secret/path gate / 8/8 草稿只到 ready_for_authorized_signoff，不写正式签核 / 最终项审核 FTR-6 provisional 包并只批准 A7 生成
+- A7 Final FormalReleaseReviewPackage（未准入） / 仅在 A6 八项全部通过后执行 / ReleaseGateService 只消费已签核的同一哈希 / 重建 14_release_gate_audit.json + HTML + SUMMARY / 目标 finalFormalReleaseReviewPackageReady=true / 当前仍为 false
+- 否决/变化后的失效链 / Data 失败 -> FTR-2/3/6 invalidated / Benchmark 失败 -> FTR-3/6 invalidated / Model 失败 -> FTR-6 invalidated / Isolation 失败 -> 全部停止 / 任一 artifact hash 变化 -> 对应签核失效 / 保留失败证据，不得只改摘要
+- A5 Provisional Package（已自动验收） / batchHumanReviewReady=true / formalTradingReleaseReviewReady=true / downstreamEvidenceStatus=provisional_until_human_pass / 28 个来源 artifact 哈希通过 / 不得出现 final/approved/release passed
+
+Edges
+- A0-A5 自动产物状态 / FTR-1 data / FTR-2 benchmark / FTR-3 validation=passed（provisional） / FTR-3 v2=5/6、53 paths；wf-04 failed 保留 / FTR-5 execution isolation=passed / FTR-6 覆盖 A0/FTR-1..5 与 28 个来源 artifact / 全部哈希逐字节验证；人工状态仍 pending / 生产适配器与四项交易锁未放行 -> DeferredHumanReviewQueueService（已实现） / FTR 队列 8 项：Daily UX / V2-PX / data / benchmark / model / risk / compliance / final / 当前 8 pending / 0 approved；artifactRefs + SHA-256 + rollbackStage / 投资工作流另有截图逐行纠错、16 项策略归类与语义可读性集中核验，不得混写为 FTR 已签核 / 自动化不得写 passed
+- DeferredHumanReviewQueueService（已实现） / FTR 队列 8 项：Daily UX / V2-PX / data / benchmark / model / risk / compliance / final / 当前 8 pending / 0 approved；artifactRefs + SHA-256 + rollbackStage / 投资工作流另有截图逐行纠错、16 项策略归类与语义可读性集中核验，不得混写为 FTR 已签核 / 自动化不得写 passed -> A6 图文工作台（工程已实现 / 人工仍 pending） / formal-release-human-checklist.html：8 类 / 32 步 / 32 图 / 28 张真实运行或冻结证据图；V2-PX 4 张非证据操作示意 / V2-PX 仍必须回填真实 Chrome 截图/trace / HumanAcceptanceDraftService：revision / package hash / secret/path gate / 8/8 草稿只到 ready_for_authorized_signoff，不写正式签核 / 最终项审核 FTR-6 provisional 包并只批准 A7 生成
+- DeferredHumanReviewQueueService（已实现） / FTR 队列 8 项：Daily UX / V2-PX / data / benchmark / model / risk / compliance / final / 当前 8 pending / 0 approved；artifactRefs + SHA-256 + rollbackStage / 投资工作流另有截图逐行纠错、16 项策略归类与语义可读性集中核验，不得混写为 FTR 已签核 / 自动化不得写 passed -> A5 Provisional Package（已自动验收） / batchHumanReviewReady=true / formalTradingReleaseReviewReady=true / downstreamEvidenceStatus=provisional_until_human_pass / 28 个来源 artifact 哈希通过 / 不得出现 final/approved/release passed (A5)
+- A6 图文工作台（工程已实现 / 人工仍 pending） / formal-release-human-checklist.html：8 类 / 32 步 / 32 图 / 28 张真实运行或冻结证据图；V2-PX 4 张非证据操作示意 / V2-PX 仍必须回填真实 Chrome 截图/trace / HumanAcceptanceDraftService：revision / package hash / secret/path gate / 8/8 草稿只到 ready_for_authorized_signoff，不写正式签核 / 最终项审核 FTR-6 provisional 包并只批准 A7 生成 -> A7 Final FormalReleaseReviewPackage（未准入） / 仅在 A6 八项全部通过后执行 / ReleaseGateService 只消费已签核的同一哈希 / 重建 14_release_gate_audit.json + HTML + SUMMARY / 目标 finalFormalReleaseReviewPackageReady=true / 当前仍为 false (全通过)
+- A6 图文工作台（工程已实现 / 人工仍 pending） / formal-release-human-checklist.html：8 类 / 32 步 / 32 图 / 28 张真实运行或冻结证据图；V2-PX 4 张非证据操作示意 / V2-PX 仍必须回填真实 Chrome 截图/trace / HumanAcceptanceDraftService：revision / package hash / secret/path gate / 8/8 草稿只到 ready_for_authorized_signoff，不写正式签核 / 最终项审核 FTR-6 provisional 包并只批准 A7 生成 -> 否决/变化后的失效链 / Data 失败 -> FTR-2/3/6 invalidated / Benchmark 失败 -> FTR-3/6 invalidated / Model 失败 -> FTR-6 invalidated / Isolation 失败 -> 全部停止 / 任一 artifact hash 变化 -> 对应签核失效 / 保留失败证据，不得只改摘要 (任一失败)
+
+## 6 用户操作与验收路径
+Nodes: 13; Edges: 8
+
+Nodes
+- 四条真实用户路径：每条都有操作、结果、门槛和证据
+- A 普通用户 / 真实资产到解释
+- 1 Assets 选择同花顺/支付宝并上传截图或 Excel　→　2 逐行纠错确认并查看 provider/as-of/MA　→　3 Positions 查看系统归类理由并人工确认　→　4 进入轮动/红利/组合策略　→　5 Backtest 三场景复盘　→　6 ChatBox / Operations 查看解释与证据 / 目标：六次主要操作内完成基本信息确认→仓位策略→回测复盘；未确认归类时诚实阻断。
+- 出门门槛 / 真实账户事实不变；未确认项可恢复 / 三视口无溢出；订单=0 / 证据：WF-7 18 截图 + 前后快照
+- B 研究用户 / 策略正式验证
+- 1 选择真实 Advice/GridPlan 或冻结 candidate　→　2 saved replay 比较按建议/不执行/实际流水　→　3 正式链加载 authorized data 与 qualified benchmark　→　4 查看 OOS/WF/参数/分组、failed/insufficient 与 15-17 audit / 目标：每条曲线来自同一冻结输入；动态逐日重算未实现时明确阻断。
+- 出门门槛 / 30 paths；3 industries / 6 windows；passed ratio ≥ 0.6 / 证据：candidate + replay + validation
+- C 审核用户 / 集中人工核查
+- 1 打开 A6 图文工作台并确认 FTR-6 package/hash　→　2 按 32 步配图完成产品 / 数据 / benchmark / 模型 / 风险 / 合规核查　→　3 回填实际结果、差异、复现、建议和私有证据路径　→　4 前七项通过后 final reviewer 审核 provisional 包并批准或打回 / 目标结果：草稿不冒充签核；谁审了什么、基于哪份证据、失败后打回哪里均可追踪。
+- 出门门槛 / 8 项各一次；hash 一致 / Agent 无签核权限 / 证据：queue + 18 audit + HTML
+- D 安全审计 / 交易动作阻断
+- 1 ChatBox / Backtest / API 请求禁止动作　→　2 Permission Gate 返回 blocked 与缺失门禁　→　3 Operations 核对无 order artifact 且持仓无变化 / 目标结果：用户明确知道当前仅支持研究和草案，不会被误导为可下单。
+- 出门门槛 / ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 全 blocked / 证据：13 audit + runtime + wording
+
+Edges
+- A 普通用户 / 真实资产到解释 -> 1 Assets 选择同花顺/支付宝并上传截图或 Excel　→　2 逐行纠错确认并查看 provider/as-of/MA　→　3 Positions 查看系统归类理由并人工确认　→　4 进入轮动/红利/组合策略　→　5 Backtest 三场景复盘　→　6 ChatBox / Operations 查看解释与证据 / 目标：六次主要操作内完成基本信息确认→仓位策略→回测复盘；未确认归类时诚实阻断。
+- 1 Assets 选择同花顺/支付宝并上传截图或 Excel　→　2 逐行纠错确认并查看 provider/as-of/MA　→　3 Positions 查看系统归类理由并人工确认　→　4 进入轮动/红利/组合策略　→　5 Backtest 三场景复盘　→　6 ChatBox / Operations 查看解释与证据 / 目标：六次主要操作内完成基本信息确认→仓位策略→回测复盘；未确认归类时诚实阻断。 -> 出门门槛 / 真实账户事实不变；未确认项可恢复 / 三视口无溢出；订单=0 / 证据：WF-7 18 截图 + 前后快照
+- B 研究用户 / 策略正式验证 -> 1 选择真实 Advice/GridPlan 或冻结 candidate　→　2 saved replay 比较按建议/不执行/实际流水　→　3 正式链加载 authorized data 与 qualified benchmark　→　4 查看 OOS/WF/参数/分组、failed/insufficient 与 15-17 audit / 目标：每条曲线来自同一冻结输入；动态逐日重算未实现时明确阻断。
+- 1 选择真实 Advice/GridPlan 或冻结 candidate　→　2 saved replay 比较按建议/不执行/实际流水　→　3 正式链加载 authorized data 与 qualified benchmark　→　4 查看 OOS/WF/参数/分组、failed/insufficient 与 15-17 audit / 目标：每条曲线来自同一冻结输入；动态逐日重算未实现时明确阻断。 -> 出门门槛 / 30 paths；3 industries / 6 windows；passed ratio ≥ 0.6 / 证据：candidate + replay + validation
+- C 审核用户 / 集中人工核查 -> 1 打开 A6 图文工作台并确认 FTR-6 package/hash　→　2 按 32 步配图完成产品 / 数据 / benchmark / 模型 / 风险 / 合规核查　→　3 回填实际结果、差异、复现、建议和私有证据路径　→　4 前七项通过后 final reviewer 审核 provisional 包并批准或打回 / 目标结果：草稿不冒充签核；谁审了什么、基于哪份证据、失败后打回哪里均可追踪。
+- 1 打开 A6 图文工作台并确认 FTR-6 package/hash　→　2 按 32 步配图完成产品 / 数据 / benchmark / 模型 / 风险 / 合规核查　→　3 回填实际结果、差异、复现、建议和私有证据路径　→　4 前七项通过后 final reviewer 审核 provisional 包并批准或打回 / 目标结果：草稿不冒充签核；谁审了什么、基于哪份证据、失败后打回哪里均可追踪。 -> 出门门槛 / 8 项各一次；hash 一致 / Agent 无签核权限 / 证据：queue + 18 audit + HTML
+- D 安全审计 / 交易动作阻断 -> 1 ChatBox / Backtest / API 请求禁止动作　→　2 Permission Gate 返回 blocked 与缺失门禁　→　3 Operations 核对无 order artifact 且持仓无变化 / 目标结果：用户明确知道当前仅支持研究和草案，不会被误导为可下单。
+- 1 ChatBox / Backtest / API 请求禁止动作　→　2 Permission Gate 返回 blocked 与缺失门禁　→　3 Operations 核对无 order artifact 且持仓无变化 / 目标结果：用户明确知道当前仅支持研究和草案，不会被误导为可下单。 -> 出门门槛 / ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 全 blocked / 证据：13 audit + runtime + wording
+
+## 7 开发里程碑与打回
+Nodes: 12; Edges: 7
+
+Nodes
+- A0-A7 两行主路径：顺序开发、自动验收、集中人工核查
+- A0 / M0　已通过 provisional / 七对象 role/profile/component/benchmark 已冻结 / 候选 v2 与公开来源用途证据已绑定 / 输入变化将失效 FTR-1..6 下游证据
+- A1 / M1　已通过 provisional / 15 audit 已绑定 profileSetHash / 5216/5216 标的；六冻结时点 6/6 ready / 数据人工复核仍 pending
+- A2 / M2　已通过 provisional / H00300 trusted total-return 已重放 / 16 audit 已绑定红利低波 benchmark map / 候选失败不得更换 benchmark 求绿
+- A3 / M3　已通过 provisional / FREE-P1=5216/5216；六时点=6/6 ready / FTR-3 v2=5/6、53 paths、分组 6/3/3 / wf-04 failed 保留；模型人工复核 pending
+- A4 / M4　已自动验收 / FTR-4 队列 8 pending / 0 approved / FTR-5 isolation regression passed / 风险证据已重绑定；production adapter disabled
+- A5 / M5　已自动验收 / FTR-6 provisional package 覆盖 A0/FTR-1..5 / 28 个来源 artifact 逐字节哈希通过 / batchHumanReviewReady=true；人工仍 pending
+- A6 / M6　工作台已实现，人工待执行 / 8 类 / 32 步 / 配图覆盖率 100% / 28 张证据图 + 4 张非证据操作示意 / V2-PX 仍须真实 Chrome 采证 / 私有草稿绑定 package hash 和 revision / 8/8 后仍需授权签核；否决回责任阶段
+- A7 / M7　未准入 / A6 全通过后重建 13/14 + HTML + SUMMARY / 目标 finalFormalReleaseReviewPackageReady=true / 当前 false；仍不解锁正式交易
+- 每阶段必须落盘 / DEVELOPMENT_PLAN + ACCEPTANCE_PLAN + ENTRY_AUDIT / PRD_SPEC_REVIEW + JSON artifacts + failure/replan history / 命令、输入版本、commit、artifact hash、失败责任人完整
+- 自动推进条件 / A0-A5 与 WF-0..7 documented scope 均 passed；无 fatal / major 规格偏差 / 只用真实数据，不以 mock、fallback 或 timeout 冒充通过 / 投资工作流=18 PASS / 1 HUMAN_PENDING / 1 CONTROLLED_BLOCK / A6 与 V2-PX 人工状态保持 pending，不得自动转绿
+- 打回责任矩阵 / 授权 / 凭据 / 输入 → A0　　数据字段 → A1　　Benchmark → A2 / Candidate / 统计 / 阈值 → A3　　权限漂移 / mutation → A4 并停止 / Queue / hash / report → A5 或 A7　　人工否决 → 对应责任阶段
+
+Edges
+- A0 / M0　已通过 provisional / 七对象 role/profile/component/benchmark 已冻结 / 候选 v2 与公开来源用途证据已绑定 / 输入变化将失效 FTR-1..6 下游证据 -> A1 / M1　已通过 provisional / 15 audit 已绑定 profileSetHash / 5216/5216 标的；六冻结时点 6/6 ready / 数据人工复核仍 pending
+- A1 / M1　已通过 provisional / 15 audit 已绑定 profileSetHash / 5216/5216 标的；六冻结时点 6/6 ready / 数据人工复核仍 pending -> A2 / M2　已通过 provisional / H00300 trusted total-return 已重放 / 16 audit 已绑定红利低波 benchmark map / 候选失败不得更换 benchmark 求绿
+- A2 / M2　已通过 provisional / H00300 trusted total-return 已重放 / 16 audit 已绑定红利低波 benchmark map / 候选失败不得更换 benchmark 求绿 -> A3 / M3　已通过 provisional / FREE-P1=5216/5216；六时点=6/6 ready / FTR-3 v2=5/6、53 paths、分组 6/3/3 / wf-04 failed 保留；模型人工复核 pending
+- A3 / M3　已通过 provisional / FREE-P1=5216/5216；六时点=6/6 ready / FTR-3 v2=5/6、53 paths、分组 6/3/3 / wf-04 failed 保留；模型人工复核 pending -> A4 / M4　已自动验收 / FTR-4 队列 8 pending / 0 approved / FTR-5 isolation regression passed / 风险证据已重绑定；production adapter disabled
+- A4 / M4　已自动验收 / FTR-4 队列 8 pending / 0 approved / FTR-5 isolation regression passed / 风险证据已重绑定；production adapter disabled -> A5 / M5　已自动验收 / FTR-6 provisional package 覆盖 A0/FTR-1..5 / 28 个来源 artifact 逐字节哈希通过 / batchHumanReviewReady=true；人工仍 pending
+- A5 / M5　已自动验收 / FTR-6 provisional package 覆盖 A0/FTR-1..5 / 28 个来源 artifact 逐字节哈希通过 / batchHumanReviewReady=true；人工仍 pending -> A6 / M6　工作台已实现，人工待执行 / 8 类 / 32 步 / 配图覆盖率 100% / 28 张证据图 + 4 张非证据操作示意 / V2-PX 仍须真实 Chrome 采证 / 私有草稿绑定 package hash 和 revision / 8/8 后仍需授权签核；否决回责任阶段
+- A6 / M6　工作台已实现，人工待执行 / 8 类 / 32 步 / 配图覆盖率 100% / 28 张证据图 + 4 张非证据操作示意 / V2-PX 仍须真实 Chrome 采证 / 私有草稿绑定 package hash 和 revision / 8/8 后仍需授权签核；否决回责任阶段 -> A7 / M7　未准入 / A6 全通过后重建 13/14 + HTML + SUMMARY / 目标 finalFormalReleaseReviewPackageReady=true / 当前 false；仍不解锁正式交易
+
+## 8 出门门槛与独立解锁阶段
+Nodes: 7; Edges: 5
+
+Nodes
+- 出门条件：自动化绿、集中人工绿、交易锁仍红
+- 自动化出门（当前文档支撑范围通过） / FTR-1/2/3 自动门槛通过；wf-04 失败保留 / FTR-5 隔离与 FTR-6 28 artifact 哈希通过 / 投资工作流 WF-0..7 自动验收通过：18/20 / 账户事实保护、三视口和交易阻断通过 / batchHumanReviewReady=true / evidence=provisional_until_human_pass
+- 集中人工与规格补齐出门（未完成） / A6：8 类 / 32 步；Daily UX + PX6-02 10/10 + data/benchmark/model/risk/compliance/final / 投资工作流：截图纠错、16 项策略归类、人工计划/曲线语义/移动端体验 / 产品缺口：冻结策略版本的动态 point_in_time_simulation 需另阶段实现与验收 / A7 只按同一哈希重建 final package / 当前 humanAcceptanceStatus=pending_batch_review；四锁 false
+- 独立未来生产解锁阶段（本阶段不执行） / 重新评估生产身份/券商适配器/资金风险 / 独立计划 + 独立人工批准 + 独立 E2E / 此前 artifact 仅作输入，不能自动继承权限 / 未批准：productionAdapterEnabled=false
+- Hard Fail / 拒绝声明全量完成 / 无真实数据或用 mock 替代 / saved advice 冒充动态 point-in-time 重算 / 失败 candidate/insufficient/人工否决被隐藏 / artifact hash 不一致或旧证据冒充本轮 / 自动化写入人工 passed；用户路径无操作/阈值/证据 / 任何交易锁为 true 或出现真实订单/持仓变化
+- 当前可声明 / automatedAcceptanceStatus=passed_supported_scope / investmentWorkflow=18/20；batchHumanReviewReady=true / formalTradingReleaseReviewReady=true / prdFullyComplete=false / finalFormalReleaseReviewPackageReady=false / 仍固定 false：formalTradingReleaseReady / formalTradingUnlocked / autoTradeUnlocked / canCreateOrder / orderCreateAllowed
+- 人类审计入口 / current-stage-state.json + PRD_COMPLETION_TRACEABILITY_MATRIX.md / INVESTMENT_WORKFLOW_UX_PRD.md + WF-7 report/matrix / DEFERRED_HUMAN_ACCEPTANCE_EXECUTION_PLAN.md / FTR manifest + 13-18 artifacts / read-drawio-output.txt + 综合 acceptance-report.html / 能回答：做什么、如何操作、阈值、证据、未完成项和失败打回
+
+Edges
+- 自动化出门（当前文档支撑范围通过） / FTR-1/2/3 自动门槛通过；wf-04 失败保留 / FTR-5 隔离与 FTR-6 28 artifact 哈希通过 / 投资工作流 WF-0..7 自动验收通过：18/20 / 账户事实保护、三视口和交易阻断通过 / batchHumanReviewReady=true / evidence=provisional_until_human_pass -> 集中人工与规格补齐出门（未完成） / A6：8 类 / 32 步；Daily UX + PX6-02 10/10 + data/benchmark/model/risk/compliance/final / 投资工作流：截图纠错、16 项策略归类、人工计划/曲线语义/移动端体验 / 产品缺口：冻结策略版本的动态 point_in_time_simulation 需另阶段实现与验收 / A7 只按同一哈希重建 final package / 当前 humanAcceptanceStatus=pending_batch_review；四锁 false (全绿后)
+- 集中人工与规格补齐出门（未完成） / A6：8 类 / 32 步；Daily UX + PX6-02 10/10 + data/benchmark/model/risk/compliance/final / 投资工作流：截图纠错、16 项策略归类、人工计划/曲线语义/移动端体验 / 产品缺口：冻结策略版本的动态 point_in_time_simulation 需另阶段实现与验收 / A7 只按同一哈希重建 final package / 当前 humanAcceptanceStatus=pending_batch_review；四锁 false -> 独立未来生产解锁阶段（本阶段不执行） / 重新评估生产身份/券商适配器/资金风险 / 独立计划 + 独立人工批准 + 独立 E2E / 此前 artifact 仅作输入，不能自动继承权限 / 未批准：productionAdapterEnabled=false (另立项目并批准)
+- 集中人工与规格补齐出门（未完成） / A6：8 类 / 32 步；Daily UX + PX6-02 10/10 + data/benchmark/model/risk/compliance/final / 投资工作流：截图纠错、16 项策略归类、人工计划/曲线语义/移动端体验 / 产品缺口：冻结策略版本的动态 point_in_time_simulation 需另阶段实现与验收 / A7 只按同一哈希重建 final package / 当前 humanAcceptanceStatus=pending_batch_review；四锁 false -> 当前可声明 / automatedAcceptanceStatus=passed_supported_scope / investmentWorkflow=18/20；batchHumanReviewReady=true / formalTradingReleaseReviewReady=true / prdFullyComplete=false / finalFormalReleaseReviewPackageReady=false / 仍固定 false：formalTradingReleaseReady / formalTradingUnlocked / autoTradeUnlocked / canCreateOrder / orderCreateAllowed (形成声明)
+- Hard Fail / 拒绝声明全量完成 / 无真实数据或用 mock 替代 / saved advice 冒充动态 point-in-time 重算 / 失败 candidate/insufficient/人工否决被隐藏 / artifact hash 不一致或旧证据冒充本轮 / 自动化写入人工 passed；用户路径无操作/阈值/证据 / 任何交易锁为 true 或出现真实订单/持仓变化 -> 当前可声明 / automatedAcceptanceStatus=passed_supported_scope / investmentWorkflow=18/20；batchHumanReviewReady=true / formalTradingReleaseReviewReady=true / prdFullyComplete=false / finalFormalReleaseReviewPackageReady=false / 仍固定 false：formalTradingReleaseReady / formalTradingUnlocked / autoTradeUnlocked / canCreateOrder / orderCreateAllowed (违规打回)
+- 当前可声明 / automatedAcceptanceStatus=passed_supported_scope / investmentWorkflow=18/20；batchHumanReviewReady=true / formalTradingReleaseReviewReady=true / prdFullyComplete=false / finalFormalReleaseReviewPackageReady=false / 仍固定 false：formalTradingReleaseReady / formalTradingUnlocked / autoTradeUnlocked / canCreateOrder / orderCreateAllowed -> 人类审计入口 / current-stage-state.json + PRD_COMPLETION_TRACEABILITY_MATRIX.md / INVESTMENT_WORKFLOW_UX_PRD.md + WF-7 report/matrix / DEFERRED_HUMAN_ACCEPTANCE_EXECUTION_PLAN.md / FTR manifest + 13-18 artifacts / read-drawio-output.txt + 综合 acceptance-report.html / 能回答：做什么、如何操作、阈值、证据、未完成项和失败打回 (复核)
