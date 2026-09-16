@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-5-trade-boundary-wording-audit.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "status", "scannedSurfaces", "sourceHashes", "prohibitedMutationActions", "prohibitedMutationActionsBlocked", "productionEnableEndpointAbsent", "blockedRuntimeFields", "misleadingTradingCopyFound", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_5.trade_boundary_wording_audit.v1"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "status": {"const": "passed"},
+    "scannedSurfaces": {"const": ["formal-release-route", "portfolio-backtest-route", "chatbox-service", "execution-isolation-service", "trade-boundary-contract"]},
+    "sourceHashes": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}},
+    "prohibitedMutationActions": {"const": ["ADD", "REDUCE", "ORDER_CREATE", "AUTO_TRADE", "REAL_POSITION_MUTATION"]},
+    "prohibitedMutationActionsBlocked": {"const": 5},
+    "productionEnableEndpointAbsent": {"const": true},
+    "blockedRuntimeFields": {"type": "object", "additionalProperties": false, "required": ["productionAdapterEnabled", "realPositionMutationAllowed", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"], "properties": {"productionAdapterEnabled": {"const": false}, "realPositionMutationAllowed": {"const": false}, "formalTradingUnlocked": {"const": false}, "autoTradeUnlocked": {"const": false}, "canCreateOrder": {"const": false}, "orderCreateAllowed": {"const": false}}},
+    "misleadingTradingCopyFound": {"const": false},
+    "formalTradingUnlocked": {"const": false}, "autoTradeUnlocked": {"const": false}, "canCreateOrder": {"const": false}, "orderCreateAllowed": {"const": false}
+  }
+}

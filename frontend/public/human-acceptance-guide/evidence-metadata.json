@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "fams.a6.human_acceptance_guide_images.v1",
+  "generatedAt": "2026-09-15T19:45:21+08:00",
+  "purpose": "human_operation_guidance_only",
+  "mayClaimHumanAcceptance": false,
+  "images": [
+    {"path": "assets-desktop.png", "class": "real_runtime_screenshot", "source": "FTR-4/2026-09-14 daily_user_experience evidence"},
+    {"path": "dashboard-desktop.png", "class": "real_runtime_screenshot", "source": "UX-F7 actual baseline with local asset summary"},
+    {"path": "dashboard-chatbox.png", "class": "real_runtime_screenshot", "source": "full-system-e2e/2026-09-11"},
+    {"path": "backtest-result.png", "class": "real_runtime_screenshot", "source": "full-system-e2e/2026-09-11"},
+    {"path": "operations.png", "class": "real_runtime_screenshot", "source": "full-system-e2e/2026-09-11"},
+    {"path": "ftr6-overview.png", "class": "frozen_evidence_reading_screenshot", "source": "FTR-6/2026-09-14 provisional acceptance-report.html"},
+    {"path": "ftr6-artifacts-top.png", "class": "frozen_evidence_reading_screenshot", "source": "FTR-6/2026-09-14 provisional acceptance-report.html"},
+    {"path": "ftr6-artifacts-middle.png", "class": "frozen_evidence_reading_screenshot", "source": "FTR-6/2026-09-14 provisional acceptance-report.html"},
+    {"path": "ftr6-boundary.png", "class": "frozen_evidence_reading_screenshot", "source": "FTR-6/2026-09-14 provisional acceptance-report.html"},
+    {"path": "v2-step-1-sidepanel-guide.png", "class": "instructional_diagram_not_evidence", "source": "headless-rendered A6 operation guide"},
+    {"path": "v2-step-2-three-entry-guide.png", "class": "instructional_diagram_not_evidence", "source": "headless-rendered A6 operation guide"},
+    {"path": "v2-step-3-route-intents-guide.png", "class": "instructional_diagram_not_evidence", "source": "headless-rendered A6 operation guide"},
+    {"path": "v2-step-4-lifecycle-guide.png", "class": "instructional_diagram_not_evidence", "source": "headless-rendered A6 operation guide"}
+  ],
+  "v2PxVisualPolicy": {
+    "instructionalDiagramCount": 4,
+    "allHumanStepsIllustrated": true,
+    "reason": "native Chrome Side Panel and dual-container lifecycle require headed human capture",
+    "instructionalDiagramMayClaimRealChromeEvidence": false,
+    "requiredHumanEvidence": "private relative screenshot and trace references must be entered during A6"
+  },
+  "tradeBoundary": {
+    "productionAdapterEnabled": false,
+    "formalTradingUnlocked": false,
+    "autoTradeUnlocked": false,
+    "canCreateOrder": false,
+    "orderCreateAllowed": false
+  }
+}

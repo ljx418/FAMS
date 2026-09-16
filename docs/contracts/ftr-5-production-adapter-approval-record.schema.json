@@ -14,6 +14,7 @@
     "formalTradingUnlocked": {"const": false},
     "autoTradeUnlocked": {"const": false},
     "canCreateOrder": {"const": false},
-    "orderCreateAllowed": {"const": false}
+    "orderCreateAllowed": {"const": false},
+    "blockers": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "contains": {"const": "production_order_adapter_not_enabled"}}
   }
 }

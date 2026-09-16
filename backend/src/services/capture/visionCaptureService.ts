@@ -56,7 +56,7 @@ class VisionCaptureService {
           content: [
             {
               type: 'text',
-              text: `识别这张证券账户截图。只提取图片中明确可见的信息，不推断缺失值。返回严格 JSON：
+              text: `识别这张${capture.accountSource === 'alipay' ? '支付宝' : '同花顺证券'}账户截图。用户已在上传前确认 accountId=${capture.accountSource || 'unknown'}。所有识别行必须使用该 accountId；如果画面明显属于另一个账户来源，不要猜测或改写，保留可见原文并降低置信度。只提取图片中明确可见的信息，不推断缺失值。返回严格 JSON：
 {
   "documentType": "holding|trade|order|ordinary_order|conditional_order|mixed|fund_portfolio|fund_transaction",
   "rawText": "简短原文",

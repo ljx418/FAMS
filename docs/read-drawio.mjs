@@ -4,7 +4,16 @@ import process from 'node:process'
 import { DOMParser } from '@xmldom/xmldom'
 
 const docsDir = path.dirname(new URL(import.meta.url).pathname)
-const inputFiles = process.argv.slice(2)
+const args = process.argv.slice(2)
+const outputArg = args.find((arg) => arg.startsWith('--output='))
+const outputFile = outputArg ? path.resolve(process.cwd(), outputArg.slice('--output='.length)) : null
+const inputFiles = args.filter((arg) => !arg.startsWith('--output='))
+const outputLines = []
+
+function emit(line = '') {
+  outputLines.push(line)
+  console.log(line)
+}
 
 const files = inputFiles.length
   ? inputFiles.map((file) => path.resolve(process.cwd(), file))
@@ -62,13 +71,13 @@ for (const file of files) {
   const doc = parser.parseFromString(xml, 'application/xml')
   const diagrams = Array.from(doc.getElementsByTagName('diagram'))
 
-  console.log(`\n# ${path.relative(process.cwd(), file)}`)
+  emit(`\n# ${path.relative(process.cwd(), file)}`)
 
   for (const diagram of diagrams) {
     const model = diagram.getElementsByTagName('mxGraphModel')[0]
     if (!model) {
-      console.log(`\n## ${attr(diagram, 'name') || attr(diagram, 'id')}`)
-      console.log('Compressed or embedded diagram payload; open with diagrams.net to inspect visually.')
+      emit(`\n## ${attr(diagram, 'name') || attr(diagram, 'id')}`)
+      emit('Compressed or embedded diagram payload; open with diagrams.net to inspect visually.')
       continue
     }
 
@@ -76,22 +85,27 @@ for (const file of files) {
     const nodesById = new Map(nodes.map((node) => [node.id, node.label]))
     const edges = listEdges(model, nodesById)
 
-    console.log(`\n## ${attr(diagram, 'name') || attr(diagram, 'id')}`)
-    console.log(`Nodes: ${nodes.length}; Edges: ${edges.length}`)
+    emit(`\n## ${attr(diagram, 'name') || attr(diagram, 'id')}`)
+    emit(`Nodes: ${nodes.length}; Edges: ${edges.length}`)
 
     if (nodes.length) {
-      console.log('\nNodes')
+      emit('\nNodes')
       for (const node of nodes) {
-        console.log(`- ${node.label}`)
+        emit(`- ${node.label}`)
       }
     }
 
     if (edges.length) {
-      console.log('\nEdges')
+      emit('\nEdges')
       for (const edge of edges) {
         const label = edge.label ? ` (${edge.label})` : ''
-        console.log(`- ${edge.source} -> ${edge.target}${label}`)
+        emit(`- ${edge.source} -> ${edge.target}${label}`)
       }
     }
   }
+}
+
+if (outputFile) {
+  fs.mkdirSync(path.dirname(outputFile), { recursive: true })
+  fs.writeFileSync(outputFile, `${outputLines.join('\n').trimStart()}\n`, 'utf8')
 }

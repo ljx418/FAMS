@@ -38,6 +38,7 @@ import { BrokerReconciliationPanel } from '../components/review/BrokerReconcilia
 import { OpenInExternalBrainButton } from '../components/external-brain/OpenInExternalBrainButton'
 import { PX_DEFAULT_WORKSPACE_ID } from '../services/pxExternalBrainBridge'
 import { colors } from '../styles/chartTheme'
+import { ExperienceModeToggle, type ExperienceMode } from '../components/common/ExperienceModeToggle'
 
 const USER_ID = 'default'
 const NODE_REVIEW_STORAGE_PREFIX = 'fams.dailyReview.nodeReviews.v1'
@@ -256,6 +257,14 @@ export default function DailyReviews() {
   const [zeroNewTradesConfirmed, setZeroNewTradesConfirmed] = useState(false)
   const [brokerLoading, setBrokerLoading] = useState(false)
   const [brokerReconciliationPreview, setBrokerReconciliationPreview] = useState<Record<string, any>>()
+  const [experienceMode, setExperienceMode] = useState<ExperienceMode>(() => (
+    window.localStorage.getItem('fams.dailyReview.experienceMode') === 'expert' ? 'expert' : 'plain'
+  ))
+
+  const changeExperienceMode = (mode: ExperienceMode) => {
+    setExperienceMode(mode)
+    window.localStorage.setItem('fams.dailyReview.experienceMode', mode)
+  }
 
   const requestBrowserNotifications = async () => {
     if (!('Notification' in window)) {
@@ -609,12 +618,13 @@ export default function DailyReviews() {
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700">
               <AuditOutlined /> 每日持仓复盘 · 公开审计工作台
             </div>
-            <h1 className="mb-0 mt-4 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">券商与支付宝持仓，每日可追溯复盘。</h1>
+            <h1 className="mb-0 mt-4 text-3xl font-semibold text-slate-950 md:text-4xl">券商与支付宝持仓，每日可追溯复盘。</h1>
             <p className="mb-0 mt-3 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
               券商流程先核对持仓、可卖数量、资金、新成交和现有委托，再刷新真实价格、均线、日频 RRG 与消息证据；支付宝仍保留原有一键配置复盘。两条流程都只产出人工计划，不连接外部下单。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <ExperienceModeToggle value={experienceMode} onChange={changeExperienceMode} />
             <OpenInExternalBrainButton
               entryId="daily-review"
               label="在外部大脑查看图谱"
@@ -664,6 +674,24 @@ export default function DailyReviews() {
         </div>
       </section>
 
+      {experienceMode === 'plain' ? (
+        <Card className="fams-card" data-testid="daily-review-plain-guide">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]">
+            <div>
+              <div className="fams-eyebrow">普通模式</div>
+              <h2 className="mb-0 mt-1 text-xl font-semibold text-slate-950">先看结论，再决定下一步</h2>
+              <p className="mb-0 mt-2 text-sm leading-6 text-slate-600">运行前确认持仓是否变化；运行后先看组合摘要和决策面板。只有需要核对模型、行情或审计链时才切换到专家模式。</p>
+            </div>
+            <div className="grid gap-2 text-sm text-slate-700">
+              <div className="rounded-lg bg-slate-50 px-3 py-2"><strong>1.</strong> 检查上方是否显示“可以运行”</div>
+              <div className="rounded-lg bg-slate-50 px-3 py-2"><strong>2.</strong> 生成复盘后查看关键数字与结论</div>
+              <div className="rounded-lg bg-slate-50 px-3 py-2"><strong>3.</strong> 按“下一步”进入资产或任务中心复核</div>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
+      {experienceMode === 'expert' ? <>
       <Card className="fams-card" styles={{ body: { padding: 20 } }} data-testid="broker-daily-review-entry">
         <SectionHeading eyebrow="BROKER WORKFLOW" title="同花顺截图 → 五段式对账 → 每日波动交易草案" description="持仓与近期成交是强制材料；若今天没有新成交，可显式确认。普通委托、条件单是可选材料，但缺失时新增候选必须人工查重。历史成交如已体现在最新持仓快照中，只记流水，不会二次扣加。" />
         <div className="mb-4 flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4 xl:flex-row xl:items-center xl:justify-between">
@@ -673,7 +701,7 @@ export default function DailyReviews() {
           </div>
           <div className="flex flex-wrap gap-2"><Button loading={brokerLoading} onClick={() => void reconcileBroker()}>先只读对账</Button><Button type="primary" icon={<PlayCircleOutlined />} loading={brokerLoading} onClick={confirmBrokerRun}>生成券商复盘</Button></div>
         </div>
-        <ScreenshotCapturePanel userId={USER_ID} tradePositionEffectPolicy="included_in_latest_snapshot" onConfirmed={() => void reconcileBroker()} />
+        <ScreenshotCapturePanel userId={USER_ID} defaultAccountSource="tonghuashun" lockAccountSource tradePositionEffectPolicy="included_in_latest_snapshot" onConfirmed={() => void reconcileBroker()} />
       </Card>
 
       <BrokerReconciliationPanel reconciliation={detail?.report?.reconciliation || brokerReconciliationPreview} />
@@ -681,7 +709,7 @@ export default function DailyReviews() {
       <Card className="fams-card" styles={{ body: { padding: 20 } }} data-testid="alipay-screenshot-entry">
         <SectionHeading eyebrow="SOURCE SNAPSHOT" title="持仓或交易有变化时，在这里更新截图" description="持仓不变时可复用最近一次已确认快照；发生买卖、分红再投或转账后，请上传新截图并逐行确认。原图私有保存，缺失行不会自动清仓。" />
         {showScreenshotWorkflow
-          ? <ScreenshotCapturePanel userId={USER_ID} tradePositionEffectPolicy="included_in_latest_snapshot" onConfirmed={() => { void refresh(); void checkPreflight() }} />
+          ? <ScreenshotCapturePanel userId={USER_ID} defaultAccountSource="alipay" lockAccountSource tradePositionEffectPolicy="included_in_latest_snapshot" onConfirmed={() => { void refresh(); void checkPreflight() }} />
           : <Alert
               type="info"
               showIcon
@@ -690,6 +718,7 @@ export default function DailyReviews() {
               action={<Button onClick={() => setPortfolioState('changed')}>更新截图</Button>}
             />}
       </Card>
+      </> : null}
 
       {error ? <Alert type="error" showIcon message="读取复盘失败" description={error} action={<Button onClick={() => void refresh()}>重试</Button>} /> : null}
 
@@ -715,7 +744,7 @@ export default function DailyReviews() {
 
           {oneClick ? (
             <Card className="fams-card" styles={{ body: { padding: 20 } }} data-testid="alipay-one-click-result">
-              <SectionHeading eyebrow="ONE-CLICK RESULT" title="本轮支付宝配置与金额草案" description="金额来自已确认持仓总额和批准的5/25/25/45配置；第一批只供你在支付宝人工核对，后续批次继续等待新的周频轮动点。" />
+              <SectionHeading eyebrow="ONE-CLICK RESULT" title="本轮支付宝配置与金额草案" description="金额来自已确认持仓总额和2026年高防御10/15/50/25配置；仅当任一大类严格偏离超过3个百分点才生成草案。" />
               <Alert
                 type={oneClick.readyForHumanReview ? 'success' : 'error'}
                 showIcon
@@ -804,6 +833,7 @@ export default function DailyReviews() {
             onOpenAttentionAudit={(symbol, evidenceRefs) => openNodeAudit('attention', { symbol, evidenceRefs })}
           />
 
+          {experienceMode === 'expert' ? <>
           <Card className="fams-card" styles={{ body: { padding: 20 } }}>
             <SectionHeading eyebrow="WORKFLOW" title="十节点 DAG 审计链" description="节点之间的箭头表示真实数据依赖；双击节点仅查看作用、输入和输出。页面不展示模型私密思维链。" />
             <DailyReviewWorkflowDag
@@ -858,13 +888,16 @@ export default function DailyReviews() {
             <SectionHeading eyebrow="GRID PLAN" title="波动交易网格完整台账" description="即时人工计划与卖出后条件买回分别标识；条件买回在父卖单成交前未激活且不占当前现金。" />
             <Table columns={gridColumns} dataSource={gridRows} pagination={false} scroll={{ x: 1240 }} size="small" />
           </Card>
+          </> : null}
 
           <Alert
             type="warning"
             showIcon
             icon={<SafetyCertificateOutlined />}
             message="执行边界已锁定"
-            description={<div className="mt-2 flex flex-wrap gap-2">{Object.entries(workflow.executionBoundary).map(([key, value]) => <Tag key={key} color={value ? 'error' : 'success'}>{key}={String(value)}</Tag>)}</div>}
+            description={experienceMode === 'expert'
+              ? <div className="mt-2 flex flex-wrap gap-2">{Object.entries(workflow.executionBoundary).map(([key, value]) => <Tag key={key} color={value ? 'error' : 'success'}>{key}={String(value)}</Tag>)}</div>
+              : '本页只生成研究结论和人工计划草案，不会创建订单或自动交易。'}
           />
         </>
       )}

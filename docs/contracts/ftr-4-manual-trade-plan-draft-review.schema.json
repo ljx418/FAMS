@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-4-manual-trade-plan-draft-review.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "status", "sourceEvidence", "formalDraftCount", "formalTargetWeightPercent", "humanReviewRequired", "automationSelfApprovalAllowed", "prohibitedActions", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_4.manual_trade_plan_draft_review.v1"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "status": {"const": "no_formal_draft_pending_human_review"},
+    "sourceEvidence": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}},
+    "formalDraftCount": {"const": 0},
+    "formalTargetWeightPercent": {"const": 0},
+    "humanReviewRequired": {"const": true},
+    "automationSelfApprovalAllowed": {"const": false},
+    "prohibitedActions": {"const": ["ADD", "REDUCE", "ORDER_CREATE", "AUTO_TRADE"]},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  }
+}

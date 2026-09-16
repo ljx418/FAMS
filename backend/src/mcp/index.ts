@@ -42,7 +42,13 @@ export async function mcpRouter(app: FastifyInstance) {
     const result = await callMcpTool(name, parameters, resolveHttpCallContext(request))
 
     if (!result.success) {
-      const statusCode = result.error?.code === 'TOOL_NOT_FOUND' ? 404 : 500
+      const statusCodeByErrorCode: Record<string, number> = {
+        TOOL_NOT_FOUND: 404,
+        INVALID_TOOL_INPUT: 400,
+        USER_CONTEXT_REQUIRED: 401,
+        USER_CONTEXT_MISMATCH: 403,
+      }
+      const statusCode = statusCodeByErrorCode[result.error?.code || ''] || 500
       return reply.status(statusCode).send(result)
     }
 

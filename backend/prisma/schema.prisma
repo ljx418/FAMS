@@ -9,37 +9,59 @@ datasource db {
 
 // 用户
 model User {
-  id                             String                          @id @default(uuid())
-  email                          String                          @unique
-  passwordHash                   String
-  name                           String
-  riskLevel                      Int                             @default(3) // 1-5 风险等级
-  settings                       String                          @default("{}") // JSON设置
-  createdAt                      DateTime                        @default(now())
-  updatedAt                      DateTime                        @updatedAt
-  positions                      Position[]
-  transactions                   Transaction[]
-  portfolios                     Portfolio[]
-  alerts                         Alert[]
-  snapshots                      DailySnapshot[]
-  advices                        Advice[]
-  adviceInputSnapshots           AdviceInputSnapshot[]
-  positionSnapshots              PositionSnapshot[]
-  alertRules                     AlertRule[]
-  alertEvents                    AlertEvent[]
-  operations                     Operation[]
-  dailyReviewRuns                DailyReviewRun[]
-  gridPlans                      GridPlan[]
-  screenshotCaptures             ScreenshotCapture[]
-  externalOrderObservations      ExternalOrderObservation[]
-  externalFundLedgerEntries      ExternalFundLedgerEntry[]
-  positionSleeveAllocations      PositionSleeveAllocation[]
-  positionSleeveLedgerEntries    PositionSleeveLedgerEntry[]
-  volatilityStrategyBacktests    VolatilityStrategyBacktest[]
-  volatilityTradeDrafts          VolatilityTradeDraft[]
-  relativeRotationWatchlistItems RelativeRotationWatchlistItem[]
+  id                              String                          @id @default(uuid())
+  email                           String                          @unique
+  passwordHash                    String
+  name                            String
+  riskLevel                       Int                             @default(3) // 1-5 风险等级
+  settings                        String                          @default("{}") // JSON设置
+  createdAt                       DateTime                        @default(now())
+  updatedAt                       DateTime                        @updatedAt
+  positions                       Position[]
+  transactions                    Transaction[]
+  portfolios                      Portfolio[]
+  alerts                          Alert[]
+  snapshots                       DailySnapshot[]
+  advices                         Advice[]
+  adviceInputSnapshots            AdviceInputSnapshot[]
+  positionSnapshots               PositionSnapshot[]
+  alertRules                      AlertRule[]
+  alertEvents                     AlertEvent[]
+  operations                      Operation[]
+  dailyReviewRuns                 DailyReviewRun[]
+  gridPlans                       GridPlan[]
+  screenshotCaptures              ScreenshotCapture[]
+  positionStrategyAssignments     PositionStrategyAssignment[]
+  investmentResearchSnapshots     InvestmentResearchSnapshot[]
+  externalOrderObservations       ExternalOrderObservation[]
+  externalFundLedgerEntries       ExternalFundLedgerEntry[]
+  positionSleeveAllocations       PositionSleeveAllocation[]
+  positionSleeveLedgerEntries     PositionSleeveLedgerEntry[]
+  volatilityStrategyBacktests     VolatilityStrategyBacktest[]
+  volatilityTradeDrafts           VolatilityTradeDraft[]
+  relativeRotationWatchlistItems  RelativeRotationWatchlistItem[]
   relativeRotationResearchStudies RelativeRotationResearchStudy[]
   analysisWorkflowProfiles        AnalysisWorkflowProfile[]
+  mcpAccessTokens                 McpAccessToken[]
+}
+
+// MCP 对外访问令牌。数据库只保存 SHA-256 哈希；明文仅在创建时返回一次。
+model McpAccessToken {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  tokenPrefix String
+  tokenHash   String    @unique
+  scopesJson  String    @default("[]")
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([tokenPrefix])
 }
 
 // 资产主表
@@ -109,6 +131,48 @@ model Position {
   sleeveLedgerEntries   PositionSleeveLedgerEntry[]
   volatilityBacktests   VolatilityStrategyBacktest[]
   volatilityTradeDrafts VolatilityTradeDraft[]
+  strategyAssignment    PositionStrategyAssignment?
+}
+
+// 持仓与三类投资策略之间的可审计归类。系统建议与用户确认严格分离。
+model PositionStrategyAssignment {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId     String    @unique
+  position       Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  strategyFamily String
+  status         String    @default("suggested")
+  source         String    @default("system_rule")
+  confidence     Float?
+  reasonsJson    String    @default("[]")
+  suggestedAt    DateTime  @default(now())
+  confirmedAt    DateTime?
+  confirmedBy    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId, strategyFamily, status])
+}
+
+// 策略运行前的不可变输入快照。仅追加，不提供更新或删除接口。
+model InvestmentResearchSnapshot {
+  id                  String   @id @default(uuid())
+  schemaVersion       String   @default("fams.investment-research-input.v1")
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountSource       String?
+  strategyFamily      String
+  asOf                DateTime
+  providerSummaryJson String   @default("[]")
+  freshnessStatus     String
+  inputJson           String
+  dataHealthJson      String   @default("{}")
+  evidenceRefsJson    String   @default("[]")
+  inputHash           String   @unique
+  createdAt           DateTime @default(now())
+
+  @@index([userId, strategyFamily, asOf])
 }
 
 // 交易记录
@@ -648,21 +712,21 @@ model SchedulerLease {
 
 // 版本化、可调度的分析工作流合同。运行历史继续复用 Operation / DailyReviewRun。
 model AnalysisWorkflowProfile {
-  id                        String   @id @default(uuid())
+  id                        String    @id @default(uuid())
   userId                    String
-  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workflowKey               String
   profileVersion            String
   contractHash              String
   contractJson              String
-  isActive                  Boolean  @default(true)
-  schedulerEnabled          Boolean  @default(false)
-  timezone                  String   @default("Asia/Shanghai")
-  scheduleSlotsJson         String   @default("[\"09:40\",\"14:40\"]")
-  snapshotAuthorizationJson String   @default("{}")
+  isActive                  Boolean   @default(true)
+  schedulerEnabled          Boolean   @default(false)
+  timezone                  String    @default("Asia/Shanghai")
+  scheduleSlotsJson         String    @default("[\"09:40\",\"14:40\"]")
+  snapshotAuthorizationJson String    @default("{}")
   lastRunAt                 DateTime?
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
   @@unique([userId, workflowKey, profileVersion])
   @@index([workflowKey, isActive, schedulerEnabled])
@@ -848,22 +912,22 @@ model RelativeRotationWatchlistRefreshRun {
 // 用户保存的 RRG 专题研究。行情与 RRG 坐标按需从共享 canonical 缓存计算，
 // 这里仅保存用户的研究配置，不保存或影响真实持仓、自选与交易记录。
 model RelativeRotationResearchStudy {
-  id                         String   @id @default(uuid())
-  userId                     String
-  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name                       String
-  market                     String
-  frequency                  String   @default("weekly")
-  historyYears               Int      @default(8)
-  benchmarkMode              String   @default("market_default") // market_default, equal_weight_targets
-  benchmarkTargetKeysJson    String   @default("[]")
-  periodMode                 String   @default("rolling") // rolling, fixed
-  rollingWeeks               Int      @default(52)
-  startDate                  DateTime?
-  endDate                    DateTime?
-  comparisonTargetKeysJson   String   @default("[]")
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  id                       String    @id @default(uuid())
+  userId                   String
+  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                     String
+  market                   String
+  frequency                String    @default("weekly")
+  historyYears             Int       @default(8)
+  benchmarkMode            String    @default("market_default") // market_default, equal_weight_targets
+  benchmarkTargetKeysJson  String    @default("[]")
+  periodMode               String    @default("rolling") // rolling, fixed
+  rollingWeeks             Int       @default(52)
+  startDate                DateTime?
+  endDate                  DateTime?
+  comparisonTargetKeysJson String    @default("[]")
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   targets RelativeRotationResearchStudyTarget[]
 
@@ -871,16 +935,16 @@ model RelativeRotationResearchStudy {
 }
 
 model RelativeRotationResearchStudyTarget {
-  id        String                       @id @default(uuid())
+  id        String                        @id @default(uuid())
   studyId   String
   study     RelativeRotationResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
   targetKey String
   symbol    String
   name      String
-  kind      String                       @default("equity") // equity, index
-  sortOrder Int                          @default(0)
-  createdAt DateTime                     @default(now())
-  updatedAt DateTime                     @updatedAt
+  kind      String                        @default("equity") // equity, index
+  sortOrder Int                           @default(0)
+  createdAt DateTime                      @default(now())
+  updatedAt DateTime                      @updatedAt
 
   @@unique([studyId, targetKey])
   @@index([studyId, sortOrder])
@@ -1056,22 +1120,22 @@ model MarketDataCoverage {
 // 东方财富行业板块（非概念/地域板块）目录。该分类用于“板块拥挤度”研究，
 // 不与申万行业或机构真实持仓数据混用。
 model IndustryCrowdingBoard {
-  code            String   @id
+  code            String    @id
   name            String
-  boardType       String   @default("industry")
-  provider        String   @default("eastmoney_industry")
-  isActive        Boolean  @default(true)
+  boardType       String    @default("industry")
+  provider        String    @default("eastmoney_industry")
+  isActive        Boolean   @default(true)
   sourceUpdatedAt DateTime?
-  priceStatus     String   @default("unknown") // ready, partial, unavailable, failed
-  flowStatus      String   @default("unknown") // ready, partial, unavailable, failed
+  priceStatus     String    @default("unknown") // ready, partial, unavailable, failed
+  flowStatus      String    @default("unknown") // ready, partial, unavailable, failed
   lastPriceDate   DateTime?
   lastFlowDate    DateTime?
   lastAttemptAt   DateTime?
-  retryCount      Int      @default(0)
+  retryCount      Int       @default(0)
   nextRetryAt     DateTime?
   lastError       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   daily IndustryCrowdingDaily[]
 
@@ -1081,26 +1145,26 @@ model IndustryCrowdingBoard {
 // 行业价格、成交额与公开主力资金流的同源日频快照。分数在读取时由透明公式
 // 计算，避免历史公式变更后缓存坐标被误用。
 model IndustryCrowdingDaily {
-  id                    String                 @id @default(uuid())
-  boardCode             String
-  board                 IndustryCrowdingBoard  @relation(fields: [boardCode], references: [code], onDelete: Cascade)
-  tradeDate             DateTime
-  openPrice             Float?
-  highPrice             Float?
-  lowPrice              Float?
-  closePrice            Float
-  volume                Float?
-  amount                Float?
-  mainNetInflow         Float?
-  mainNetInflowRatio    Float?
-  priceProvider         String                 @default("eastmoney_industry_kline")
-  flowProvider          String?
-  sourceTimestamp       DateTime?
-  qualityFlagsJson      String                 @default("[]")
-  rawPayloadJson        String                 @default("{}")
-  fetchedAt             DateTime               @default(now())
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  id                 String                @id @default(uuid())
+  boardCode          String
+  board              IndustryCrowdingBoard @relation(fields: [boardCode], references: [code], onDelete: Cascade)
+  tradeDate          DateTime
+  openPrice          Float?
+  highPrice          Float?
+  lowPrice           Float?
+  closePrice         Float
+  volume             Float?
+  amount             Float?
+  mainNetInflow      Float?
+  mainNetInflowRatio Float?
+  priceProvider      String                @default("eastmoney_industry_kline")
+  flowProvider       String?
+  sourceTimestamp    DateTime?
+  qualityFlagsJson   String                @default("[]")
+  rawPayloadJson     String                @default("{}")
+  fetchedAt          DateTime              @default(now())
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   @@unique([boardCode, tradeDate])
   @@index([tradeDate, boardCode])
@@ -1108,18 +1172,18 @@ model IndustryCrowdingDaily {
 
 // 沪深两市的独立资金流序列。它不能由行业板块相加得到，避免分类交叉导致重复统计。
 model IndustryCrowdingMarketDaily {
-  id                    String   @id @default(uuid())
-  marketKey             String
-  tradeDate             DateTime
-  mainNetInflow         Float?
-  mainNetInflowRatio    Float?  // 小数，如 0.0123 表示 1.23%
-  provider              String   @default("eastmoney_sh_sz_main_flow")
-  sourceTimestamp       DateTime?
-  qualityFlagsJson      String   @default("[]")
-  rawPayloadJson        String   @default("{}")
-  fetchedAt             DateTime @default(now())
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                 String    @id @default(uuid())
+  marketKey          String
+  tradeDate          DateTime
+  mainNetInflow      Float?
+  mainNetInflowRatio Float? // 小数，如 0.0123 表示 1.23%
+  provider           String    @default("eastmoney_sh_sz_main_flow")
+  sourceTimestamp    DateTime?
+  qualityFlagsJson   String    @default("[]")
+  rawPayloadJson     String    @default("{}")
+  fetchedAt          DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@unique([marketKey, tradeDate])
   @@index([marketKey, tradeDate])
@@ -1312,26 +1376,73 @@ model FivdRInterventionReview {
 }
 
 model FormalProviderAuthorization {
-  id                   String    @id @default(uuid())
-  providerId           String
-  sequence             Int
-  providerClass        String
-  decision             String
-  authorizationRef     String
-  authorizedScopesJson String    @default("[]")
-  evidenceRefsJson     String    @default("[]")
-  reviewerUserId       String
-  reviewerEmail        String
-  effectiveFrom        DateTime
-  expiresAt            DateTime?
-  previousHash         String?
-  recordHash           String
-  createdAt            DateTime  @default(now())
+  id                    String    @id @default(uuid())
+  recordSchemaVersion   String    @default("fams.formal_provider.authorization.v1")
+  providerId            String
+  sequence              Int
+  providerClass         String
+  decision              String
+  authorizationRef      String
+  authorizationBasis    String    @default("legacy_unspecified")
+  usageScope            String    @default("legacy_unspecified")
+  authorizedScopesJson  String    @default("[]")
+  evidenceRefsJson      String    @default("[]")
+  sourceTermsJson       String    @default("[]")
+  endpointAllowlistJson String    @default("[]")
+  sourceSnapshotHash    String?
+  credentialRequired    Boolean   @default(true)
+  reviewerUserId        String
+  reviewerEmail         String
+  effectiveFrom         DateTime
+  expiresAt             DateTime?
+  previousHash          String?
+  recordHash            String
+  createdAt             DateTime  @default(now())
 
   @@unique([providerId, sequence])
   @@index([providerId, createdAt])
   @@index([reviewerUserId, createdAt])
   @@index([recordHash])
+}
+
+model FormalDataSnapshot {
+  id                       String   @id @default(uuid())
+  schemaVersion            String
+  candidateStrategyId      String
+  candidateStrategyVersion String
+  providerId               String
+  status                   String
+  snapshotHash             String   @unique
+  payloadJson              String
+  blockersJson             String   @default("[]")
+  immutable                Boolean  @default(true)
+  generatedAt              DateTime
+  createdAt                DateTime @default(now())
+
+  @@index([candidateStrategyId, candidateStrategyVersion, generatedAt])
+  @@index([providerId, status, generatedAt])
+}
+
+model ReleaseCandidateSet {
+  id                    String   @id @default(uuid())
+  schemaVersion         String
+  setId                 String
+  version               String
+  userId                String
+  status                String   @default("frozen")
+  candidateIdsJson      String
+  candidateVersionsJson String
+  sourceRefsJson        String   @default("[]")
+  contentHash           String   @unique
+  snapshotAsOf          DateTime
+  createdByUserId       String
+  createdByEmail        String
+  immutable             Boolean  @default(true)
+  createdAt             DateTime @default(now())
+
+  @@unique([setId, version])
+  @@index([userId, snapshotAsOf])
+  @@index([status, createdAt])
 }
 
 model FormalReleaseSignoff {
@@ -1513,6 +1624,7 @@ model ScreenshotCapture {
   userId              String
   user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversationId      String?
+  accountSource       String?
   documentType        String    @default("unknown")
   mimeType            String
   originalFilename    String?
@@ -1535,6 +1647,7 @@ model ScreenshotCapture {
   positionSnapshots PositionSnapshot[]
 
   @@unique([userId, sha256])
+  @@index([userId, accountSource, status, createdAt])
   @@index([userId, status, createdAt])
 }
 

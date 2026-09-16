@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-parameter-replay.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "candidateId", "validationProfileId", "baselineVariantId", "variants", "testedParameterSets", "stableParameterSetRatio", "bestWorstReturnSpreadPercentPoints", "maxDrawdownSpreadPercentPoints", "dividendReplayMethod", "dividendEventCount", "dividendEvidenceRefs", "realDataUsed", "inputHash", "notTradingAdvice"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3.parameter_replay.v1"},
+    "stageId": {"const": "FTR-3"},
+    "status": {"enum": ["passed", "failed", "insufficient"]},
+    "candidateId": {"type": "string", "minLength": 1},
+    "validationProfileId": {"const": "equity_selection_release_v1"},
+    "baselineVariantId": {"type": "string", "minLength": 1},
+    "variants": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["variantId", "requestHash", "resultHash", "totalReturnPercent", "maxDrawdownPercent", "annualizedTurnoverPercent", "costDragPercent", "dividendContributionPercent", "evidenceRefs"],
+        "properties": {
+          "variantId": {"type": "string", "minLength": 1},
+          "requestHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "resultHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "totalReturnPercent": {"type": "number"},
+          "maxDrawdownPercent": {"type": "number"},
+          "annualizedTurnoverPercent": {"type": "number"},
+          "costDragPercent": {"type": "number", "minimum": 0},
+          "dividendContributionPercent": {"type": ["number", "null"]},
+          "evidenceRefs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "testedParameterSets": {"type": "integer", "minimum": 5},
+    "stableParameterSetRatio": {"type": "number", "minimum": 0, "maximum": 1},
+    "bestWorstReturnSpreadPercentPoints": {"type": "number", "minimum": 0},
+    "maxDrawdownSpreadPercentPoints": {"type": "number", "minimum": 0},
+    "dividendReplayMethod": {"const": "qfq_total_return_to_reserved_cash_on_real_ex_dividend_date"},
+    "dividendEventCount": {"type": "integer", "minimum": 1},
+    "dividendEvidenceRefs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^dividend:eastmoney:"}},
+    "realDataUsed": {"const": true},
+    "inputHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "notTradingAdvice": {"const": true}
+  }
+}

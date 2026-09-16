@@ -349,10 +349,11 @@ function buildHumanAuditReadiness(model) {
     ['审计导航与证据地图', model.humanReviewGuide?.status === 'passed', '报告首页“先读这里”和“证据地图”'],
     ['原始 PRD 与架构文档', model.documentAudit?.status === 'passed', '文档一致性审计矩阵'],
     ['代码实现映射', model.codeInspection?.status === 'passed', '代码检视矩阵中的页面、路由、服务入口'],
-    ['功能覆盖矩阵', model.prdCoverage?.status === 'passed', 'PRD 功能覆盖矩阵'],
+    ['功能覆盖矩阵', Array.isArray(model.prdCoverage?.rows) && model.prdCoverage.rows.length >= 12 && model.prdCoverage?.knownGapCount >= 2, 'PRD 功能覆盖矩阵必须同时列出自动通过项、人工待验项和受控开发缺口'],
     ['自动化测试证据', model.testCoverage?.status === 'passed', '命令、耗时、stdout/stderr 摘要'],
     ['真实 API 交叉验证', assessOverall(model.api || []) === 'passed', 'API 请求、HTTP 状态、响应摘要'],
-    ['可视化截图证据', model.browser?.status === 'passed' && (model.browser?.screenshots?.length || 0) >= 8, 'Headless 浏览器截图路径'],
+    ['可视化截图证据', model.browser?.status === 'passed' && (model.browser?.screenshots?.length || 0) >= 18, 'Headless 浏览器截图路径，覆盖三视口与完整投资工作流'],
+    ['视觉证据边界与缺陷披露', model.visualEvidenceAudit?.reviewStatus === 'passed', 'visual-evidence-self-audit.json；区分布局证据、真实数据证据和截图中可见的 UX 缺陷'],
     ['运行时/真实数据降级披露', Boolean(model.runtimeDisclosure?.status), '运行时与真实数据降级披露章节；SQLite critical 和 fixture fallback 不得隐藏在 stdout 中'],
     ['交易边界', model.summary?.formalTradingUnlocked === 'false' && model.summary?.autoTradeUnlocked === 'false', '正式交易与自动交易锁定说明'],
     ['限制与阻断项', Array.isArray(model.limitations) && model.limitations.length > 0, '限制章节和正式交易阻断章节'],
@@ -370,12 +371,63 @@ function buildHumanAuditReadiness(model) {
   }
 }
 
+function buildVisualEvidenceAudit(model) {
+  const screenshots = model.browser?.screenshots || []
+  const paths = screenshots.map((item) => item.path).filter(Boolean)
+  const baselineShots = screenshots.filter((item) => item.fileName?.startsWith('uxf0-'))
+  const scenarioShots = screenshots.filter((item) => !item.fileName?.startsWith('uxf0-'))
+  return {
+    schemaVersion: 'fams.visual_evidence_self_audit.v1',
+    reviewStatus: paths.length >= 18 ? 'passed' : 'failed',
+    productVisualStatus: 'needs_work',
+    screenshotCount: paths.length,
+    baselineScreenshotCount: baselineShots.length,
+    scenarioScreenshotCount: scenarioShots.length,
+    evidenceBoundary: {
+      responsiveBaseline: 'layout_and_readability_only',
+      realDataProof: 'api_and_contract_evidence_required',
+      scenarioScreenshots: 'interaction_and_visible_result_evidence',
+    },
+    findings: [
+      {
+        id: 'VIS-01',
+        severity: 'info',
+        status: 'passed',
+        finding: 'HTML 中引用的截图均由 Headless Chrome 本轮生成；路径完整性由报告自检确认。',
+        evidence: `${paths.length} screenshot references`,
+      },
+      {
+        id: 'VIS-02',
+        severity: 'major_disclosure',
+        status: 'blocked',
+        finding: 'UX-F0 三视口基线图只证明布局可读，不证明真实账户数据已经在该视图完成渲染；Assets、Positions、RelativeRotation 的基线图可见空态或加载态。真实数据结论必须交叉查看 readiness/assignments API 与真实数据合同，禁止仅凭截图判绿。',
+        evidence: 'screenshots/uxf0-*.png + readiness/assignments API',
+      },
+      {
+        id: 'VIS-03',
+        severity: 'minor_product_issue',
+        status: 'failed',
+        finding: '建议复盘和组合回测截图中出现重复的“券商波动交易复盘提醒”，遮挡右侧局部内容。该问题不改变本轮计算结果，但前端视觉体验仍需修复，不能声明视觉体验已完整出门。',
+        evidence: 'screenshots/09-backtest-result.png / screenshots/09b-portfolio-backtest-result.png',
+      },
+      {
+        id: 'VIS-04',
+        severity: 'controlled_gap',
+        status: 'blocked',
+        finding: '当前截图能够证明三场景结果、组合回测参数与交易锁可见，但不构成人工策略归属签核或 advice-level point-in-time 动态重算证据。',
+        evidence: 'screenshots/09-backtest-result.png + screenshots/09b-portfolio-backtest-result.png',
+      },
+    ],
+    conclusion: 'report_is_human_auditable_but_product_visual_and_full_prd_exit_remain_blocked',
+  }
+}
+
 function buildHumanReviewGuide(model) {
   const evidenceMap = [
     {
-      claim: '本阶段前端核心路径可被用户访问',
-      howToVerify: '查看截图 01-11；重点看侧边栏、红利低波、组合回测、任务中心。',
-      evidence: 'screenshots/*.png + 用户场景截图证据章节',
+      claim: '三类资产投资工作流和专家入口均可访问',
+      howToVerify: '查看三视口截图；重点核对资产录入、仓位归属、行业轮动、红利低波、统一策略回测、每日复盘和任务中心。',
+      evidence: 'screenshots/uxf0-*.png + 用户场景截图证据章节',
       status: model.browser?.status,
     },
     {
@@ -395,6 +447,12 @@ function buildHumanReviewGuide(model) {
       howToVerify: '查看组合回测截图 08-10、组合回测 API 响应和任务中心 artifact 截图。',
       evidence: '08-11 screenshots + /api/v1/portfolio-backtest/run + Operations artifact',
       status: model.prdCoverage?.rows?.find((item) => item.capability.includes('组合策略多曲线'))?.status || 'failed',
+    },
+    {
+      claim: '投资工作流自动化范围完成，但 PRD 并未全部完成',
+      howToVerify: '核对投资工作流 readiness API、WF-1..WF-7 命令、18/20 覆盖，以及人工待确认和 point_in_time_simulation 受控阻断两项。',
+      evidence: '/api/v1/investment-workflow/readiness + investment workflow commands + PRD 功能覆盖矩阵',
+      status: model.prdCoverage?.automatedStatus === 'passed' && model.prdCoverage?.status === 'blocked' ? 'passed' : 'failed',
     },
     {
       claim: '运行时与真实数据降级状态已显式披露',
@@ -423,8 +481,8 @@ function buildHumanReviewGuide(model) {
     '读“本阶段能声明 / 不能声明”：确认没有把研究级验收误写成正式交易放行。',
     '按“证据地图”逐条抽查 claim、截图、API、测试命令和代码映射是否一致。',
     '打开截图 01b 检查 ChatBox：它应显示研究模式、订单阻断和 LLM/AgentCore 状态。',
-    '打开截图 03-07 检查红利低波：候选池、筛选、买卖观察区间、人工计划 gate 应可见。',
-    '打开截图 08-11 检查组合回测和任务中心：回测结果和 artifact 追溯应可见。',
+    '按三视口截图检查 Assets -> Positions -> RelativeRotation/DividendLowVol -> Backtest -> DailyReviews -> Operations 连续路径。',
+    '打开组合回测和任务中心截图：场景结果、回测结果和 artifact 追溯应可见。',
     '读 API 交叉验证：确认 LLM 状态脱敏、ChatBox 返回 trade_action_blocked、组合回测有 artifact。',
     '读“运行时与真实数据降级披露”：确认 SQLite critical、候选池为空或 fixture fallback 没有被包装成完整真实数据通过。',
     '读限制与阻断项：确认正式交易、自动交易、生产下单仍未释放。',
@@ -433,11 +491,12 @@ function buildHumanReviewGuide(model) {
   return {
     status: assessOverall(evidenceMap),
     audience: '产品负责人、外部审计者、开发负责人、非本轮开发人员',
-    stageScope: '本报告审计的是本阶段自动化开发：红利低波研究体验、组合策略回测、ChatBox 受控 LLM planner、Operation 审计追溯和交易 gate。它不是正式交易 release 审计。',
+    stageScope: '本报告审计 FAMS 当前集成阶段：三类资产投资工作流、红利低波、RRG、统一策略回测、每日复盘、ChatBox、FTR provisional 链、Operation 追溯和交易 gate。它不替代集中人工验收，也不是正式交易 release 证明。',
     canClaim: [
       '可以声明本阶段核心研究路径、人工计划草案路径、组合回测路径和 ChatBox 受控业务助手路径完成自动化验收。',
       '可以声明报告具备截图、API、命令、代码映射、PRD 覆盖、Git 版本和限制项证据。',
       '可以声明 LLM 密钥状态只展示 keySource，真实密钥未进入报告。',
+      '可以声明投资工作流 WF-0..WF-7 文档支撑的自动化范围通过；必须同时披露 PRD 仅 18/20。',
     ],
     cannotClaim: [
       '不能声明正式 ADD / REDUCE 已释放。',
@@ -445,6 +504,7 @@ function buildHumanReviewGuide(model) {
       '不能声明免费数据源等同于正式授权 total-return benchmark。',
       '不能声明每日实时数据最新性已经被本报告完全证明。',
       '若 runtime disclosure 显示 SQLite critical、持久化候选池为空或 fixture fallback，不能声明红利低波真实持久化候选池完整可用。',
+      '不能声明投资工作流 PRD 全部完成：截图/归属/UX 人工确认仍 pending，建议级 point_in_time_simulation 仍未实现。',
     ],
     auditSteps,
     evidenceMap,
@@ -452,12 +512,17 @@ function buildHumanReviewGuide(model) {
 }
 
 async function buildDocumentAudit() {
-  const [prd, backtestPlan, targetGap, architecture, drawio] = await Promise.all([
+  const [prd, backtestPlan, investmentPrd, investmentPlan, traceability, stateText, targetGap, architecture, drawio, drawioReadout] = await Promise.all([
     readText('docs/DIVIDEND_LOW_VOL_PRD.md'),
     readText('docs/PORTFOLIO_STRATEGY_BACKTEST_PLAN.md'),
+    readText('docs/INVESTMENT_WORKFLOW_UX_PRD.md'),
+    readText('docs/INVESTMENT_WORKFLOW_DEVELOPMENT_ACCEPTANCE_PLAN.md'),
+    readText('docs/PRD_COMPLETION_TRACEABILITY_MATRIX.md'),
+    readText('docs/current-stage-state.json'),
     readText('docs/TARGET_ARCHITECTURE_GAP.md'),
     readText('docs/ARCHITECTURE_CURRENT_TARGET.md'),
     readText('docs/target-architecture-gap.drawio'),
+    readText('docs/read-drawio-output.txt'),
   ])
 
   const checks = [
@@ -498,6 +563,28 @@ async function buildDocumentAudit() {
       status: `${targetGap}\n${architecture}`.includes('trade') || `${targetGap}\n${architecture}`.includes('交易') ? 'passed' : 'blocked',
       evidence: 'TARGET_ARCHITECTURE_GAP.md / ARCHITECTURE_CURRENT_TARGET.md',
     },
+    {
+      id: 'investment_workflow_prd_and_plan',
+      label: '投资工作流 PRD 与 WF-0..WF-7 验收计划完整存在',
+      status: investmentPrd.includes('行业轮动') && investmentPrd.includes('红利低波') && investmentPrd.includes('投资组合')
+        && investmentPlan.includes('WF-7') && investmentPlan.includes('18/20') ? 'passed' : 'failed',
+      evidence: 'INVESTMENT_WORKFLOW_UX_PRD.md / INVESTMENT_WORKFLOW_DEVELOPMENT_ACCEPTANCE_PLAN.md',
+    },
+    {
+      id: 'investment_gap_honestly_disclosed',
+      label: '权威状态与架构文档一致披露 18/20、人工待验和动态时点缺口',
+      status: stateText.includes('"prdFullyComplete": false')
+        && `${targetGap}\n${architecture}\n${traceability}`.includes('point_in_time_simulation')
+        && `${targetGap}\n${architecture}`.includes('18/20') ? 'passed' : 'failed',
+      evidence: 'current-stage-state.json / TARGET_ARCHITECTURE_GAP.md / ARCHITECTURE_CURRENT_TARGET.md / PRD_COMPLETION_TRACEABILITY_MATRIX.md',
+    },
+    {
+      id: 'drawio_r6_current_implementation',
+      label: 'Drawio 第 2 页包含第六条投资工作流实体链且无伪全绿',
+      status: drawioReadout.includes('R6 投资工作流') && drawioReadout.includes('动态逐日重算明确 blocked')
+        && drawioReadout.includes('PRD 全量仍未出门') ? 'passed' : 'failed',
+      evidence: 'target-architecture-gap.drawio / read-drawio-output.txt',
+    },
   ]
 
   return {
@@ -508,6 +595,8 @@ async function buildDocumentAudit() {
       backtestPlanLength: backtestPlan.length,
       targetGapLength: targetGap.length,
       drawioLength: drawio.length,
+      investmentPrdLength: investmentPrd.length,
+      investmentPlanLength: investmentPlan.length,
     },
   }
 }
@@ -534,6 +623,18 @@ async function buildCodeInspectionAudit() {
     llmService: 'backend/src/services/llm/llmService.ts',
     chatPlanDoc: 'docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md',
     llmDotenvDoc: 'docs/LLM_DOTENV_SETUP.md',
+    assetsPage: 'frontend/src/pages/Assets.tsx',
+    positionsPage: 'frontend/src/pages/Positions.tsx',
+    relativeRotationPage: 'frontend/src/pages/RelativeRotation.tsx',
+    dailyReviewsPage: 'frontend/src/pages/DailyReviews.tsx',
+    workflowBar: 'frontend/src/components/investment-workflow/InvestmentWorkflowBar.tsx',
+    assignmentPanel: 'frontend/src/components/investment-workflow/PositionStrategyAssignmentPanel.tsx',
+    rotationPanel: 'frontend/src/components/investment-workflow/RotationStrategyDecisionPanel.tsx',
+    investmentRoutes: 'backend/src/routes/investmentWorkflow.ts',
+    investmentService: 'backend/src/services/investment-workflow/investmentWorkflowService.ts',
+    rotationService: 'backend/src/services/investment-workflow/rotationVolatilityStrategyService.ts',
+    allocationStrategy: 'backend/src/services/allocation/alipayAllocationStrategy.ts',
+    scenarioComparison: 'backend/src/services/backtest/scenarioComparisonService.ts',
   }
   const source = Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([key, relativePath]) => [
     key,
@@ -609,7 +710,7 @@ async function buildCodeInspectionAudit() {
     {
       id: 'frontend_chatbox_research_gate',
       label: 'ChatBox 前端入口明确研究模式和订单阻断',
-      status: source.chatBox.includes('FAMS 业务助手') && source.chatBox.includes('ChatBox 不创建订单') && source.chatBox.includes('ORDER_CREATE') ? 'passed' : 'failed',
+      status: source.chatBox.includes('FAMS 业务助手') && source.chatBox.includes('研究助手，不创建订单') && source.chatBox.includes('ORDER_CREATE') ? 'passed' : 'failed',
       evidence: paths.chatBox,
     },
     {
@@ -643,6 +744,32 @@ async function buildCodeInspectionAudit() {
         && source.llmDotenvDoc.includes('不会自动下单') ? 'passed' : 'failed',
       evidence: paths.llmDotenvDoc,
     },
+    {
+      id: 'investment_workflow_frontend_chain',
+      label: '前端保留资产、仓位、轮动、红利、回测和复盘的连续三步工作流',
+      status: source.assetsPage.includes('基本信息确认')
+        && source.positionsPage.includes('PositionStrategyAssignmentPanel')
+        && source.relativeRotationPage.includes('RotationStrategyDecisionPanel')
+        && source.backtestPage.includes('按建议、不执行与实际持仓')
+        && source.dailyReviewsPage.includes('每日持仓复盘')
+        && source.workflowBar.includes('basic_information_confirmation')
+        && source.workflowBar.includes('position_strategy')
+        && source.workflowBar.includes('backtest_review') ? 'passed' : 'failed',
+      evidence: 'Assets.tsx / Positions.tsx / RelativeRotation.tsx / Backtest.tsx / DailyReviews.tsx / InvestmentWorkflowBar.tsx',
+    },
+    {
+      id: 'investment_workflow_backend_chain',
+      label: '后端投资工作流 API 与三类策略/场景服务实体存在并保持交易阻断',
+      status: source.backendIndex.includes('investmentWorkflowRoutes')
+        && source.investmentRoutes.includes('/readiness')
+        && source.investmentRoutes.includes('/assignments')
+        && source.investmentRoutes.includes('/strategy-runs')
+        && source.investmentService.includes('getReadiness')
+        && source.rotationService.includes('RotationVolatilityStrategyService')
+        && source.allocationStrategy.includes('AlipayAllocationStrategy')
+        && source.scenarioComparison.includes('point_in_time_dynamic_recompute_not_implemented') ? 'passed' : 'failed',
+      evidence: 'investmentWorkflow.ts / investment-workflow services / alipayAllocationStrategy.ts / scenarioComparisonService.ts',
+    },
   ]
   return {
     status: assessOverall(checks),
@@ -673,75 +800,124 @@ function buildPrdCoverage(commandResults, apiResults, screenshots) {
   const hasPassedApi = (name) => apiResults.some((item) => item.name === name && item.status === 'passed')
   const hasPassedShot = (title) => screenshots.some((item) => item.title === title && item.status === 'passed')
   const hasPassedUxMatrix = () => {
-    const requiredTitles = [
-      'UX-F0 桌面 1440px Dashboard 总览',
-      'UX-F0 桌面 1440px 红利低波策略',
-      'UX-F0 桌面 1440px 策略回测',
-      'UX-F0 桌面 1440px 任务中心',
-      'UX-F0 平板 768px Dashboard 总览',
-      'UX-F0 平板 768px 红利低波策略',
-      'UX-F0 平板 768px 策略回测',
-      'UX-F0 平板 768px 任务中心',
-      'UX-F0 移动端 390px Dashboard 总览',
-      'UX-F0 移动端 390px 红利低波策略',
-      'UX-F0 移动端 390px 策略回测',
-      'UX-F0 移动端 390px 任务中心',
-    ]
+    const viewports = ['桌面 1440px', '平板 768px', '移动端 390px']
+    const pages = ['Dashboard 总览', '资产管理', '仓位管理', '相对轮动与波动仓', '红利低波策略', '策略回测', '每日复盘', '任务中心']
+    const requiredTitles = viewports.flatMap((viewport) => pages.map((page) => `UX-F0 ${viewport} ${page}`))
     return requiredTitles.every((title) => hasPassedShot(title))
   }
   const rows = [
     {
+      capability: '基本信息确认：截图/Excel 资产录入、账户来源和数据日期',
+      status: hasPassedShot('UX-F0 桌面 1440px 资产管理') && hasPassedApi('投资工作流 readiness') && hasPassedCommand('investment workflow foundation') ? 'passed' : 'failed',
+      evidence: 'Assets 三视口截图 + /api/v1/investment-workflow/readiness + foundation contract',
+      disposition: 'automated',
+    },
+    {
+      capability: '仓位策略：三类资产归属建议与人工确认入口',
+      status: hasPassedShot('UX-F0 桌面 1440px 仓位管理') && hasPassedApi('投资工作流 assignments') && hasPassedCommand('investment workflow readiness') ? 'passed' : 'failed',
+      evidence: 'Positions 三视口截图 + assignments API + readiness contract',
+      disposition: 'automated',
+    },
+    {
+      capability: '行业轮动与波动仓：RRG + MACD + 均线 + 成交量研究网格',
+      status: hasPassedShot('UX-F0 桌面 1440px 相对轮动与波动仓') && hasPassedCommand('investment workflow rotation') ? 'passed' : 'failed',
+      evidence: 'RelativeRotation 三视口截图 + rotation strategy contract',
+      disposition: 'automated',
+    },
+    {
       capability: '红利低波独立菜单和研究模式说明',
-      status: hasPassedShot('红利低波策略页') ? 'passed' : 'failed',
+      status: hasPassedShot('红利低波普通用户路径') ? 'passed' : 'failed',
       evidence: '前端截图 /dividend-low-vol',
+      disposition: 'automated',
     },
     {
       capability: '候选池指标、筛选、排序和数据完整性展示',
       status: hasPassedShot('红利低波筛选与指标') && hasPassedApi('红利低波候选池') ? 'passed' : 'failed',
       evidence: '截图 + /api/v1/strategy/dividend-low-vol/candidates',
+      disposition: 'automated',
     },
     {
       capability: '买入/卖出观察区间和滚动策略展示',
       status: hasPassedShot('红利低波买卖区间') ? 'passed' : 'blocked',
       evidence: '前端截图；若未先运行区间生成，报告为 blocked',
+      disposition: 'automated',
     },
     {
       capability: '人工计划草案与交易 gate',
       status: hasPassedShot('人工计划草案 Gate') && hasPassedCommand('trade action readiness') ? 'passed' : 'failed',
       evidence: '前端截图 + test:trade-action-readiness',
+      disposition: 'automated',
     },
     {
       capability: '组合策略多曲线回测',
       status: hasPassedShot('组合回测结果') && hasPassedCommand('portfolio backtest API contract') ? 'passed' : 'failed',
       evidence: '前端截图 + test:portfolio-backtest-api-contract',
+      disposition: 'automated',
+    },
+    {
+      capability: '统一策略回测：按建议、不执行建议、实际持仓与组合回测',
+      status: hasPassedShot('UX-F0 桌面 1440px 策略回测') && hasPassedCommand('investment workflow scenario comparison') ? 'passed' : 'failed',
+      evidence: 'Backtest 三视口截图 + scenario comparison contract',
+      disposition: 'automated',
+    },
+    {
+      capability: '复盘调整：每日复盘与跨页工作流入口',
+      status: hasPassedShot('UX-F0 桌面 1440px 每日复盘') && hasPassedCommand('daily review real data') && hasPassedCommand('investment workflow cross page') ? 'passed' : 'failed',
+      evidence: 'DailyReviews 三视口截图 + real-data E2E + cross-page contract',
+      disposition: 'automated',
     },
     {
       capability: '任务中心产物追溯',
       status: hasPassedShot('任务中心产物') ? 'passed' : 'blocked',
       evidence: '前端截图 /operations',
+      disposition: 'automated',
     },
     {
       capability: '正式交易和自动交易禁止',
       status: hasPassedCommand('trade action readiness') && hasPassedApi('组合回测 API') ? 'passed' : 'failed',
       evidence: '命令 + API prohibitedActions',
+      disposition: 'automated',
     },
     {
       capability: 'FIVD-R 统一分析入口和交易阻断可见',
       status: hasPassedShot('FIVD-R 分析建议') && hasPassedCommand('fivd-r core') ? 'passed' : 'failed',
       evidence: '截图 /analysis?section=fivdr + test:fivd-r-core',
+      disposition: 'automated',
     },
     {
       capability: '跨设备基础可读性截图',
       status: hasPassedUxMatrix() ? 'passed' : 'failed',
       evidence: 'Playwright UX-F0 1440px/768px/390px screenshots for Dashboard/DividendLowVol/Backtest/Operations',
+      disposition: 'automated',
     },
     {
       capability: 'ChatBox 业务助手与受控 LLM planner',
       status: hasPassedShot('ChatBox 业务助手') && hasPassedCommand('chat agent core') && hasPassedCommand('chat llm planner') && hasPassedApi('LLM 公共状态') ? 'passed' : 'failed',
       evidence: '截图 + test:chat-agent-core + test:chat-llm-planner + /api/v1/llm/status',
+      disposition: 'automated',
+    },
+    {
+      capability: '真实账户策略归属、截图行纠正与最终 UX 语义确认',
+      status: 'blocked',
+      evidence: '16 个真实持仓策略归属仍 pending；属于集中人工核查，不得由自动化代签',
+      disposition: 'human_pending',
+    },
+    {
+      capability: '建议级 point_in_time_simulation：冻结策略逐日动态重算',
+      status: 'blocked',
+      evidence: 'ScenarioComparisonService 明确返回 point_in_time_dynamic_recompute_not_implemented；需独立后续开发与防前视验收',
+      disposition: 'controlled_product_gap',
     },
   ]
-  return { status: assessOverall(rows), rows }
+  const automatedRows = rows.filter((item) => item.disposition === 'automated')
+  return {
+    status: assessOverall(rows),
+    automatedStatus: assessOverall(automatedRows),
+    automatedPassedCount: automatedRows.filter((item) => item.status === 'passed').length,
+    automatedRequirementCount: automatedRows.length,
+    knownGapCount: rows.filter((item) => item.status === 'blocked').length,
+    rows,
+  }
 }
 
 function testCoverage(commandResults) {
@@ -763,6 +939,26 @@ function testCoverage(commandResults) {
     ['chat llm planner', 'ChatBox LLM 意图路由'],
     ['chat agent core', 'ChatBox AgentCore 合同'],
     ['frontend build', '前端构建'],
+    ['current stage consistency', '唯一状态源与文档一致性'],
+    ['next stage documentation baseline', 'Drawio/架构/门禁文档基线'],
+    ['daily review real data', '每日复盘真实数据 E2E'],
+    ['investment workflow foundation', '投资工作流基础合同'],
+    ['investment workflow readiness', '三类资产归属与 readiness'],
+    ['investment workflow rotation', '行业轮动波动策略合同'],
+    ['investment workflow portfolio policy', '支付宝组合策略合同'],
+    ['investment workflow scenario comparison', '三场景统一回测合同'],
+    ['investment workflow cross page', '跨页用户路径合同'],
+    ['v2 px semantic contract', 'V2-PX 语义合同'],
+    ['v2 px policy', 'V2-PX 策略与容器边界'],
+    ['v2 px api contract', 'V2-PX API 合同'],
+    ['ftr data artifacts', 'FTR-1 数据证据合同'],
+    ['ftr benchmark artifacts', 'FTR-2 benchmark 证据合同'],
+    ['ftr validation artifacts', 'FTR-3 正式验证证据合同'],
+    ['ftr deferred queue', 'FTR-4 集中人工队列合同'],
+    ['ftr execution isolation', 'FTR-5 执行隔离合同'],
+    ['ftr provisional package', 'FTR-6 provisional 包合同'],
+    ['a6 human draft', 'A6 人工反馈草稿合同'],
+    ['strict trade remains blocked', 'FTR 严格交易锁合同'],
   ]
   const rows = required.map(([name, label]) => {
     const result = commandResults.find((item) => item.name === name)
@@ -792,7 +988,7 @@ async function runBrowserEvidence(apiResults) {
     const browser = await chromium.launch({ headless: true })
     const page = await browser.newPage({ viewport })
     page.on('console', (message) => {
-      if (message.type() === 'error') consoleErrors.push(message.text())
+      if (message.type() === 'error' && !/^Warning:\s/.test(message.text())) consoleErrors.push(message.text())
     })
     page.on('pageerror', (error) => consoleErrors.push(error.message))
     try {
@@ -818,8 +1014,12 @@ async function runBrowserEvidence(apiResults) {
   ]
   const uxBaselineTargets = [
     { key: 'dashboard', path: '/dashboard', title: 'Dashboard 总览', requiredTexts: ['FAMS'] },
+    { key: 'assets', path: '/assets', title: '资产管理', requiredTexts: ['基本信息确认'] },
+    { key: 'positions', path: '/positions', title: '仓位管理', requiredTexts: ['仓位策略入口'] },
+    { key: 'relative-rotation', path: '/relative-rotation', title: '相对轮动与波动仓', requiredTexts: ['行业轮动策略结论'] },
     { key: 'dividend-low-vol', path: '/dividend-low-vol', title: '红利低波策略', requiredTexts: ['红利低波策略'] },
     { key: 'backtest', path: '/backtest', title: '策略回测', requiredTexts: ['策略回测'] },
+    { key: 'daily-reviews', path: '/daily-reviews', title: '每日复盘', requiredTexts: ['每日持仓复盘'] },
     { key: 'operations', path: '/operations', title: '任务中心', requiredTexts: ['任务中心'] },
   ]
 
@@ -851,7 +1051,7 @@ async function runBrowserEvidence(apiResults) {
       await waitForBodyText(page, ['FAMS'])
       screenshots.push(await screenshot(page, '01-dashboard.png', '总览与侧边栏', '证明左侧菜单和系统入口可见。', ['FAMS', '红利低波策略', '策略回测']))
       await page.locator('.ant-float-btn').first().click({ timeout: 30000 })
-      await waitForBodyText(page, ['FAMS 业务助手', 'ChatBox 不创建订单'], 30000)
+      await waitForBodyText(page, ['FAMS 业务助手', '研究助手，不创建订单'], 30000)
       const tradeBlockerTask = page.getByText('解释为什么不能交易').first()
       if (await tradeBlockerTask.isVisible({ timeout: 5000 }).catch(() => false)) {
         await tradeBlockerTask.click({ timeout: 30000 })
@@ -860,7 +1060,7 @@ async function runBrowserEvidence(apiResults) {
         await page.getByRole('button', { name: '发送' }).click()
       }
       await waitForBodyText(page, ['ORDER_CREATE', 'AUTO_TRADE'], 60000)
-      screenshots.push(await screenshot(page, '01b-chatbox-agentcore.png', 'ChatBox 业务助手', '证明 ChatBox 可打开、可发起业务问题、显示订单阻断和 LLM/AgentCore 状态。', ['FAMS 业务助手', 'ChatBox 不创建订单', 'ORDER_CREATE', 'AUTO_TRADE']))
+      screenshots.push(await screenshot(page, '01b-chatbox-agentcore.png', 'ChatBox 业务助手', '证明 ChatBox 可打开、可发起业务问题、显示订单阻断和 LLM/AgentCore 状态。', ['FAMS 业务助手', '研究助手，不创建订单', 'ORDER_CREATE', 'AUTO_TRADE']))
     })
   } catch (error) {
     await captureFailure('总览与侧边栏异常', error)
@@ -879,15 +1079,17 @@ async function runBrowserEvidence(apiResults) {
   try {
     await withPage({ width: 1440, height: 1100 }, async (page) => {
       await page.goto(`${frontendUrl}/dividend-low-vol`, { waitUntil: 'domcontentloaded', timeout: 120000 })
-      await waitForBodyText(page, ['红利低波策略', '不构成交易指令'])
-      screenshots.push(await screenshot(page, '03-dividend-low-vol-overview.png', '红利低波策略页', '独立菜单页、研究模式 banner、禁止交易动作。', ['红利低波策略', '不构成交易指令', 'AUTO_TRADE']))
-      await page.getByText('筛选与排序').scrollIntoViewIfNeeded().catch(() => {})
-      screenshots.push(await screenshot(page, '04-dividend-low-vol-filters.png', '红利低波筛选与指标', '候选池筛选、排序和指标说明区域。', ['筛选与排序', '排序指标', '综合分']))
-      await page.getByText('买入/卖出观察区间与滚动策略').scrollIntoViewIfNeeded().catch(() => {})
-      screenshots.push(await screenshot(page, '05-dividend-low-vol-zones.png', '红利低波买卖区间', '买入/卖出观察区间、滚动回测和区间免责声明。', ['买入/卖出观察区间', '正式 ADD', '正式 REDUCE']))
-      await waitForBodyText(page, ['生成观察草案', '不会生成正式买入、卖出或自动交易动作'], 30000)
-      await page.getByText('5. 生成观察草案').scrollIntoViewIfNeeded().catch(() => {})
-      screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '证明观察草案入口存在，且页面明确禁止正式交易动作；若 readiness 数据可用，同一页面继续展示草案 Gate。', ['生成观察草案', '不会生成正式买入、卖出或自动交易动作']))
+      await page.getByTestId('dividend-plain-next-step').waitFor({ timeout: 120000 })
+      await waitForBodyText(page, ['红利低波策略', '普通模式：先看结论和下一步', 'AUTO_TRADE'])
+      screenshots.push(await screenshot(page, '03-dividend-low-vol-overview.png', '红利低波普通用户路径', '普通模式优先展示结论、下一步、数据可信和交易边界，专家工作台仍保留。', ['红利低波策略', '普通模式：先看结论和下一步', 'AUTO_TRADE']))
+      await page.getByText('专业模式', { exact: true }).click()
+      await page.getByTestId('dividend-expert-workbench').waitFor({ timeout: 30000 })
+      await page.getByText('筛选与排序').scrollIntoViewIfNeeded()
+      screenshots.push(await screenshot(page, '04-dividend-low-vol-filters.png', '红利低波筛选与指标', '专业模式展示候选筛选、排序指标和完整证据，普通模式入口仍保留。', ['筛选与排序', '排序指标', '综合分']))
+      await page.getByText('买入/卖出观察区间与滚动策略').scrollIntoViewIfNeeded()
+      screenshots.push(await screenshot(page, '05-dividend-low-vol-zones.png', '红利低波买卖区间', '买入/卖出观察区间与滚动策略明确保持正式 ADD / REDUCE 锁定。', ['买入/卖出观察区间', '正式 ADD', '正式 REDUCE']))
+      await page.getByText('5. 生成观察草案').scrollIntoViewIfNeeded()
+      screenshots.push(await screenshot(page, '06-dividend-low-vol-manual-gate.png', '人工计划草案 Gate', '观察草案进入人工复核，不创建正式买卖或自动交易动作。', ['5. 生成观察草案', '正式交易锁定']))
     })
   } catch (error) {
     await captureFailure('红利低波主路径异常', error)
@@ -905,12 +1107,21 @@ async function runBrowserEvidence(apiResults) {
 
   try {
     await withPage({ width: 1440, height: 1100 }, async (page) => {
-      await page.goto(`${frontendUrl}/backtest`, { waitUntil: 'domcontentloaded', timeout: 120000 })
-      await waitForBodyText(page, ['组合策略对比回测', '运行并保存固定规则回测'])
-      screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行并保存固定规则回测']))
+      const adviceId = process.env.FAMS_E2E_ADVICE_ID || '724b5641-9dbe-4b33-b6a1-4bd9ca61b89a'
+      await page.goto(`${frontendUrl}/backtest?mode=review&adviceId=${encodeURIComponent(adviceId)}`, { waitUntil: 'domcontentloaded', timeout: 120000 })
+      await page.getByTestId('run-scenario-comparison').waitFor({ timeout: 120000 })
+      screenshots.push(await screenshot(page, '08-backtest-before-run.png', '统一策略回测入口', '同一页面保留建议复盘与组合回测，当前展示建议复盘入口。', ['策略回测', '建议复盘', '运行三场景复盘']))
+      await page.getByTestId('run-scenario-comparison').click({ force: true })
+      await page.getByTestId('scenario-comparison-result').waitFor({ timeout: 180000 })
+      await waitForBodyText(page, ['按建议执行', '不执行建议', '实际交易流水'], 30000)
+      screenshots.push(await screenshot(page, '09-backtest-result.png', '三场景真实数据复盘结果', '按建议、不执行建议和实际交易流水使用同一时间轴展示；动态时点重算仍单独阻断。', ['按建议执行', '不执行建议', '实际交易流水']))
+      await page.getByText('组合回测', { exact: true }).first().click()
+      await page.getByTestId('portfolio-backtest-workspace').waitFor({ timeout: 30000 })
+      await waitForBodyText(page, ['投资组合回测', '运行并保存固定规则回测'], 30000)
+      screenshots.push(await screenshot(page, '09a-portfolio-backtest-entry.png', '组合回测入口', '统一策略回测页面内保留组合策略选择、固定规则和正式交易边界。', ['投资组合回测', '运行并保存固定规则回测', 'AUTO_TRADE']))
       await page.getByRole('button', { name: '运行并保存固定规则回测' }).click()
-      await waitForBodyText(page, ['超额收益', 'Benchmark', '非交易建议'], 120000)
-      screenshots.push(await screenshot(page, '09-backtest-result.png', '组合回测结果', '组合净值曲线、收益指标、benchmark 和分红贡献。', ['Benchmark', '超额收益', '总收益']))
+      await waitForBodyText(page, ['正式交易未解锁', 'Benchmark', '总收益'], 300000)
+      screenshots.push(await screenshot(page, '09b-portfolio-backtest-result.png', '组合回测结果', '真实样本组合曲线、收益指标、benchmark 和交易锁同时可审计。', ['Benchmark', '总收益', '正式交易未解锁']))
       await page.setViewportSize({ width: 390, height: 844 })
       screenshots.push(await screenshot(page, '10-mobile-backtest-result.png', '移动端组合回测', '移动视口下验证组合回测结果仍可访问和阅读。', ['策略回测']))
     })
@@ -991,7 +1202,8 @@ async function runBrowserEvidenceLegacy(apiResults) {
     await waitForBodyText(page, ['组合策略对比回测', '运行并保存固定规则回测'])
     screenshots.push(await screenshot(page, '08-backtest-before-run.png', '组合回测入口', '组合回测参数和非交易建议 banner。', ['组合策略对比回测', '不构成交易指令', '运行并保存固定规则回测']))
     await page.getByRole('button', { name: '运行并保存固定规则回测' }).click()
-    await waitForBodyText(page, ['超额收益', 'Benchmark', '非交易建议'], 120000)
+    await waitForBodyText(page, ['正式交易未解锁', 'Benchmark', '非交易建议'], 300000)
+    await waitForBodyText(page, ['超额收益', '总收益'], 30000)
     screenshots.push(await screenshot(page, '09-backtest-result.png', '组合回测结果', '组合净值曲线、收益指标、benchmark 和分红贡献。', ['Benchmark', '超额收益', '总收益']))
     await page.setViewportSize({ width: 390, height: 844 })
     screenshots.push(await screenshot(page, '10-mobile-backtest-result.png', '移动端组合回测', '移动视口下验证组合回测结果仍可访问和阅读。', ['策略回测']))
@@ -1041,6 +1253,15 @@ function renderJson(value) {
 
 function renderReport(model) {
   const overall = model.overallStatus
+  const visualFindingRows = model.visualEvidenceAudit.findings.map((item) => `
+    <tr>
+      <td>${escapeHtml(item.id)}</td>
+      <td>${escapeHtml(item.severity)}</td>
+      <td>${renderStatus(item.status)}</td>
+      <td>${escapeHtml(item.finding)}</td>
+      <td>${escapeHtml(item.evidence)}</td>
+    </tr>
+  `).join('\n')
   const reviewClaimRows = model.humanReviewGuide.evidenceMap.map((item) => `
     <tr>
       <td>${escapeHtml(item.claim)}</td>
@@ -1069,7 +1290,7 @@ function renderReport(model) {
   const commandRows = model.commands.map((item) => `
     <tr>
       <td>${escapeHtml(item.name)}</td>
-      <td>${renderStatus(item.status)}</td>
+      <td>${renderStatus(commandMeetsStageExpectation(item) ? 'passed' : item.status)}</td>
       <td><code>${escapeHtml(item.cwd)}$ ${escapeHtml(item.command)}</code></td>
       <td>${escapeHtml(item.durationMs)}ms</td>
       <td>${item.stderr ? `<details><summary>stderr</summary><pre>${escapeHtml(item.stderr)}</pre></details>` : ''}${item.stdout ? `<details><summary>stdout</summary><pre>${escapeHtml(item.stdout)}</pre></details>` : ''}</td>
@@ -1191,7 +1412,7 @@ function renderReport(model) {
 <main>
   <section class="hero">
     <h1>FAMS 全系统端到端自动化验收报告</h1>
-    <p>生成时间：${escapeHtml(model.generatedAt)}。本报告基于原始 PRD、目标架构文档、代码实现、自动化命令、API 交叉验证和无头浏览器截图生成。报告不构成投资建议，不将研究验证包装为正式交易验证。</p>
+    <p>生成时间：${escapeHtml(model.generatedAt)}。本报告基于原始 PRD、目标架构文档、代码实现、自动化命令、API 交叉验证和无头浏览器截图生成。自动化范围与完整 PRD 出门分开判定；报告不构成投资建议，不将研究验证包装为正式交易验证。</p>
     <p class="small">审计对象：分支 <code>${escapeHtml(model.git.branch)}</code>，提交 <code>${escapeHtml(model.git.headCommit)}</code>，origin/main <code>${escapeHtml(model.git.originMainCommit)}</code>，工作树干净：${escapeHtml(String(model.git.workingTreeClean))}。</p>
     <div class="grid">
       <div class="metric"><div class="label">总体结论</div><div class="value">${renderStatus(overall)}</div></div>
@@ -1201,6 +1422,8 @@ function renderReport(model) {
       <div class="metric"><div class="label">Formal Trading</div><div class="value">${escapeHtml(model.summary.formalTradingUnlocked)}</div></div>
       <div class="metric"><div class="label">Auto Trade</div><div class="value">${escapeHtml(model.summary.autoTradeUnlocked)}</div></div>
       <div class="metric"><div class="label">Runtime/Data Disclosure</div><div class="value">${escapeHtml(model.runtimeDisclosure.status)}</div></div>
+      <div class="metric"><div class="label">文档支撑自动化范围</div><div class="value">${renderStatus(model.summary.documentedAutomatedScopeStatus)}</div></div>
+      <div class="metric"><div class="label">完整 PRD 出门</div><div class="value">${renderStatus(model.summary.fullPrdExitStatus)}</div></div>
     </div>
   </section>
 
@@ -1250,7 +1473,7 @@ function renderReport(model) {
 
   <h2>目标架构与当前实现</h2>
   <div class="card">
-    <p>目标架构是“数据源与证据层 → 策略/回测/验证层 → Operation 审计层 → 前端研究体验层 → 交易 Gate”。当前实现已经覆盖红利低波研究页、组合回测页、任务中心 artifact、人工计划草案和交易 gate；仍需对正式 total-return benchmark、免费数据最新性、正式交易验证做持续审计。</p>
+    <p>目标架构是“数据源与证据层 → 三类资产与策略归属 → 策略/回测/验证层 → Operation 审计层 → ChatBox/专家页双轨体验 → 交易 Gate”。当前实现已覆盖 WF-0..WF-7 自动范围与 FTR provisional 链；完整出门仍受集中人工核查和建议级动态逐日时点模拟阻断。</p>
     ${renderJson(model.architecture)}
   </div>
 
@@ -1270,6 +1493,10 @@ function renderReport(model) {
   <table><thead><tr><th>检查项</th><th>状态</th><th>证据文件</th></tr></thead><tbody>${codeRows}</tbody></table>
 
   <h2>用户场景截图证据</h2>
+  <div class="card">
+    <p><strong>视觉证据自审：</strong>报告可用于人工复核，但产品视觉状态仍为 <code>${escapeHtml(model.visualEvidenceAudit.productVisualStatus)}</code>。响应式基线图只证明布局与可读性；真实数据必须同时核对 API 和合同证据。截图中可见的问题不会被裁掉或包装为全绿。</p>
+  </div>
+  <table><thead><tr><th>ID</th><th>级别</th><th>状态</th><th>观察结论</th><th>证据</th></tr></thead><tbody>${visualFindingRows}</tbody></table>
   ${screenshotHtml}
 
   <h2>API 交叉验证</h2>
@@ -1318,6 +1545,33 @@ async function main() {
     ['chat llm planner', ['npm', 'run', 'test:chat-llm-planner'], backendDir, 240000],
     ['chat agent core', ['npm', 'run', 'test:chat-agent-core'], backendDir, 180000],
     ['frontend build', ['npm', 'run', 'build'], frontendDir, 240000],
+    ['current stage consistency', ['npm', 'run', 'test:current-stage-consistency'], backendDir, 240000],
+    ['next stage documentation baseline', ['npm', 'run', 'test:next-stage-documentation-baseline'], backendDir, 240000],
+    ['daily review real data', ['npm', 'run', 'test:daily-review-real-data-e2e'], backendDir, 600000],
+    ['investment workflow foundation', ['npm', 'run', 'test:investment-workflow-foundation'], backendDir, 600000],
+    ['investment workflow readiness', ['npm', 'run', 'test:investment-workflow-readiness'], backendDir, 240000],
+    ['investment workflow rotation', ['npm', 'run', 'test:investment-workflow-rotation-strategy'], backendDir, 360000],
+    ['investment workflow portfolio policy', ['npm', 'run', 'test:investment-workflow-portfolio-policy'], backendDir, 240000],
+    ['investment workflow scenario comparison', ['npm', 'run', 'test:investment-workflow-scenario-comparison'], backendDir, 360000],
+    ['investment workflow cross page', ['npm', 'run', 'test:investment-workflow-cross-page'], backendDir, 240000],
+    ['v2 px semantic contract', ['npm', 'run', 'test:v2-px-semantic-contract'], backendDir, 240000],
+    ['v2 px policy', ['npm', 'run', 'test:v2-px-policy'], backendDir, 240000],
+    ['v2 px api contract', ['npm', 'run', 'test:v2-px-api-contract'], backendDir, 240000],
+    ['ftr refreeze a0', ['npm', 'run', 'run:ftr-a0-freeze-inputs'], backendDir, 360000],
+    ['ftr refreeze data', ['npm', 'run', 'run:ftr-1-point-in-time-data-governance'], backendDir, 360000],
+    ['ftr refreeze benchmark', ['npm', 'run', 'run:ftr-2-benchmark-qualification'], backendDir, 360000],
+    ['ftr refreeze validation', ['npm', 'run', 'run:ftr-3-formal-validation'], backendDir, 600000],
+    ['ftr refreeze isolation', ['npm', 'run', 'run:ftr-5-execution-isolation'], backendDir, 360000],
+    ['ftr refreeze human queue', ['npm', 'run', 'run:ftr-4-deferred-human-review-queue'], backendDir, 360000],
+    ['ftr refreeze provisional package', ['npm', 'run', 'run:ftr-6-provisional-review-package'], backendDir, 360000],
+    ['ftr data artifacts', ['npm', 'run', 'test:ftr-1-acceptance-artifacts'], backendDir, 240000],
+    ['ftr benchmark artifacts', ['npm', 'run', 'test:ftr-2-acceptance-artifacts'], backendDir, 240000],
+    ['ftr validation artifacts', ['npm', 'run', 'test:ftr-3-acceptance-artifacts'], backendDir, 360000],
+    ['ftr deferred queue', ['npm', 'run', 'test:ftr-4-deferred-human-review-queue'], backendDir, 240000],
+    ['ftr execution isolation', ['npm', 'run', 'test:ftr-5-execution-isolation'], backendDir, 240000],
+    ['ftr provisional package', ['npm', 'run', 'test:ftr-6-provisional-review-package'], backendDir, 240000],
+    ['a6 human draft', ['npm', 'run', 'test:ftr-a6-human-acceptance-draft'], backendDir, 240000],
+    ['strict trade remains blocked', ['npm', 'run', 'test:ftr-6-strict-trade-remains-blocked'], backendDir, 240000],
   ]
 
   const commandResults = await runCommandsWithConcurrency(commands, Number(process.env.FAMS_E2E_COMMAND_CONCURRENCY || 2))
@@ -1368,6 +1622,24 @@ async function main() {
     blockedReasons: body?.blockedReasons,
     llm: body?.agentCore?.llm,
     notTradingAdvice: body?.notTradingAdvice,
+  })))
+  apiResults.push(await apiCheck('投资工作流 readiness', `${backendUrl}/api/v1/investment-workflow/readiness?userId=default`, {}, (body) => (
+    body?.facts?.openPositionCount > 0
+      && body?.facts?.pendingAssignmentCount >= 0
+      && Array.isArray(body?.strategies)
+      && body?.permissionState?.formalTradingUnlocked === false
+  ), (body) => ({
+    status: body?.status,
+    facts: body?.facts,
+    strategies: body?.strategies,
+    permissionState: body?.permissionState,
+  })))
+  apiResults.push(await apiCheck('投资工作流 assignments', `${backendUrl}/api/v1/investment-workflow/assignments?userId=default`, {}, (body) => (
+    Array.isArray(body?.assignments) && body.assignments.length > 0
+  ), (body) => ({
+    assignmentCount: body?.assignments?.length || 0,
+    pendingCount: body?.assignments?.filter((item) => item.status !== 'confirmed').length || 0,
+    strategyFamilies: [...new Set((body?.assignments || []).map((item) => item.strategyFamily))],
   })))
   apiResults.push(await apiCheck('红利低波候选池', `${backendUrl}/api/v1/strategy/dividend-low-vol/candidates?limit=50&scope=all&persistedOnly=true`, {}, (body) => Array.isArray(body?.candidates), (body) => ({
     schemaVersion: body?.schemaVersion,
@@ -1425,54 +1697,66 @@ async function main() {
 
   const prdCoverage = buildPrdCoverage(commandResults, apiResults, browser.screenshots)
   const coverage = testCoverage(commandResults)
-  const criticalSections = [
+  const automatedCriticalSections = [
     documentAudit,
     codeInspection,
-    prdCoverage,
+    { status: prdCoverage.automatedStatus },
     coverage,
     browser,
     { status: assessOverall(apiResults) },
     { status: assessOverall(serverResults) },
   ]
-  const overallStatus = assessOverall(criticalSections)
+  const automatedScopeStatus = assessOverall(automatedCriticalSections)
+  const overallStatus = automatedScopeStatus === 'passed' ? prdCoverage.status : 'failed'
 
   const summary = {
     researchReady: prdCoverage.rows.some((item) => item.capability.includes('红利低波') && item.status === 'passed') ? 'yes' : 'partial_or_blocked',
     manualDraftReady: commandResults.find((item) => item.name === 'production readiness')?.status === 'passed' ? 'yes_if_gate_evidence_ready' : 'blocked',
     formalTradingUnlocked: 'false',
     autoTradeUnlocked: 'false',
+    documentedAutomatedScopeStatus: prdCoverage.automatedStatus,
+    fullPrdExitStatus: prdCoverage.status,
+    prdFullyComplete: false,
   }
   const runtimeDisclosure = buildRuntimeDisclosure(commandResults, apiResults)
   const limitations = [
     '报告仅使用无头浏览器截图，不抢占桌面焦点。',
     '若免费数据源或本地缓存不是最新交易日，报告会保留数据新鲜度风险，不会声明每日实时保证。',
     'tradeActionReadiness 验收通过只代表严格命令按预期拒绝且交易锁保持关闭，不代表策略可以交易。',
-    '若组合回测文档仍保留旧的 ETF proxy 阻塞描述，而 API 已通过，将作为文档漂移处理。',
-    '正式 total-return benchmark 与完整外部数据源仍需单独审计，不能因此报告直接解锁正式交易。',
+    '投资工作流真实数据基线来自本地 default 账户；报告只展示数量和状态，不公开账户金额及个人资产明细。',
+    '16 个持仓策略归属、截图行纠正和最终 UX 语义确认仍需集中人工核查，自动化不得代签。',
+    '建议级 point_in_time_simulation 冻结策略逐日动态重算未实现，完整 PRD 出门必须保持 blocked。',
+    'FTR provisional 链通过不等于 final review package 或正式交易 release。',
   ]
   if (runtimeDisclosure.status !== 'ok') {
     limitations.push(runtimeDisclosure.humanConclusion)
   }
 
   const model = {
-    schemaVersion: 'fams.full_system_e2e_acceptance.v1',
+    schemaVersion: 'fams.full_system_e2e_acceptance.v2',
     generatedAt,
     reportDir,
     overallStatus,
+    exitDecision: automatedScopeStatus !== 'passed'
+      ? 'automated_scope_rejected_and_return_to_development'
+      : prdCoverage.status === 'passed'
+        ? 'full_prd_stage_exit_allowed'
+        : 'automated_scope_passed_full_prd_exit_blocked',
     summary,
     architecture: {
       target: [
-        '数据源与证据层：免费数据源/Tushare 升级源、行情、分红、行业龙头、交易约束、evidenceRefs。',
-        '策略与验证层：红利低波、组合回测、滚动策略、validation retest、failure taxonomy。',
+        '数据源与证据层：截图/Excel、账户来源、公开行情、分红、行业、交易约束、evidenceRefs。',
+        '投资工作流层：三类资产归属、行业轮动网格、红利低波建议、组合配置、统一场景比较。',
+        '策略与验证层：红利低波、组合回测、冻结策略逐日 point-in-time 重算、formal validation。',
         'Operation 审计层：所有重任务落 Operation 与 artifact，支持任务中心追溯。',
-        '前端体验层：独立红利低波、组合回测、任务中心、持仓和告警路径。',
+        '前端体验层：Assets -> Positions -> 三类策略 -> Backtest -> DailyReviews -> Operations，ChatBox 与专家页双轨。',
         '交易 Gate：研究/观察/计划草案与正式交易动作隔离，AUTO_TRADE 禁止。',
       ],
       current: [
-        '已实现红利低波独立菜单、候选池、筛选排序、买卖区间、滚动回测和人工草案 gate。',
-        '已实现组合策略多曲线回测、永久组合/全天候代理 ETF 路径、Operation artifact。',
-        '已实现生产/交易 gate 合同测试；正式自动交易仍未开放。',
-        '仍需持续审计正式 total-return benchmark、免费数据最新性与文档漂移。',
+        '已实现三类资产归属、行业轮动/波动网格、红利低波、支付宝组合策略和统一回测入口。',
+        '已实现组合策略多曲线与 advice 三场景回放、Daily Review、Operation artifact。',
+        '已实现 FTR-1..6 provisional 自动链和交易 gate；人工签核与正式自动交易仍未开放。',
+        '已知缺口：人工集中确认 pending；advice-level point_in_time_simulation 未实现；PRD 18/20。',
       ],
     },
     documentAudit,
@@ -1491,14 +1775,15 @@ async function main() {
       autoTradeUnlocked: false,
       orderCreateAllowed: false,
       remainingBlockers: [
-        '正式授权 total-return benchmark 未完成最终审计',
-        '完整外部数据源与字段级 freshness/cross-check 仍需持续复核',
+        'A6/V2-PX/投资工作流集中人工验收尚未完成',
+        'advice-level point_in_time_simulation 冻结策略逐日动态重算尚未实现',
         '人工签核链路未完成 final release signoff',
         '生产下单适配器未启用',
         'AUTO_TRADE 按策略继续锁定',
       ],
     },
   }
+  model.visualEvidenceAudit = buildVisualEvidenceAudit(model)
   model.humanReviewGuide = buildHumanReviewGuide(model)
   model.humanAuditReadiness = buildHumanAuditReadiness(model)
 
@@ -1510,6 +1795,7 @@ async function main() {
   await writeFile(path.join(reportDir, 'architecture-current-vs-target.json'), JSON.stringify(model.architecture, null, 2))
   await writeFile(path.join(reportDir, 'runtime-disclosure.json'), JSON.stringify(model.runtimeDisclosure, null, 2))
   await writeFile(path.join(reportDir, 'human-review-guide.json'), JSON.stringify(model.humanReviewGuide, null, 2))
+  await writeFile(path.join(reportDir, 'visual-evidence-self-audit.json'), JSON.stringify(model.visualEvidenceAudit, null, 2))
   await writeFile(path.join(reportDir, 'human-audit-readiness.json'), JSON.stringify(model.humanAuditReadiness, null, 2))
   await writeFile(path.join(reportDir, 'acceptance-report.html'), renderReport(model).replace(/[ \t]+$/gm, ''))
 

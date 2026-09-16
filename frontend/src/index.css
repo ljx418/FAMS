@@ -842,6 +842,34 @@ a:hover {
   }
 }
 
+.fams-workflow-bar {
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 88%);
+  padding: 14px;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 5%);
+}
+
+.fams-workflow-step.ant-btn {
+  display: flex;
+  min-width: 0;
+  height: 54px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+}
+
+.fams-workflow-step.ant-btn:not(.is-active) {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+.fams-workflow-step.ant-btn:not(.is-active):hover {
+  border-color: #94a3b8;
+  background: #fff;
+}
+
 /* ChatBox：大工作区、摘要优先、细节折叠 */
 .fams-chat-drawer .ant-drawer-content-wrapper {
   max-width: 100vw;

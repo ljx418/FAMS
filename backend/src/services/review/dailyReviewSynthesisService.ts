@@ -6,6 +6,14 @@ import { getFamsLlmConfig } from '../../config/llmConfig.js'
 const SUPPORTED_PROVIDERS = new Set(['openai', 'openai_compatible', 'deepseek', 'minimax'])
 const SYNTHESIS_FOCUS_SYMBOLS = new Set(['601127', '600276', '159851', '513770'])
 
+type LlmProviderAttempt = {
+  provider: string
+  model: string
+  outcome: 'succeeded' | 'failed'
+  failureCode: string | null
+  httpStatus: number | null
+}
+
 const narrativeString = (max: number) => z.union([
   z.string(),
   z.array(z.string()).max(4),
@@ -187,6 +195,7 @@ function isDailyReviewLlmEnabled() {
 export function getDailyReviewLlmReadiness() {
   const config = getFamsLlmConfig()
   const enabled = isDailyReviewLlmEnabled()
+  const failoverAvailable = config.provider === 'deepseek' && Boolean(process.env.MINIMAX_API_KEY?.trim())
   return {
     configured: Boolean(config.configured),
     chatAgentEnabled: Boolean(config.chatAgentEnabled),
@@ -194,11 +203,20 @@ export function getDailyReviewLlmReadiness() {
     supportedProvider: SUPPORTED_PROVIDERS.has(config.provider),
     provider: config.provider || null,
     model: config.model || null,
+    failoverAvailable,
+    maximumAttempts: failoverAvailable ? 2 : 1,
     failureCode: enabled ? null : 'llm_not_configured_or_disabled',
   }
 }
 
-export function buildDailyReviewSynthesisFallback(input: any, failureCode: string, attempted: boolean, validationDiagnostics?: unknown) {
+export function buildDailyReviewSynthesisFallback(
+  input: any,
+  failureCode: string,
+  attempted: boolean,
+  validationDiagnostics?: unknown,
+  attemptCount = attempted ? 1 : 0,
+  providerAttempts: LlmProviderAttempt[] = [],
+) {
   const decisionAssets = Array.isArray(input?.decisionSummary?.assets) ? input.decisionSummary.assets : []
   const candidates = Array.isArray(input?.attentionCandidates) ? input.attentionCandidates : []
   return {
@@ -208,7 +226,8 @@ export function buildDailyReviewSynthesisFallback(input: any, failureCode: strin
     model: null,
     generatedAt: new Date().toISOString(),
     attempted,
-    attemptCount: attempted ? 1 : 0,
+    attemptCount,
+    providerAttempts,
     failureCode,
     validationDiagnostics: validationDiagnostics || null,
     headline: clean(input?.decisionSummary?.headline, 180) || '本轮复盘已生成规则摘要。',
@@ -453,58 +472,119 @@ class DailyReviewSynthesisService {
         ].join('\n'),
       }],
     }
-    try {
-      const responseText = config.provider === 'minimax'
-        ? await completeMinimax(config, context)
-        : await completeOpenAiCompatible(config, context)
-      const parsedResult = parseJsonObject(responseText)
-      if (!parsedResult.parsed) {
-        return buildDailyReviewSynthesisFallback(input, 'llm_json_invalid', true, {
-          ...parsedResult.diagnostics,
-          containsJsonFence: /```json/i.test(responseText),
-        })
-      }
-      const contentNormalization = normalizeKnownNarrativeTypos(parsedResult.parsed as Record<string, any>)
-      const validated = validateDailyReviewSynthesisPayload(contentNormalization.value, synthesisInput)
-      if (!validated.ok) return buildDailyReviewSynthesisFallback(input, validated.code, true, validated.diagnostics || null)
-      return {
-        schemaVersion: 'fams.daily-review-llm-synthesis.v1',
-        status: 'available',
-        source: 'llm',
-        model: config.model,
-        generatedAt: new Date().toISOString(),
-        attempted: true,
-        attemptCount: 1,
-        failureCode: null,
-        transportNormalization: parsedResult.normalization,
-        contentNormalizations: contentNormalization.changes,
-        ...validated.data,
-      }
-    } catch (error) {
-      const anyError = error as any
-      const timedOut = (error instanceof DOMException && error.name === 'TimeoutError')
-        || anyError?.code === 'ECONNABORTED'
-        || anyError?.code === 'ERR_CANCELED'
-        || /timeout|aborted/i.test(String(anyError?.message || ''))
-      const code = timedOut
-        ? 'llm_timeout'
-        : 'llm_request_failed'
-      return buildDailyReviewSynthesisFallback(input, code, true, {
-        name: anyError?.name || 'Error',
-        code: anyError?.code || null,
-        httpStatus: anyError?.response?.status || null,
-        providerErrorType: anyError?.response?.data?.error?.type || null,
-        providerErrorCode: anyError?.response?.data?.error?.code || null,
-        message: clean(
-          anyError?.response?.data?.error?.message
-            || anyError?.response?.data?.message
-            || anyError?.response?.data?.detail
-            || (typeof anyError?.response?.data === 'string' ? anyError.response.data : '')
-            || anyError?.message,
-          240,
-        ),
+    const candidates: Array<ReturnType<typeof getFamsLlmConfig>> = [config]
+    const minimaxKey = process.env.MINIMAX_API_KEY?.trim()
+    if (config.provider === 'deepseek' && minimaxKey) {
+      candidates.push({
+        provider: 'minimax',
+        configured: true,
+        apiKey: minimaxKey,
+        keySource: 'MINIMAX_API_KEY',
+        model: (process.env.MINIMAX_MODEL || 'MiniMax-M2.7').trim(),
+        timeoutMs: config.timeoutMs,
+        chatAgentEnabled: config.chatAgentEnabled,
       })
     }
+
+    const providerAttempts: LlmProviderAttempt[] = []
+    let finalFailureCode = 'llm_request_failed'
+    let finalDiagnostics: unknown = null
+    for (const candidate of candidates.slice(0, 2)) {
+      try {
+        const responseText = candidate.provider === 'minimax'
+          ? await completeMinimax(candidate, context)
+          : await completeOpenAiCompatible(candidate, context)
+        const parsedResult = parseJsonObject(responseText)
+        if (!parsedResult.parsed) {
+          finalFailureCode = 'llm_json_invalid'
+          finalDiagnostics = {
+            ...parsedResult.diagnostics,
+            containsJsonFence: /```json/i.test(responseText),
+          }
+          providerAttempts.push({
+            provider: candidate.provider,
+            model: candidate.model,
+            outcome: 'failed',
+            failureCode: finalFailureCode,
+            httpStatus: null,
+          })
+          continue
+        }
+        const contentNormalization = normalizeKnownNarrativeTypos(parsedResult.parsed as Record<string, any>)
+        const validated = validateDailyReviewSynthesisPayload(contentNormalization.value, synthesisInput)
+        if (!validated.ok) {
+          finalFailureCode = validated.code
+          finalDiagnostics = validated.diagnostics || null
+          providerAttempts.push({
+            provider: candidate.provider,
+            model: candidate.model,
+            outcome: 'failed',
+            failureCode: finalFailureCode,
+            httpStatus: null,
+          })
+          continue
+        }
+        providerAttempts.push({
+          provider: candidate.provider,
+          model: candidate.model,
+          outcome: 'succeeded',
+          failureCode: null,
+          httpStatus: 200,
+        })
+        return {
+          schemaVersion: 'fams.daily-review-llm-synthesis.v1',
+          status: 'available',
+          source: 'llm',
+          provider: candidate.provider,
+          model: candidate.model,
+          generatedAt: new Date().toISOString(),
+          attempted: true,
+          attemptCount: providerAttempts.length,
+          providerAttempts,
+          failureCode: null,
+          transportNormalization: parsedResult.normalization,
+          contentNormalizations: contentNormalization.changes,
+          ...validated.data,
+        }
+      } catch (error) {
+        const anyError = error as any
+        const timedOut = (error instanceof DOMException && error.name === 'TimeoutError')
+          || anyError?.code === 'ECONNABORTED'
+          || anyError?.code === 'ERR_CANCELED'
+          || /timeout|aborted/i.test(String(anyError?.message || ''))
+        finalFailureCode = timedOut ? 'llm_timeout' : 'llm_request_failed'
+        finalDiagnostics = {
+          name: anyError?.name || 'Error',
+          code: anyError?.code || null,
+          httpStatus: anyError?.response?.status || null,
+          providerErrorType: anyError?.response?.data?.error?.type || null,
+          providerErrorCode: anyError?.response?.data?.error?.code || null,
+          message: clean(
+            anyError?.response?.data?.error?.message
+              || anyError?.response?.data?.message
+              || anyError?.response?.data?.detail
+              || (typeof anyError?.response?.data === 'string' ? anyError.response.data : '')
+              || anyError?.message,
+            240,
+          ),
+        }
+        providerAttempts.push({
+          provider: candidate.provider,
+          model: candidate.model,
+          outcome: 'failed',
+          failureCode: finalFailureCode,
+          httpStatus: Number(anyError?.response?.status) || null,
+        })
+      }
+    }
+    return buildDailyReviewSynthesisFallback(
+      input,
+      finalFailureCode,
+      providerAttempts.length > 0,
+      finalDiagnostics,
+      providerAttempts.length,
+      providerAttempts,
+    )
   }
 }
 

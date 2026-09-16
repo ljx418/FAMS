@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "fams.portfolio-mcp-manifest.v1",
+  "name": "fams-portfolio-management",
+  "version": "1.0.0",
+  "purpose": "向外部 AI 宿主开放当前仓位读取、支付宝持仓证据导入、固定复盘和人工计划保存能力。",
+  "sourceOfTruth": {
+    "serverFactory": "backend/src/mcp/publicPortfolioServer.ts",
+    "businessFacade": "backend/src/services/mcp/portfolioWorkflowFacade.ts",
+    "authService": "backend/src/services/mcp/portfolioMcpAuthService.ts"
+  },
+  "transports": {
+    "stdio": {
+      "status": "implemented_and_accepted",
+      "command": "node",
+      "args": ["backend/dist/mcp/portfolioStdio.js"],
+      "requiredEnvironment": ["DATABASE_URL", "FAMS_MCP_USER_ID"]
+    },
+    "streamableHttp": {
+      "status": "implemented_and_accepted_disabled_by_default",
+      "endpointPath": "/mcp",
+      "enableEnvironment": "FAMS_MCP_HTTP_ENABLED=true",
+      "authentication": "Authorization: Bearer fams_mcp_*",
+      "originAllowlistEnvironment": "FAMS_MCP_ALLOWED_ORIGINS",
+      "rateLimitEnvironment": "FAMS_MCP_RATE_LIMIT_PER_MINUTE",
+      "internetExposureRule": "必须在 HTTPS 反向代理或安全隧道之后；不得直接暴露 Fastify 明文端口"
+    }
+  },
+  "scopes": [
+    "portfolio:read",
+    "review:run",
+    "capture:write",
+    "plan:write"
+  ],
+  "tools": [
+    "portfolio_get_current_state",
+    "portfolio_review_preflight",
+    "portfolio_review_start",
+    "portfolio_review_get",
+    "portfolio_plan_save_decision",
+    "portfolio_screenshot_upload",
+    "portfolio_screenshot_save_extraction",
+    "portfolio_screenshot_confirm",
+    "portfolio_snapshot_authorize_reuse",
+    "portfolio_snapshot_revoke_reuse"
+  ],
+  "resources": [
+    "fams://portfolio/current",
+    "fams://portfolio/contracts/current",
+    "fams://portfolio/reviews/latest",
+    "fams://data-health/current",
+    "fams://portfolio/reviews/{operationId}"
+  ],
+  "prompts": ["daily_portfolio_review"],
+  "executionBoundary": {
+    "planDraftOnly": true,
+    "formalTradingUnlocked": false,
+    "autoTradeUnlocked": false,
+    "canCreateOrder": false,
+    "orderCreateAllowed": false,
+    "brokerOrderToolsExposed": false
+  },
+  "acceptanceCommands": [
+    "cd backend && npm run test:portfolio-mcp-contract",
+    "cd backend && npm run test:portfolio-mcp-http"
+  ]
+}

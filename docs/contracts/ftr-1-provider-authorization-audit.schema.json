@@ -2,15 +2,64 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://fams.local/schemas/ftr-1-provider-authorization-audit.schema.json",
   "type": "object",
-  "additionalProperties": true,
-  "required": ["schemaVersion", "providerId", "status", "chainValid", "recordCount", "credentialConfigured", "credentialPersisted", "blockers", "formalTradingUnlocked", "orderCreateAllowed"],
+  "additionalProperties": false,
+  "required": ["schemaVersion", "status", "providers", "sourceEvidenceRef", "credentialPersisted", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
   "properties": {
-    "schemaVersion": {"const": "fams.formal_provider.authorization_audit.v1"},
-    "status": {"enum": ["passed", "blocked"]},
-    "chainValid": {"type": "boolean"},
+    "schemaVersion": {"const": "fams.formal_provider.authorization_audit_collection.v2"},
+    "status": {"const": "passed"},
+    "providers": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["schemaVersion", "providerId", "status", "chainValid", "recordCount", "latestRecord", "credentialRequired", "credentialConfigured", "credentialRedacted", "credentialPersisted", "blockers", "formalTradingUnlocked", "orderCreateAllowed"],
+        "properties": {
+          "schemaVersion": {"const": "fams.formal_provider.authorization_audit.v2"},
+          "providerId": {"enum": ["public_market_bundle", "csindex_public"]},
+          "status": {"const": "passed"},
+          "chainValid": {"const": true},
+          "recordCount": {"type": "integer", "minimum": 1},
+          "latestRecord": {
+            "type": "object",
+            "required": ["providerId", "providerClass", "decision", "authorizationRef", "usageScope", "evidenceRefs", "sourceSnapshotHash", "recordHash", "credentialPersisted"],
+            "properties": {
+              "providerId": {"enum": ["public_market_bundle", "csindex_public"]},
+              "providerClass": {"enum": ["official", "trusted_public_noncommercial"]},
+              "decision": {"const": "approved"},
+              "authorizationRef": {"type": "string", "minLength": 1},
+              "usageScope": {"const": "local_personal_noncommercial"},
+              "evidenceRefs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+              "sourceSnapshotHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+              "recordHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+              "credentialPersisted": {"const": false}
+            }
+          },
+          "credentialRequired": {"const": false},
+          "credentialConfigured": {"const": true},
+          "credentialRedacted": {"const": "not_required"},
+          "credentialPersisted": {"const": false},
+          "blockers": {"type": "array", "maxItems": 0},
+          "formalTradingUnlocked": {"const": false},
+          "orderCreateAllowed": {"const": false}
+        }
+      },
+      "allOf": [
+        {"contains": {"type": "object", "properties": {"providerId": {"const": "public_market_bundle"}}, "required": ["providerId"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"providerId": {"const": "csindex_public"}}, "required": ["providerId"]}, "minContains": 1, "maxContains": 1}
+      ]
+    },
+    "sourceEvidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+    },
     "credentialPersisted": {"const": false},
-    "blockers": {"type": "array", "items": {"type": "string"}},
     "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
     "orderCreateAllowed": {"const": false}
   }
 }

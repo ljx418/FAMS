@@ -215,6 +215,7 @@ backend/data/gpt-audit/interactive-strategy-backtest/2026-06-26T13-10-58-875Z/SU
 
 - 标准永久组合和全天候组合当前为研究级代理行情 completed，可进入组合回测正式评审；仍不等同于正式交易解锁。
 - 红利低波篮子已接入真实 `DividendLowVolDaily` 候选快照读取、等权 v1、tradeDate、selectionRules 和 evidenceRefs；通过免费源扩容后真实入篮数量达到 3/3，当前可在研究级组合回测中返回 completed 曲线，但不得用该结果解锁正式交易。
+- 最新快照回测只表示“以当前已知篮子回看历史”的研究比较，不表示无前视选股验证。正式候选重构必须先通过 FTR-3R0 六历史决策点数据门禁；禁止用当前 8 只成分、当前 universe 或未来公告事实回填历史并宣称 point-in-time validation。
 - 已新增审计用户 `audit_portfolio_backtest_user` 的真实持仓样本，`current_holdings_buy_and_hold` 在该用户下可返回 completed 曲线；默认用户无持仓时仍保持 insufficient。
 - 已接入免费源 total-return benchmark，组合回测可达到 formal-review-ready；官方授权 total-return benchmark 和人工交易复核仍是正式交易解锁前置。
 - Runtime Health 已完成本阶段统一收口；后续若出现 critical 或 unconfirmed，必须阻断 full-A 持久化 scan、persistence-heavy backtest 和 formal validation promotion。

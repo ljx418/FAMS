@@ -1,5 +1,11 @@
 # V2-PX External Brain Productization PRD
 
+## 2026-09-14 集中人工验收修订
+
+PX-REQ-001 至 PX-REQ-020 的工程合同和自动验收保持已完成状态；PX6-02 的 10 项真实 Chrome 人工体验核查并入 FAMS A6 集中人工验收批次。未执行前保持 `not_performed_0_of_10` 和 `v2PxProductizationCandidate=false`，不得使用旧 mock、自动截图或 Agent 自述替代人工体验结论。
+
+该后置只改变验收时点，不减少三入口、五 intent、双容器生命周期、四 viewport、隐私和交易边界要求。
+
 更新时间：2026-08-27
 
 ## 1. 审批与阶段状态

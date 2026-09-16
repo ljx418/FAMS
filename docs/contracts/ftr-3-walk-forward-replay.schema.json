@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-walk-forward-replay.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "candidateId", "validationProfileId", "windowSelectionAlgorithm", "configuredWindowCount", "configuredTrainingDays", "configuredValidationDays", "windows", "validWindowCount", "passedWindowCount", "passedRatio", "status", "inputHash", "realDataUsed", "notTradingAdvice"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3.walk_forward_replay.v1"},
+    "stageId": {"const": "FTR-3"},
+    "candidateId": {"const": "dividend_low_vol_basket"},
+    "validationProfileId": {"const": "equity_selection_release_v1"},
+    "windowSelectionAlgorithm": {"const": "six_equal_distance_endpoints_after_60_training_plus_60_validation_common_trading_days"},
+    "configuredWindowCount": {"const": 6},
+    "configuredTrainingDays": {"const": 60},
+    "configuredValidationDays": {"const": 60},
+    "windows": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["windowId", "trainingStartDate", "trainingEndDate", "validationStartDate", "validationEndDate", "trainingSampleSize", "configuredValidationSampleSize", "parameterSnapshotHash", "validationSampleSize", "totalReturnPercent", "benchmarkReturnPercent", "excessReturnPercent", "maxDrawdownPercent", "annualizedTurnoverPercent", "dataQualityStatus", "status", "requestHash", "resultHash", "blockers"],
+        "properties": {
+          "windowId": {"type": "string", "pattern": "^wf-0[1-6]$"},
+          "trainingStartDate": {"type": "string", "format": "date"},
+          "trainingEndDate": {"type": "string", "format": "date"},
+          "validationStartDate": {"type": "string", "format": "date"},
+          "validationEndDate": {"type": "string", "format": "date"},
+          "trainingSampleSize": {"const": 60},
+          "configuredValidationSampleSize": {"const": 60},
+          "parameterSnapshotHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "validationSampleSize": {"type": "integer", "minimum": 0},
+          "totalReturnPercent": {"type": ["number", "null"]},
+          "benchmarkReturnPercent": {"type": ["number", "null"]},
+          "excessReturnPercent": {"type": ["number", "null"]},
+          "maxDrawdownPercent": {"type": ["number", "null"]},
+          "annualizedTurnoverPercent": {"type": ["number", "null"]},
+          "dataQualityStatus": {"enum": ["passed", "insufficient"]},
+          "status": {"enum": ["passed", "failed"]},
+          "requestHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "resultHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "blockers": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "validWindowCount": {"type": "integer", "minimum": 0, "maximum": 6},
+    "passedWindowCount": {"type": "integer", "minimum": 0, "maximum": 6},
+    "passedRatio": {"type": "number", "minimum": 0, "maximum": 1},
+    "status": {"enum": ["passed", "failed", "insufficient"]},
+    "inputHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "realDataUsed": {"const": true},
+    "notTradingAdvice": {"const": true}
+  }
+}

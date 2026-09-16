@@ -25,7 +25,7 @@
 | DPR-019 | 四标的买回摘要与上一轮比较 | 最终真实运行逐项核对；收盘后明确 `session_closed` 与父卖单不可用，不把技术锚伪装成买回点；四视口可见 | 7、8 | implemented_and_automated_accepted |
 | DPR-020 | `ScreenshotCaptureService`、总额型 `Position`、基金金额流水导入合同 | S2 最新已确认真实快照逐分对账、动态金额分桶、幂等重放和受保护表零漂移；公开矩阵不记录金额或标的 | 支付宝数据核对 | implemented_and_automated_accepted |
 | DPR-021 | `AlipayOneClickReviewService`、`dailyReview.ts` 一键运行 API、数据/RRG/LLM 预检 | S2 动态当前账户合同验证无变化执行、复盘后再次声明变化但无新快照时阻断、真实 LLM 门禁和失败不冒充成功 | 支付宝一键运行 | implemented_and_automated_accepted |
-| DPR-022 | `AllocationPolicyService`、`AlipayOneClickReviewService`、RRG 后续批次门禁 | 六项名义金额独立复算；5/25/25/45 偏离、流水约束、完整净值日和后续批次状态通过私有真实数据验收 | 支付宝报告复核 | implemented_and_automated_accepted |
+| DPR-022 | `AllocationPolicyService`、`AlipayOneClickReviewService`、RRG 后续批次门禁 | 10/15/50/25 四桶偏离独立复算；未越过3个百分点时零交易草案；流水约束、完整净值日和后续批次状态通过私有真实数据验收 | 支付宝报告复核 | implemented_and_automated_accepted |
 | DPR-023 | `DailyReviewSynthesisService` 严格白名单与重试历史 | 首次失败证据保留；确定性数据仍新鲜时显式重试；新增数值、标的或事实均被拒绝 | LLM 摘要复核 | implemented_and_automated_accepted |
 | DPR-024 | `AdviceExecution`、`AdviceAction`、`DailyReviews.tsx` 决定交互 | 接受/修改/拒绝只写审计决定；阻断项不可操作；Transaction、Position、外部订单零变化 | 人工计划交互 | implemented_and_automated_accepted |
 | DPR-025 | `AnalysisWorkflowProfile`、工作流合同哈希 | 同版本合同漂移阻断；合同版本、步骤、用途和执行边界可重放 | 工作流合同复核 | implemented_and_automated_accepted |
@@ -33,7 +33,7 @@
 | DPR-027 | `AlipayResearchWorkflowScheduler`、授权/租约/幂等合同 | 七天授权到期、撤销和截图变化均阻断；默认关闭；09:40/14:40 时槽及重复运行收敛通过 | 调度授权复核 | implemented_and_automated_accepted |
 | DPR-028 | `AlipayPortfolioComparisonService`、压缩快照与 SHA-256 校验 | 私有真实运行保存完整行情、曲线、交易事件、规则和摘要；损坏/缺失拒绝静默重算 | 历史证据复核 | implemented_and_automated_accepted |
 | DPR-029 | `AlipayPortfolioComparisonService` 双窗口径、`PortfolioComparison.tsx` | 连续路径切片和窗口重启共享同一快照与有效区间；不足 20 个共同交易日阻断 | 双窗口径体验 | implemented_and_automated_accepted |
-| DPR-030 | `AllocationPolicyService`、`AnalysisWorkflowProfile`、LLM 投影和页面用途标签 | 5/25/25/45 仅进入手工草案，10/25/40/25 仅进入研究比较；API、调度、LLM 和页面均保持隔离 | 用途边界复核 | implemented_and_automated_accepted |
+| DPR-030 | `AllocationPolicyService`、`AnalysisWorkflowProfile`、LLM 投影和页面用途标签 | 有效期内高防御10/15/50/25仅进入手工草案，10/25/40/25仅进入研究比较；API、调度、LLM 和页面均保持隔离；过期后阻断 | 用途边界复核 | implemented_and_automated_accepted |
 
 ## 产品化工作台映射
 

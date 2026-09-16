@@ -3,7 +3,7 @@
   "id": "fams",
   "name": "FAMS Investment Management",
   "displayName": "FAMS 投资管理连接器",
-  "version": "v2.0.0-alpha.1",
+  "version": "v2.1.0",
   "domainPack": "mcp/fams-domain-pack.json",
   "domainPackName": "fams",
   "domain": "financial_asset_management",
@@ -37,12 +37,36 @@
       "args": ["backend/dist/mcp/stdio.js"],
       "sourceEntrypoint": "backend/src/mcp/stdio.ts",
       "configPath": "mcp/financial-mcp.json",
+      "env": {
+        "FAMS_MCP_DEFAULT_USER_ID": "default",
+        "FAMS_MCP_PROFILE": "full"
+      },
       "context": {
         "userId": {
-          "required": true,
-          "sources": ["parameters.userId", "params.context.userId"],
+          "required": false,
+          "default": "default",
+          "sources": ["FAMS_MCP_DEFAULT_USER_ID", "parameters.userId"],
           "conflictPolicy": "fail_with_USER_CONTEXT_MISMATCH",
-          "missingPolicy": "fail_with_USER_CONTEXT_REQUIRED"
+          "missingPolicy": "inject_default_user"
+        }
+      }
+    },
+    {
+      "id": "fams_mcp_streamable_http",
+      "type": "streamable_http_mcp",
+      "status": "ready",
+      "endpoint": "http://127.0.0.1:4010/mcp",
+      "loopbackOnly": true,
+      "sourceEntrypoint": "backend/src/mcp/streamableHttp.ts",
+      "env": {
+        "FAMS_MCP_DEFAULT_USER_ID": "default",
+        "FAMS_MCP_PROFILE": "volatility"
+      },
+      "context": {
+        "userId": {
+          "required": false,
+          "default": "default",
+          "conflictPolicy": "fail_with_USER_CONTEXT_MISMATCH"
         }
       }
     }
@@ -55,7 +79,10 @@
     "asyncOperations": true,
     "artifactRefs": true,
     "nextActions": true,
-    "humanConfirmation": true
+    "humanConfirmation": true,
+    "resources": true,
+    "prompts": true,
+    "streamableHttp": true
   },
   "toolContract": {
     "sourceOfTruth": "GET /api/v1/mcp/domain-pack",
@@ -67,9 +94,14 @@
   "safety": {
     "tradeProtection": "transaction.* tools require human confirmation before writes",
     "writePolicy": "writes_must_be_explicitly_scoped_to_user_context",
-    "confirmationPolicy": "tools with requiresHumanConfirmation=true must return blocked status until confirmation is supplied"
+    "confirmationPolicy": "tools with requiresHumanConfirmation=true must return blocked status until confirmation is supplied",
+    "volatilityProfile": "broker order creation and strategy activation are not exposed; canCreateOrder=false and autoTradeUnlocked=false",
+    "hostVision": "the host submits structured screenshot facts; the server does not invoke OCR or a vision model in the volatility profile"
   },
   "canonicalTools": [
+    "volatility_workflow.reconcile",
+    "volatility_workflow.run",
+    "volatility_workflow.get_result",
     "market_data.get_real_time_price",
     "market_data.refresh_prices",
     "position.list",
@@ -99,7 +131,23 @@
     "capture.get_preview",
     "capture.vision_status",
     "capture.update_row",
-    "capture.confirm_rows"
+    "capture.confirm_rows",
+    "relative_rotation.get_industry_crowding",
+    "relative_rotation.get_market_flow",
+    "relative_rotation.refresh_industry_crowding",
+    "relative_rotation.get_holdings_timeline",
+    "relative_rotation.refresh_holdings_timeline",
+    "relative_rotation.list_watchlist",
+    "relative_rotation.add_watchlist_item",
+    "relative_rotation.delete_watchlist_item",
+    "relative_rotation.get_watchlist_timeline",
+    "relative_rotation.refresh_watchlist_timeline",
+    "relative_rotation.list_research_studies",
+    "relative_rotation.create_research_study",
+    "relative_rotation.update_research_study",
+    "relative_rotation.delete_research_study",
+    "relative_rotation.get_research_timeline",
+    "relative_rotation.refresh_research_timeline"
   ],
   "validation": {
     "httpSmoke": {

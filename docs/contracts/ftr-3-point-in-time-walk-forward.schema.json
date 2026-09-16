@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-point-in-time-walk-forward.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "candidateId", "candidateVersion", "validationProfileSetHash", "sourceR1", "benchmarkArtifact", "payloadSha256", "walkForward", "realDataUsed", "failedWindowsPreserved", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3.point_in_time_walk_forward.v2"},
+    "stageId": {"const": "FTR-3"},
+    "status": {"const": "passed"},
+    "candidateId": {"const": "dividend_low_vol_basket"},
+    "candidateVersion": {"const": "portfolio.strategy.dividend_low_vol_basket.v2_point_in_time"},
+    "validationProfileSetHash": {"$ref": "#/$defs/hash"},
+    "sourceR1": {"$ref": "#/$defs/ref"},
+    "benchmarkArtifact": {"$ref": "#/$defs/ref"},
+    "payloadSha256": {"$ref": "#/$defs/hash"},
+    "walkForward": {
+      "type": "object",
+      "required": ["configuredWindowCount", "validWindowCount", "passedWindowCount", "passedRatio", "minimumPassedRatio", "windows"],
+      "properties": {
+        "configuredWindowCount": {"const": 6},
+        "validWindowCount": {"const": 6},
+        "passedWindowCount": {"const": 5},
+        "passedRatio": {"const": 0.833333},
+        "minimumPassedRatio": {"const": 0.6},
+        "windows": {"type": "array", "minItems": 6, "maxItems": 6}
+      }
+    },
+    "realDataUsed": {"const": true},
+    "failedWindowsPreserved": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "ref": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}}
+  }
+}

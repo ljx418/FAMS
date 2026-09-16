@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-point-in-time-batch-probe.schema.json",
+  "title": "FAMS FTR-3R0B point-in-time batch probe",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "stageId", "generatedAt", "decisionDate", "sourcePolicy",
+    "provider", "implementation", "endpointResults", "coverage", "crossCheck",
+    "evidenceFiles", "rawResponseHashesVerified", "accountFactsUnchanged",
+    "realDataUsed", "mockDataUsed", "status", "blockers", "prohibitedActions",
+    "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "fams.ftr_3r.point_in_time_batch_probe.v1" },
+    "stageId": { "const": "FTR-3R0B" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "decisionDate": { "const": "2025-12-12" },
+    "sourcePolicy": { "const": "tushare_bulk_primary_baostock_akshare_cross_check" },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["providerId", "configured", "apiAuthorizationUsable", "usageAuthorizationVerified", "authorizationUsable", "authorizationBlockers", "liveProviderAttempted", "tokenInArtifact"],
+      "properties": {
+        "providerId": { "const": "tushare_pro" },
+        "configured": { "type": "boolean" },
+        "apiAuthorizationUsable": { "type": "boolean" },
+        "usageAuthorizationVerified": { "type": "boolean" },
+        "authorizationUsable": { "type": "boolean" },
+        "authorizationBlockers": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "liveProviderAttempted": { "type": "boolean" },
+        "tokenInArtifact": { "const": false }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pointInTimeBatchAdapterImplemented", "endpointAllowlistComplete", "historicalUniverseRulePassed",
+        "announcementCutoffRulePassed", "financialRevisionDeduplicationPassed",
+        "industryMembershipEffectiveDateRulePassed", "currentUniverseUsedAsHistoricalMembership"
+      ],
+      "properties": {
+        "pointInTimeBatchAdapterImplemented": { "const": true },
+        "endpointAllowlistComplete": { "const": true },
+        "historicalUniverseRulePassed": { "const": true },
+        "announcementCutoffRulePassed": { "const": true },
+        "financialRevisionDeduplicationPassed": { "const": true },
+        "industryMembershipEffectiveDateRulePassed": { "const": true },
+        "currentUniverseUsedAsHistoricalMembership": { "const": false }
+      }
+    },
+    "endpointResults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId", "endpoint", "domain", "status", "rowCount", "pageCount", "dataHash", "evidenceRef", "errorCategory"],
+        "properties": {
+          "requestId": { "type": "string", "minLength": 1 },
+          "endpoint": { "enum": ["stock_basic", "daily", "daily_basic", "stk_limit", "stock_st", "suspend_d", "dividend", "income_vip", "cashflow_vip", "balancesheet_vip", "fina_indicator_vip", "index_member_all"] },
+          "domain": { "enum": ["historical_universe", "price", "daily_basic", "trade_state", "dividend", "fundamental", "industry"] },
+          "status": { "enum": ["succeeded", "failed", "blocked_permission"] },
+          "rowCount": { "type": "integer", "minimum": 0 },
+          "pageCount": { "type": "integer", "minimum": 0 },
+          "dataHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "evidenceRef": { "type": ["string", "null"] },
+          "errorCategory": { "enum": ["provider_permission", "provider_rate_limit", "provider_timeout", "provider_error", null] }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["referenceUniverseCount", "historicalUniverseCount", "minimumCoveragePercent", "domains"],
+      "properties": {
+        "referenceUniverseCount": { "type": "integer", "minimum": 1 },
+        "historicalUniverseCount": { "type": "integer", "minimum": 0 },
+        "minimumCoveragePercent": { "const": 80 },
+        "domains": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["universe", "price", "dailyBasic", "tradeState", "dividend", "fundamental", "industry"],
+          "properties": {
+            "universe": { "$ref": "#/$defs/coverageResult" },
+            "price": { "$ref": "#/$defs/coverageResult" },
+            "dailyBasic": { "$ref": "#/$defs/coverageResult" },
+            "tradeState": { "$ref": "#/$defs/coverageResult" },
+            "dividend": { "$ref": "#/$defs/coverageResult" },
+            "fundamental": { "$ref": "#/$defs/coverageResult" },
+            "industry": { "$ref": "#/$defs/coverageResult" }
+          }
+        }
+      }
+    },
+    "crossCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "decisionDateMatched", "realOpenSourceEvidence", "evidenceRef", "evidenceSha256"],
+      "properties": {
+        "passed": { "type": "boolean" },
+        "decisionDateMatched": { "type": "boolean" },
+        "realOpenSourceEvidence": { "type": "boolean" },
+        "evidenceRef": { "type": ["string", "null"] },
+        "evidenceSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "evidenceFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId", "path", "sha256", "dataHash", "exists"],
+        "properties": {
+          "requestId": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "dataHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "exists": { "const": true }
+        }
+      }
+    },
+    "rawResponseHashesVerified": { "type": "boolean" },
+    "accountFactsUnchanged": { "const": true },
+    "realDataUsed": { "type": "boolean" },
+    "mockDataUsed": { "const": false },
+    "status": { "enum": ["passed", "insufficient", "blocked_provider_not_configured", "blocked_provider_permission"] },
+    "blockers": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "prohibitedActions": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "ADD" } },
+        { "contains": { "const": "REDUCE" } },
+        { "contains": { "const": "ORDER_CREATE" } },
+        { "contains": { "const": "AUTO_TRADE" } }
+      ]
+    },
+    "formalTradingUnlocked": { "const": false },
+    "autoTradeUnlocked": { "const": false },
+    "canCreateOrder": { "const": false },
+    "orderCreateAllowed": { "const": false }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "passed" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "provider": {
+            "properties": {
+              "configured": { "const": true },
+              "apiAuthorizationUsable": { "const": true },
+              "usageAuthorizationVerified": { "const": true },
+              "authorizationUsable": { "const": true },
+              "authorizationBlockers": { "maxItems": 0 },
+              "liveProviderAttempted": { "const": true }
+            }
+          },
+          "realDataUsed": { "const": true },
+          "rawResponseHashesVerified": { "const": true },
+          "blockers": { "maxItems": 0 },
+          "endpointResults": { "minItems": 1 },
+          "evidenceFiles": { "minItems": 1 },
+          "crossCheck": { "properties": { "passed": { "const": true } } },
+          "coverage": {
+            "properties": {
+              "domains": {
+                "properties": {
+                  "universe": { "$ref": "#/$defs/passedCoverage" },
+                  "price": { "$ref": "#/$defs/passedCoverage" },
+                  "dailyBasic": { "$ref": "#/$defs/passedCoverage" },
+                  "tradeState": { "$ref": "#/$defs/passedCoverage" },
+                  "dividend": { "$ref": "#/$defs/passedCoverage" },
+                  "fundamental": { "$ref": "#/$defs/passedCoverage" },
+                  "industry": { "$ref": "#/$defs/passedCoverage" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "coverageResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coveredCount", "coveragePercent", "status"],
+      "properties": {
+        "coveredCount": { "type": "integer", "minimum": 0 },
+        "coveragePercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "status": { "enum": ["passed", "insufficient", "blocked"] }
+      }
+    },
+    "passedCoverage": {
+      "allOf": [
+        { "$ref": "#/$defs/coverageResult" },
+        { "properties": { "coveragePercent": { "minimum": 80 }, "status": { "const": "passed" } } }
+      ]
+    }
+  }
+}

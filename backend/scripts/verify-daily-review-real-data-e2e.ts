@@ -143,14 +143,15 @@ try {
   assert.equal(report.decisionSummary?.assets?.length, assets.length, '结论摘要没有覆盖成功资产')
   assert.equal(report.llmSynthesis?.schemaVersion, 'fams.daily-review-llm-synthesis.v1')
   assert.ok(['available', 'fallback'].includes(report.llmSynthesis?.status), '一次性汇总缺少可审计状态')
-  assert.ok([0, 1].includes(report.llmSynthesis?.attemptCount), '一次性汇总请求次数越界')
-  assert.equal(report.llmSynthesis?.attempted, report.llmSynthesis?.attemptCount === 1)
+  assert.ok([0, 1, 2].includes(report.llmSynthesis?.attemptCount), '一次性汇总请求次数越界')
+  assert.equal(report.llmSynthesis?.attempted, report.llmSynthesis?.attemptCount > 0)
   if (process.env.FAMS_REAL_E2E_REQUIRE_LLM === '1') {
     assert.equal(report.llmGate?.required, true, '最终真实验收没有启用 LLM 强制门禁')
     assert.equal(report.llmGate?.passed, true, `真实 LLM 汇总未通过：${report.llmSynthesis?.failureCode || report.llmSynthesis?.status}`)
     assert.equal(report.llmSynthesis?.status, 'available', '强制模式不接受 fallback')
     assert.equal(report.llmSynthesis?.source, 'llm', '强制模式必须来自真实 LLM')
-    assert.equal(report.llmSynthesis?.attemptCount, 1, '强制模式必须且只能调用一次 LLM')
+    assert.ok(report.llmSynthesis?.attemptCount >= 1 && report.llmSynthesis?.attemptCount <= 2, '强制模式必须在最多两次真实供应商调用内成功')
+    assert.equal(report.llmSynthesis?.providerAttempts?.at(-1)?.outcome, 'succeeded', '强制模式最后一次供应商调用必须成功')
   }
   const accountedSymbols = [...assets.map((asset: any) => asset.symbol), ...errors.map((error: any) => error.symbol)].sort()
   assert.deepEqual(accountedSymbols, nonCashPositions.map((position) => position.asset.symbol).sort(), '持仓资产覆盖不一致')

@@ -12,6 +12,7 @@ export async function captureRoutes(app: FastifyInstance) {
     const fields = file.fields as Record<string, any>
     const result = await screenshotCaptureService.upload({
       userId: String(fields.userId?.value || 'default'),
+      accountSource: String(fields.accountSource?.value || '') as 'tonghuashun' | 'alipay',
       conversationId: fields.conversationId?.value ? String(fields.conversationId.value) : undefined,
       originalFilename: file.filename,
       mimeType: file.mimetype,

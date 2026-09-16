@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-6-provisional-review-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "packageId", "sourceManifest", "sourceArtifacts", "generatedArtifacts", "stageCoverage", "missingArtifacts", "packageChecks", "businessGates", "reviewQueue", "humanReviewRequired", "humanAcceptanceStatus", "downstreamEvidenceStatus", "releaseApprovalStatus", "formalTradingReleaseReviewReady", "finalFormalReleaseReviewPackageReady", "formalTradingReleaseReady", "productionAdapterEnabled", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_release.provisional_review_manifest.v2"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "packageId": {"type": "string", "pattern": "^ftr6-provisional-[a-f0-9]{16}$"},
+    "sourceManifest": {"$ref": "#/$defs/ref"},
+    "sourceArtifacts": {"type": "array", "minItems": 18, "items": {"$ref": "#/$defs/sourceArtifact"}},
+    "generatedArtifacts": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/generatedArtifact"}},
+    "stageCoverage": {"type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true, "items": {"enum": ["A0", "FTR-1", "FTR-2", "FTR-3", "FTR-4", "FTR-5"]}},
+    "missingArtifacts": {"type": "array", "maxItems": 0},
+    "packageChecks": {"$ref": "#/$defs/packageChecks"},
+    "businessGates": {"$ref": "#/$defs/businessGates"},
+    "reviewQueue": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "itemCount", "pendingCount", "approvedCount", "riskEvidenceRebound"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}, "itemCount": {"const": 8}, "pendingCount": {"const": 8}, "approvedCount": {"const": 0}, "riskEvidenceRebound": {"const": true}}},
+    "humanReviewRequired": {"const": true},
+    "humanAcceptanceStatus": {"const": "pending_batch_review"},
+    "downstreamEvidenceStatus": {"const": "provisional_until_human_pass"},
+    "releaseApprovalStatus": {"const": "pending_human_approval"},
+    "formalTradingReleaseReviewReady": {"const": true},
+    "finalFormalReleaseReviewPackageReady": {"const": false},
+    "formalTradingReleaseReady": {"const": false},
+    "productionAdapterEnabled": {"const": false},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "ref": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}}},
+    "sourceArtifact": {"type": "object", "additionalProperties": false, "required": ["stageId", "name", "path", "packageRelativePath", "originPath", "sha256", "bytes"], "properties": {"stageId": {"enum": ["A0", "FTR-1", "FTR-2", "FTR-3", "FTR-4", "FTR-5"]}, "name": {"type": "string", "minLength": 1}, "path": {"type": "string", "minLength": 1}, "packageRelativePath": {"type": "string", "pattern": "^evidence/[^/]+$"}, "originPath": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}, "bytes": {"type": "integer", "minimum": 1}}},
+    "generatedArtifact": {"type": "object", "additionalProperties": false, "required": ["name", "path", "sha256", "bytes"], "properties": {"name": {"enum": ["14_release_gate_audit.json", "acceptance-report.html", "SUMMARY_FOR_GPT.md"]}, "path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}, "bytes": {"type": "integer", "minimum": 1}}},
+    "packageChecks": {"type": "object", "additionalProperties": false, "required": ["allRequiredArtifactsPresent", "allArtifactHashesVerified", "allReleaseCandidatesVisible", "blockedAndInsufficientResultsPreserved", "ftr4RiskEvidenceReboundToCurrentFtr5"], "properties": {"allRequiredArtifactsPresent": {"const": true}, "allArtifactHashesVerified": {"const": true}, "allReleaseCandidatesVisible": {"const": true}, "blockedAndInsufficientResultsPreserved": {"const": true}, "ftr4RiskEvidenceReboundToCurrentFtr5": {"const": true}}},
+    "businessGates": {"type": "object", "additionalProperties": false, "required": ["formalDataGovernancePassed", "benchmarkQualificationPassed", "formalValidationPassed", "manualSignoffPassed", "executionIsolationPassed"], "properties": {"formalDataGovernancePassed": {"const": true}, "benchmarkQualificationPassed": {"const": true}, "formalValidationPassed": {"const": true}, "manualSignoffPassed": {"const": false}, "executionIsolationPassed": {"const": true}}}
+  }
+}

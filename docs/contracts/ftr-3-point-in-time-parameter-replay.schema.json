@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-point-in-time-parameter-replay.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "candidateId", "candidateVersion", "sourceR1", "payloadSha256", "parameterSensitivity", "cashDividendAttributionNotClaimed", "realDataUsed", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3.point_in_time_parameter_replay.v2"},
+    "stageId": {"const": "FTR-3"},
+    "status": {"const": "passed"},
+    "candidateId": {"const": "dividend_low_vol_basket"},
+    "candidateVersion": {"const": "portfolio.strategy.dividend_low_vol_basket.v2_point_in_time"},
+    "sourceR1": {"$ref": "#/$defs/ref"},
+    "payloadSha256": {"$ref": "#/$defs/hash"},
+    "parameterSensitivity": {
+      "type": "object",
+      "required": ["testedParameterSetCount", "stableParameterSetCount", "stableParameterSetRatio", "bestWorstReturnSpreadPercentPoints", "maxDrawdownSpreadPercentPoints", "status", "variants", "cashDividendVariant"],
+      "properties": {
+        "testedParameterSetCount": {"const": 5},
+        "stableParameterSetCount": {"const": 5},
+        "stableParameterSetRatio": {"const": 1},
+        "bestWorstReturnSpreadPercentPoints": {"type": "number", "maximum": 15},
+        "maxDrawdownSpreadPercentPoints": {"type": "number", "maximum": 10},
+        "status": {"const": "passed"},
+        "variants": {"type": "array", "minItems": 5, "maxItems": 5},
+        "cashDividendVariant": {"type": "object", "properties": {"status": {"const": "not_applicable"}, "countedAsTestedParameterSet": {"const": false}}, "required": ["status", "countedAsTestedParameterSet"]}
+      }
+    },
+    "cashDividendAttributionNotClaimed": {"const": true},
+    "realDataUsed": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "ref": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}}
+  }
+}

@@ -1,83 +1,114 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-09-11
+更新时间：2026-09-16
 
 ## 1. 当前有效结论
 
-`docs/target-architecture-gap.drawio` 已同步为 FAMS **PRD 基线闭环、真实数据回归与 Formal Release 业务门禁** 架构、开发和验收地图，共 8 页，满足 `drawioPageCount=8`、`drawioPageLimit=8`。
+`docs/target-architecture-gap.drawio` 是 FAMS 当前 **公开来源真实数据、正式验证、三类资产投资工作流、集中人工核查与最终评审包** 的架构、开发和验收地图，共 8 页，满足 `drawioPageCount=8`、`drawioPageLimit=8`。
 
-本图明确区分：
+当前机器状态以 `docs/current-stage-state.json` 为唯一来源，图中同步为：
 
-- 已完成工程实现：DPR-001 至 DPR-030、ChatBox 第一入口、每日复盘、支付宝受控研究、组合比较、RRG、专家页面、资产 Excel、长周期真实数据回测和 13-18 号审计合同；人工体验仍待执行。
-- 已实现但未达到正式 release：数据治理、benchmark、formal validation、人工签核、执行隔离和 release gate 合同。
-- 工程已实现、业务 gate 待闭环：FTR-0 至 FTR-6 的正式数据、benchmark、验证、签核、隔离和 release review 服务/合同已存在，但外部授权、合格数据和人工签核仍缺失。
-- 自动化阶段不可跨越：正式 provider/benchmark 资格、五角色人工签核、生产适配器审批和最终交易权限变更。
+- A0、FTR-1、FTR-2、FTR-3 point-in-time v2 自动验收通过，证据保持 `provisional_until_human_pass`。
+- 免费来源全量回填覆盖 5216/5216 标的；六个冻结决策日均达到七域覆盖门槛，`pointInTimeDataReady=6/6`。
+- 红利低波是唯一产品 release candidate；当前 v2 为六窗口 `5/6`、53 条有效动态路径、行业/市场/流动性分组 `6/3/3`，`wf-04` 失败保留。
+- H00300 `trusted_total_return` benchmark 为 735 点；来源与本机个人非商业用途证据已冻结，不声明商业授权。
+- FTR-4 `DeferredHumanReviewQueueService` 已实现并生成 8 类 pending、0 approved 的不可自签队列；风险项已重新绑定当前 FTR-5 隔离证据。
+- FTR-5 自动验收通过：真实账户只读、paper intent 可用、5 类生产变更阻断、生产适配器 disabled。
+- FTR-6 provisional review package 已生成，覆盖 A0 与 FTR-1 至 FTR-5、28 个来源 artifact，并完成逐字节 SHA-256 校验；业务 release gate 因人工签核未完成保持 blocked。
+- 自动化范围已完成；A6 图文核查工作台与私有草稿 API 已实现并通过自动合同，8 类共 32/32 步有图。当前下一步是人类完成 A6 真实核查，其中 V2-PX 的 4 张操作示意不能代替真实 Chrome 截图/trace；A6 通过后才能以相同 artifact 哈希重建 A7 final review package。
+- 投资工作流 WF-0..WF-7 文档支撑自动化范围已完成：真实基线为 16 个持仓、57 条交易、16 个待确认策略归属，PRD 自动覆盖 18/20。
+- 投资工作流剩余两项被明确保留：截图行纠正/策略归属/UX 的集中人工确认，以及 advice-level `point_in_time_simulation` 冻结策略逐日重算。后者未实现，`prdFullyComplete=false`。
 
-当前不是正式交易 release。`formalTradingReleaseReviewReady=true` 只表示工程审查包可生成；下一阶段先完成 PRD/状态/架构一致性和私有真实数据回归，再按真实证据推进业务 gate：
+当前可声明：
 
 ```text
-documentationConsistencyReady=true
-realDataRegressionPassed=true
+automatedAcceptanceStatus=passed
+batchHumanReviewReady=true
 formalTradingReleaseReviewReady=true
-releaseApprovalStatus=pending_human_approval
-productionAdapterEnabled=false
-formalTradingUnlocked=false
-autoTradeUnlocked=false
-canCreateOrder=false
-orderCreateAllowed=false
+humanAcceptanceStatus=pending_batch_review
+finalFormalReleaseReviewPackageReady=false
+investmentWorkflowAutomatedStatus=passed
+investmentWorkflowPrdCoverage=18/20
+prdFullyComplete=false
+```
+
+当前不得声明：
+
+```text
+formalTradingReleaseReady=true
+productionAdapterEnabled=true
+formalTradingUnlocked=true
+autoTradeUnlocked=true
+canCreateOrder=true
+orderCreateAllowed=true
 ```
 
 ## 2. 八页结构
 
-1. **当前基线与 FTR 业务闭环目标**：说明已完成能力、FTR 工程服务、真实 blocker、FTR-0 至 FTR-6 和人类高风险门。
-2. **当前架构与目标架构差异**：按“当前实体 -> 缺口/内嵌实现 -> 目标实体 -> 审计证据 -> 用户结果”逐层映射体验、API、计算、数据和 release。
-3. **正式数据治理**：绑定 `formalProviderIngestionService` 等存量实体与待新增 `FormalDataProviderService`、字段级证据和用户恢复路径。
-4. **Benchmark 与总回报回测**：绑定现有 `portfolioBenchmarkService`、目标 adapter、资格服务、统一 replay 结果和降级边界。
-5. **Formal Validation**：冻结 release candidate 集合、验证输入、量化门槛、失败保留和 `17_formal_validation_audit.json`。
-6. **人工签核、执行隔离与 Release Gate**：五角色签核、paper/sandbox 隔离、生产 adapter 禁用和人类 review package。
-7. **开发计划、里程碑与用户路径**：给出 FTR-0 至 FTR-6 顺序，以及普通用户、研究用户、审核用户和交易阻断四条完整路径。
-8. **验收门槛、出门条件与硬边界**：列出自动化验收、人工门禁、允许声明、Hard Fail、失败打回和人工审查问题。
+1. **当前基线与唯一下一步**：自动化 A0-A5 已完成，A6 图文工作台已实现但人类核查未执行，A7 和生产解锁均未放行。
+2. **存量到目标强关联映射**：R1-R6 横向实体链对齐当前代码、当前状态、目标动作、API/数据、证据和用户结果；R6 专门描述三类资产、策略路由、场景比较和动态时点模拟缺口。
+3. **正式数据治理**：公开来源、本机个人非商业用途、5216/5216、六时点、freshness/coverage/evidence 与失败恢复路径。
+4. **Benchmark 与模型验证**：H00300 735 点、v2 `5/6`、53 路径、`6/3/3` 分组以及 `wf-04` 失败证据。
+5. **人工核查与证据失效**：8 类队列、FTR-5 风险证据重绑定、签核哈希、否决归属和下游失效。
+6. **用户操作与验收路径**：截图/Excel 资产录入、持仓归属、三类策略、统一回测、模型验证、集中核查和禁止交易；每条均含入口、操作、结果、阈值和证据。
+7. **里程碑与打回**：A0-A5 已完成，A6 工具已就绪且人工结果 pending，A7 未准入；标出每段产物和失败归属。
+8. **出门门槛与生产边界**：区分自动化出门、集中人工出门、Hard Fail 和独立未来生产解锁。
 
-## 3. 第 2 页架构可审计性
+## 3. 架构可审计性
 
-第 2 页不是并列模块清单，而是固定五列的演进关系：
-
-该页显式表达当前架构与目标架构的架构关联关系，使审计者能够从存量代码实体追溯到目标实体、证据和用户结果。
+第 2 页每条实体链都遵循：
 
 ```text
-当前架构实体
--> 当前缺口或内嵌实现
--> 下一阶段目标实体
--> 必须生成的审计证据
--> 用户可见结果和出门判断
+存量代码实体 -> 当前状态/风险 -> 本阶段实体/动作
+-> API/Service 交互 -> 审计产物 -> 用户结果
 ```
 
-其中明确标注：
+状态颜色：
 
-- 绿色：已开发并验收；
-- 黄色：工程服务已实现，但业务 gate 未达到 release；
-- 橙色：外部授权、许可或人工闭环；
+- 绿色：已经实现且当前自动验收通过；
+- 黄色：工程和自动证据就绪，但仍待人工业务 gate；
+- 橙色：未准入或未来阶段；
 - 蓝色：审计产物；
-- 红色：硬边界；
-- 灰色：已有基础。
+- 红色：硬边界或必须阻断；
+- 灰色：保留的存量基础。
 
-图中将已存在的模块化服务明确标为“工程已实现、业务 gate blocked”，并把正式 provider 授权、official/trusted benchmark 数据、五角色签核与生产适配器批准继续标为外部/人工门；没有把工程完成冒充成业务通过。
+图中严格区分：
 
-## 4. 用户体验验收
+```text
+formalValidationPassed（自动验证通过）
+不等于 manualSignoffPassed（人工签核通过）
+不等于 finalFormalReleaseReviewPackageReady（最终评审包完成）
+不等于 formalTradingUnlocked（正式交易解锁）
+```
 
-图内必须能复核以下用户路径：
+`wf-04`、8 项 pending 和 release blockers 必须可见，不能为了“全绿”从图中删除。
 
-- 真实资产 Excel -> Dashboard 数据健康 -> ChatBox 组合比较 -> 工作台 blocker -> Operations 证据。
-- release candidate -> 长周期总回报/OOS/walk-forward/参数/分组 -> 失败项保留 -> 16/17 审计。
-- 数据/模型/风控/合规/final release 五角色 -> 签核或打回 -> artifact hash -> HTML 总报告。
-- ChatBox/Backtest/API 请求交易动作 -> blocked -> 不创建订单/不修改持仓 -> 交易边界审计。
+## 4. Archify 表现基线
 
-## 5. 人工审查重点
+Archify 规格文件为 `docs/fams-formal-release-readiness.architecture.json`，输出为 `docs/fams-formal-release-readiness-architecture.html`。它用于检查主路径、节点状态、证据关系和安全边界，不替代 8 页 drawio。
 
-1. 第 2 页能否清楚判断每个目标实体从哪个存量实体演进，以及二者之间的缺口、证据和用户结果。
-2. 第 3 至 6 页是否把 provider、benchmark、validation、人工签核和执行隔离风险拆开，而非用单一 `ready` 状态掩盖。
-3. 第 7 页是否包含明确操作步骤、用户结果、量化门槛和失败归属。
-4. 第 8 页是否明确 review-ready 不等于 trading-ready，自动化不可自行解锁交易。
-5. 是否存在过度承诺、工程服务被误标为业务通过，或历史 S0-S8/DRV1 状态被误当成 FTR 待办。
+本轮 Archify 目标状态：
+
+- 主路径为“用户入口 -> API -> 候选 -> 数据 -> benchmark -> validation -> 队列 -> 人工核查 -> final package”；
+- 自动化已完成节点用绿色；集中人工核查与 final package 用黄色；交易边界用红色；
+- 节点绑定当前代码实体和当前真实 artifact，不再把付费数据源凭据作为本阶段 blocker；
+- 只声明静态 showcase 校验与实际执行成功的浏览器检查结果，浏览器环境不可用时必须保留失败记录。
+
+## 5. 用户验收路径
+
+1. **资产与研究**：Excel 导入真实资产 -> Dashboard 数据健康 -> ChatBox 组合比较 -> 工作台查看结论与证据。
+2. **模型复核**：选择红利低波 v2 -> 查看 H00300 总回报 -> 查看 5/6、53 路径和分组 -> 定位 `wf-04` -> 打开 16/17 号证据。
+3. **集中核查**：Operations -> 打开 8 项冻结队列 -> 核对来源 artifact 和 SHA-256 -> 按授权角色批准或打回 -> 全通过后重建 final package。
+4. **安全边界**：ChatBox、专家页或 API 请求 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` -> 被阻断 -> 不创建订单、不修改持仓 -> 写入审计。
+
+## 6. 人工审查重点
+
+1. 第 1、7、8 页是否明确：自动化已完成，当前唯一下一步是 A6 人工核查。
+2. 第 2 页能否从每个目标实体追溯到存量代码、当前状态、证据和用户结果。
+3. 第 4 页是否保留真实失败 `wf-04`，并避免把 `5/6` 错写成六窗口全通过。
+4. 第 5 页是否明确队列为 8 pending、0 approved，自动化不能代替人工签核。
+5. 第 6 页是否每条路径都有用户入口、连续操作、目标结果、量化门槛和证据。
+6. 第 8 页是否明确 provisional review package 不等于 final package，更不等于正式交易解锁。
+7. 第 2、4、6、8 页是否都明确投资工作流为 18/20、人工确认 pending、动态时点模拟未实现，并拒绝 PRD 全完成声明。
 
 原始 XML 的可读解析证据见 `docs/read-drawio-output.txt`。

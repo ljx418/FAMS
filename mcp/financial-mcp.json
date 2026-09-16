@@ -2,122 +2,97 @@
   "mcpServers": {
     "financial-asset-manager": {
       "command": "node",
-      "args": ["backend/dist/mcp/stdio.js"],
+      "args": [
+        "/mnt/c/workspace/financial-asset-manager/backend/dist/mcp/portfolioStdio.js"
+      ],
       "env": {
-        "PORT": "4000",
-        "DATABASE_URL": "file:./dev.db"
+        "DATABASE_URL": "file:/mnt/c/workspace/financial-asset-manager/backend/prisma/dev.db",
+        "FAMS_MCP_USER_ID": "default"
       },
-      "domainPack": "mcp/fams-domain-pack.json",
-      "harnessOSConnector": "mcp/harnessos-connector.json",
-      "description": "金融资产管理系统 MCP Server",
+      "description": "FAMS 仓位管理 MCP：读取仓位、导入支付宝持仓截图、运行复盘并保存人工计划；不会创建交易或券商订单。",
       "capabilities": [
-        "market_data.get_real_time_price",
-        "market_data.refresh_prices",
-        "position.list",
-        "portfolio.get_analysis",
-        "portfolio.get_daily_snapshot",
-        "advice.get_suggestions",
-        "advice.generate_daily",
-        "alert.list",
-        "alert.check",
-        "backtest.run_strategy",
-        "backtest.run_from_advice",
-        "operation.list",
-        "operation.get",
-        "operation.get_artifact",
-        "transaction.create_manual_record",
-        "market_data.get_asset_trend",
-        "daily_review.run",
-        "daily_review.get_latest",
-        "daily_review.get",
-        "daily_review.list",
-        "grid_strategy.list_templates",
-        "grid_strategy.create_draft",
-        "grid_strategy.validate_draft",
-        "grid_strategy.activate",
+        "portfolio_get_current_state",
+        "portfolio_review_preflight",
+        "portfolio_review_start",
+        "portfolio_review_get",
+        "portfolio_plan_save_decision",
+        "portfolio_screenshot_upload",
+        "portfolio_screenshot_save_extraction",
+        "portfolio_screenshot_confirm",
+        "portfolio_snapshot_authorize_reuse",
+        "portfolio_snapshot_revoke_reuse"
+      ]
+    },
+    "financial-asset-manager-research": {
+      "command": "node",
+      "args": [
+        "/mnt/c/workspace/financial-asset-manager/backend/dist/mcp/stdio.js"
+      ],
+      "env": {
+        "DATABASE_URL": "file:/mnt/c/workspace/financial-asset-manager/backend/prisma/dev.db",
+        "FAMS_MCP_DEFAULT_USER_ID": "default",
+        "FAMS_MCP_PROFILE": "full"
+      },
+      "description": "FAMS 轮动研究 MCP：行业拥挤度、全市场资金流、持仓/自选/专题 RRG 研究及异步刷新。删除自选或专题研究必须由人类二次确认。",
+      "capabilities": [
+        "relative_rotation.get_industry_crowding",
+        "relative_rotation.get_market_flow",
+        "relative_rotation.refresh_industry_crowding",
+        "relative_rotation.get_holdings_timeline",
+        "relative_rotation.refresh_holdings_timeline",
+        "relative_rotation.list_watchlist",
+        "relative_rotation.add_watchlist_item",
+        "relative_rotation.delete_watchlist_item",
+        "relative_rotation.get_watchlist_timeline",
+        "relative_rotation.refresh_watchlist_timeline",
+        "relative_rotation.list_research_studies",
+        "relative_rotation.create_research_study",
+        "relative_rotation.update_research_study",
+        "relative_rotation.delete_research_study",
+        "relative_rotation.get_research_timeline",
+        "relative_rotation.refresh_research_timeline",
+        "relative_rotation.analyze_volatility_sleeves"
+      ]
+    },
+    "financial-asset-manager-volatility": {
+      "command": "node",
+      "args": [
+        "/mnt/c/workspace/financial-asset-manager/backend/dist/mcp/stdio.js"
+      ],
+      "env": {
+        "DATABASE_URL": "file:/mnt/c/workspace/financial-asset-manager/backend/prisma/dev.db",
+        "FAMS_MCP_DEFAULT_USER_ID": "default",
+        "FAMS_MCP_PROFILE": "volatility"
+      },
+      "description": "FAMS 波动仓管理 MCP：宿主识图后对账持仓、运行MA/RRG/基本面复盘并生成人工网格草案；不会创建券商订单。",
+      "capabilities": [
+        "volatility_workflow.reconcile",
+        "volatility_workflow.run",
+        "volatility_workflow.get_result",
         "capture.upload_screenshot",
         "capture.apply_extraction",
         "capture.get_preview",
-        "capture.vision_status",
         "capture.update_row",
-        "capture.confirm_rows"
-      ]
-    }
-  },
-  "tools": {
-    "get-investment-suggestions": {
-      "description": "获取每日/每周投资建议",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "userId": { "type": "string" },
-          "period": { "type": "string", "enum": ["daily", "weekly"] }
-        }
-      }
-    },
-    "get-real-time-price": {
-      "description": "获取资产实时价格",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "symbol": { "type": "string" },
-          "source": { "type": "string", "enum": ["yahoo", "eastmoney", "sina"] }
-        }
-      }
-    },
-    "get-portfolio-analysis": {
-      "description": "获取投资组合分析",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "userId": { "type": "string" },
-          "portfolioId": { "type": "string" }
-        }
-      }
-    },
-    "run-backtest": {
-      "description": "执行策略回测",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "strategyId": { "type": "string" },
-          "startDate": { "type": "string" },
-          "endDate": { "type": "string" },
-          "initialCapital": { "type": "number" }
-        }
-      }
-    },
-    "get-daily-snapshot": {
-      "description": "获取每日仓位快照",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "userId": { "type": "string" },
-          "date": { "type": "string" }
-        }
-      }
-    },
-    "get-positions": {
-      "description": "获取用户仓位列表",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "userId": { "type": "string" },
-          "status": { "type": "string", "enum": ["open", "closed", "pending"] }
-        }
-      }
-    },
-    "create-transaction": {
-      "description": "创建交易记录",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "userId": { "type": "string" },
-          "assetId": { "type": "string" },
-          "type": { "type": "string", "enum": ["buy", "sell"] },
-          "quantity": { "type": "number" },
-          "price": { "type": "number" }
-        }
+        "capture.confirm_rows",
+        "operation.get",
+        "market_data.get_asset_trend",
+        "daily_review.get",
+        "daily_review.get_latest",
+        "daily_review.export_html",
+        "grid_strategy.list_templates"
+      ],
+      "resources": [
+        "fams://volatility/strategy/active",
+        "fams://volatility/portfolio/latest-reconciled",
+        "fams://volatility/rules",
+        "fams://volatility/reviews/{reviewId}"
+      ],
+      "prompts": ["volatility-review"],
+      "executionBoundary": {
+        "canCreateOrder": false,
+        "autoTradeUnlocked": false,
+        "formalTradingUnlocked": false,
+        "userMustExecuteInBroker": true
       }
     }
   }

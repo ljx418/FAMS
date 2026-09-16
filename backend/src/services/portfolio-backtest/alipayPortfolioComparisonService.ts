@@ -26,6 +26,7 @@ export type AlipayPortfolioComparisonRunOptions = {
   targetBucketWeights?: AlipayTargetBucketWeights
   targetStrategyId?: string
   targetDisplayName?: string
+  driftThresholdPercentagePoints?: number
   requestedYears?: number
   minimumTradingDays?: number
   dataSourceProfile?: 'legacy_three_year_v1' | 'expanded_seven_year_v2'
@@ -93,6 +94,9 @@ export type ComparisonMetrics = {
   calmar: number | null
   endingValue: number
   totalCostCny: number
+  grossTurnoverCny: number
+  rebalanceTurnoverCny: number
+  rebalanceTurnoverPercentOfInitialCapital: number
   tradeCount: number
 }
 
@@ -105,6 +109,8 @@ export type ComparisonStrategy = {
   components: Component[]
   metrics: ComparisonMetrics
   costStressMetrics: ComparisonMetrics | null
+  costStressCurve?: CurvePoint[]
+  costStressTrades?: Trade[]
   curve: CurvePoint[]
   monthlyCurve: CurvePoint[]
   trades: Trade[]
@@ -140,7 +146,7 @@ export type AlipayPortfolioComparisonStudy = {
   }
   frozenRules: {
     targetBucketWeights: AlipayTargetBucketWeights
-    driftThresholdPercentagePoints: 3
+    driftThresholdPercentagePoints: number
     driftComparison: 'strictly_greater_than'
     singleAssetInitialWeightPercent: 85
     singleAssetCashWeightPercent: 15
@@ -257,7 +263,7 @@ const FUND_SYMBOLS = Object.keys(FUND_NAMES)
 const ETF_SYMBOLS = Object.keys(ETF_NAMES)
 const CLASSIC_STRATEGY_SYMBOLS = ['510300', '510500', '511010', '511260', '512890', '518880', '159985']
 const CASH_ANNUAL_RATE = 0.01
-const DRIFT_THRESHOLD = 3
+const DEFAULT_DRIFT_THRESHOLD = 3
 const MINIMUM_TRADING_DAYS = 700
 const MINIMUM_WINDOW_TRADING_DAYS = 20
 
@@ -309,6 +315,7 @@ function calculateMetrics(curve: CurvePoint[], trades: Trade[], initialCapital: 
       monthlyMaxDrawdownPercent: 0, worstMonthlyReturnPercent: null, monthlyWinRatePercent: null,
       volatilityPercent: 0, sharpe: null, calmar: null, endingValue: initialCapital,
       totalCostCny: 0, tradeCount: trades.length,
+      grossTurnoverCny: 0, rebalanceTurnoverCny: 0, rebalanceTurnoverPercentOfInitialCapital: 0,
     }
   }
   const endingValue = curve.at(-1)!.portfolioValue
@@ -333,6 +340,10 @@ function calculateMetrics(curve: CurvePoint[], trades: Trade[], initialCapital: 
     monthlyMaxDrawdown = Math.min(monthlyMaxDrawdown, monthly[index].portfolioValue / monthlyPeak - 1)
     if (index > 0) monthlyReturns.push(monthly[index].portfolioValue / monthly[index - 1].portfolioValue - 1)
   }
+  const grossTurnoverCny = trades.reduce((sum, item) => sum + item.grossAmount, 0)
+  const rebalanceTurnoverCny = trades
+    .filter((item) => item.reason === 'drift_rebalance')
+    .reduce((sum, item) => sum + item.grossAmount, 0)
   return {
     totalReturnPercent: round(totalReturn * 100),
     annualizedReturnPercent: round(annualizedReturn * 100),
@@ -345,6 +356,9 @@ function calculateMetrics(curve: CurvePoint[], trades: Trade[], initialCapital: 
     calmar: maxDrawdown < 0 ? round(annualizedReturn / Math.abs(maxDrawdown)) : null,
     endingValue: round(endingValue, 2),
     totalCostCny: round(trades.reduce((sum, item) => sum + item.cost, 0), 2),
+    grossTurnoverCny: round(grossTurnoverCny, 2),
+    rebalanceTurnoverCny: round(rebalanceTurnoverCny, 2),
+    rebalanceTurnoverPercentOfInitialCapital: round(rebalanceTurnoverCny / initialCapital * 100),
     tradeCount: trades.length,
   }
 }
@@ -478,6 +492,7 @@ function runWeightedStrategy(input: {
   slippageRate: number
   minCommissionCny: number
   lotSize: number
+  driftThresholdPercentagePoints: number
   minimumTradingDays?: number
 }): ComparisonStrategy {
   const holdings = new Map<string, number>()
@@ -571,10 +586,10 @@ function runWeightedStrategy(input: {
     }
     actualByBucket.set('cash', cash / value * 100)
     const driftTriggered = input.policy === 'bucket_drift'
-      ? Array.from(targetByBucket.entries()).some(([bucket, target]) => Math.abs((actualByBucket.get(bucket) || 0) - target) > DRIFT_THRESHOLD)
+      ? Array.from(targetByBucket.entries()).some(([bucket, target]) => Math.abs((actualByBucket.get(bucket) || 0) - target) > input.driftThresholdPercentagePoints)
       : nonCash.some((component) => {
         const actual = ((holdings.get(component.symbol) || 0) * input.seriesBySymbol.get(component.symbol)!.get(date)!.close / value) * 100
-        return Math.abs(actual - component.targetWeightPercent) > DRIFT_THRESHOLD
+        return Math.abs(actual - component.targetWeightPercent) > input.driftThresholdPercentagePoints
       })
     if (driftTriggered) {
       pendingDecision = { date }
@@ -594,7 +609,7 @@ function runWeightedStrategy(input: {
     displayName: input.displayName,
     group: input.group,
     status: input.dates.length >= (input.minimumTradingDays ?? MINIMUM_TRADING_DAYS) ? 'completed' : 'insufficient',
-    policyLabel: input.policy === 'buy_hold' ? '当前权重买入并持有' : `绝对偏离严格大于${DRIFT_THRESHOLD}个百分点后恢复目标`,
+    policyLabel: input.policy === 'buy_hold' ? '当前权重买入并持有' : `绝对偏离严格大于${input.driftThresholdPercentagePoints}个百分点后恢复目标`,
     components: input.components,
     metrics,
     costStressMetrics: null,
@@ -756,10 +771,15 @@ function runSingleGridStrategy(input: {
 }
 
 function addCostStress(base: ComparisonStrategy, stress: ComparisonStrategy) {
-  return { ...base, costStressMetrics: stress.metrics }
+  return {
+    ...base,
+    costStressMetrics: stress.metrics,
+    costStressCurve: stress.curve,
+    costStressTrades: stress.trades,
+  }
 }
 
-function makeConclusion(strategies: ComparisonStrategy[], requestedYears: number) {
+function makeConclusion(strategies: ComparisonStrategy[], requestedYears: number, driftThresholdPercentagePoints: number) {
   const main = strategies.find((item) => item.group === 'target')!
   const comparatorIds = ['current_alipay_buy_hold', 'single_007467_grid', 'single_002611_grid', 'single_022430_grid']
   const comparisons = comparatorIds.map((strategyId) => {
@@ -794,7 +814,7 @@ function makeConclusion(strategies: ComparisonStrategy[], requestedYears: number
     confidence: 'low' as const,
     headline,
     mainVersusComparators: comparisons,
-    bullCase: ['多资产之间的低相关性可能降低单一资产回撤。', '3个百分点偏离再平衡可在明显漂移后恢复风险预算。'],
+    bullCase: ['多资产之间的低相关性可能降低单一资产回撤。', `${driftThresholdPercentagePoints}个百分点偏离再平衡可在明显漂移后恢复风险预算。`],
     bearCase: ['债券桶包含混合型产品，不能等同纯利率债。', '成立较晚的基金使用分层代理，长周期结果含结构偏差。', `近${requestedYears}年仍不是所有宏观情景的完整覆盖。`],
     thesisBreakers: [`仅真实历史敏感度结果与近${requestedYears}年主结果方向相反。`, '成本压力场景令主组合风险收益排序发生反转。', '后续滚动窗口中主组合连续两个年度同时落后当前持仓与三类单品。'],
   }
@@ -887,6 +907,10 @@ export class AlipayPortfolioComparisonService {
     if (!Number.isInteger(minimumTradingDays) || minimumTradingDays < 20) {
       throw new Error(`minimum_trading_days_invalid:${minimumTradingDays}`)
     }
+    const driftThresholdPercentagePoints = options.driftThresholdPercentagePoints ?? DEFAULT_DRIFT_THRESHOLD
+    if (!Number.isFinite(driftThresholdPercentagePoints) || driftThresholdPercentagePoints <= 0 || driftThresholdPercentagePoints > 20) {
+      throw new Error(`drift_threshold_invalid:${driftThresholdPercentagePoints}`)
+    }
     const requestedMarketDays = Math.min(3000, Math.max(900, Math.ceil(requestedYears * 270) + 30))
     const targetBucketWeights: AlipayTargetBucketWeights = options.targetBucketWeights || {
       cash: 10,
@@ -905,9 +929,10 @@ export class AlipayPortfolioComparisonService {
       targetBucketWeights.equity,
     ].map((value) => Number.isInteger(value) ? String(value) : String(round(value, 3))).join('/')
     const isDefaultTarget = targetWeightLabel === '10/25/40/25'
-    const targetStrategyId = options.targetStrategyId || (isDefaultTarget
+    const driftThresholdId = String(round(driftThresholdPercentagePoints, 3)).replace('.', '_')
+    const targetStrategyId = options.targetStrategyId || (isDefaultTarget && driftThresholdPercentagePoints === DEFAULT_DRIFT_THRESHOLD
       ? 'approved_10_25_40_25_drift3'
-      : `research_${targetWeightLabel.replaceAll('/', '_')}_drift3`)
+      : `research_${targetWeightLabel.replaceAll('/', '_')}_drift${driftThresholdId}`)
     const targetDisplayName = options.targetDisplayName || `目标${targetWeightLabel}组合`
     const capturedAt = new Date().toISOString()
     const positions = await prisma.position.findMany({
@@ -1134,11 +1159,11 @@ export class AlipayPortfolioComparisonService {
 
     const fundWeightedInput = (strategyId: string, displayName: string, group: ComparisonStrategy['group'], components: Component[], policy: 'buy_hold' | 'bucket_drift') => ({
       strategyId, displayName, group, components, dates, seriesBySymbol, initialCapital, policy,
-      feeRate: 0, slippageRate: 0, minCommissionCny: 0, lotSize: 1, minimumTradingDays,
+      feeRate: 0, slippageRate: 0, minCommissionCny: 0, lotSize: 1, driftThresholdPercentagePoints, minimumTradingDays,
     } as const)
     const stressWeightedInput = (strategyId: string, displayName: string, group: ComparisonStrategy['group'], components: Component[], policy: 'buy_hold' | 'bucket_drift') => ({
       strategyId, displayName, group, components, dates, seriesBySymbol, initialCapital, policy,
-      feeRate: 0.0003, slippageRate: 0.0005, minCommissionCny: 0, lotSize: 1, minimumTradingDays,
+      feeRate: 0.0003, slippageRate: 0.0005, minCommissionCny: 0, lotSize: 1, driftThresholdPercentagePoints, minimumTradingDays,
     } as const)
 
     const main = addCostStress(
@@ -1170,6 +1195,7 @@ export class AlipayPortfolioComparisonService {
       slippageRate: 0.0005,
       minCommissionCny: 5,
       lotSize: 100,
+      driftThresholdPercentagePoints,
       minimumTradingDays,
     }))
     const strategies = [main, current, ...singles, ...classics]
@@ -1215,7 +1241,7 @@ export class AlipayPortfolioComparisonService {
       snapshot: { capturedAt, initialCapital, positionCount: alipay.length, positions: snapshotPositions },
       frozenRules: {
         targetBucketWeights,
-        driftThresholdPercentagePoints: 3,
+        driftThresholdPercentagePoints,
         driftComparison: 'strictly_greater_than',
         singleAssetInitialWeightPercent: 85,
         singleAssetCashWeightPercent: 15,
@@ -1263,7 +1289,7 @@ export class AlipayPortfolioComparisonService {
         lowestMonthlyDrawdownStrategyId: byMonthlyDrawdown[0] || null,
         bestCalmarStrategyId: byCalmar[0]?.strategyId || null,
       },
-      conclusion: makeConclusion(strategies, requestedYears),
+      conclusion: makeConclusion(strategies, requestedYears, driftThresholdPercentagePoints),
       allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE'],
       prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
       notTradingAdvice: true,
@@ -1274,6 +1300,7 @@ export class AlipayPortfolioComparisonService {
     study: AlipayPortfolioComparisonStudy,
     requestedStartDate: string,
     requestedEndDate: string,
+    options: { targetDriftThresholdPercentagePoints?: number } = {},
   ): AlipayPortfolioWindowComparison {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedStartDate) || !/^\d{4}-\d{2}-\d{2}$/.test(requestedEndDate)) {
       throw new Error('window_date_format_invalid')
@@ -1283,6 +1310,11 @@ export class AlipayPortfolioComparisonService {
     if (dates.length < MINIMUM_WINDOW_TRADING_DAYS) throw new Error(`window_trading_days_insufficient:${dates.length}/${MINIMUM_WINDOW_TRADING_DAYS}`)
     const startDate = dates[0]
     const endDate = dates.at(-1)!
+    const targetDriftThresholdPercentagePoints = options.targetDriftThresholdPercentagePoints
+      ?? study.frozenRules.driftThresholdPercentagePoints
+    if (!Number.isFinite(targetDriftThresholdPercentagePoints) || targetDriftThresholdPercentagePoints <= 0 || targetDriftThresholdPercentagePoints > 20) {
+      throw new Error(`drift_threshold_invalid:${targetDriftThresholdPercentagePoints}`)
+    }
     const seriesBySymbol = sourceMaps(study.sourceSnapshot)
     const initialCapital = study.snapshot.initialCapital
     const continuous = study.strategies.map((strategy) => sliceContinuousStrategy(strategy, startDate, endDate))
@@ -1323,6 +1355,9 @@ export class AlipayPortfolioComparisonService {
           ? 'bucket_drift' as const
           : 'component_drift' as const
       const isClassic = strategy.group === 'classic'
+      const driftThresholdPercentagePoints = strategy.group === 'target'
+        ? targetDriftThresholdPercentagePoints
+        : study.frozenRules.driftThresholdPercentagePoints
       const base = runWeightedStrategy({
         strategyId: strategy.strategyId,
         displayName: strategy.displayName,
@@ -1336,6 +1371,7 @@ export class AlipayPortfolioComparisonService {
         slippageRate: isClassic ? 0.0005 : 0,
         minCommissionCny: isClassic ? 5 : 0,
         lotSize: isClassic ? 100 : 1,
+        driftThresholdPercentagePoints,
         minimumTradingDays: MINIMUM_WINDOW_TRADING_DAYS,
       })
       if (isClassic) return { ...base, policyLabel: `${base.policyLabel}；窗口首日重新建仓`, warnings: [...base.warnings, '窗口重启口径不继承所选开始日前的策略状态。'] }
@@ -1352,6 +1388,7 @@ export class AlipayPortfolioComparisonService {
         slippageRate: 0.0005,
         minCommissionCny: 0,
         lotSize: 1,
+        driftThresholdPercentagePoints,
         minimumTradingDays: MINIMUM_WINDOW_TRADING_DAYS,
       })
       return {
@@ -1382,3 +1419,7 @@ export class AlipayPortfolioComparisonService {
 }
 
 export const alipayPortfolioComparisonService = new AlipayPortfolioComparisonService()
+
+export const alipayPortfolioComparisonTesting = {
+  runWeightedStrategy,
+}

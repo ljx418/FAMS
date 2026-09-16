@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-point-in-time-group-stability.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "candidateId", "candidateVersion", "sourceR1", "payloadSha256", "groupStability", "realDataUsed", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3.point_in_time_group_stability.v2"},
+    "stageId": {"const": "FTR-3"},
+    "status": {"const": "passed"},
+    "candidateId": {"const": "dividend_low_vol_basket"},
+    "candidateVersion": {"const": "portfolio.strategy.dividend_low_vol_basket.v2_point_in_time"},
+    "sourceR1": {"$ref": "#/$defs/ref"},
+    "payloadSha256": {"$ref": "#/$defs/hash"},
+    "groupStability": {
+      "type": "object",
+      "required": ["releaseEffectivePathCount", "industryGroupCount", "marketRegimeGroupCount", "liquidityGroupCount", "status", "industryGroups", "marketRegimeGroups", "liquidityGroups"],
+      "properties": {
+        "releaseEffectivePathCount": {"const": 53},
+        "industryGroupCount": {"const": 6},
+        "marketRegimeGroupCount": {"const": 3},
+        "liquidityGroupCount": {"const": 3},
+        "status": {"const": "passed"},
+        "industryGroups": {"type": "array", "minItems": 3},
+        "marketRegimeGroups": {"type": "array", "minItems": 3, "maxItems": 3},
+        "liquidityGroups": {"type": "array", "minItems": 3, "maxItems": 3}
+      }
+    },
+    "realDataUsed": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "ref": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}}
+  }
+}

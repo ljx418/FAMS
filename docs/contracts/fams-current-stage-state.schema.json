@@ -14,7 +14,17 @@
     "formalDataGovernanceContract",
     "benchmarkEnumContract",
     "formalValidationMetricDefinitions",
+    "formalValidationProfileContract",
     "implementationApprovalRequired",
+    "implementationApproved",
+    "implementationApprovalEvidence",
+    "humanReviewExecutionMode",
+    "automationSelfApprovalAllowed",
+    "automatedEvidencePolicy",
+    "runtimeAcceptancePolicy",
+    "preAutomationExternalPrerequisites",
+    "deferredHumanAcceptanceGates",
+    "formalReleaseReadinessEvidence",
     "nextStage",
     "statuses",
     "allowedActions",
@@ -32,40 +42,105 @@
     "formalDataGovernanceContract": {"const": "docs/FORMAL_DATA_GOVERNANCE_CONTRACT.md"},
     "benchmarkEnumContract": {"const": "docs/BENCHMARK_ENUM_CONTRACT.md"},
     "formalValidationMetricDefinitions": {"const": "docs/FORMAL_VALIDATION_METRIC_DEFINITIONS.md"},
+    "formalValidationProfileContract": {"const": "docs/FORMAL_VALIDATION_PROFILE_CONTRACT.md"},
     "supersedes": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "implementationApprovalRequired": {"type": "boolean"},
+    "implementationApproved": {"type": "boolean"},
+    "implementationApprovalEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approvedAt", "approvedBy", "decision", "scope"],
+      "properties": {
+        "approvedAt": {"type": "string", "format": "date-time"},
+        "approvedBy": {"type": "string", "minLength": 1},
+        "decision": {"const": "approved_for_controlled_implementation"},
+        "scope": {"const": "FTR-0_through_FTR-6_automated_scope_then_A6_batch_human_review"}
+      }
+    },
+    "humanReviewExecutionMode": {"const": "batch_after_automated_scope"},
+    "automationSelfApprovalAllowed": {"const": false},
+    "automatedEvidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["automatedAcceptanceStatus", "humanAcceptanceStatus", "downstreamEvidenceStatus"],
+      "properties": {
+        "automatedAcceptanceStatus": {"enum": ["passed", "in_progress", "blocked", "failed", "not_started"]},
+        "humanAcceptanceStatus": {"enum": ["pending_batch_review", "passed", "failed"]},
+        "downstreamEvidenceStatus": {"enum": ["provisional_until_human_pass", "final_after_human_pass", "invalidated"]}
+      }
+    },
+    "runtimeAcceptancePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defaultCommandTimeoutSeconds", "longRunningAcceptanceTimeoutSeconds", "sqliteLargeDatabaseThresholdMiB", "sqliteLargeDatabaseAcceptanceTimeoutSeconds", "strictLlmFallbackMayClaimPass", "webOriginSeparatedFromExtensionIdentity"],
+      "properties": {
+        "defaultCommandTimeoutSeconds": {"type": "integer", "minimum": 60},
+        "longRunningAcceptanceTimeoutSeconds": {"type": "integer", "minimum": 360},
+        "sqliteLargeDatabaseThresholdMiB": {"type": "integer", "minimum": 256},
+        "sqliteLargeDatabaseAcceptanceTimeoutSeconds": {"type": "integer", "minimum": 360},
+        "strictLlmFallbackMayClaimPass": {"const": false},
+        "webOriginSeparatedFromExtensionIdentity": {"const": true}
+      }
+    },
+    "preAutomationExternalPrerequisites": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "deferredHumanAcceptanceGates": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
     "implementationEntry": {"type": "string", "minLength": 1},
     "reviewStatus": {"type": "string", "minLength": 1},
+    "formalReleaseReadinessEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ftr4DeferredHumanReviewQueue",
+        "ftr6ProvisionalReviewPackage",
+        "fullAutomationRegression",
+        "invalidatedFtr6Run",
+        "acceptanceAudit",
+        "prdSpecReview"
+      ],
+      "properties": {
+        "ftr4DeferredHumanReviewQueue": {"type": "string", "pattern": "^backend/data/gpt-audit/formal-release-readiness/FTR-4/"},
+        "ftr6ProvisionalReviewPackage": {"type": "string", "pattern": "^backend/data/gpt-audit/formal-release-readiness/FTR-6/"},
+        "fullAutomationRegression": {"type": "string", "pattern": "^backend/data/gpt-audit/next-stage-automation/"},
+        "invalidatedFtr6Run": {"type": "string", "pattern": "^backend/data/gpt-audit/formal-release-readiness/FTR-6/.+/INVALIDATED\\.json$"},
+        "acceptanceAudit": {"const": "docs/automation-audits/formal-release-readiness/FTR-6/2026-09-15-ftr6-acceptance-audit.md"},
+        "prdSpecReview": {"const": "docs/automation-audits/formal-release-readiness/FTR-6/2026-09-15-ftr6-prd-spec-review.md"}
+      }
+    },
     "documentationSupportsControlledNextStageDevelopment": {"const": true},
     "documentationSupportsSubstageAcceptance": {"const": true},
     "documentationSupportsUnattendedEndToEndAutomation": {"const": false},
     "documentationSupportsFormalTradingRelease": {"const": false},
     "chatGptReview": {"type": "object"},
+    "claudeCodeReview": {"type": "object"},
+    "featureTracks": {"type": "object"},
     "nextStage": {
       "type": "object",
       "additionalProperties": false,
       "required": ["stageId", "documentationStatus", "implementationStatus", "implementationApprovalRequired", "unattendedReleaseAllowed", "targetExitClaim", "targetExitDoesNotImplyTradingUnlock", "releaseApprovalStatus"],
       "properties": {
         "stageId": {"const": "formal_release_readiness_closure"},
-        "documentationStatus": {"enum": ["ready_for_human_review", "accepted"]},
-        "implementationStatus": {"enum": ["not_started", "in_progress", "engineering_complete_business_gates_blocked"]},
+        "documentationStatus": {"enum": ["ready_for_external_review", "ready_for_human_review", "accepted"]},
+        "implementationStatus": {"enum": ["not_started", "in_progress", "engineering_complete_business_gates_blocked", "blocked_at_ftr_3r0_point_in_time_data_readiness", "blocked_at_ftr_3r0b_provider_configuration"]},
         "implementationApprovalRequired": {"type": "boolean"},
         "unattendedReleaseAllowed": {"const": false},
-        "targetExitClaim": {"const": "formalTradingReleaseReviewReady"},
+        "targetExitClaim": {"const": "finalFormalReleaseReviewPackageReady"},
         "targetExitDoesNotImplyTradingUnlock": {"const": true},
         "releaseApprovalStatus": {"const": "pending_human_approval"}
       }
     },
     "statuses": {
       "type": "object",
-      "required": ["formalDataGovernancePassed", "benchmarkQualificationPassed", "formalValidationPassed", "manualSignoffPassed", "executionIsolationPassed", "formalTradingReleaseReviewReady", "formalTradingReleaseReady", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+      "required": ["formalDataGovernancePassed", "benchmarkQualificationPassed", "formalValidationPassed", "manualSignoffPassed", "executionIsolationPassed", "formalReleaseReviewPackageGenerationImplemented", "formalTradingReleaseReviewReady", "batchHumanReviewReady", "finalFormalReleaseReviewPackageReady", "formalTradingReleaseReady", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
       "properties": {
         "formalDataGovernancePassed": {"type": "boolean"},
         "benchmarkQualificationPassed": {"type": "boolean"},
         "formalValidationPassed": {"type": "boolean"},
         "manualSignoffPassed": {"type": "boolean"},
         "executionIsolationPassed": {"type": "boolean"},
+        "formalReleaseReviewPackageGenerationImplemented": {"const": true},
         "formalTradingReleaseReviewReady": {"type": "boolean"},
+        "batchHumanReviewReady": {"type": "boolean"},
+        "finalFormalReleaseReviewPackageReady": {"type": "boolean"},
         "formalTradingReleaseReady": {"const": false},
         "formalTradingUnlocked": {"const": false},
         "autoTradeUnlocked": {"const": false},

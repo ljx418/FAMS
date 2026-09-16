@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { access, readFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 
+const requireModule = createRequire(import.meta.url)
+const Ajv2020 = requireModule('@fastify/ajv-compiler/node_modules/ajv/dist/2020').default
 const repoRoot = resolve(process.cwd(), '..')
 const stageOrder = ['FTR-0', 'FTR-1', 'FTR-2', 'FTR-3', 'FTR-4', 'FTR-5', 'FTR-6'] as const
 const lockedTradeFields = [
@@ -67,6 +70,11 @@ function validateState(state: JsonObject) {
   assert.equal(state.nextStageManifestSource, 'docs/FTR_0_FTR_6_SUBSTAGE_ACCEPTANCE_MANIFESTS.json')
   assert.equal(state.documentationSupportsUnattendedEndToEndAutomation, false)
   assert.equal(state.documentationSupportsFormalTradingRelease, false)
+  assert.equal(state.implementationApproved, true)
+  assert.equal(state.implementationApprovalEvidence.decision, 'approved_for_controlled_implementation')
+  assert.equal(state.implementationApprovalEvidence.scope, 'FTR-0_through_FTR-6_automated_scope_then_A6_batch_human_review')
+  assert.ok(state.preAutomationExternalPrerequisites.includes('public_source_terms_and_local_noncommercial_use_scope_frozen'))
+  assert.ok(state.preAutomationExternalPrerequisites.includes('trusted_total_return_benchmark_source_and_replay_contract_frozen'))
   assert.equal(state.nextStage.stageId, 'formal_release_readiness_closure')
   assert.equal(state.nextStage.unattendedReleaseAllowed, false)
   assert.equal(state.nextStage.targetExitDoesNotImplyTradingUnlock, true)
@@ -88,6 +96,11 @@ async function main() {
 
   assert.equal(manifestSchema.$schema, 'https://json-schema.org/draft/2020-12/schema')
   assert.equal(stateSchema.$schema, 'https://json-schema.org/draft/2020-12/schema')
+  const ajv = new Ajv2020({ allErrors: true, strict: true, strictTypes: false, validateFormats: false })
+  const validateManifestSchema = ajv.compile(manifestSchema)
+  const validateStateSchema = ajv.compile(stateSchema)
+  assert.equal(validateManifestSchema(manifest), true, JSON.stringify(validateManifestSchema.errors))
+  assert.equal(validateStateSchema(state), true, JSON.stringify(validateStateSchema.errors))
   await access(resolve(repoRoot, manifest.architectureDecision))
   validateManifest(manifest)
   validateState(state)
@@ -115,7 +128,10 @@ async function main() {
     artifactSchemaCount: artifactSchemaPaths.length,
     allCommandsImplemented: true,
     allArtifactSchemasImplemented: true,
+    manifestSchemaValidationPassed: true,
+    currentStateSchemaValidationPassed: true,
     negativeFixturesPassed: 4,
+    implementationApprovalEvidenceValid: true,
     implementationStatus: state.nextStage.implementationStatus,
     tradeBoundaryLocked: true,
     supportsFormalTradingUnlock: false,

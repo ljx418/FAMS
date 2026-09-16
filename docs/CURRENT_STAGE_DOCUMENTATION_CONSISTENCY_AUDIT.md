@@ -1,6 +1,6 @@
 # FAMS 当前阶段与下一阶段文档一致性审计
 
-更新时间：2026-08-21
+更新时间：2026-09-14
 
 ## 1. 审计结论
 
@@ -11,14 +11,14 @@ expertModuleTabsPreserved=true
 formalReleaseReadinessDocumentationReady=true
 ```
 
-以上三个状态表示当前文档、架构映射和既有专家入口一致。FTR-1 至 FTR-6 的模块化工程服务与合同已经实现，但业务 gate 仍 blocked；这不表示正式交易 release 已通过。
+以上三个状态表示当前文档、架构映射和既有专家入口一致。FTR 模块化工程服务与合同已经实现；A0/FTR-1/FTR-2 当前为 provisional pass，FTR-3 artifact/schema/semantic 为 PASS 但产品业务门禁仅 2/6。FTR-3R0A 已用真实开源数据证明来源可行，FTR-3R0B 批量 adapter 与合同已实现，但真实 Tushare 主源未配置，单日批量门禁 blocked，六时点 point-in-time 数据仍为 0/6 ready。业务链因此停止在 FTR-3R0B；这不表示正式交易 release 已通过。
 
 ```text
 currentControlledAutomationScopeAccepted=true
 nextStageGoalDocumented=true
 nextStageId=formal_release_readiness_closure
 nextStageDocumentationStatus=accepted
-nextStageImplementationStatus=engineering_complete_business_gates_blocked
+nextStageImplementationStatus=in_progress
 documentationSupportsControlledFtrDevelopment=true
 documentationSupportsFtrSubstageAcceptance=true
 documentationSupportsUnattendedRelease=false
@@ -27,7 +27,7 @@ fatalSpecificationGap=none_found
 majorOverpromiseRisk=controlled_by_state_source_manifest_and_trade_boundary
 ```
 
-当前文档已把 S0-S8 与 DRV1-0～DRV1-4 已完成基线、FTR 工程实现、FTR 业务 gate 和外部/人工高风险门分开。自动化只能继续核查和闭环文档已支撑的低风险工程项，不能伪造外部授权或人工签核。
+当前文档已把 S0-S8 与 DRV1-0～DRV1-4 已完成基线、FTR 工程实现、FTR 业务 gate 和人工高风险门分开。项目负责人已批准受控实施，并冻结公开来源本机非商业路线；自动化可以执行 FTR-0 至 FTR-6 的工程与真实数据验证，但必须在 A6 集中人工核查前停止，不能伪造来源条款或人工签核。
 
 ## 2. 权威来源优先级
 
@@ -43,8 +43,8 @@ majorOverpromiseRisk=controlled_by_state_source_manifest_and_trade_boundary
 | 检查项 | 最新证据 | 当前结论 |
 | --- | --- | --- |
 | S0-S8 / DRV1 | 历史 stage audit、DRV1-0～4 验收审计、drawio 状态图 | 已完成受控开发，不是 FTR 待办 |
-| 数据治理 | `15_data_governance_audit.json` | 合同存在；业务 gate blocked |
-| Benchmark | `16_benchmark_qualification_audit.json` | formal review 可用；official/trusted 资格未通过 |
+| 数据治理 | `15_data_governance_audit.json` | 合同存在；公开来源条款与字段证据正在实施，业务 gate 尚未重验 |
+| Benchmark | `16_benchmark_qualification_audit.json` | H00300 `trusted_total_return` 路线已冻结，尚未生成本轮正式重放证据 |
 | Formal validation | `17_formal_validation_audit.json` | `insufficient`，`0/7 passed` |
 | 人工签核 | `18_manual_signoff_audit.json` | 五角色全部 missing |
 | 执行隔离 | `13_execution_isolation_audit.json` | paper ready；production disabled |
@@ -142,8 +142,8 @@ ADD / REDUCE / ORDER_CREATE / AUTO_TRADE
 
 模块化单体实现方向已记录为 accepted。继续阻断业务出门的人工/外部事项为：
 
-1. 正式 provider 授权及数据 owner 复核。
-2. official/trusted total-return benchmark 许可或可信资格复核。
+1. 公开来源条款、本机非商业用途、受控端点和原始响应哈希的 A6 独立复核。
+2. H00300 `trusted_total_return` 来源、版本和重放证据的 A6 独立复核。
 3. 模型统计证据、数据/模型/风控/合规/final release 五角色签核。
 4. 生产适配器与任何交易权限变更的独立高风险批准。
 

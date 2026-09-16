@@ -17,6 +17,8 @@ import { volatilityBacktestService } from '../volatility-sleeve/volatilityBackte
 import { volatilitySleeveService } from '../volatility-sleeve/volatilitySleeveService.js'
 import { relativeRotationService } from '../relative-rotation/relativeRotationService.js'
 import { industryCrowdingService, type IndustryCrowdingBoardRefreshResult } from '../relative-rotation/industryCrowdingService.js'
+import { relativeRotationUniverseService } from '../relative-rotation/relativeRotationUniverseService.js'
+import { relativeRotationResearchStudyService } from '../relative-rotation/relativeRotationResearchStudyService.js'
 import { randomUUID } from 'crypto'
 import { execFile } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -27,7 +29,7 @@ const OPERATION_WORKER_ID = `fams-api:${process.pid}:${Math.random().toString(36
 const QUOTE_LIST_MARKET_CAP_UNAVAILABLE_WARNING = 'BaoStock 派生流通市值缺失'
 
 type OperationStatus = 'queued' | 'running' | 'completed' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'partial'
-type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'strategy_tournament_run' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'fivd_r_fund_factset_refresh' | 'fivd_r_gold_macro_factset_refresh' | 'dividend_low_vol_daily_scan' | 'relative_rotation_backtest' | 'relative_rotation_history_refresh' | 'volatility_sleeve_daily_analysis' | 'industry_crowding_backfill'
+type OperationType = 'refresh_prices' | 'check_alerts' | 'generate_daily_advice' | 'run_backtest' | 'generate_backtest_report' | 'stock_screener_full_scan' | 'strategy_tournament_run' | 'batch_factset_refresh' | 'quote_list_market_cap_warmup' | 'market_bar_cache_preheat' | 'fivd_r_portfolio_refresh' | 'fivd_r_fund_factset_refresh' | 'fivd_r_gold_macro_factset_refresh' | 'dividend_low_vol_daily_scan' | 'relative_rotation_backtest' | 'relative_rotation_history_refresh' | 'relative_rotation_universe_refresh' | 'relative_rotation_research_refresh' | 'volatility_sleeve_daily_analysis' | 'industry_crowding_backfill'
 
 interface OperationAction {
   type: string
@@ -43,6 +45,9 @@ interface RefreshPricesInput {
   assetIds?: string[]
   symbols?: string[]
   parentOperationId?: string
+  createdBy?: string
+  reason?: 'manual' | 'stale_on_entry' | 'missing_price_on_entry'
+  idempotencyKey?: string
 }
 
 interface CheckAlertsInput {
@@ -160,10 +165,31 @@ interface RelativeRotationHistoryRefreshInput {
   idempotencyKey?: string
 }
 
+interface RelativeRotationUniverseRefreshInput {
+  userId: string
+  market?: 'CN' | 'HK' | 'US'
+  targetKeys?: string[]
+  years?: number
+  parentOperationId?: string
+  executionMode?: 'inline' | 'queued'
+  createdBy?: string
+  idempotencyKey?: string
+}
+
+interface RelativeRotationResearchRefreshInput {
+  userId: string
+  studyId: string
+  parentOperationId?: string
+  executionMode?: 'inline' | 'queued'
+  createdBy?: string
+  idempotencyKey?: string
+}
+
 interface IndustryCrowdingBackfillInput {
   userId: string
   year?: number
   boardCodes?: string[]
+  force?: boolean
   slot?: string
   parentOperationId?: string
   executionMode?: 'inline' | 'queued'
@@ -293,6 +319,10 @@ class OperationService {
         return [{ type: 'open_analysis', label: '查看持仓研究', href: '/analysis?section=holdings' }]
       case 'industry_crowding_backfill':
         return [{ type: 'open_relative_rotation', label: '查看板块拥挤度', href: '/relative-rotation?tab=industry_crowding' }]
+      case 'relative_rotation_universe_refresh':
+        return [{ type: 'open_relative_rotation', label: '查看市场自选轮动', href: '/relative-rotation?tab=watchlist' }]
+      case 'relative_rotation_research_refresh':
+        return [{ type: 'open_relative_rotation', label: '查看专题研究轮动', href: '/relative-rotation?tab=research' }]
       case 'quote_list_market_cap_warmup':
         return artifactRefs.length > 0 ? [{ type: 'open_operation', label: '查看市值补齐产物', href: `/operations?operationId=${operation.id}` }] : []
       case 'fivd_r_portfolio_refresh':
@@ -373,6 +403,34 @@ class OperationService {
       updatedAt: Date
     }>
   }) {
+    const result = this.parseJson<Record<string, any>>(operation.resultJson, {})
+    const error = this.parseJson<Record<string, any>>(operation.errorJson, {})
+    const artifactRefs = this.parseJson<string[]>(operation.artifactRefsJson, [])
+    const hasCoreResult = Object.keys(result).length > 0 || artifactRefs.length > 0
+    const errorText = `${operation.errorSummary || ''} ${JSON.stringify(error)}`.toLowerCase()
+    const enrichmentFailure = /llm|deepseek|minimax|synthesis|模型汇总/.test(errorText)
+    const backgroundMaintenanceTypes = new Set([
+      'batch_factset_refresh',
+      'quote_list_market_cap_warmup',
+      'market_bar_cache_preheat',
+      'industry_crowding_backfill',
+      'relative_rotation_timeline_refresh',
+      'relative_rotation_universe_refresh',
+    ])
+    const backgroundCreatedBy = /scheduler|worker|background|preheat|warmup|automatic|auto_refresh/i.test(operation.createdBy)
+    const taskGroup = backgroundMaintenanceTypes.has(operation.type) || backgroundCreatedBy ? 'background_maintenance' : 'user_task'
+    const resultAvailability = hasCoreResult
+      ? ['failed', 'partial', 'cancelled'].includes(operation.status) ? 'partial' : 'available'
+      : 'none'
+    const outcomeCategory = ['queued', 'running', 'cancelling'].includes(operation.status)
+      ? 'active'
+      : enrichmentFailure && hasCoreResult
+      ? 'core_result_available_enrichment_failed'
+      : ['completed', 'succeeded'].includes(operation.status)
+      ? 'completed'
+      : operation.status === 'partial'
+      ? 'partial'
+      : 'failed'
     return {
       id: operation.id,
       operationId: operation.id,
@@ -391,15 +449,18 @@ class OperationService {
       cancelRequested: operation.cancelRequested ?? false,
       createdBy: operation.createdBy,
       input: this.parseJson(operation.inputJson, {}),
-      result: this.parseJson(operation.resultJson, {}),
-      error: this.parseJson(operation.errorJson, {}),
+      result,
+      error,
       errorSummary: operation.errorSummary || null,
       recovery: this.parseJson(operation.recoveryJson || '{}', {}),
       leaseOwner: operation.leaseOwner ?? null,
       leaseToken: operation.leaseToken ?? null,
       leaseExpiresAt: operation.leaseExpiresAt ?? null,
       heartbeatAt: operation.heartbeatAt ?? null,
-      artifactRefs: this.parseJson<string[]>(operation.artifactRefsJson, []),
+      artifactRefs,
+      taskGroup,
+      resultAvailability,
+      outcomeCategory,
       tasks: (operation.tasks || []).map((task) => ({
         ...task,
         warnings: this.parseJson<string[]>(task.warningsJson, []),
@@ -996,14 +1057,14 @@ class OperationService {
     return operation.cancelRequested === true || operation.status === 'cancelled' || operation.status === 'cancelling'
   }
 
-  async getOperation(id: string) {
-    const operation = await prisma.operation.findUnique({
-      where: { id },
+  async getOperation(id: string, expectedUserId?: string) {
+    const operation = await prisma.operation.findFirst({
+      where: { id, ...(expectedUserId ? { userId: expectedUserId } : {}) },
       include: { tasks: { orderBy: [{ createdAt: 'asc' }, { chunkIndex: 'asc' }] } },
     })
 
     if (!operation) {
-      throw new Error('Operation not found')
+      throw new Error(expectedUserId ? 'Operation not found for requested user' : 'Operation not found')
     }
 
     return this.toOperationDto(operation)
@@ -1661,6 +1722,115 @@ class OperationService {
     }
   }
 
+  private async executeRelativeRotationUniverseRefreshOperation(
+    operationId: string,
+    input: RelativeRotationUniverseRefreshInput,
+    options: { resume?: boolean; recovery?: Record<string, unknown> } = {},
+  ) {
+    const leaseToken = await this.markOperationRunning(operationId, 5, {
+      allowResume: options.resume,
+      recovery: options.recovery,
+    })
+    if (!leaseToken) return
+
+    try {
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'relative_rotation.universe_refresh',
+        taskType: 'relative_rotation.universe_refresh',
+        status: 'running',
+        input: { market: input.market || 'CN', targetKeys: input.targetKeys || [], years: input.years || 8 },
+        provider: 'smart_market_history',
+      })
+      await this.updateOperationProgress(operationId, leaseToken, 12, {
+        progressMessage: '正在补齐市场自选轮动历史',
+      })
+      const result = await relativeRotationUniverseService.refreshUniverse(input.userId, {
+        market: input.market,
+        targetKeys: input.targetKeys,
+        years: input.years,
+      })
+      const partialSuccess = result.completedTargets < result.requestedTargets
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'relative_rotation.universe_refresh',
+        taskType: 'relative_rotation.universe_refresh',
+        status: partialSuccess ? 'partial' : 'completed',
+        provider: 'smart_market_history',
+        successCount: result.completedTargets,
+        failureCount: Math.max(0, result.requestedTargets - result.completedTargets),
+        output: result,
+        metrics: {
+          requestedTargets: result.requestedTargets,
+          completedTargets: result.completedTargets,
+        },
+      })
+      const artifacts = { 'relative_rotation_universe_refresh.json': result }
+      const artifactRefs = [`operation_artifact:${operationId}:relative_rotation_universe_refresh.json`]
+      await this.completeOperation(operationId, leaseToken, {
+        result: { ...result, partialSuccess, artifacts, artifactRefs },
+        artifactRefs,
+      })
+    } catch (error) {
+      if (await this.isOperationCancelled(operationId, leaseToken)) {
+        await this.cancelOwnedOperation(operationId, leaseToken, error)
+        return
+      }
+      await this.failOperation(operationId, leaseToken, error)
+    }
+  }
+
+  private async executeRelativeRotationResearchRefreshOperation(
+    operationId: string,
+    input: RelativeRotationResearchRefreshInput,
+    options: { resume?: boolean; recovery?: Record<string, unknown> } = {},
+  ) {
+    const leaseToken = await this.markOperationRunning(operationId, 5, {
+      allowResume: options.resume,
+      recovery: options.recovery,
+    })
+    if (!leaseToken) return
+
+    try {
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'relative_rotation.research_refresh',
+        taskType: 'relative_rotation.research_refresh',
+        status: 'running',
+        input: { studyId: input.studyId },
+        provider: 'smart_market_history',
+      })
+      await this.updateOperationProgress(operationId, leaseToken, 12, {
+        progressMessage: '正在刷新专题研究的标的与基准历史',
+      })
+      const result = await relativeRotationResearchStudyService.refreshTimeline(input.userId, { studyId: input.studyId })
+      const partialSuccess = result.completedTargets < result.requestedTargets
+      await this.updateOperationTask(operationId, leaseToken, {
+        name: 'relative_rotation.research_refresh',
+        taskType: 'relative_rotation.research_refresh',
+        status: partialSuccess ? 'partial' : 'completed',
+        provider: 'smart_market_history',
+        successCount: result.completedTargets,
+        failureCount: Math.max(0, result.requestedTargets - result.completedTargets),
+        output: result,
+        metrics: {
+          requestedTargets: result.requestedTargets,
+          completedTargets: result.completedTargets,
+          studyId: input.studyId,
+        },
+      })
+      const artifacts = { 'relative_rotation_research_refresh.json': result }
+      const artifactRefs = [`operation_artifact:${operationId}:relative_rotation_research_refresh.json`]
+      await this.completeOperation(operationId, leaseToken, {
+        result: { ...result, partialSuccess, artifacts, artifactRefs },
+        artifactRefs,
+      })
+    } catch (error) {
+      if (await this.isOperationCancelled(operationId, leaseToken)) {
+        await this.cancelOwnedOperation(operationId, leaseToken, error)
+        return
+      }
+      await this.failOperation(operationId, leaseToken, error)
+    }
+  }
+
   private async executeIndustryCrowdingBackfillOperation(
     operationId: string,
     input: IndustryCrowdingBackfillInput,
@@ -1677,7 +1847,7 @@ class OperationService {
         name: 'industry_crowding.backfill',
         taskType: 'industry_crowding.backfill',
         status: 'running',
-        input: { year: input.year, boardCodes: input.boardCodes || [], slot: input.slot || null },
+        input: { year: input.year, boardCodes: input.boardCodes || [], force: input.force === true, slot: input.slot || null },
         provider: 'eastmoney_industry',
       })
       await this.updateOperationProgress(operationId, leaseToken, 8, {
@@ -1688,6 +1858,7 @@ class OperationService {
       const result = await industryCrowdingService.refresh(input.userId, {
         year: input.year,
         boardCodes: input.boardCodes,
+        force: input.force === true,
         concurrency: 2,
         batchSize: 6,
         // The configured 16:40 slot is an explicit second pass. It must retry
@@ -2459,20 +2630,44 @@ class OperationService {
   async startRefreshPricesOperation(input: RefreshPricesInput) {
     await ensureUser(prisma, input.userId)
 
-    const operation = await prisma.operation.create({
-      data: {
-        parentOperationId: input.parentOperationId || null,
+    const activeOperation = await prisma.operation.findFirst({
+      where: {
         userId: input.userId,
         type: 'refresh_prices',
-        status: 'queued',
-        createdBy: 'user',
-        inputJson: JSON.stringify({
-          assetIds: input.assetIds || [],
-          symbols: input.symbols || [],
-          userId: input.userId,
-        }),
+        status: { in: ['queued', 'running', 'cancelling'] },
       },
+      orderBy: { requestedAt: 'desc' },
     })
+    if (activeOperation) return this.getOperation(activeOperation.id)
+
+    let operation
+    try {
+      operation = await prisma.operation.create({
+        data: {
+          parentOperationId: input.parentOperationId || null,
+          userId: input.userId,
+          type: 'refresh_prices',
+          status: 'queued',
+          createdBy: input.createdBy || 'user',
+          idempotencyKey: input.idempotencyKey || null,
+          inputJson: JSON.stringify({
+            assetIds: input.assetIds || [],
+            symbols: input.symbols || [],
+            userId: input.userId,
+            reason: input.reason || 'manual',
+            idempotencyKey: input.idempotencyKey || null,
+          }),
+        },
+      })
+    } catch (error) {
+      if (!input.idempotencyKey || !this.isUniqueConstraintError(error)) throw error
+      const existingOperation = await prisma.operation.findFirst({
+        where: { type: 'refresh_prices', idempotencyKey: input.idempotencyKey },
+        orderBy: { requestedAt: 'desc' },
+      })
+      if (!existingOperation) throw error
+      return this.getOperation(existingOperation.id)
+    }
 
     void this.executeRefreshPricesOperation(operation.id, input)
 
@@ -2634,7 +2829,7 @@ class OperationService {
     workerId?: string
   } = {}) {
     const now = new Date()
-    const supportedTypes: OperationType[] = ['stock_screener_full_scan', 'strategy_tournament_run', 'batch_factset_refresh', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'volatility_sleeve_daily_analysis', 'industry_crowding_backfill']
+    const supportedTypes: OperationType[] = ['stock_screener_full_scan', 'strategy_tournament_run', 'batch_factset_refresh', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'relative_rotation_universe_refresh', 'relative_rotation_research_refresh', 'volatility_sleeve_daily_analysis', 'industry_crowding_backfill']
     const types = (params.types && params.types.length > 0 ? params.types : supportedTypes)
       .filter((type) => supportedTypes.includes(type))
     if (types.length === 0) {
@@ -2807,11 +3002,44 @@ class OperationService {
           },
         })
         break
+      case 'relative_rotation_universe_refresh':
+        await this.executeRelativeRotationUniverseRefreshOperation(operation.id, {
+          userId,
+          market: input.market === 'HK' || input.market === 'US' ? input.market : 'CN',
+          targetKeys: Array.isArray(input.targetKeys) ? input.targetKeys.map(String) : [],
+          years: typeof input.years === 'number' ? input.years : 8,
+          parentOperationId: typeof input.parentOperationId === 'string' ? input.parentOperationId : undefined,
+          executionMode: 'queued',
+        }, {
+          resume: operation.status === 'running',
+          recovery: {
+            recoveredAt: new Date().toISOString(),
+            resumePolicy: 'refresh_selected_watchlist_targets_sequentially',
+            ...recovery,
+          },
+        })
+        break
+      case 'relative_rotation_research_refresh':
+        await this.executeRelativeRotationResearchRefreshOperation(operation.id, {
+          userId,
+          studyId: typeof input.studyId === 'string' ? input.studyId : '',
+          parentOperationId: typeof input.parentOperationId === 'string' ? input.parentOperationId : undefined,
+          executionMode: 'queued',
+        }, {
+          resume: operation.status === 'running',
+          recovery: {
+            recoveredAt: new Date().toISOString(),
+            resumePolicy: 'refresh_study_targets_and_recompute_timeline',
+            ...recovery,
+          },
+        })
+        break
       case 'industry_crowding_backfill':
         await this.executeIndustryCrowdingBackfillOperation(operation.id, {
           userId,
           year: typeof input.year === 'number' ? input.year : undefined,
           boardCodes: Array.isArray(input.boardCodes) ? input.boardCodes.map(String) : [],
+          force: input.force === true,
           slot: typeof input.slot === 'string' ? input.slot : undefined,
           parentOperationId: typeof input.parentOperationId === 'string' ? input.parentOperationId : undefined,
           executionMode: 'queued',
@@ -3155,6 +3383,85 @@ class OperationService {
     return this.getOperation(operation.id)
   }
 
+  async startRelativeRotationUniverseRefreshOperation(input: RelativeRotationUniverseRefreshInput) {
+    await ensureUser(prisma, input.userId)
+    const market = input.market === 'HK' || input.market === 'US' ? input.market : 'CN'
+    const years = Math.max(1, Math.min(8, Math.floor(input.years || 8)))
+    const targetKeys = Array.from(new Set((input.targetKeys || []).map(String).map((key) => key.trim()).filter(Boolean)))
+    let operation
+    try {
+      operation = await prisma.operation.create({
+        data: {
+          parentOperationId: input.parentOperationId || null,
+          userId: input.userId,
+          type: 'relative_rotation_universe_refresh',
+          status: 'queued',
+          createdBy: input.createdBy || 'user',
+          idempotencyKey: input.idempotencyKey || null,
+          inputJson: JSON.stringify({
+            userId: input.userId,
+            market,
+            targetKeys,
+            years,
+            parentOperationId: input.parentOperationId || null,
+            executionMode: input.executionMode || 'inline',
+            createdBy: input.createdBy || 'user',
+          }),
+        },
+      })
+    } catch (error) {
+      if (!input.idempotencyKey || !this.isUniqueConstraintError(error)) throw error
+      const existing = await prisma.operation.findFirst({
+        where: { type: 'relative_rotation_universe_refresh', idempotencyKey: input.idempotencyKey },
+        orderBy: { requestedAt: 'desc' },
+      })
+      if (!existing) throw error
+      return this.getOperation(existing.id)
+    }
+    if (input.executionMode !== 'queued') {
+      void this.executeRelativeRotationUniverseRefreshOperation(operation.id, { ...input, market, years, targetKeys })
+    }
+    return this.getOperation(operation.id)
+  }
+
+  async startRelativeRotationResearchRefreshOperation(input: RelativeRotationResearchRefreshInput) {
+    await ensureUser(prisma, input.userId)
+    const studyId = String(input.studyId || '').trim()
+    if (!studyId) throw new Error('RRG_RESEARCH_STUDY_ID_REQUIRED')
+    let operation
+    try {
+      operation = await prisma.operation.create({
+        data: {
+          parentOperationId: input.parentOperationId || null,
+          userId: input.userId,
+          type: 'relative_rotation_research_refresh',
+          status: 'queued',
+          createdBy: input.createdBy || 'user',
+          idempotencyKey: input.idempotencyKey || null,
+          inputJson: JSON.stringify({
+            userId: input.userId,
+            studyId,
+            parentOperationId: input.parentOperationId || null,
+            executionMode: input.executionMode || 'inline',
+            createdBy: input.createdBy || 'user',
+          }),
+        },
+      })
+    } catch (error) {
+      if (!input.idempotencyKey || !this.isUniqueConstraintError(error)) throw error
+      const existing = await prisma.operation.findFirst({
+        where: { type: 'relative_rotation_research_refresh', idempotencyKey: input.idempotencyKey },
+        orderBy: { requestedAt: 'desc' },
+      })
+      if (!existing) throw error
+      return this.getOperation(existing.id)
+    }
+    if (input.executionMode !== 'queued') {
+      void this.executeRelativeRotationResearchRefreshOperation(operation.id, { ...input, studyId })
+    }
+    return this.getOperation(operation.id)
+  }
+
   async startIndustryCrowdingBackfillOperation(input: IndustryCrowdingBackfillInput) {
     await ensureUser(prisma, input.userId)
     const year = typeof input.year === 'number' && Number.isFinite(input.year) ? Math.floor(input.year) : undefined
@@ -3172,6 +3479,7 @@ class OperationService {
             userId: input.userId,
             year,
             boardCodes: Array.from(new Set((input.boardCodes || []).map((code) => String(code).toUpperCase()).filter(Boolean))),
+            force: input.force === true,
             slot: input.slot || null,
             parentOperationId: input.parentOperationId || null,
             executionMode: input.executionMode || 'inline',
@@ -3374,7 +3682,7 @@ class OperationService {
     const now = new Date()
     const recoverable = await prisma.operation.findMany({
       where: {
-        type: { in: ['batch_factset_refresh', 'stock_screener_full_scan', 'strategy_tournament_run', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'volatility_sleeve_daily_analysis', 'industry_crowding_backfill'] },
+        type: { in: ['batch_factset_refresh', 'stock_screener_full_scan', 'strategy_tournament_run', 'quote_list_market_cap_warmup', 'market_bar_cache_preheat', 'dividend_low_vol_daily_scan', 'relative_rotation_backtest', 'relative_rotation_history_refresh', 'relative_rotation_universe_refresh', 'relative_rotation_research_refresh', 'volatility_sleeve_daily_analysis', 'industry_crowding_backfill'] },
         status: { in: ['queued', 'running'] },
         cancelRequested: false,
         OR: [
@@ -3516,11 +3824,31 @@ class OperationService {
           parentOperationId: sourceOperation.id,
           executionMode: 'queued',
         })
+      case 'relative_rotation_universe_refresh':
+        return this.startRelativeRotationUniverseRefreshOperation({
+          userId,
+          market: input.market === 'HK' || input.market === 'US' ? input.market : 'CN',
+          targetKeys: Array.isArray(input.targetKeys) ? input.targetKeys.map(String) : [],
+          years: typeof input.years === 'number' ? input.years : 8,
+          parentOperationId: sourceOperation.id,
+          executionMode: 'queued',
+        })
+      case 'relative_rotation_research_refresh':
+        if (typeof input.studyId !== 'string' || !input.studyId) {
+          throw new Error('Cannot retry relative rotation research refresh without studyId')
+        }
+        return this.startRelativeRotationResearchRefreshOperation({
+          userId,
+          studyId: input.studyId,
+          parentOperationId: sourceOperation.id,
+          executionMode: 'queued',
+        })
       case 'industry_crowding_backfill':
         return this.startIndustryCrowdingBackfillOperation({
           userId,
           year: typeof input.year === 'number' ? input.year : undefined,
           boardCodes: Array.isArray(input.boardCodes) ? input.boardCodes.map(String) : [],
+          force: input.force === true,
           slot: typeof input.slot === 'string' ? input.slot : undefined,
           parentOperationId: sourceOperation.id,
           executionMode: 'inline',

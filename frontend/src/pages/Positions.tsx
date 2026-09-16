@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useEffect, useCallback, useMemo } from 'react'
-import { Alert, Card, Row, Col, Button, message, Modal, Progress, Spin, Tag, Upload, Table, Form, Input, InputNumber, Select } from 'antd'
+import { Alert, App as AntApp, Card, Row, Col, Button, Modal, Progress, Spin, Tag, Upload, Table, Form, Input, InputNumber, Select } from 'antd'
 import { PlusOutlined, SyncOutlined, UploadOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import axios from 'axios'
@@ -8,6 +8,8 @@ import AlipayAllocationDonut, { type AlipayAllocationSlice } from '../components
 import ProviderHealthSummary, { type ProviderHealthItem } from '../components/common/ProviderHealthSummary'
 import RefreshFailureTable, { formatRefreshFailureSummary, type RefreshFailureItem } from '../components/common/RefreshFailureTable'
 import ReliabilityWarnings from '../components/common/ReliabilityWarnings'
+import { InvestmentWorkflowBar } from '../components/investment-workflow/InvestmentWorkflowBar'
+import { PositionStrategyAssignmentPanel } from '../components/investment-workflow/PositionStrategyAssignmentPanel'
 
 const StockDetailModal = lazy(() => import('../components/stock/StockDetailModal'))
 
@@ -79,11 +81,35 @@ interface AllocationPlanAccount {
 interface ApprovedAllocationPlan {
   schemaVersion: string
   name: string
-  status: 'approved'
+  status: 'approved' | 'confirmation_required'
   approvedAt: string
   capturedAt: string
   totalAssetValue: number
   currency: string
+  strategyContract: {
+    id: string
+    name: string
+    label: string
+    effectiveFrom: string
+    effectiveUntil: string | null
+    status: 'not_yet_effective' | 'active' | 'transition_confirmation_required' | 'permanent_active'
+    weights: { cash: number; gold: number; bond: number; equity: number }
+  }
+  strategyTransition: {
+    confirmationRequired: boolean
+    manualDraftAllowed: boolean
+    transitionAfter: string
+    userMessage: string
+    confirmation: null | {
+      confirmedAt: string
+      confirmedBy: string
+    }
+    nextStrategy: null | {
+      id: string
+      name: string
+      label: string
+    }
+  }
   accounts: AllocationPlanAccount[]
   rebalancePolicy?: {
     thresholdPctPoint: number
@@ -103,6 +129,11 @@ interface ApprovedAllocationPlan {
   executionBoundary: {
     createsBrokerOrder: boolean
     humanConfirmationRequired: boolean
+    manualDraftAllowed: boolean
+    formalTradingUnlocked: false
+    autoTradeUnlocked: false
+    canCreateOrder: false
+    orderCreateAllowed: false
     note: string
   }
 }
@@ -142,12 +173,14 @@ interface ParsedAsset {
 }
 
 const Positions: React.FC = () => {
+  const { message } = AntApp.useApp()
   const [loading, setLoading] = useState(false)
   const [bins, setBins] = useState<PositionBin[]>([])
   const [totalValue, setTotalValue] = useState(0)
   const [positionTargets, setPositionTargets] = useState<Record<string, PositionTarget>>({})
   const [allocationPlan, setAllocationPlan] = useState<ApprovedAllocationPlan | null>(null)
   const [allocationPlanError, setAllocationPlanError] = useState<string | null>(null)
+  const [confirmingPermanentStrategy, setConfirmingPermanentStrategy] = useState(false)
   const [savingTargetTag, setSavingTargetTag] = useState<string | null>(null)
   const [refreshFailureVisible, setRefreshFailureVisible] = useState(false)
   const [refreshFailures, setRefreshFailures] = useState<RefreshFailureItem[]>([])
@@ -201,6 +234,31 @@ const Positions: React.FC = () => {
       console.error('Failed to fetch approved allocation plan:', error)
       setAllocationPlanError('支付宝目标方案读取失败，当前比例和目标比例暂时不能可靠对照。')
     }
+  }, [])
+
+  const confirmPermanentStrategy = useCallback(() => {
+    Modal.confirm({
+      title: '确认启用永久组合研究模板',
+      content: '确认后，支付宝研究目标切换为现金、黄金、长期债券、股票各25%。这不是下单授权，系统仍不会创建或发送订单。',
+      okText: '确认切换研究模板',
+      cancelText: '暂不切换',
+      async onOk() {
+        setConfirmingPermanentStrategy(true)
+        try {
+          const response = await axios.post(`/api/v1/positions/allocation-policy/${USER_ID}/confirm-permanent`, {
+            confirmed: true,
+            confirmedBy: USER_ID,
+          })
+          setAllocationPlan(response.data)
+          message.success('永久组合研究模板已启用，正式交易仍保持锁定')
+        } catch (error: any) {
+          message.error(error?.response?.data?.message || '策略切换确认失败')
+          throw error
+        } finally {
+          setConfirmingPermanentStrategy(false)
+        }
+      },
+    })
   }, [])
 
   useEffect(() => {
@@ -497,6 +555,12 @@ const Positions: React.FC = () => {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white mb-6">仓位管理</h1>
 
+      <InvestmentWorkflowBar currentStep="position_strategy" userId={USER_ID} />
+
+      <Card className="fams-card">
+        <PositionStrategyAssignmentPanel userId={USER_ID} />
+      </Card>
+
       {/* 总览 */}
       <Card className="bg-[#1a1a2e] border-[surface-border] card-md">
         <div className="mb-4 flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -549,7 +613,11 @@ const Positions: React.FC = () => {
       {allocationPlan && (
         <Card
           title={<span className="text-white">账户配置与已批准目标</span>}
-          extra={<Tag color="success">已生效 · 不自动下单</Tag>}
+          extra={(
+            <Tag color={allocationPlan.strategyTransition.confirmationRequired ? 'warning' : 'success'}>
+              {allocationPlan.strategyTransition.confirmationRequired ? '到期待确认' : '已生效'} · 不自动下单
+            </Tag>
+          )}
           className="bg-[#1a1a2e] border-[surface-border] card-md"
         >
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-gray-300">
@@ -560,6 +628,19 @@ const Positions: React.FC = () => {
               数据时点：{new Date(allocationPlan.capturedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}
             </span>
           </div>
+
+          <Alert
+            className="mb-4"
+            type={allocationPlan.strategyTransition.confirmationRequired ? 'warning' : 'info'}
+            showIcon
+            message={allocationPlan.strategyContract.name}
+            description={allocationPlan.strategyTransition.userMessage}
+            action={allocationPlan.strategyTransition.confirmationRequired ? (
+              <Button type="primary" loading={confirmingPermanentStrategy} onClick={confirmPermanentStrategy}>
+                确认切换永久组合
+              </Button>
+            ) : undefined}
+          />
 
           {allocationPlan.classification?.status === 'blocked' && (
             <Alert

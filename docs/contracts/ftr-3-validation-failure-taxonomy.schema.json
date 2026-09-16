@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-validation-failure-taxonomy.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "candidateInventoryCount", "productReleaseCandidateCount", "checks", "blockers", "nonApplicableObjectsRemainVisible", "prohibitedActions", "notTradingAdvice"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3.validation_failure_taxonomy.v1"},
+    "stageId": {"const": "FTR-3"},
+    "status": {"enum": ["passed", "warning", "insufficient", "failed"]},
+    "candidateInventoryCount": {"const": 7},
+    "productReleaseCandidateCount": {"const": 1},
+    "checks": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["strategyId", "candidateRole", "formalGateApplicable", "formalGateStatus", "resultStatus", "blockers", "evidenceRefs"],
+        "properties": {
+          "strategyId": {"type": "string", "minLength": 1},
+          "candidateRole": {"enum": ["product_release_candidate", "research_reference_strategy", "diagnostic_snapshot", "engineering_path_fixture"]},
+          "formalGateApplicable": {"type": "boolean"},
+          "formalGateStatus": {"enum": ["passed", "failed", "insufficient", "not_applicable"]},
+          "resultStatus": {"enum": ["passed", "warning", "insufficient", "failed"]},
+          "blockers": {"type": "array", "items": {"type": "string"}},
+          "evidenceRefs": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "nonApplicableObjectsRemainVisible": {"const": true},
+    "prohibitedActions": {"const": ["ADD", "REDUCE", "ORDER_CREATE", "AUTO_TRADE"]},
+    "notTradingAdvice": {"const": true}
+  }
+}

@@ -115,6 +115,10 @@ class FamsChatService {
             `当前组合共有 ${summary.positionsCount} 个持仓。`,
             `总市值约 ${summary.totalValue.toFixed(2)}，总成本 ${summary.totalCost.toFixed(2)}，浮动盈亏 ${summary.totalPnl.toFixed(2)}（${summary.totalPnlPercent.toFixed(2)}%）。`,
             `现金权重 ${summary.cashWeight.toFixed(2)}%。`,
+            `估值截止时间：${summary.priceFreshness?.valuationAsOf || '缺少行情时间'}；状态：${summary.priceFreshness?.status || 'unknown'}。`,
+            summary.priceFreshness?.status === 'fresh'
+              ? '当前可直接继续查看持仓明细或发起需要确认的完整复盘。'
+              : '部分估值可能陈旧；请先打开资产管理查看自动刷新状态，再决定是否生成完整复盘。',
           ].join('\n'),
           structuredResult,
           dataQualitySummary: structuredResult.dataQualitySummary,
@@ -127,9 +131,9 @@ class FamsChatService {
           actionCards: [
             makeCard({
               type: 'navigation',
-              title: '打开仓位管理',
-              description: '查看每个持仓、成本、市值和标签。',
-              href: '/positions',
+              title: '打开资产管理',
+              description: '查看每个持仓、成本、市值、价格时间和刷新状态。',
+              href: '/assets',
               status: 'ready',
             }),
           ],
@@ -443,7 +447,7 @@ class FamsChatService {
               type: 'navigation',
               title: '打开策略回测',
               description: '配置起止日期、组合模板、数据等级和 benchmark。',
-              href: '/backtest',
+              href: '/backtest?mode=portfolio',
               status: 'ready',
             }),
           ],
@@ -535,7 +539,7 @@ class FamsChatService {
               type: 'navigation',
               title: '打开策略回测',
               description: '配置起止日期、组合模板、数据等级和 benchmark。',
-              href: '/backtest',
+              href: '/backtest?mode=portfolio',
               status: 'ready',
             }),
           ],
@@ -1432,6 +1436,27 @@ class FamsChatService {
     return [
       makeCard({
         type: 'navigation',
+        title: '确认资产信息',
+        description: '导入或核对同花顺、支付宝的真实账户事实和行情时点。',
+        href: '/assets',
+        status: 'ready',
+      }),
+      makeCard({
+        type: 'navigation',
+        title: '确认仓位策略',
+        description: '核对每项持仓属于轮动波动、红利低波或投资组合。',
+        href: '/positions',
+        status: 'ready',
+      }),
+      makeCard({
+        type: 'navigation',
+        title: '相对轮动与波动仓',
+        description: '查看 RRG、MACD、均线、成交量和已有网格复核。',
+        href: '/relative-rotation',
+        status: 'ready',
+      }),
+      makeCard({
+        type: 'navigation',
         title: '红利低波策略',
         description: '筛选高股息、行业龙头、低波动候选。',
         href: '/dividend-low-vol',
@@ -1441,7 +1466,7 @@ class FamsChatService {
         type: 'navigation',
         title: '策略回测',
         description: '比较组合策略在不同时间段的收益曲线。',
-        href: '/backtest',
+        href: '/backtest?mode=portfolio',
         status: 'ready',
       }),
       makeCard({
@@ -1674,6 +1699,7 @@ class FamsChatService {
       dataQualitySummary: {
         source: 'positionService.getPositionSummary',
         positionsCount: summary.positionsCount,
+        priceFreshness: summary.priceFreshness || null,
       },
       evidenceRefs: ['service:positionService.getPositionSummary'],
       blockedReasons: [],

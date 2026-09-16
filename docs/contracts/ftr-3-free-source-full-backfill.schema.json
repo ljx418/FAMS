@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-free-source-full-backfill.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "generatedAt", "dataRoute", "lake", "providerPolicy", "sourceTermsEvidence", "requirements", "decisionPoints", "summary", "antiFalseGreen", "accountFactsUnchanged", "realDataUsed", "status", "blockers", "prohibitedActions", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3r.free_source_full_backfill.v2"},
+    "stageId": {"const": "FTR-3R0B-FREE"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "dataRoute": {"const": "qualified_free_source_point_in_time"},
+    "lake": {
+      "type": "object", "additionalProperties": false,
+      "required": ["lakeId", "path", "manifestPath", "manifestSha256", "fileCount", "allArtifactHashesVerified"],
+      "properties": {
+        "lakeId": {"const": "ftr3-free-source-v1"},
+        "path": {"type": "string", "minLength": 1},
+        "manifestPath": {"type": "string", "minLength": 1},
+        "manifestSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "fileCount": {"type": "integer", "minimum": 1},
+        "allArtifactHashesVerified": {"const": true}
+      }
+    },
+    "providerPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["paidCredentialRequired", "historicalMembershipProvider", "historicalSecurityStatusProvider", "priceAndTradeabilityProvider", "fundamentalAndDividendProvider", "providerFailuresRemainInDenominator", "currentSnapshotFallbackAllowed", "mockDataAllowed"],
+      "properties": {
+        "paidCredentialRequired": {"const": false},
+        "historicalMembershipProvider": {"const": "baostock_stock_basic_lifecycle"},
+        "historicalSecurityStatusProvider": {"const": "baostock_query_history_k_data_plus_isST_tradestatus"},
+        "priceAndTradeabilityProvider": {"const": "baostock_tradestatus_cross_checked_by_tencent_unadjusted_daily"},
+        "fundamentalAndDividendProvider": {"const": "akshare_eastmoney_bulk"},
+        "providerFailuresRemainInDenominator": {"const": true},
+        "currentSnapshotFallbackAllowed": {"const": false},
+        "mockDataAllowed": {"const": false}
+      }
+    },
+    "sourceTermsEvidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "usageScope", "sourceTermsPermitConfiguredUse", "commercialRedistributionAllowed", "sdkLicenseNotTreatedAsDataLicense"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "usageScope": {"const": "local_personal_noncommercial"},
+        "sourceTermsPermitConfiguredUse": {"const": true},
+        "commercialRedistributionAllowed": {"const": false},
+        "sdkLicenseNotTreatedAsDataLicense": {"const": true}
+      }
+    },
+    "requirements": {
+      "type": "object", "additionalProperties": false,
+      "required": ["decisionPointCount", "minimumCoveragePercent", "announcementCutoffRequired", "historicalSecurityStatusRequired", "historicalStatusEvidenceMode", "historicalStatusProxyAllowed", "qualifiedPointInTimeProviderRequired"],
+      "properties": {
+        "decisionPointCount": {"const": 6},
+        "minimumCoveragePercent": {"const": 80},
+        "announcementCutoffRequired": {"const": true},
+        "historicalSecurityStatusRequired": {"const": true},
+        "historicalStatusEvidenceMode": {"const": "baostock_direct_daily"},
+        "historicalStatusProxyAllowed": {"const": false},
+        "qualifiedPointInTimeProviderRequired": {"const": true}
+      }
+    },
+    "decisionPoints": {
+      "type": "array", "minItems": 6, "maxItems": 6,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["windowId", "decisionDate", "referenceUniverseCount", "minimumRequiredSymbols", "historicalUniverseResolved", "marketBarSymbolCount", "marketBarCoveragePercent", "tradeabilitySymbolCount", "tradeabilityCoveragePercent", "historicalSecurityStatusSymbolCount", "historicalSecurityStatusCoveragePercent", "announcementAwareFundamentalSymbolCount", "announcementAwareFundamentalCoveragePercent", "candidateEvaluationSnapshotSymbolCount", "candidateEvaluationSnapshotCoveragePercent", "eligibleResearchCandidateCount", "dataInsufficientCandidateCount", "failedPriceShardCount", "failedStatusShardCount", "statusPriceConflictCount", "historicalStatusEvidenceMode", "historicalStatusProxyAllowed", "announcementCutoffVerified", "currentUniverseUsedAsHistoricalMembership", "futureAnnouncementReuseDetected", "providerFailuresRemainInDenominator", "pointInTimeSelectionReady", "snapshotPath", "snapshotSha256", "selectedSymbols", "blockers"],
+        "properties": {
+          "windowId": {"type": "string", "pattern": "^wf-0[1-6]$"},
+          "decisionDate": {"type": "string", "format": "date"},
+          "referenceUniverseCount": {"type": "integer", "minimum": 1},
+          "minimumRequiredSymbols": {"type": "integer", "minimum": 1},
+          "historicalUniverseResolved": {"const": true},
+          "marketBarSymbolCount": {"type": "integer", "minimum": 0},
+          "marketBarCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "tradeabilitySymbolCount": {"type": "integer", "minimum": 0},
+          "tradeabilityCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "historicalSecurityStatusSymbolCount": {"type": "integer", "minimum": 0},
+          "historicalSecurityStatusCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "announcementAwareFundamentalSymbolCount": {"type": "integer", "minimum": 0},
+          "announcementAwareFundamentalCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "candidateEvaluationSnapshotSymbolCount": {"type": "integer", "minimum": 0},
+          "candidateEvaluationSnapshotCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "eligibleResearchCandidateCount": {"type": "integer", "minimum": 0},
+          "dataInsufficientCandidateCount": {"type": "integer", "minimum": 0},
+          "failedPriceShardCount": {"type": "integer", "minimum": 0},
+          "failedStatusShardCount": {"type": "integer", "minimum": 0},
+          "statusPriceConflictCount": {"type": "integer", "minimum": 0},
+          "historicalStatusEvidenceMode": {"const": "baostock_direct_daily"},
+          "historicalStatusProxyAllowed": {"const": false},
+          "announcementCutoffVerified": {"const": true},
+          "currentUniverseUsedAsHistoricalMembership": {"const": false},
+          "futureAnnouncementReuseDetected": {"const": false},
+          "providerFailuresRemainInDenominator": {"const": true},
+          "pointInTimeSelectionReady": {"type": "boolean"},
+          "snapshotPath": {"type": "string", "minLength": 1},
+          "snapshotSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "selectedSymbols": {"type": "array", "maxItems": 10, "uniqueItems": true, "items": {"type": "string", "pattern": "^\\d{6}$"}},
+          "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["readyDecisionPointCount", "decisionPointCount", "allDecisionPointsReady", "freeSourceFullMarketBackfillReady", "qualifiedPointInTimeProviderReady", "ftr3CandidateRedesignAllowed", "ftr4EntryAllowed"],
+      "properties": {
+        "readyDecisionPointCount": {"type": "integer", "minimum": 0, "maximum": 6},
+        "decisionPointCount": {"const": 6},
+        "allDecisionPointsReady": {"type": "boolean"},
+        "freeSourceFullMarketBackfillReady": {"type": "boolean"},
+        "qualifiedPointInTimeProviderReady": {"type": "boolean"},
+        "ftr3CandidateRedesignAllowed": {"type": "boolean"},
+        "ftr4EntryAllowed": {"const": false}
+      }
+    },
+    "antiFalseGreen": {
+      "type": "object", "additionalProperties": false,
+      "required": ["currentUniverseUsedAsHistoricalMembership", "futureAnnouncementReuseDetected", "providerFailuresRemovedFromDenominator", "rawShardOverwriteAllowed", "mockOrCurrentSnapshotFallbackUsed", "historicalSecurityStatusProxyUsed"],
+      "properties": {
+        "currentUniverseUsedAsHistoricalMembership": {"const": false},
+        "futureAnnouncementReuseDetected": {"const": false},
+        "providerFailuresRemovedFromDenominator": {"const": false},
+        "rawShardOverwriteAllowed": {"const": false},
+        "mockOrCurrentSnapshotFallbackUsed": {"const": false}
+        ,"historicalSecurityStatusProxyUsed": {"const": false}
+      }
+    },
+    "accountFactsUnchanged": {"const": true},
+    "realDataUsed": {"const": true},
+    "status": {"enum": ["passed", "insufficient"]},
+    "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "prohibitedActions": {
+      "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true,
+      "allOf": [
+        {"contains": {"const": "ADD"}},
+        {"contains": {"const": "REDUCE"}},
+        {"contains": {"const": "ORDER_CREATE"}},
+        {"contains": {"const": "AUTO_TRADE"}}
+      ]
+    },
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "passed"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "blockers": {"maxItems": 0},
+          "decisionPoints": {
+            "items": {
+              "properties": {
+                "marketBarCoveragePercent": {"minimum": 80},
+                "tradeabilityCoveragePercent": {"minimum": 80},
+                "historicalSecurityStatusCoveragePercent": {"minimum": 80},
+                "announcementAwareFundamentalCoveragePercent": {"minimum": 80},
+                "candidateEvaluationSnapshotCoveragePercent": {"minimum": 80},
+                "pointInTimeSelectionReady": {"const": true},
+                "blockers": {"maxItems": 0}
+              }
+            }
+          },
+          "summary": {
+            "properties": {
+              "readyDecisionPointCount": {"const": 6},
+              "allDecisionPointsReady": {"const": true},
+              "freeSourceFullMarketBackfillReady": {"const": true},
+              "qualifiedPointInTimeProviderReady": {"const": true},
+              "ftr3CandidateRedesignAllowed": {"const": true}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

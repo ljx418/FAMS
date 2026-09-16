@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { gzipSync, gunzipSync } from 'node:zlib'
 import { prisma } from '../../db/prisma.js'
 import { ensureUser } from '../../utils/user.js'
+import { ALIPAY_ALLOCATION_STRATEGY } from '../allocation/alipayAllocationStrategy.js'
 import {
   alipayPortfolioComparisonService,
   type AlipayPortfolioComparisonStudy,
@@ -9,7 +10,7 @@ import {
 } from '../portfolio-backtest/alipayPortfolioComparisonService.js'
 
 export const ALIPAY_RESEARCH_WORKFLOW_KEY = 'alipay_complete_research'
-export const ALIPAY_RESEARCH_PROFILE_VERSION = '1.0.0'
+export const ALIPAY_RESEARCH_PROFILE_VERSION = '1.1.0'
 export const ALIPAY_COMPARISON_OPERATION_TYPE = 'alipay_portfolio_comparison_run'
 
 const WORKFLOW_CONTRACT = {
@@ -18,9 +19,11 @@ const WORKFLOW_CONTRACT = {
   profileVersion: ALIPAY_RESEARCH_PROFILE_VERSION,
   title: '支付宝完整分析＋持仓组合对比',
   actualAllocationContract: {
-    id: 'approved_allocation_v2_5_25_25_45',
+    id: ALIPAY_ALLOCATION_STRATEGY.id,
     role: 'manual_plan_draft',
-    weights: { cash: 5, gold: 25, bond: 25, equity: 45 },
+    weights: ALIPAY_ALLOCATION_STRATEGY.weights,
+    effectiveFrom: ALIPAY_ALLOCATION_STRATEGY.effectiveFrom,
+    effectiveUntil: ALIPAY_ALLOCATION_STRATEGY.effectiveUntil,
   },
   researchComparisonContract: {
     id: 'alipay_research_10_25_40_25_v1',
@@ -120,6 +123,10 @@ class AlipayResearchWorkflowService {
   async ensureProfile(userId = 'default') {
     await ensureUser(prisma, userId)
     const expectedHash = contractHash()
+    const previousProfile = await prisma.analysisWorkflowProfile.findFirst({
+      where: { userId, workflowKey: ALIPAY_RESEARCH_WORKFLOW_KEY, isActive: true },
+      orderBy: { updatedAt: 'desc' },
+    })
     const profile = await prisma.analysisWorkflowProfile.upsert({
       where: {
         userId_workflowKey_profileVersion: {
@@ -135,15 +142,21 @@ class AlipayResearchWorkflowService {
         contractHash: expectedHash,
         contractJson: JSON.stringify(WORKFLOW_CONTRACT),
         isActive: true,
-        schedulerEnabled: false,
-        timezone: 'Asia/Shanghai',
-        scheduleSlotsJson: JSON.stringify(['09:40', '14:40']),
+        schedulerEnabled: previousProfile?.schedulerEnabled ?? false,
+        timezone: previousProfile?.timezone || 'Asia/Shanghai',
+        scheduleSlotsJson: previousProfile?.scheduleSlotsJson || JSON.stringify(['09:40', '14:40']),
+        snapshotAuthorizationJson: previousProfile?.snapshotAuthorizationJson || '{}',
+        lastRunAt: previousProfile?.lastRunAt || null,
       },
-      update: {},
+      update: { isActive: true },
     })
     if (profile.contractHash !== expectedHash || profile.contractJson !== JSON.stringify(WORKFLOW_CONTRACT)) {
       throw new Error('analysis_workflow_contract_version_collision')
     }
+    await prisma.analysisWorkflowProfile.updateMany({
+      where: { userId, workflowKey: ALIPAY_RESEARCH_WORKFLOW_KEY, id: { not: profile.id }, isActive: true },
+      data: { isActive: false },
+    })
     return profile
   }
 

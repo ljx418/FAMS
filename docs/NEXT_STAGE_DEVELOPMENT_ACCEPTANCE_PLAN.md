@@ -1,6 +1,24 @@
 # FAMS 下一阶段开发及验收计划
 
-更新时间：2026-07-16
+更新时间：2026-09-14
+
+## 0. 2026-09-14 当前执行口径
+
+本节覆盖后文中与“逐阶段人工签核”冲突的历史表述。FTR 工程服务已经实现；本阶段工作是以授权真实数据完成业务门禁，并把非前置人工验收集中到自动化范围完成后执行。
+
+```text
+humanReviewExecutionMode=batch_after_automated_scope
+preAutomationPrerequisites=public_source_terms_and_local_noncommercial_scope + H00300_trusted_total_return_contract + frozen_release_candidate_set
+automatedEvidenceStatus=provisional_until_human_pass
+automationSelfApprovalAllowed=false
+implementationApprovalRequired=true
+implementationEntry=after_external_document_review_and_explicit_human_approval
+productionUnlockStage=separate_future_high_risk_stage
+```
+
+执行顺序以门禁为准：`A0 -> A1 -> A2 -> A3 -> A3R0A -> A3R0B -> A3R0C -> A3R1 -> A0-v2 -> A1-v2 -> A2-v2 -> A3-v2 -> A4 -> A5 -> A6 -> A7`。A3 原候选真实结果为 `2/6 failed`；A3R0C 免费来源六时点回填和 A3R1 候选 v2 `5/6` 真实窗口验证已通过。当前只允许重新冻结并重跑 v2 正式 artifact 链；A4 仍需等待 A0-v2 至 A3-v2 全部通过。A1-A5 之间不插入产品/模型/风险/合规人工核查；A6 一次完成全部核查。任何 A6 否决都会根据 `PRD_COMPLETION_TRACEABILITY_MATRIX.md` 失效下游证据并打回责任阶段。
+
+A0 的来源条款、用途声明和 benchmark trust decision 是运行输入，不是 release 签核。A6 只能独立复核 A0 artifact 的适用范围、有效期和哈希，不能补造或追认缺失证据；复核失败必须回到 A0，而不是修改 A1-A5 摘要后继续。
 
 ## 1. 阶段结论
 
@@ -16,8 +34,8 @@ stageId=formal_release_readiness_closure
 本计划可以支撑后续受控自动化开发和子阶段验收，但不授权无人值守 release，也不自动开放真实交易：
 
 ```text
-documentationStatus=ready_for_human_review
-implementationStatus=not_started
+documentationStatus=accepted
+implementationStatus=in_progress
 implementationApprovalRequired=true
 supportsUnattendedEndToEndAutomation=false
 supportsFormalTradingUnlock=false
@@ -27,6 +45,8 @@ canCreateOrder=false
 orderCreateAllowed=false
 productionAdapterEnabled=false
 ```
+
+实施批准已由项目负责人在 2026-09-14 明确给出；批准范围止于 A6 集中人工核查前的 provisional package。公开来源仅用于本机个人非商业范围，不能被描述为商业授权。
 
 机器状态源：`docs/current-stage-state.json`。
 
@@ -61,7 +81,7 @@ React / FamsChatBox / 专家页
   -> Fastify routes
   -> PortfolioBacktestInputBuilder
   -> PortfolioBacktestEngine（保留回测计算）
-  -> FTR 独立 gate services（下一阶段拆分）
+  -> FTR 独立 gate services（已实现，下一阶段输入真实授权证据）
   -> Operation / audit artifacts
   -> Backtest / Operations / ChatBox 可见结果
 ```
@@ -146,7 +166,7 @@ PortfolioBacktestEngine.buildBenchmarkQualificationAudit
 目标链路：
 
 ```text
-BenchmarkQualificationService
+FormalBenchmarkService.qualificationAudit
 OfficialTotalReturnBenchmarkAdapter
 TrustedTotalReturnBenchmarkAdapter
 ```
@@ -178,11 +198,16 @@ FORMAL_VALIDATION_METRIC_DEFINITIONS.md
 
 ```text
 ReleaseCandidateSet
+FTR-3R0 Point-in-time Data Gate
 FormalValidationService
 ValidationFailureTaxonomy
 ```
 
 `releaseCandidateStrategyIds` 是本次拟 release 的策略和版本；`excludedStrategyIds` 必须记录排除原因。失败策略不得为获得全绿而静默移出 candidate 集合。
+
+当前 v1 红利低波产品候选的 artifact/semantic 验证已通过，但业务门禁只有 2/6。六个历史决策时点已由免费来源完成真实回填；A3R1 候选 v2 使用逐窗口冻结快照和 20 只真实 qfq 评估行情通过 `5/6`，未使用最新候选、当前 8 只成分或未来公告回填历史。该隔离结果只允许重新冻结 v2 正式 artifact 链，不能直接宣称 FTR-3 或 FTR-4 通过。
+
+2026-09-14 的细化执行状态：FTR-3R0A 已使用真实 BaoStock/AKShare 数据证明 2025-12-12 的历史 universe 和关键时点字段具备来源可行性；FTR-3R0B 已实现 `PointInTimeDataProviderService`、12 端点白名单、分页、公告日/上市期/行业生效期截断和 raw-hash 合同。真实单日批量运行因 `FAMS_TUSHARE_TOKEN/TUSHARE_TOKEN` 未配置而保持 `blocked_provider_not_configured`。未达到单日七数据域覆盖均 >=80% 前，不得进入 FTR-3R0C 六时点回填。
 
 用户操作：研究用户逐策略查看 OOS、walk-forward、参数敏感性、行业/市场/流动性分组和失败原因，并能打开对应 evidence。
 
@@ -204,7 +229,7 @@ formalValidationPassed=true
 
 `formalValidationPassed=true` 只表示模型验证 gate 通过，不等于交易解锁。
 
-### FTR-4 人工签核
+### FTR-4 集中核查队列与人工签核
 
 当前链路：
 
@@ -217,14 +242,27 @@ PortfolioBacktestEngine.buildManualSignoffAudit
 目标链路：
 
 ```text
+DeferredHumanReviewQueue（待新增）
 ManualSignoffService
 ManualSignoffRecord
 SignoffEvidencePolicy
 ```
 
-用户操作：授权审核人在 Operations 依次复核数据、模型、风控、合规和最终 release；每次签核绑定 reviewer、时间、输入 artifact 哈希、结论和备注。普通用户和自动化 Agent 无签核权限。
+自动化操作：A5 将 Daily UX、V2-PX、数据、benchmark、模型、风险、合规和 final release 八类审查项写入 pending 队列，并冻结输入 artifact 哈希。自动化不得写入 passed。
 
-出门门槛：
+集中人工操作：A6 授权审核人在 Operations 一次打开完整队列，逐项复核并签核或打回；每次签核绑定 reviewer、时间、输入 artifact 哈希、结论和备注。普通用户和自动化 Agent 无签核权限。
+
+自动化段出门门槛：
+
+```text
+batchHumanReviewReady=true
+allQueuedArtifactHashesPresent=true
+humanAcceptanceStatus=pending_batch_review
+manualSignoffPassed=false
+downstreamEvidenceStatus=provisional_until_human_pass
+```
+
+集中核查出门门槛：
 
 ```text
 requiredRoles=data/model/risk/compliance/final_release
@@ -267,7 +305,7 @@ orderCreateAllowed=false
 
 生产适配器启用属于独立高风险人工审批，不由 FTR 自动化开发完成。
 
-### FTR-6 Release review 总验收
+### FTR-6 Provisional 与 Final release review
 
 当前链路：
 
@@ -285,12 +323,20 @@ FormalReleaseReviewPackage
 HumanReleaseDecision
 ```
 
-用户操作：审计者从 HTML 报告进入每个 gate、用户场景、测试结果和原始 artifact，查看状态、责任人、失败归属和打回阶段。
+用户操作：A5 审计者从 provisional HTML 进入每个 gate、用户场景、测试结果和原始 artifact；A6 完成集中签核；A7 使用同一组通过签核的 artifact 哈希重建 final HTML。报告必须展示状态、责任人、失败归属和打回阶段。
 
-自动化阶段最终只能声明：
+集中人工核查前只能声明：
 
 ```text
-formalTradingReleaseReviewReady=true
+batchHumanReviewReady=true
+humanAcceptanceStatus=pending_batch_review
+downstreamEvidenceStatus=provisional_until_human_pass
+```
+
+集中人工核查全部通过后可以声明：
+
+```text
+finalFormalReleaseReviewPackageReady=true
 releaseApprovalStatus=pending_human_approval
 formalTradingUnlocked=false
 autoTradeUnlocked=false
@@ -307,10 +353,11 @@ orderCreateAllowed=false
 | M0 文档冻结 | 看懂当前与目标，不混淆已完成/待开发 | FTR-0 全绿并人工认可 drawio | 文档阶段 |
 | M1 正式数据可评审 | 看见字段级 provider、日期、覆盖率和缺口 | FTR-1 无关键字段 blocker | 数据治理 |
 | M2 Benchmark 合格 | 看见官方/可信总回报比较 | FTR-2 资格和授权通过 | Benchmark |
-| M3 模型验证通过 | 看见可复核统计验证 | release candidates 全部通过 FTR-3 | 模型验证 |
-| M4 人工签核完成 | 看见五角色签核状态 | 五角色 artifact 与哈希完整 | 人工签核 |
+| M3 模型验证通过 | 看见可复核统计验证，并区分策略失败与数据不足 | 重构时先有 FTR-3R0 6/6 ready；release candidates 再全部通过 FTR-3；当前 2/6 + 0/6 不通过 | 模型验证/历史数据治理 |
+| M4 自动证据冻结 | 看见八类 pending 核查项 | Queue、artifactRefs 和哈希完整 | FTR-4/A5 |
 | M5 隔离防线通过 | 只能 paper/sandbox，交易动作被阻断 | FTR-5 回归通过且生产适配器 disabled | 执行隔离 |
-| M6 Release review ready | 一份报告解释所有 gate 和责任人 | FTR-1 至 FTR-5 关联完整，等待人工 release 决策 | Release Gate |
+| M6 集中人工核查 | 一次完成产品、数据、模型、风险、合规复核 | 八类项目有 reviewer/time/hash/decision | A6 对应责任阶段 |
+| M7 Final review package | 一份报告解释所有 gate 和责任人 | 签核哈希与原 artifact 一致 | FTR-6/A7 |
 
 ## 6. 端到端验收路径
 
@@ -333,12 +380,12 @@ orderCreateAllowed=false
 
 门槛：所有 candidate 都有完整结果；insufficient 不得写成 passed。
 
-### 路径 C：人工签核与审计
+### 路径 C：集中人工签核与审计
 
-1. 数据、模型、风控、合规审核人分别打开对应证据。
-2. 审核人提交签核或打回。
-3. 最终 release 审核人查看完整链路。
-4. 报告展示签核时使用的 artifact 哈希。
+1. A5 生成包含八类审查项的 `DeferredHumanReviewQueue`。
+2. A6 审核人从同一入口分别打开对应冻结证据。
+3. 审核人提交签核或打回，失败项触发下游 evidence invalidated。
+4. 最终 release 审核人查看完整链路，A7 重建 final 报告。
 
 门槛：缺任一角色即 blocked；自动化不能自签核。
 
@@ -359,6 +406,7 @@ orderCreateAllowed=false
 16_benchmark_qualification_audit.json
 17_formal_validation_audit.json
 18_manual_signoff_audit.json
+deferred_human_review_queue.json
 provider_authorization_audit.json
 release_candidate_set.json
 formal_release_review_manifest.json
@@ -375,7 +423,7 @@ SUMMARY_FOR_GPT.md
 
 ```text
 把 S0-S8 写成下一阶段待开发
-把目标 Service 写成当前已实现
+把已实现 FTR Service 写成待开发，或把待新增 DeferredHumanReviewQueue 写成已实现
 使用免费源或 research proxy 通过正式数据/benchmark gate
 隐藏失败策略或无效窗口
 自动化写入人工签核通过

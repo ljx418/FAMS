@@ -32,6 +32,11 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { RotationChart } from './RotationChart'
+import { IndustryRotationHistoryPanel } from './IndustryRotationHistoryPanel'
+import {
+  industryRotationMarketForKey,
+  industryRotationPresetChoices,
+} from './industryRotationPresets'
 import {
   createRotationResearchStudy,
   deleteRotationResearchStudy,
@@ -130,7 +135,10 @@ const medicalPreset: ResearchDraft = {
 const autoPreset: ResearchDraft = {
   name: '智能电动车（港股）',
   market: 'HK',
-  frequency: 'weekly',
+  // 赛力斯 H 股于 2025 年末才开始交易，当前周频样本尚不足以同时
+  // 完成公式热身并形成可解释轨迹。日频使用同一港股证券和恒指基准，
+  // 能保留真实上市历史且不会用 A 股 601127 跨市场拼接。
+  frequency: 'daily',
   period: { mode: 'rolling', rollingWeeks: 52 },
   targets: [
     { code: '09927.HK', name: '赛力斯', kind: 'equity', targetKey: 'HK:equity:09927.HK' },
@@ -260,6 +268,12 @@ export function RelativeRotationResearchWorkbench({ reducedMotion }: { reducedMo
   const timelineNeedsReload = Boolean(timeline && !activeTimeline)
 
   const studyChoices = useMemo<StudyChoice[]>(() => [
+    ...industryRotationPresetChoices.map((choice) => ({
+      key: choice.key,
+      label: choice.label,
+      studyId: null,
+      draft: choice.draft,
+    })),
     { key: 'preset-medical', label: '预设 · 医疗持仓', studyId: null, draft: medicalPreset },
     { key: 'preset-auto', label: '预设 · 智能电动车（港股）', studyId: null, draft: autoPreset },
     { key: 'preset-macro', label: '预设 · 全球宏观资产（近十年）', studyId: null, draft: macroPreset },
@@ -434,6 +448,9 @@ export function RelativeRotationResearchWorkbench({ reducedMotion }: { reducedMo
 
   const timelineItems = activeTimeline?.items || []
   const timelineDates = activeTimeline?.dates || []
+  const presetIndustryMarket = industryRotationMarketForKey(activeKey)
+  const activeIndustryMarket = presetIndustryMarket === draft.market ? presetIndustryMarket : null
+  const autoSeresItem = timelineItems.find((item) => item.targetKey === 'HK:equity:09927.HK')
   const aiSupplyChainItems = useMemo(() => timelineItems
     .filter((item) => item.taxonomy?.key === 'cn_ai_supply_chain')
     .sort((left, right) => (left.taxonomy?.order || 0) - (right.taxonomy?.order || 0)), [timelineItems])
@@ -541,12 +558,34 @@ export function RelativeRotationResearchWorkbench({ reducedMotion }: { reducedMo
           showIcon
           message="专题研究只比较同一市场、共同基准下的相对轮动。保存的是账号研究配置；刷新只更新共享行情缓存，不修改持仓或生成交易指令。"
         />
+        {activeKey === 'preset-auto' && (
+          <Alert
+            className="mt-3"
+            type={draft.frequency === 'daily' ? 'info' : 'warning'}
+            showIcon
+            message={draft.frequency === 'daily' ? '赛力斯 H 股已纳入日频研究' : '赛力斯 H 股的周频历史暂不足'}
+            description={draft.frequency === 'daily'
+              ? `09927.HK 使用自身港股上市历史和恒生指数共同基准${autoSeresItem ? `；当前 ${autoSeresItem.sampleDays} 个交易日、${autoSeresItem.points.length} 个可用坐标，按“有限历史”展示` : ''}。系统不会拼接 A 股 601127 的历史价格。`
+              : '周频公式需要至少 53 个对齐节点才能形成可解释轨迹；在达到门槛前请使用日频观察。系统不会为了补足样本而拼接 A 股 601127。'}
+          />
+        )}
         {activeKey === 'preset-ai-supply-chain-index' && (
           <Alert
             className="mt-3"
             type="info"
             showIcon
             message="本研究使用中证官方发布的行业和主题价格指数，按资源 → 能源 → 芯片 → 算力数据 → 软件应用 → AI综合主题观察相对轮动。AI综合主题可能与芯片、云计算及软件指数存在成分重叠，不代表严格的投入产出关系。"
+          />
+        )}
+        {activeIndustryMarket && (
+          <Alert
+            className="mt-3"
+            type="info"
+            showIcon
+            message={`${activeIndustryMarket === 'CN' ? 'A股' : '港股'}行业轮动采用独立的同市场 ETF 样本池`}
+            description={activeIndustryMarket === 'CN'
+              ? '覆盖15个A股行业与主题ETF，以沪深300为共同市场基准；行情预载范围最多8年，面板默认统计当前选定的104周。'
+              : '覆盖7个港股上市行业与主题ETF，以恒生指数为共同市场基准；行情预载范围最多8年，面板默认统计当前选定的104周。不会拼接A股ETF或个股历史。'}
           />
         )}
       </Card>
@@ -762,6 +801,15 @@ export function RelativeRotationResearchWorkbench({ reducedMotion }: { reducedMo
           </Card>
         </Col>
       </Row>
+
+      {activeIndustryMarket && activeTimeline && (
+        <IndustryRotationHistoryPanel
+          market={activeIndustryMarket}
+          frequency={draft.frequency}
+          endDate={endDate}
+          items={activeTimeline.items}
+        />
+      )}
 
       {associationRows.length > 0 && (
         <Card title="全量资产关联" extra={<span className="text-xs text-slate-500">同一共同基准与当前观察区间</span>}>

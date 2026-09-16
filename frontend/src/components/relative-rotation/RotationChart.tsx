@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import type { RotationQuadrant, RotationResearchTaxonomy, RotationTimelineItem } from '../../services/relativeRotationService'
@@ -24,6 +24,10 @@ const taxonomySeriesColors: Record<string, string> = {
   AI综合主题: '#db2777',
 }
 
+const colorForItem = (item: RotationChartItem, itemIndex: number) => (
+  item.taxonomy ? taxonomySeriesColors[item.taxonomy.stage] : seriesColors[itemIndex % seriesColors.length]
+)
+
 type RotationChartItem = Pick<RotationTimelineItem, 'targetKey' | 'symbol' | 'name' | 'readiness' | 'freshness' | 'points'> & {
   taxonomy?: RotationResearchTaxonomy | null
 }
@@ -42,6 +46,13 @@ const roundedRadius = (values: number[]) => {
 }
 
 export function RotationChart({ items, headDate, tailLength, loading, reducedMotion }: RotationChartProps) {
+  const [hiddenTargetKeys, setHiddenTargetKeys] = useState<string[]>([])
+
+  useEffect(() => {
+    const availableKeys = new Set(items.map((item) => item.targetKey))
+    setHiddenTargetKeys((current) => current.filter((targetKey) => availableKeys.has(targetKey)))
+  }, [items])
+
   const axisBounds = useMemo(() => {
     const allTimelinePoints = items.flatMap((item) => item.points)
     const xRadius = roundedRadius(allTimelinePoints.map((point) => point.relativeTrend))
@@ -55,6 +66,19 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
     }
   }, [items])
 
+  const legendItems = useMemo(() => items
+    .filter((item) => item.points.some((point) => point.date <= headDate))
+    .map((item, itemIndex) => ({
+      key: item.targetKey,
+      label: item.name,
+      symbol: item.symbol,
+      seriesName: `${item.name} ${item.symbol}`,
+      color: colorForItem(item, itemIndex),
+      muted: item.freshness === 'stale' || item.freshness === 'unknown',
+    })), [headDate, items])
+
+  const hiddenTargetKeySet = useMemo(() => new Set(hiddenTargetKeys), [hiddenTargetKeys])
+
   const option = useMemo<EChartsOption>(() => {
     const chartItems = items
       .map((item) => ({
@@ -64,7 +88,7 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
       .filter(({ points }) => points.length > 0)
 
     const assetSeries: any[] = chartItems.flatMap(({ item, points }, itemIndex) => {
-      const color = item.taxonomy ? taxonomySeriesColors[item.taxonomy.stage] : seriesColors[itemIndex % seriesColors.length]
+      const color = colorForItem(item, itemIndex)
       const name = `${item.name} ${item.symbol}`
       const limited = item.readiness === 'limited'
       const aged = item.freshness === 'stale' || item.freshness === 'unknown'
@@ -177,19 +201,11 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
         decal: { show: false },
         label: { description: `相对轮动图，头部日期 ${headDate}，显示 ${chartItems.length} 个当前研究标的。` },
       },
-      grid: { left: 70, right: 54, top: 30, bottom: 78, containLabel: false },
+      grid: { left: 70, right: 54, top: 30, bottom: 60, containLabel: false },
       legend: {
-        type: 'scroll',
-        bottom: 12,
-        left: 46,
-        right: 46,
-        itemWidth: 18,
-        itemHeight: 8,
-        icon: 'roundRect',
-        textStyle: { color: '#475569', fontSize: 12 },
-        pageIconColor: '#2563eb',
-        pageTextStyle: { color: '#64748b' },
-        data: chartItems.map(({ item }) => `${item.name} ${item.symbol}`),
+        show: false,
+        data: legendItems.map((item) => item.seriesName),
+        selected: Object.fromEntries(legendItems.map((item) => [item.seriesName, !hiddenTargetKeySet.has(item.key)])),
       },
       tooltip: {
         trigger: 'item',
@@ -250,31 +266,65 @@ export function RotationChart({ items, headDate, tailLength, loading, reducedMot
       },
       series: assetSeries,
     } as EChartsOption
-  }, [axisBounds, headDate, items, reducedMotion, tailLength])
+  }, [axisBounds, headDate, hiddenTargetKeySet, items, legendItems, reducedMotion, tailLength])
+
+  const toggleTargetVisibility = (targetKey: string) => {
+    setHiddenTargetKeys((current) => current.includes(targetKey)
+      ? current.filter((key) => key !== targetKey)
+      : [...current, targetKey])
+  }
 
   return (
-    <div className="relative w-full" style={{ height: 'clamp(480px, 58vw, 640px)' }}>
-      <div
-        className="pointer-events-none absolute grid grid-cols-2 grid-rows-2 overflow-hidden"
-        style={{ left: 70, right: 54, top: 30, bottom: 78 }}
-        aria-hidden="true"
-      >
-        <div className="bg-blue-50/60 p-3 text-xs font-semibold text-slate-500">改善 · IMPROVING</div>
-        <div className="bg-emerald-50/60 p-3 text-xs font-semibold text-slate-500">领先 · LEADING</div>
-        <div className="bg-rose-50/50 p-3 text-xs font-semibold text-slate-500">落后 · LAGGING</div>
-        <div className="bg-amber-50/50 p-3 text-xs font-semibold text-slate-500">弱化 · WEAKENING</div>
+    <div className="w-full">
+      <div className="relative w-full" style={{ height: 'clamp(480px, 58vw, 640px)' }}>
+        <div
+          className="pointer-events-none absolute grid grid-cols-2 grid-rows-2 overflow-hidden"
+          style={{ left: 70, right: 54, top: 30, bottom: 60 }}
+          aria-hidden="true"
+        >
+          <div className="bg-blue-50/60 p-3 text-xs font-semibold text-slate-500">改善 · IMPROVING</div>
+          <div className="bg-emerald-50/60 p-3 text-xs font-semibold text-slate-500">领先 · LEADING</div>
+          <div className="bg-rose-50/50 p-3 text-xs font-semibold text-slate-500">落后 · LAGGING</div>
+          <div className="bg-amber-50/50 p-3 text-xs font-semibold text-slate-500">弱化 · WEAKENING</div>
+        </div>
+        <ReactECharts
+          option={option}
+          showLoading={loading}
+          style={{ height: '100%', width: '100%', position: 'relative', zIndex: 1 }}
+          // A research switch changes the complete asset universe. ECharts merge
+          // semantics retain series whose IDs disappeared from the next option,
+          // which can leave a prior study's curves visible. Replace the option
+          // atomically so the rendered universe always equals `items`.
+          notMerge
+          lazyUpdate
+        />
       </div>
-      <ReactECharts
-        option={option}
-        showLoading={loading}
-        style={{ height: '100%', width: '100%', position: 'relative', zIndex: 1 }}
-        // A research switch changes the complete asset universe. ECharts merge
-        // semantics retain series whose IDs disappeared from the next option,
-        // which can leave a prior study's curves visible. Replace the option
-        // atomically so the rendered universe always equals `items`.
-        notMerge
-        lazyUpdate
-      />
+      {legendItems.length > 0 && (
+        <div className="border-t border-slate-200 bg-white px-5 py-3" aria-label={`图例，共 ${legendItems.length} 个标的`}>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2" role="group" aria-label="标的显隐控制">
+            {legendItems.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${item.muted ? 'text-slate-400' : 'text-slate-600'}`}
+                aria-pressed={!hiddenTargetKeySet.has(item.key)}
+                aria-label={`${hiddenTargetKeySet.has(item.key) ? '显示' : '隐藏'}${item.label} ${item.symbol}`}
+                title={`点击${hiddenTargetKeySet.has(item.key) ? '显示' : '隐藏'}该标的`}
+                onClick={() => toggleTargetVisibility(item.key)}
+              >
+                <span
+                  className="h-2 w-5 shrink-0 rounded-full"
+                  style={{ backgroundColor: item.color, opacity: hiddenTargetKeySet.has(item.key) || item.muted ? 0.35 : 1 }}
+                  aria-hidden="true"
+                />
+                <span className={`whitespace-nowrap ${hiddenTargetKeySet.has(item.key) ? 'text-slate-400 line-through' : ''}`}>
+                  <strong className="font-medium">{item.label}</strong> <span className="font-mono">{item.symbol}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

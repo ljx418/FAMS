@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-6-provisional-release-gate-audit.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "packageId", "status", "engineeringPackageStatus", "businessGates", "packageChecks", "blockers", "humanAcceptanceStatus", "downstreamEvidenceStatus", "batchHumanReviewReady", "releaseApprovalStatus", "formalTradingReleaseReviewReady", "finalFormalReleaseReviewPackageReady", "formalTradingReleaseReady", "productionAdapterEnabled", "realPositionMutationAllowed", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed", "notTradingAdvice"],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_release.provisional_release_gate_audit.v2"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "packageId": {"type": "string", "pattern": "^ftr6-provisional-[a-f0-9]{16}$"},
+    "status": {"const": "blocked"},
+    "engineeringPackageStatus": {"const": "ready_for_human_review"},
+    "businessGates": {"$ref": "#/$defs/businessGates"},
+    "packageChecks": {"$ref": "#/$defs/packageChecks"},
+    "blockers": {"type": "array", "minItems": 4, "uniqueItems": true, "allOf": [
+      {"contains": {"const": "manual_signoff_not_passed"}, "minContains": 1, "maxContains": 1},
+      {"contains": {"const": "consolidated_human_acceptance_pending"}, "minContains": 1, "maxContains": 1},
+      {"contains": {"const": "production_order_adapter_not_enabled"}, "minContains": 1, "maxContains": 1},
+      {"contains": {"const": "human_release_approval_pending"}, "minContains": 1, "maxContains": 1}
+    ], "items": {"type": "string", "minLength": 1}},
+    "humanAcceptanceStatus": {"const": "pending_batch_review"},
+    "downstreamEvidenceStatus": {"const": "provisional_until_human_pass"},
+    "batchHumanReviewReady": {"const": true},
+    "releaseApprovalStatus": {"const": "pending_human_approval"},
+    "formalTradingReleaseReviewReady": {"const": true},
+    "finalFormalReleaseReviewPackageReady": {"const": false},
+    "formalTradingReleaseReady": {"const": false},
+    "productionAdapterEnabled": {"const": false},
+    "realPositionMutationAllowed": {"const": false},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false},
+    "notTradingAdvice": {"const": true}
+  },
+  "$defs": {
+    "businessGates": {"type": "object", "additionalProperties": false, "required": ["formalDataGovernancePassed", "benchmarkQualificationPassed", "formalValidationPassed", "manualSignoffPassed", "executionIsolationPassed"], "properties": {"formalDataGovernancePassed": {"const": true}, "benchmarkQualificationPassed": {"const": true}, "formalValidationPassed": {"const": true}, "manualSignoffPassed": {"const": false}, "executionIsolationPassed": {"const": true}}},
+    "packageChecks": {"type": "object", "additionalProperties": false, "required": ["allRequiredArtifactsPresent", "allArtifactHashesVerified", "allReleaseCandidatesVisible", "blockedAndInsufficientResultsPreserved", "ftr4RiskEvidenceReboundToCurrentFtr5"], "properties": {"allRequiredArtifactsPresent": {"const": true}, "allArtifactHashesVerified": {"const": true}, "allReleaseCandidatesVisible": {"const": true}, "blockedAndInsufficientResultsPreserved": {"const": true}, "ftr4RiskEvidenceReboundToCurrentFtr5": {"const": true}}}
+  }
+}

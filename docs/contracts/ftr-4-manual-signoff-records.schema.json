@@ -2,15 +2,5 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://fams.local/schemas/ftr-4-manual-signoff-records.schema.json",
   "type": "array",
-  "items": {
-    "type": "object",
-    "additionalProperties": false,
-    "required": ["id", "operationId", "sequence", "role", "decision", "notes", "manifestHash", "reviewerUserId", "reviewerEmail", "previousHash", "recordHash", "createdAt"],
-    "properties": {
-      "role": {"enum": ["data", "model", "risk", "compliance", "final_release"]},
-      "decision": {"enum": ["approved", "rejected"]},
-      "manifestHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-      "recordHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
-    }
-  }
+  "maxItems": 0
 }

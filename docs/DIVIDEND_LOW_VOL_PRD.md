@@ -1,5 +1,17 @@
 # 红利低波行业龙头策略 PRD
 
+## 2026-09-14 FTR-3 validation profile 修订
+
+FTR-3 真实探测证明旧七对象统一门槛会把工程路径样本、当前持仓快照、研究参照和产品候选混为一类。项目所有者已批准按 `FORMAL_VALIDATION_PROFILE_CONTRACT.md` 重入：七对象全部保留并显示真实结果，但本轮只有 `dividend_low_vol_basket` 以 `product_release_candidate / equity_selection_release_v1` 进入产品 release gate，并绑定已验收的 H00300 total-return benchmark。
+
+永久组合、全天候组合继续作为研究比较；当前持仓继续作为诊断快照；三个本地组合继续作为真实数据工程路径样本。它们不参与本轮 `allReleaseCandidatesPassed`，不表示被删除或已经正式验证通过。红利低波仍必须真实满足 OOS、walk-forward、参数敏感性、行业/市场/流动性分组和交易约束门槛；真实失败时保持 failed/insufficient。
+
+## 2026-09-14 集中人工验收修订
+
+当前红利低波工程功能保持不变。正式评审剩余工作按 `A0 -> A7` 执行：授权数据和可信 benchmark 先作为输入，数据/benchmark/模型自动门禁完成后冻结证据，最后与产品体验、风险、合规和 final release 一次集中核查。集中核查前的结果只能标记 `provisional_until_human_pass`；失败候选、缺失字段和 insufficient 窗口不得隐藏。
+
+本修订不增加订单能力，生产适配器与正式交易解锁属于独立未来高风险阶段。
+
 ## 2026-07-16 当前有效阶段与下一阶段目标
 
 本节是本 PRD 的当前有效口径，优先于下方历史校准段落。
@@ -17,10 +29,10 @@ FTR-6 release review package
 
 当前真实基线：formal 数据治理 blocked，官方/可信 benchmark 未确认，formal validation 为 insufficient，人工签核 missing，生产订单适配器 disabled。红利低波候选进入 release 评审时必须记录策略版本、候选成分、排除原因、provider、分红事件、可交易性、验证窗口和 evidenceRefs；失败候选不得为获得全绿而被静默删除。
 
-下一阶段自动化完成后最多声明：
+集中人工核查通过并完成 A7 后最多声明：
 
 ```text
-formalTradingReleaseReviewReady=true
+finalFormalReleaseReviewPackageReady=true
 releaseApprovalStatus=pending_human_approval
 formalTradingUnlocked=false
 autoTradeUnlocked=false
@@ -194,6 +206,10 @@ manualSignoffAudit=missing
 红利低波策略在正式交易 release 中的职责是提供可审计的候选、观察区间、回测输入和模型有效性证据；它不能单独解锁正式 `ADD / REDUCE / ORDER_CREATE`。
 
 红利低波策略可以作为组合回测目标架构中的策略篮子来源；当前已接入真实 `DividendLowVolDaily` 候选快照读取、等权 v1、tradeDate、selectionRules 和 evidenceRefs。若真实入篮数量低于最小 3 只、行业/单票约束不足或 evidenceRefs 不完整，`dividend_low_vol_basket` 必须保持 insufficient，不得用本地样本组合替代红利低波篮子。
+
+上述“最新候选快照”只支撑当前研究比较。进入正式模型有效性验证时，不得把最新快照成分回填到历史窗口。重构产品候选前必须通过 FTR-3R0：六个冻结历史决策时点分别具备当时 universe、`noticeDate <= decisionDate` 的财务/分红事实、历史证券状态、tradeability、行情和候选快照，关键覆盖均不低于 80%。截至 2026-09-15，FTR-3 v1 为 `2/6 failed`；FTR-3R0 已以直接历史状态证据通过 `6/6 ready`，FTR-3R1 候选 v2 进一步以原 benchmark、窗口和阈值通过 `5/6`。该结果只允许重新冻结正式 artifact 链，不等于 FTR-3 或正式交易通过。
+
+截至 2026-09-15，FTR-3R0A 的真实开源探针、FREE-P0 批量可行性和 FREE-P1 全量六时点回填均已完成。规范证据使用 5,216 个腾讯未复权价格分片、5,216 个 BaoStock 决策日直接 `isST/tradestatus` 分片以及公告截断的 AKShare 财务/分红批量表；六时点关键覆盖全部高于 80%。Tushare 保留为未来正式 provider 升级项，不再阻断本机个人非商业研究范围内的候选重构。
 
 允许动作：
 

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-6-source-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "packageId", "baseCommitSha", "commitShaRole", "gitEvidenceStatus", "worktreeSnapshotHash", "sourceArtifacts", "sourceStageCoverage", "allRequiredArtifactsPresent", "allArtifactHashesVerified", "invalidatedArtifactIncluded", "ftr4RiskEvidenceReboundToCurrentFtr5", "realDataUsed", "accountFactsUnchanged", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_release.ftr6_source_manifest.v1"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "packageId": {"type": "string", "pattern": "^ftr6-provisional-[a-f0-9]{16}$"},
+    "baseCommitSha": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "commitShaRole": {"const": "base_commit_not_artifact_claim"},
+    "gitEvidenceStatus": {"enum": ["clean_commit", "uncommitted_worktree_snapshot"]},
+    "worktreeSnapshotHash": {"$ref": "#/$defs/sha256"},
+    "sourceArtifacts": {"type": "array", "minItems": 18, "items": {"$ref": "#/$defs/sourceArtifact"}},
+    "sourceStageCoverage": {"type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true, "items": {"enum": ["A0", "FTR-1", "FTR-2", "FTR-3", "FTR-4", "FTR-5"]}},
+    "allRequiredArtifactsPresent": {"const": true},
+    "allArtifactHashesVerified": {"const": true},
+    "invalidatedArtifactIncluded": {"const": false},
+    "ftr4RiskEvidenceReboundToCurrentFtr5": {"const": true},
+    "realDataUsed": {"const": true},
+    "accountFactsUnchanged": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sourceArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stageId", "name", "path", "packageRelativePath", "originPath", "sha256", "bytes"],
+      "properties": {
+        "stageId": {"enum": ["A0", "FTR-1", "FTR-2", "FTR-3", "FTR-4", "FTR-5"]},
+        "name": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "packageRelativePath": {"type": "string", "pattern": "^evidence/[^/]+$"},
+        "originPath": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

@@ -44,6 +44,7 @@ try {
       marketValue: 11_000,
       costBasis: 10_000,
       unrealizedPnl: 1_000,
+      tags: JSON.stringify(['账户:同花顺']),
     },
   })
   const missingPosition = await prisma.position.create({
@@ -57,6 +58,7 @@ try {
       marketValue: 10_500,
       costBasis: 10_000,
       unrealizedPnl: 500,
+      tags: JSON.stringify(['账户:同花顺']),
     },
   })
 
@@ -225,7 +227,7 @@ try {
   assert.equal(mcpReview.status, 'completed')
 
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5ZQAAAABJRU5ErkJggg==', 'base64')
-  const uploaded = await screenshotCaptureService.upload({ userId, buffer: png, mimeType: 'image/png', originalFilename: 'holding.png' })
+  const uploaded = await screenshotCaptureService.upload({ userId, accountSource: 'tonghuashun', buffer: png, mimeType: 'image/png', originalFilename: 'holding.png' })
   capturePath = uploaded.capture.storagePath
   const preview = await screenshotCaptureService.applyExtraction({
     captureId: uploaded.capture.id,
@@ -234,7 +236,7 @@ try {
     rows: [{
       rowType: 'holding',
       rawText: `${primarySymbol} 1200 10.2`,
-      fields: { symbol: primarySymbol, quantity: 1200, avgCost: 10.2, currentPrice: 11.1, marketValue: 13_320 },
+      fields: { symbol: primarySymbol, quantity: 1200, availableQuantity: 1200, frozenQuantity: 0, avgCost: 10.2, currentPrice: 11.1, marketValue: 13_320 },
       fieldConfidence: { symbol: 0.99, quantity: 0.99, avgCost: 0.98 },
       confidence: 0.98,
     }],
@@ -246,7 +248,7 @@ try {
     rowId: preview.rows[0].id,
     userId,
     update: {
-      fields: { symbol: primarySymbol, quantity: 1250, avgCost: 10.2, currentPrice: 11.1, marketValue: 13_875 },
+      fields: { symbol: primarySymbol, quantity: 1250, availableQuantity: 1250, frozenQuantity: 0, avgCost: 10.2, currentPrice: 11.1, marketValue: 13_875 },
       confidence: 0.99,
       correctedBy: 'workflow-test',
     },

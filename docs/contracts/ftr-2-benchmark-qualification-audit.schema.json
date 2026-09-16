@@ -2,16 +2,102 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://fams.local/schemas/ftr-2-benchmark-qualification-audit.schema.json",
   "type": "object",
-  "additionalProperties": true,
-  "required": ["schemaVersion", "benchmarkId", "benchmarkVersion", "benchmarkType", "status", "benchmarkQualificationPassed", "contentHashVerified", "blockers", "researchProxyCannotPass", "formalTradingUnlocked", "orderCreateAllowed"],
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "checkedAt", "realDataUsed", "benchmarkId", "benchmarkVersion", "benchmarkType", "provider", "usageScope", "commercialAuthorizationClaimed", "status", "benchmarkQualificationPassed", "benchmarkAuthorizationReviewed", "benchmarkSourceRefsPresent", "authorizationEvidenceRefsPresent", "contentHashVerified", "replayPointCount", "firstDate", "lastDate", "sourceRefs", "authorizationEvidenceRefs", "blockers", "researchProxyCannotPass", "freeSourceCannotPass", "priceIndexCannotPass", "benchmarkIdentityVerified", "benchmarkUsageScope", "benchmarkPointCount", "benchmarkWindowStart", "benchmarkWindowEnd", "immutableReplayPassed", "deprecatedAliasesPersisted", "accountFactsUnchanged", "protectedAccountDigestBefore", "protectedAccountDigestAfter", "humanAcceptanceStatus", "validationProfileSetHash", "ftr1DataGovernanceArtifact", "candidateBenchmarkMappings", "artifactRefs", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
   "properties": {
     "schemaVersion": {"const": "fams.formal_benchmark.qualification_audit.v1"},
-    "benchmarkType": {"enum": ["official_total_return", "trusted_total_return", "free_source_total_return", "price_index", "research_proxy"]},
-    "status": {"enum": ["passed", "blocked"]},
+    "stageId": {"const": "FTR-2"},
+    "checkedAt": {"type": "string", "format": "date-time"},
+    "realDataUsed": {"const": true},
+    "benchmarkId": {"const": "csi300_total_return_h00300"},
+    "benchmarkVersion": {"type": "string", "pattern": "^2023-09-01_2026-09-[0-9]{2}$"},
+    "benchmarkType": {"const": "trusted_total_return"},
+    "provider": {"const": "csindex_public"},
+    "usageScope": {"const": "local_personal_noncommercial"},
+    "commercialAuthorizationClaimed": {"const": false},
+    "status": {"const": "passed"},
+    "benchmarkQualificationPassed": {"const": true},
+    "benchmarkAuthorizationReviewed": {"const": true},
+    "benchmarkSourceRefsPresent": {"const": true},
+    "authorizationEvidenceRefsPresent": {"const": true},
+    "contentHashVerified": {"const": true},
+    "replayPointCount": {"type": "integer", "minimum": 734},
+    "firstDate": {"const": "2023-09-01"},
+    "lastDate": {"type": "string", "format": "date"},
+    "sourceRefs": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "authorizationEvidenceRefs": {"type": "array", "minItems": 6, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "blockers": {"type": "array", "maxItems": 0},
     "researchProxyCannotPass": {"const": true},
     "freeSourceCannotPass": {"const": true},
     "priceIndexCannotPass": {"const": true},
+    "benchmarkIdentityVerified": {"const": true},
+    "benchmarkUsageScope": {"const": "local_personal_noncommercial"},
+    "benchmarkPointCount": {"type": "integer", "minimum": 734},
+    "benchmarkWindowStart": {"const": "2023-09-01"},
+    "benchmarkWindowEnd": {"type": "string", "format": "date"},
+    "immutableReplayPassed": {"const": true},
+    "deprecatedAliasesPersisted": {"const": false},
+    "accountFactsUnchanged": {"const": true},
+    "protectedAccountDigestBefore": {"$ref": "#/$defs/accountDigest"},
+    "protectedAccountDigestAfter": {"$ref": "#/$defs/accountDigest"},
+    "humanAcceptanceStatus": {"const": "pending_batch_review"},
+    "validationProfileSetHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "ftr1DataGovernanceArtifact": {"$ref": "#/$defs/artifactRef"},
+    "candidateBenchmarkMappings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidateId", "candidateVersion", "validationProfileId", "benchmarkId", "benchmarkVersion", "benchmarkType", "qualificationStatus"],
+        "properties": {
+          "candidateId": {"const": "dividend_low_vol_basket"},
+          "candidateVersion": {"const": "portfolio.strategy.dividend_low_vol_basket.v2_point_in_time"},
+          "validationProfileId": {"const": "equity_selection_release_v1"},
+          "benchmarkId": {"const": "csi300_total_return_h00300"},
+          "benchmarkVersion": {"type": "string", "pattern": "^2023-09-01_2026-09-[0-9]{2}$"},
+          "benchmarkType": {"const": "trusted_total_return"},
+          "qualificationStatus": {"const": "passed"}
+        }
+      }
+    },
+    "artifactRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["licenseReview", "replay"],
+      "properties": {
+        "licenseReview": {"$ref": "#/$defs/artifactRef"},
+        "replay": {"$ref": "#/$defs/artifactRef"}
+      }
+    },
     "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
     "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "accountDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["positionCount", "openPositionCount", "positionDigest", "transactionCount", "gridDraftCount", "externalOrderObservationCount"],
+      "properties": {
+        "positionCount": {"type": "integer", "minimum": 1},
+        "openPositionCount": {"type": "integer", "minimum": 1},
+        "positionDigest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "transactionCount": {"type": "integer", "minimum": 0},
+        "gridDraftCount": {"type": "integer", "minimum": 0},
+        "externalOrderObservationCount": {"type": "integer", "minimum": 0}
+      }
+    }
   }
 }

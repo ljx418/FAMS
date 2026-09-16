@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-free-source-batch-probe.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "stageId", "generatedAt", "decisionDate", "decisionDates", "mode", "sourcePolicy",
+    "referenceUniverse", "evidenceFiles", "providerSummary", "coverage", "dividendEvidence", "priceThroughput",
+    "derivationPolicy", "sourceTerms", "summary", "accountFactsUnchanged", "realDataUsed", "status", "blockers",
+    "prohibitedActions", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "fams.ftr_3r.free_source_batch_probe.v1" },
+    "stageId": { "const": "FTR-3R0B-FREE" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "decisionDate": { "const": "2025-12-12" },
+    "decisionDates": {
+      "type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true,
+      "prefixItems": [
+        { "const": "2025-12-12" }, { "const": "2026-01-20" }, { "const": "2026-03-03" },
+        { "const": "2026-04-08" }, { "const": "2026-05-15" }, { "const": "2026-06-22" }
+      ],
+      "items": false
+    },
+    "mode": { "const": "single_point_bulk_feasibility_with_price_throughput_sample" },
+    "sourcePolicy": { "const": "baostock_metadata_akshare_bulk_reports_akshare_tencent_prices" },
+    "referenceUniverse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "symbolCount", "sha256", "minimumCoveragePercent"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "symbolCount": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/hash" },
+        "minimumCoveragePercent": { "const": 80 }
+      }
+    },
+    "evidenceFiles": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["provider", "path", "sha256", "exists"],
+        "properties": {
+          "provider": { "enum": ["baostock_bulk", "akshare_bulk", "akshare_tencent_price_sample"] },
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "$ref": "#/$defs/hash" },
+          "exists": { "const": true }
+        }
+      }
+    },
+    "providerSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "baostockVersion", "akshareVersion", "baostockBulkStatus", "akshareBulkStatus", "akshareTencentPriceStatus",
+        "historicalUniverseCount", "tradeStatusSymbolCount", "industrySymbolCount", "performanceSymbolCount",
+        "incomeSymbolCount", "cashflowSymbolCount", "balanceSymbolCount", "derivedCapitalSymbolCount",
+        "dividendPositiveEventSymbolCount", "threeYearDividendEventSymbolCount"
+      ],
+      "properties": {
+        "baostockVersion": { "type": "string", "minLength": 1 },
+        "akshareVersion": { "type": "string", "minLength": 1 },
+        "baostockBulkStatus": { "enum": ["passed", "failed"] },
+        "akshareBulkStatus": { "enum": ["passed", "failed"] },
+        "akshareTencentPriceStatus": { "enum": ["passed", "insufficient"] },
+        "historicalUniverseCount": { "type": "integer", "minimum": 1 },
+        "tradeStatusSymbolCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "industrySymbolCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "performanceSymbolCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "incomeSymbolCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "cashflowSymbolCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "balanceSymbolCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "derivedCapitalSymbolCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "dividendPositiveEventSymbolCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "threeYearDividendEventSymbolCount": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "historicalUniversePercent", "historicalTradeStatusPercent", "historicalIndustryPercent", "performancePercent",
+        "incomePercent", "cashflowPercent", "balancePercent", "derivedCapitalPercent", "dividendPositiveEventPercent"
+      ],
+      "properties": {
+        "historicalUniversePercent": { "$ref": "#/$defs/percent" },
+        "historicalTradeStatusPercent": { "$ref": "#/$defs/percent" },
+        "historicalIndustryPercent": { "$ref": "#/$defs/percent" },
+        "performancePercent": { "$ref": "#/$defs/percent" },
+        "incomePercent": { "$ref": "#/$defs/percent" },
+        "cashflowPercent": { "$ref": "#/$defs/percent" },
+        "balancePercent": { "$ref": "#/$defs/percent" },
+        "derivedCapitalPercent": { "$ref": "#/$defs/percent" },
+        "dividendPositiveEventPercent": { "$ref": "#/$defs/percent" }
+      }
+    },
+    "dividendEvidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reportPeriods", "reportPeriodSnapshotsComplete", "positiveEventCoveragePercent", "missingRowTreatedAsConfirmedNoDividend", "negativeFactContractRequiredBeforeFullBackfill"],
+      "properties": {
+        "reportPeriods": { "const": ["20241231", "20231231", "20221231"] },
+        "reportPeriodSnapshotsComplete": { "type": "boolean" },
+        "positiveEventCoveragePercent": { "$ref": "#/$defs/percent" },
+        "missingRowTreatedAsConfirmedNoDividend": { "const": false },
+        "negativeFactContractRequiredBeforeFullBackfill": { "const": true }
+      }
+    },
+    "priceThroughput": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "provider", "adjustment", "sampleSymbolCount", "passedSymbolCount", "minimumRowsPerSymbol",
+        "priceRowsHaveRequiredFields", "elapsedMs", "averageRequestMs", "projectedSequentialHours",
+        "maximumProjectedSequentialHours", "fullMarketCoverageClaimed", "resumableShardingRequired"
+      ],
+      "properties": {
+        "provider": { "const": "akshare_stock_zh_a_hist_tx" },
+        "adjustment": { "const": "none" },
+        "sampleSymbolCount": { "const": 30 },
+        "passedSymbolCount": { "type": "integer", "minimum": 0, "maximum": 30 },
+        "minimumRowsPerSymbol": { "const": 250 },
+        "priceRowsHaveRequiredFields": { "type": "boolean" },
+        "elapsedMs": { "type": "integer", "minimum": 1 },
+        "averageRequestMs": { "type": "integer", "minimum": 1 },
+        "projectedSequentialHours": { "type": "number", "exclusiveMinimum": 0 },
+        "maximumProjectedSequentialHours": { "const": 4 },
+        "fullMarketCoverageClaimed": { "const": false },
+        "resumableShardingRequired": { "const": true }
+      }
+    },
+    "derivationPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["historicalUniverseFromListingLifecycle", "futureAnnouncementReuseDetected", "currentUniverseUsedAsHistoricalMembership", "turnoverAmountFormula", "totalSharesFormula", "marketCapFormula", "derivedFieldsMustCarryEvidenceRefs"],
+      "properties": {
+        "historicalUniverseFromListingLifecycle": { "const": true },
+        "futureAnnouncementReuseDetected": { "const": false },
+        "currentUniverseUsedAsHistoricalMembership": { "const": false },
+        "turnoverAmountFormula": { "const": "close*amount_hands*100" },
+        "totalSharesFormula": { "const": "shareholder_equity/book_value_per_share" },
+        "marketCapFormula": { "const": "decision_close*derived_total_shares" },
+        "derivedFieldsMustCarryEvidenceRefs": { "const": true }
+      }
+    },
+    "sourceTerms": {
+      "type": "object", "additionalProperties": false,
+      "required": ["usageScope", "sdkLicenseNotTreatedAsDataLicense", "commercialRedistributionAllowed", "sourceTermsSnapshotPresent", "sourceTermsPermitConfiguredUse", "statements"],
+      "properties": {
+        "usageScope": { "const": "local_personal_noncommercial" },
+        "sdkLicenseNotTreatedAsDataLicense": { "const": true },
+        "commercialRedistributionAllowed": { "const": false },
+        "sourceTermsSnapshotPresent": { "const": true },
+        "sourceTermsPermitConfiguredUse": { "type": "boolean" },
+        "statements": {
+          "type": "array", "minItems": 2,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["sourceId", "url", "reviewedStatement", "reviewStatus", "contentHash"],
+            "properties": {
+              "sourceId": { "type": "string", "minLength": 1 },
+              "url": { "type": "string", "minLength": 1 },
+              "reviewedStatement": { "type": "string", "minLength": 1 },
+              "reviewStatus": { "const": "reviewed_for_local_personal_noncommercial_use" },
+              "contentHash": { "$ref": "#/$defs/hash" }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["bulkDatasetsPassed", "coreCoveragePassed", "dividendSnapshotsComplete", "announcementCutoffVerified", "priceThroughputPassed", "sourceTermsPassed", "freeSourceBatchFeasibilityPassed", "freeSourceFullMarketBackfillReady", "ftr3CandidateRedesignAllowed"],
+      "properties": {
+        "bulkDatasetsPassed": { "type": "boolean" },
+        "coreCoveragePassed": { "type": "boolean" },
+        "dividendSnapshotsComplete": { "type": "boolean" },
+        "announcementCutoffVerified": { "type": "boolean" },
+        "priceThroughputPassed": { "type": "boolean" },
+        "sourceTermsPassed": { "type": "boolean" },
+        "freeSourceBatchFeasibilityPassed": { "type": "boolean" },
+        "freeSourceFullMarketBackfillReady": { "const": false },
+        "ftr3CandidateRedesignAllowed": { "const": false }
+      }
+    },
+    "accountFactsUnchanged": { "const": true },
+    "realDataUsed": { "const": true },
+    "status": { "enum": ["passed", "insufficient"] },
+    "blockers": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "prohibitedActions": {
+      "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "ADD" } }, { "contains": { "const": "REDUCE" } },
+        { "contains": { "const": "ORDER_CREATE" } }, { "contains": { "const": "AUTO_TRADE" } }
+      ]
+    },
+    "formalTradingUnlocked": { "const": false },
+    "autoTradeUnlocked": { "const": false },
+    "canCreateOrder": { "const": false },
+    "orderCreateAllowed": { "const": false }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "passed" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "blockers": { "maxItems": 0 },
+          "coverage": {
+            "properties": {
+              "historicalUniversePercent": { "minimum": 80 }, "historicalTradeStatusPercent": { "minimum": 80 },
+              "historicalIndustryPercent": { "minimum": 80 }, "performancePercent": { "minimum": 80 },
+              "incomePercent": { "minimum": 80 }, "cashflowPercent": { "minimum": 80 },
+              "balancePercent": { "minimum": 80 }, "derivedCapitalPercent": { "minimum": 80 }
+            }
+          },
+          "priceThroughput": {
+            "properties": {
+              "passedSymbolCount": { "const": 30 }, "priceRowsHaveRequiredFields": { "const": true },
+              "projectedSequentialHours": { "maximum": 4 }
+            }
+          },
+          "summary": {
+            "properties": {
+              "bulkDatasetsPassed": { "const": true }, "coreCoveragePassed": { "const": true },
+              "dividendSnapshotsComplete": { "const": true }, "announcementCutoffVerified": { "const": true },
+              "priceThroughputPassed": { "const": true }, "sourceTermsPassed": { "const": true },
+              "freeSourceBatchFeasibilityPassed": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+    "percent": { "type": "number", "minimum": 0, "maximum": 100 }
+  }
+}

@@ -4,6 +4,7 @@ import { sha256Canonical } from './formalReleaseHash.js'
 
 export type FormalBenchmarkType = 'official_total_return' | 'trusted_total_return'
 export type AnyBenchmarkType = FormalBenchmarkType | 'free_source_total_return' | 'price_index' | 'research_proxy'
+export type FormalBenchmarkUsageScope = 'licensed_commercial' | 'local_personal_noncommercial'
 
 export interface FormalBenchmarkPoint {
   date: string
@@ -17,6 +18,9 @@ export interface FormalBenchmarkImportInput {
   benchmarkType: AnyBenchmarkType
   provider: string
   licenseRef: string
+  usageScope: FormalBenchmarkUsageScope
+  authorizationEvidenceRefs: string[]
+  commercialAuthorizationClaimed: boolean
   currency: string
   points: FormalBenchmarkPoint[]
   sourceRefs: string[]
@@ -39,6 +43,9 @@ function artifactCore(input: Omit<FormalBenchmarkImportInput, 'contentHash'>) {
     benchmarkType: input.benchmarkType,
     provider: input.provider,
     licenseRef: input.licenseRef,
+    usageScope: input.usageScope,
+    authorizationEvidenceRefs: input.authorizationEvidenceRefs,
+    commercialAuthorizationClaimed: input.commercialAuthorizationClaimed,
     currency: input.currency,
     points: input.points,
     sourceRefs: input.sourceRefs,
@@ -66,8 +73,23 @@ export class FormalBenchmarkService {
     }
     if (!input.provider.trim()) throw new Error('benchmark_provider_required')
     if (!input.licenseRef.trim()) throw new Error('benchmark_license_ref_required')
+    if (!['licensed_commercial', 'local_personal_noncommercial'].includes(input.usageScope)) {
+      throw new Error('benchmark_usage_scope_invalid')
+    }
+    if (!Array.isArray(input.authorizationEvidenceRefs)
+      || input.authorizationEvidenceRefs.length < 3
+      || input.authorizationEvidenceRefs.some((ref) => !ref.trim())) {
+      throw new Error('benchmark_authorization_evidence_insufficient')
+    }
+    if (input.benchmarkType === 'official_total_return'
+      && (input.usageScope !== 'licensed_commercial' || input.commercialAuthorizationClaimed !== true)) {
+      throw new Error('official_benchmark_requires_commercial_authorization')
+    }
+    if (input.usageScope === 'local_personal_noncommercial' && input.commercialAuthorizationClaimed) {
+      throw new Error('noncommercial_scope_cannot_claim_commercial_authorization')
+    }
     if (!/^[A-Z]{3}$/.test(input.currency)) throw new Error('benchmark_currency_invalid')
-    if (!Array.isArray(input.sourceRefs) || input.sourceRefs.length === 0 || input.sourceRefs.some((ref) => !ref.trim())) {
+    if (!Array.isArray(input.sourceRefs) || input.sourceRefs.length < 3 || input.sourceRefs.some((ref) => !ref.trim())) {
       throw new Error('benchmark_source_refs_required')
     }
     if (!Array.isArray(input.points) || input.points.length < 2) throw new Error('benchmark_points_insufficient')
@@ -141,11 +163,19 @@ export class FormalBenchmarkService {
     return latest
   }
 
-  qualificationAudit(artifact: Pick<FormalBenchmarkImportInput, 'benchmarkId' | 'version' | 'benchmarkType' | 'provider' | 'licenseRef' | 'currency' | 'sourceRefs' | 'points'> & { contentHash: string }) {
+  qualificationAudit(artifact: Pick<FormalBenchmarkImportInput, 'benchmarkId' | 'version' | 'benchmarkType' | 'provider' | 'licenseRef' | 'usageScope' | 'authorizationEvidenceRefs' | 'commercialAuthorizationClaimed' | 'currency' | 'sourceRefs' | 'points'> & { contentHash: string }) {
     const blockers: string[] = []
     if (!['official_total_return', 'trusted_total_return'].includes(artifact.benchmarkType)) blockers.push('benchmark_not_official_or_trusted_total_return')
     if (!artifact.licenseRef.trim()) blockers.push('benchmark_license_review_missing')
-    if (artifact.sourceRefs.length === 0) blockers.push('benchmark_source_refs_missing')
+    if (artifact.sourceRefs.length < 3) blockers.push('benchmark_source_refs_insufficient')
+    if (artifact.authorizationEvidenceRefs.length < 3) blockers.push('benchmark_authorization_evidence_insufficient')
+    if (artifact.benchmarkType === 'official_total_return'
+      && (artifact.usageScope !== 'licensed_commercial' || !artifact.commercialAuthorizationClaimed)) {
+      blockers.push('official_benchmark_commercial_authorization_missing')
+    }
+    if (artifact.usageScope === 'local_personal_noncommercial' && artifact.commercialAuthorizationClaimed) {
+      blockers.push('noncommercial_scope_commercial_claim_conflict')
+    }
     if (artifact.points.length < 2) blockers.push('benchmark_replay_points_insufficient')
     const contentHashVerified = artifact.contentHash === benchmarkContentHash({
       schemaVersion: 'fams.formal_benchmark.import.v1',
@@ -154,6 +184,9 @@ export class FormalBenchmarkService {
       benchmarkType: artifact.benchmarkType,
       provider: artifact.provider,
       licenseRef: artifact.licenseRef,
+      usageScope: artifact.usageScope,
+      authorizationEvidenceRefs: artifact.authorizationEvidenceRefs,
+      commercialAuthorizationClaimed: artifact.commercialAuthorizationClaimed,
       currency: artifact.currency,
       points: artifact.points,
       sourceRefs: artifact.sourceRefs,
@@ -164,16 +197,27 @@ export class FormalBenchmarkService {
       benchmarkId: artifact.benchmarkId,
       benchmarkVersion: artifact.version,
       benchmarkType: artifact.benchmarkType,
+      provider: artifact.provider,
+      usageScope: artifact.usageScope,
+      commercialAuthorizationClaimed: artifact.commercialAuthorizationClaimed,
       status: blockers.length === 0 ? 'passed' as const : 'blocked' as const,
       benchmarkQualificationPassed: blockers.length === 0,
+      benchmarkAuthorizationReviewed: blockers.length === 0,
+      benchmarkSourceRefsPresent: artifact.sourceRefs.length >= 3,
+      authorizationEvidenceRefsPresent: artifact.authorizationEvidenceRefs.length >= 3,
       contentHashVerified,
       replayPointCount: artifact.points.length,
+      firstDate: artifact.points[0]?.date ?? null,
+      lastDate: artifact.points.at(-1)?.date ?? null,
       sourceRefs: artifact.sourceRefs,
+      authorizationEvidenceRefs: artifact.authorizationEvidenceRefs,
       blockers,
       researchProxyCannotPass: true,
       freeSourceCannotPass: true,
       priceIndexCannotPass: true,
       formalTradingUnlocked: false as const,
+      autoTradeUnlocked: false as const,
+      canCreateOrder: false as const,
       orderCreateAllowed: false as const,
     }
   }

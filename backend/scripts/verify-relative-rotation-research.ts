@@ -25,6 +25,23 @@ function weeklyFixture(multiplier: number): RotationInputPoint[] {
   })
 }
 
+function recentListingDailyFixture(multiplier: number, length = 212): RotationInputPoint[] {
+  const rows: RotationInputPoint[] = []
+  const date = new Date('2025-10-27T00:00:00.000Z')
+  while (rows.length < length) {
+    const weekday = date.getUTCDay()
+    if (weekday !== 0 && weekday !== 6) {
+      const index = rows.length
+      rows.push({
+        date: isoDate(date),
+        close: 100 * multiplier * (1 + (index * 0.001) + Math.sin(index / 8) * 0.01),
+      })
+    }
+    date.setUTCDate(date.getUTCDate() + 1)
+  }
+  return rows
+}
+
 function main() {
   assert.deepEqual(normalizeRotationResearchTarget('CN', {
     code: '600276.SH', name: '恒瑞医药', kind: 'equity',
@@ -143,6 +160,13 @@ function main() {
   assert.equal(series.points[0].deltaX, null)
   assert.notEqual(series.points[1].deltaX, null)
 
+  const recentListingAsset = recentListingDailyFixture(1.03)
+  const recentListingBenchmark = recentListingDailyFixture(1)
+  const recentListingDaily = buildRelativeRotationSeries(recentListingAsset, recentListingBenchmark, 'daily')
+  const recentListingWeekly = buildRelativeRotationSeries(recentListingAsset, recentListingBenchmark, 'weekly')
+  assert.ok(recentListingDaily.points.length >= 12, 'recent HK listing should have a usable limited-history daily trajectory')
+  assert.ok(recentListingWeekly.points.length < 12, 'recent HK listing must not fabricate a weekly trajectory before the sample threshold')
+
   console.log(JSON.stringify({
     ok: true,
     checks: [
@@ -155,6 +179,7 @@ function main() {
       'daily rebalanced equal-weight price-return composite',
       'auditable ICE DXY formula replication from USD reference FX rates',
       'weekly RRG warm-up and coordinate generation',
+      'recent HK listing daily fallback without cross-market history stitching',
     ],
   }, null, 2))
 }

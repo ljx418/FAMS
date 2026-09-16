@@ -1,4 +1,5 @@
 import { prisma } from '../../db/prisma.js'
+import { ALIPAY_ALLOCATION_STRATEGY } from '../allocation/alipayAllocationStrategy.js'
 import { getJsonWithCurlOnly, getTextWithCurlOnly } from '../../utils/httpJson.js'
 import { ensureUser } from '../../utils/user.js'
 import {
@@ -23,7 +24,7 @@ const GROUPS: Record<PortfolioGroupKey, {
   market: 'CN' | 'HK'
   benchmarkKind: 'multi_asset_composite' | 'price_index' | 'exchange_proxy' | 'not_applicable'
 }> = {
-  all: { label: '全部持仓', benchmarkSymbol: 'MIX_5_25_25_45', benchmarkName: '目标组合5/25/25/45（价格代理）', market: 'CN', benchmarkKind: 'multi_asset_composite' },
+  all: { label: '全部持仓', benchmarkSymbol: 'MIX_10_15_50_25', benchmarkName: '高防御目标组合10/15/50/25（价格代理）', market: 'CN', benchmarkKind: 'multi_asset_composite' },
   cn_equity: { label: 'A股权益', benchmarkSymbol: '000300.SH', benchmarkName: '沪深300价格指数', market: 'CN', benchmarkKind: 'price_index' },
   hk_equity: { label: '港股权益', benchmarkSymbol: '^HSI', benchmarkName: '恒生指数', market: 'HK', benchmarkKind: 'price_index' },
   gold: { label: '黄金跟踪差', benchmarkSymbol: '518880', benchmarkName: '华安黄金ETF（同类跟踪代理）', market: 'CN', benchmarkKind: 'exchange_proxy' },
@@ -107,9 +108,9 @@ class PortfolioRelativeRotationService {
 
   private async buildTargetMixBenchmark(days: number) {
     const components = [
-      { key: 'equity', symbol: '000300.SH', name: '沪深300价格指数', weight: 45, adjustType: 'none' as const },
-      { key: 'gold', symbol: '518880', name: '华安黄金ETF', weight: 25, adjustType: 'qfq' as const },
-      { key: 'bond', symbol: '511010', name: '国债ETF', weight: 25, adjustType: 'qfq' as const },
+      { key: 'equity', symbol: '000300.SH', name: '沪深300价格指数', weight: ALIPAY_ALLOCATION_STRATEGY.weights.equity, adjustType: 'none' as const },
+      { key: 'gold', symbol: '518880', name: '华安黄金ETF', weight: ALIPAY_ALLOCATION_STRATEGY.weights.gold, adjustType: 'qfq' as const },
+      { key: 'bond', symbol: '511010', name: '国债ETF', weight: ALIPAY_ALLOCATION_STRATEGY.weights.bond, adjustType: 'qfq' as const },
     ] as const
     const histories = await Promise.all(components.map(async (component) => ({
       ...component,
@@ -134,7 +135,7 @@ class PortfolioRelativeRotationService {
         const calendarDays = Math.max(1, Math.round(
           (new Date(`${date}T00:00:00.000Z`).getTime() - new Date(`${previousDate}T00:00:00.000Z`).getTime()) / 86_400_000,
         ))
-        const cashReturn = 0.05 * (Math.pow(1.01, calendarDays / 365) - 1)
+        const cashReturn = (ALIPAY_ALLOCATION_STRATEGY.weights.cash / 100) * (Math.pow(1.01, calendarDays / 365) - 1)
         level *= 1 + marketReturn + cashReturn
       }
       points.push({ date, close: level })
@@ -142,7 +143,7 @@ class PortfolioRelativeRotationService {
     return {
       points,
       components: [
-        { key: 'cash', symbol: 'CNY_FIXED_1PCT', name: '现金年化1%代理', weight: 5, sampleDays: commonDates.length },
+        { key: 'cash', symbol: 'CNY_FIXED_1PCT', name: '现金年化1%代理', weight: ALIPAY_ALLOCATION_STRATEGY.weights.cash, sampleDays: commonDates.length },
         ...histories.map((component) => ({
           key: component.key,
           symbol: component.symbol,
@@ -415,7 +416,7 @@ class PortfolioRelativeRotationService {
           firstPointDate: result.points[0]?.date || null, lastPointDate: latestPoint?.date || null,
           commonAsOfDate: latestPoint?.date || null, refreshedAt: null, sourceProviders: [provider], points: result.points,
           blockers, warnings: definition.benchmarkKind === 'multi_asset_composite'
-            ? ['统一基准按现金5%、黄金25%、债券25%、权益45%日度定权复合；使用价格代理，不等同于精确总收益归因。']
+            ? [`统一基准按${ALIPAY_ALLOCATION_STRATEGY.label}日度定权复合；使用价格代理，不等同于精确总收益归因。`]
             : key === 'gold'
               ? ['002611与518880均主要提供人民币黄金敞口，本图只诊断产品跟踪差，不代表黄金资产轮动。']
               : definition.benchmarkKind === 'exchange_proxy'

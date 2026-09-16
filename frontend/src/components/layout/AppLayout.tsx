@@ -9,7 +9,6 @@ import {
   LineChartOutlined,
   RiseOutlined,
   ExperimentOutlined,
-  PieChartOutlined,
   HistoryOutlined,
   BellOutlined,
   MenuOutlined,
@@ -46,7 +45,6 @@ const menuItems = [
       { key: 'dividend-low-vol', icon: <RiseOutlined />, label: '红利低波策略' },
       { key: 'relative-rotation', icon: <RadarChartOutlined />, label: '相对轮动与波动仓' },
       { key: 'backtest', icon: <ExperimentOutlined />, label: '策略回测' },
-      { key: 'portfolio-comparison', icon: <PieChartOutlined />, label: '持仓组合对比' },
     ],
   },
   {

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "visual-check",
+  "evidenceKind": "automated-browser",
+  "status": "skipped",
+  "visualReview": "pending",
+  "artifact": {
+    "path": "/mnt/c/workspace/financial-asset-manager/docs/fams-formal-release-readiness-architecture.html",
+    "sha256": "63e9b42041c1083600fc91965c52c4d79e8ef5c963ff26c1609313bf83aeeb39",
+    "bytes": 819902
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "unavailable",
+    "executable": null
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/chrome-unavailable",
+      "severity": "warning",
+      "message": "Chrome or Chromium is unavailable. Set ARCHIFY_CHROME to its executable path.",
+      "subject": {
+        "artifact": "/mnt/c/workspace/financial-asset-manager/docs/fams-formal-release-readiness-architecture.html"
+      },
+      "evidence": {
+        "executable": null
+      },
+      "supportedFixes": [
+        "set ARCHIFY_CHROME to a Chrome or Chromium executable and rerun visual-check"
+      ]
+    }
+  ],
+  "containment": {
+    "status": "skipped",
+    "viewports": []
+  },
+  "readability": {
+    "status": "skipped",
+    "minimumProjectedNodeTextPx": 6,
+    "viewports": []
+  },
+  "viewerChrome": {
+    "status": "skipped",
+    "viewports": []
+  },
+  "captures": {
+    "status": "skipped",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "receipt": "fams-formal-release-readiness-architecture.visual-check.json",
+    "contactSheet": "fams-formal-release-readiness-architecture.visual-check.html"
+  },
+  "error": "Chrome or Chromium is unavailable. Set ARCHIFY_CHROME to its executable path."
+}

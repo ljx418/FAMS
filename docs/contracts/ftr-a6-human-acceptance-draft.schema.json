@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-a6-human-acceptance-draft.schema.json",
+  "title": "FAMS A6 Human Acceptance Draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "packageId",
+    "sourceManifestSha256",
+    "revision",
+    "createdAt",
+    "updatedAt",
+    "overallStatus",
+    "humanReviewOnly",
+    "items",
+    "tradeBoundary"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "fams.formal_release.human_acceptance_draft.v1"},
+    "packageId": {"type": "string", "pattern": "^ftr6-provisional-[a-f0-9]{16}$"},
+    "sourceManifestSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "revision": {"type": "integer", "minimum": 1},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"},
+    "overallStatus": {"enum": ["in_progress", "needs_remediation", "ready_for_authorized_signoff"]},
+    "humanReviewOnly": {"const": true},
+    "items": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "allOf": [
+        {"contains": {"properties": {"reviewType": {"const": "daily_user_experience"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "v2_px_experience"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "data"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "benchmark"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "model"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "risk"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "compliance"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "final_release"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1}
+      ],
+      "items": {"$ref": "#/$defs/reviewItem"}
+    },
+    "tradeBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["productionAdapterEnabled", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+      "properties": {
+        "productionAdapterEnabled": {"const": false},
+        "formalTradingUnlocked": {"const": false},
+        "autoTradeUnlocked": {"const": false},
+        "canCreateOrder": {"const": false},
+        "orderCreateAllowed": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "reviewItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewType", "status", "severity", "actualResult", "expectedDifference", "reproductionSteps", "remediationSuggestion", "evidenceRefs"],
+      "properties": {
+        "reviewType": {"enum": ["daily_user_experience", "v2_px_experience", "data", "benchmark", "model", "risk", "compliance", "final_release"]},
+        "status": {"enum": ["not_run", "passed", "failed", "needs_remediation"]},
+        "severity": {"enum": ["none", "minor", "major", "fatal"]},
+        "actualResult": {"type": "string", "maxLength": 4000},
+        "expectedDifference": {"type": "string", "maxLength": 3000},
+        "reproductionSteps": {"type": "string", "maxLength": 3000},
+        "remediationSuggestion": {"type": "string", "maxLength": 3000},
+        "evidenceRefs": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500, "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\\\).+$"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"enum": ["failed", "needs_remediation"]}}, "required": ["status"]},
+          "then": {"properties": {"severity": {"enum": ["minor", "major", "fatal"]}}}
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-4-queue-source-manifest.schema.json",
+  "title": "FTR-4 Queue Source Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "sourceState", "baseCommitSha", "gitEvidenceStatus", "worktreeFiles", "worktreeSnapshotHash", "sources", "allArtifactHashesPresent", "invalidatedArtifactIncluded", "protectedAccountDigestBefore", "protectedAccountDigestAfter", "accountFactsUnchanged", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_4.queue_source_manifest.v1"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "sourceState": {"$ref": "#/$defs/artifactRef"},
+    "baseCommitSha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "gitEvidenceStatus": {"enum": ["clean_commit", "uncommitted_worktree_snapshot"]},
+    "worktreeFiles": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}},
+    "worktreeSnapshotHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sources": {
+      "type": "array", "minItems": 8, "maxItems": 8,
+      "allOf": [
+        {"contains": {"properties": {"reviewType": {"const": "daily_user_experience"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "v2_px_experience"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "data"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "benchmark"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "model"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "risk"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "compliance"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"reviewType": {"const": "final_release"}}, "required": ["reviewType"]}, "minContains": 1, "maxContains": 1}
+      ],
+      "items": {"type": "object", "additionalProperties": false, "required": ["reviewType", "stageId", "evidenceStatus", "artifacts"], "properties": {
+        "reviewType": {"enum": ["daily_user_experience", "v2_px_experience", "data", "benchmark", "model", "risk", "compliance", "final_release"]},
+        "stageId": {"enum": ["UX-F7", "V2-PX-PX6-02", "A0", "FTR-1", "FTR-2", "FTR-3", "FTR-5", "FTR-6"]},
+        "evidenceStatus": {"enum": ["automated_pass_human_pending", "automated_pass_rebind_after_ftr5", "pending_final_package"]},
+        "artifacts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/artifactRef"}}
+      }}
+    },
+    "allArtifactHashesPresent": {"const": true},
+    "invalidatedArtifactIncluded": {"const": false},
+    "protectedAccountDigestBefore": {"$ref": "#/$defs/accountDigest"},
+    "protectedAccountDigestAfter": {"$ref": "#/$defs/accountDigest"},
+    "accountFactsUnchanged": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "artifactRef": {"type": "object", "additionalProperties": false, "required": ["path", "originPath", "sha256", "bytes"], "properties": {"path": {"type": "string", "minLength": 1}, "originPath": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "bytes": {"type": "integer", "minimum": 1}}},
+    "accountDigest": {"type": "object", "additionalProperties": false, "required": ["positionCount", "openPositionCount", "positionHash", "transactionCount", "transactionHash", "draftCount", "draftHash", "externalOrderCount", "externalOrderHash"], "properties": {
+      "positionCount": {"type": "integer", "minimum": 0}, "openPositionCount": {"type": "integer", "minimum": 0}, "positionHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "transactionCount": {"type": "integer", "minimum": 0}, "transactionHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "draftCount": {"type": "integer", "minimum": 0}, "draftHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "externalOrderCount": {"type": "integer", "minimum": 0}, "externalOrderHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+    }}
+  }
+}

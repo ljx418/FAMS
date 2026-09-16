@@ -396,6 +396,13 @@ export async function analysisRoutes(app: FastifyInstance) {
     return valueAssessmentService.getPositionValueAssessment(positionId)
   })
 
+  app.get('/advice-summaries', async (request) => {
+    const { userId, limit } = request.query as any
+    return analysisService.listAdviceSummaries(userId || 'default', {
+      limit: limit === undefined ? undefined : Number(limit),
+    })
+  })
+
   app.get('/advice/:id', async (request) => {
     const { id } = request.params as any
     const { userId } = request.query as any

@@ -3,13 +3,66 @@
   "$id": "https://fams.local/schemas/ftr-2-benchmark-replay.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "benchmarkId", "version", "benchmarkType", "provider", "licenseRef", "currency", "points", "sourceRefs", "contentHash", "importedAt", "importedByUserId", "importedByEmail", "immutable"],
+  "required": ["schemaVersion", "stageId", "status", "checkedAt", "realDataUsed", "sourceAuditDir", "sourceSnapshotPath", "sourceSnapshotCanonicalSha256", "benchmarkArtifactPath", "benchmarkId", "benchmarkVersion", "benchmarkType", "provider", "usageScope", "commercialAuthorizationClaimed", "currency", "contentHash", "immutable", "idempotentImport", "pointCount", "firstDate", "lastDate", "replayedPointCount", "replayedPoints", "exactValueReplayPassed", "prohibitedActions", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
   "properties": {
-    "schemaVersion": {"const": "fams.formal_benchmark.import.v1"},
-    "benchmarkType": {"enum": ["official_total_return", "trusted_total_return"]},
-    "points": {"type": "array", "minItems": 2},
-    "sourceRefs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "schemaVersion": {"const": "fams.ftr_2.benchmark_replay.v1"},
+    "stageId": {"const": "FTR-2"},
+    "status": {"const": "passed"},
+    "checkedAt": {"type": "string", "format": "date-time"},
+    "realDataUsed": {"const": true},
+    "sourceAuditDir": {"type": "string", "minLength": 1},
+    "sourceSnapshotPath": {"type": "string", "minLength": 1},
+    "sourceSnapshotCanonicalSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "benchmarkArtifactPath": {"type": "string", "minLength": 1},
+    "benchmarkId": {"const": "csi300_total_return_h00300"},
+    "benchmarkVersion": {"type": "string", "pattern": "^2023-09-01_2026-09-[0-9]{2}$"},
+    "benchmarkType": {"const": "trusted_total_return"},
+    "provider": {"const": "csindex_public"},
+    "usageScope": {"const": "local_personal_noncommercial"},
+    "commercialAuthorizationClaimed": {"const": false},
+    "currency": {"const": "CNY"},
     "contentHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-    "immutable": {"const": true}
+    "immutable": {"const": true},
+    "idempotentImport": {"type": "boolean"},
+    "pointCount": {"type": "integer", "minimum": 734},
+    "firstDate": {"const": "2023-09-01"},
+    "lastDate": {"type": "string", "format": "date"},
+    "replayedPointCount": {"type": "integer", "minimum": 734},
+    "replayedPoints": {
+      "type": "array",
+      "minItems": 734,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["date", "sourceValue", "netValue", "cumulativeReturnPercent"],
+        "properties": {
+          "date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+          "sourceValue": {"type": "number", "exclusiveMinimum": 0},
+          "netValue": {"type": "number", "exclusiveMinimum": 0},
+          "cumulativeReturnPercent": {"type": "number"}
+        }
+      }
+    },
+    "exactValueReplayPassed": {"const": true},
+    "prohibitedActions": {"$ref": "#/$defs/prohibitedActions"},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "prohibitedActions": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {"enum": ["ADD", "REDUCE", "ORDER_CREATE", "AUTO_TRADE"]},
+      "allOf": [
+        {"contains": {"const": "ADD"}},
+        {"contains": {"const": "REDUCE"}},
+        {"contains": {"const": "ORDER_CREATE"}},
+        {"contains": {"const": "AUTO_TRADE"}}
+      ]
+    }
   }
 }

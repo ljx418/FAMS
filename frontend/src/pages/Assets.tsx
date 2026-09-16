@@ -1,5 +1,5 @@
-import React, { Suspense, lazy, useState, useEffect, useCallback } from 'react'
-import { Card, Table, Button, Upload, message, Modal, Form, Input, InputNumber, Select, Tabs, Popconfirm, Row, Col, Statistic, Segmented, Tag, Spin } from 'antd'
+import React, { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react'
+import { Alert, App as AntApp, Card, Table, Button, Upload, Modal, Form, Input, InputNumber, Select, Tabs, Popconfirm, Row, Col, Statistic, Segmented, Tag, Spin } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
   UploadOutlined,
@@ -24,6 +24,9 @@ import ProviderHealthSummary, { type ProviderHealthItem } from '../components/co
 import RefreshFailureTable, { formatRefreshFailureSummary, type RefreshFailureItem } from '../components/common/RefreshFailureTable'
 import ReliabilityWarnings from '../components/common/ReliabilityWarnings'
 import TagSelector from '../components/common/TagSelector'
+import { ScreenshotCapturePanel } from '../components/capture/ScreenshotCapturePanel'
+import { PositionStrategyAssignmentPanel } from '../components/investment-workflow/PositionStrategyAssignmentPanel'
+import { InvestmentWorkflowBar } from '../components/investment-workflow/InvestmentWorkflowBar'
 
 const StockDetailModal = lazy(() => import('../components/stock/StockDetailModal'))
 const FundDetailModal = lazy(() => import('../components/fund/FundDetailModal'))
@@ -166,7 +169,20 @@ interface ParsedRow {
   userMarketValue: number | null
 }
 
+interface PriceFreshness {
+  thresholdHours: number
+  checkedAt: string
+  valuationAsOf: string | null
+  oldestPriceAt: string | null
+  status: 'fresh' | 'stale' | 'missing' | 'refreshing'
+  missingSymbols: string[]
+  staleSymbols: string[]
+  activeRefreshOperationId: string | null
+  shouldAutoRefresh: boolean
+}
+
 const Assets: React.FC = () => {
+  const { message } = AntApp.useApp()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [positions, setPositions] = useState<Asset[]>([])
@@ -222,6 +238,9 @@ const Assets: React.FC = () => {
   const [refreshFailureVisible, setRefreshFailureVisible] = useState(false)
   const [refreshFailures, setRefreshFailures] = useState<RefreshFailureItem[]>([])
   const [refreshProviderSummary, setRefreshProviderSummary] = useState<ProviderHealthItem[]>([])
+  const [priceFreshness, setPriceFreshness] = useState<PriceFreshness | null>(null)
+  const [captureAccountSource, setCaptureAccountSource] = useState<'tonghuashun' | 'alipay'>('tonghuashun')
+  const autoRefreshAttempted = useRef(false)
 
   // 清空数据库确认
   const [clearModalVisible, setClearModalVisible] = useState(false)
@@ -261,19 +280,49 @@ const Assets: React.FC = () => {
     })),
   ]
 
-  const fetchPositions = useCallback(async () => {
+  const fetchPositions = useCallback(async (allowAutoRefresh = true) => {
     setLoading(true)
     try {
       const response = await axios.get(`/api/v1/positions?userId=${USER_ID}&limit=100`)
       const data = response.data?.data || response.data || []
       setPositions(data)
       const summary = response.data?.summary
+      const freshness = summary?.priceFreshness as PriceFreshness | undefined
+      setPriceFreshness(freshness || null)
       setStats({
         totalValue: summary?.totalValue || 0,
         totalCost: summary?.totalCost || 0,
         totalPnl: summary?.totalPnl || 0,
         totalPnlPercent: summary?.totalPnlPercent || 0,
       })
+      if (allowAutoRefresh && freshness?.shouldAutoRefresh && !autoRefreshAttempted.current) {
+        autoRefreshAttempted.current = true
+        const reason = freshness.missingSymbols.length > 0 ? 'missing_price_on_entry' : 'stale_on_entry'
+        const bucketMs = Math.max(1, freshness.thresholdHours) * 60 * 60 * 1000
+        const idempotencyKey = `asset-entry-refresh:${USER_ID}:${Math.floor(Date.now() / bucketMs)}`
+        void (async () => {
+          try {
+            message.loading({ content: '检测到估值已过期，正在后台更新价格', key: 'asset-price-refresh' })
+            const operationResponse = await axios.post('/api/v1/operations/refresh-prices', {
+              userId: USER_ID,
+              reason,
+              idempotencyKey,
+            })
+            const operationId = getOperationId(operationResponse.data)
+            if (!operationId) throw new Error('未获取到 operation_id')
+            const operation = await pollRefreshOperation(operationId)
+            if (operation && SUCCESS_OPERATION_STATUSES.has(operation.status)) {
+              message.success({ content: '资产价格已按新鲜度规则更新', key: 'asset-price-refresh' })
+            } else if (operation?.status === 'failed') {
+              message.warning({ content: '自动刷新失败，当前继续显示旧估值并标注截止时间', key: 'asset-price-refresh' })
+            }
+            await fetchPositions(false)
+          } catch (error) {
+            console.error('Automatic price refresh failed:', error)
+            message.warning({ content: '自动刷新未完成，当前估值仍按页面标注的时间为准', key: 'asset-price-refresh' })
+          }
+        })()
+      }
     } catch (error) {
       console.error('Failed to fetch positions:', error)
       message.error('获取资产列表失败')
@@ -583,7 +632,11 @@ const Assets: React.FC = () => {
   const handleRefreshPrices = async () => {
     setLoading(true)
     try {
-      const operationResponse = await axios.post('/api/v1/operations/refresh-prices', { userId: USER_ID })
+      const operationResponse = await axios.post('/api/v1/operations/refresh-prices', {
+        userId: USER_ID,
+        reason: 'manual',
+        idempotencyKey: `asset-manual-refresh:${USER_ID}:${Date.now()}`,
+      })
       const operationId = getOperationId(operationResponse.data)
       if (!operationId) {
         throw new Error('未获取到 operation_id')
@@ -1001,6 +1054,72 @@ const Assets: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      <InvestmentWorkflowBar currentStep="basic_information_confirmation" userId={USER_ID} />
+
+      {priceFreshness ? (
+        <Alert
+          showIcon
+          type={priceFreshness.status === 'fresh' ? 'success' : priceFreshness.status === 'refreshing' ? 'info' : 'warning'}
+          message={priceFreshness.status === 'fresh'
+            ? '当前估值处于 12 小时新鲜度范围内'
+            : priceFreshness.status === 'refreshing'
+              ? '正在后台更新陈旧估值'
+              : '当前显示的是最近一次可用估值'}
+          description={(
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <span>估值截止：{priceFreshness.valuationAsOf ? new Date(priceFreshness.valuationAsOf).toLocaleString() : '缺少行情时间'}</span>
+              {priceFreshness.staleSymbols.length > 0 ? <span>陈旧标的：{priceFreshness.staleSymbols.join('、')}</span> : null}
+              {priceFreshness.missingSymbols.length > 0 ? <span>缺价标的：{priceFreshness.missingSymbols.join('、')}</span> : null}
+              <span>系统仅在缺价或超过 {priceFreshness.thresholdHours} 小时时自动刷新。</span>
+            </div>
+          )}
+        />
+      ) : null}
+
+      <Card className="fams-card" data-testid="asset-screenshot-primary-entry">
+        <div className="grid gap-5 xl:grid-cols-[minmax(240px,0.7fr)_minmax(0,1.3fr)]">
+          <div>
+            <div className="fams-eyebrow">基本信息确认</div>
+            <h2 className="mb-0 mt-1 text-xl font-semibold text-slate-950">从账户截图刷新资产事实</h2>
+            <p className="fams-muted mb-4 mt-2 text-sm leading-6">
+              同花顺用于行业轮动、波动个股与红利低波资产；支付宝用于投资组合资产。系统先识别并展示逐行差异，只有你确认的行才会写入台账。
+            </p>
+            <Segmented
+              block
+              aria-label="选择资产截图账户"
+              value={captureAccountSource}
+              onChange={(value) => setCaptureAccountSource(value as 'tonghuashun' | 'alipay')}
+              options={[
+                { label: '同花顺资产', value: 'tonghuashun' },
+                { label: '支付宝资产', value: 'alipay' },
+              ]}
+            />
+            <Alert
+              className="mt-3"
+              type="info"
+              showIcon
+              message="上传和识别不等于交易"
+              description="本入口只更新本地资产、成交与外部委托观察；不会创建、修改或提交券商订单。"
+            />
+          </div>
+          <ScreenshotCapturePanel
+            key={captureAccountSource}
+            userId={USER_ID}
+            defaultAccountSource={captureAccountSource}
+            lockAccountSource
+            tradePositionEffectPolicy="included_in_latest_snapshot"
+            onConfirmed={() => {
+              void fetchPositions(false)
+              void fetchTransactions()
+            }}
+          />
+        </div>
+      </Card>
+
+      <Card className="fams-card">
+        <PositionStrategyAssignmentPanel userId={USER_ID} />
+      </Card>
 
       {/* 统计卡片 */}
       <Row gutter={[16, 16]}>

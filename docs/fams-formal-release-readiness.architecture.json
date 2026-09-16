@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "FAMS FTR-6 集中验收准备架构",
+    "subtitle": "自动证据已闭环、A6 集中人工核查待执行、交易硬边界持续生效",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "visual_preset": "editorial",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/ljx418/FAMS.git",
+      "provider": "github",
+      "link_mode": "local-only",
+      "revision": "f7651a904742504a467cd59b005f97a36d9230cd"
+    },
+    "viewBox": [1020, 760],
+    "views": [
+      {
+        "id": "delivery_path",
+        "label": "开发主路径",
+        "note": "A0-A5 自动证据完成，A6 集中核查后才可进入 A7。",
+        "focus": ["user_entry", "formal_api", "candidate", "data_gate", "benchmark_gate", "validation_gate", "review_queue", "human_review", "release_package"]
+      },
+      {
+        "id": "evidence_path",
+        "label": "证据闭环",
+        "note": "验证、隔离、签核和审计产物。",
+        "focus": ["validation_gate", "isolation_gate", "review_queue", "human_review", "release_package", "audit_store"]
+      },
+      {
+        "id": "safety_path",
+        "label": "安全边界",
+        "note": "评审包完成不等于交易能力解锁。",
+        "focus": ["formal_api", "release_package", "isolation_gate", "trade_boundary"]
+      }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "origin": [30, 170],
+    "cols": 5,
+    "gapX": 70,
+    "gapY": 90,
+    "cellW": 130,
+    "cellH": 80
+  },
+  "components": [
+    {
+      "id": "user_entry",
+      "label": "用户研究入口",
+      "sublabel": "ChatBox · 工作台 · 专家页",
+      "type": "frontend",
+      "row": 0,
+      "col": 0,
+      "tag": "已实现 · 真实用户路径",
+      "sources": [
+        {"path": "frontend/src/components/chat/FamsChatBox.tsx"},
+        {"path": "frontend/src/pages/Dashboard.tsx"}
+      ]
+    },
+    {
+      "id": "formal_api",
+      "label": "正式评审 API",
+      "sublabel": "候选 · 门禁 · 审计查询",
+      "type": "backend",
+      "row": 0,
+      "col": 1,
+      "tag": "已实现 · 需补端到端合同",
+      "sources": [
+        {"path": "backend/src/routes/formalRelease.ts"}
+      ]
+    },
+    {
+      "id": "candidate",
+      "label": "ReleaseCandidateSet",
+      "sublabel": "A0 冻结七对象与 v2 参数",
+      "type": "database",
+      "row": 0,
+      "col": 2,
+      "tag": "已验收 · 七对象保留",
+      "sources": [
+        {"path": "backend/src/services/formal-release/formalValidationService.ts"}
+      ]
+    },
+    {
+      "id": "data_gate",
+      "label": "正式数据门",
+      "sublabel": "授权 · 新鲜度 · 覆盖率",
+      "type": "backend",
+      "row": 0,
+      "col": 3,
+      "tag": "FTR-1 PASS · 人工待复核",
+      "sources": [
+        {"path": "backend/src/services/formal-release/formalDataProviderService.ts"}
+      ]
+    },
+    {
+      "id": "benchmark_gate",
+      "label": "基准资格门",
+      "sublabel": "总收益口径 · 对齐 · 证据",
+      "type": "backend",
+      "row": 0,
+      "col": 4,
+      "tag": "FTR-2 通过 · H00300 735 点",
+      "sources": [
+        {"path": "backend/src/services/formal-release/formalBenchmarkService.ts"}
+      ]
+    },
+    {
+      "id": "validation_gate",
+      "label": "统计验证门",
+      "sublabel": "有效路径 · WF · 敏感性",
+      "type": "backend",
+      "row": 1,
+      "col": 4,
+      "tag": "FTR-3 PASS · 5/6",
+      "sources": [
+        {"path": "backend/src/services/formal-release/formalValidationService.ts"}
+      ]
+    },
+    {
+      "id": "review_queue",
+      "label": "延后人工核查队列",
+      "sublabel": "FTR-4 固化 8 类审查项",
+      "type": "messagebus",
+      "row": 1,
+      "col": 3,
+      "tag": "已实现 · 8 pending · 0 approved"
+    },
+    {
+      "id": "human_review",
+      "label": "集中人工核查",
+      "sublabel": "A6 逐项确认或打回",
+      "type": "external",
+      "row": 1,
+      "col": 2,
+      "tag": "A6 pending · 可打回"
+    },
+    {
+      "id": "release_package",
+      "label": "评审包构建器",
+      "sublabel": "FTR-6 provisional · A7 final",
+      "type": "backend",
+      "row": 1,
+      "col": 1,
+      "tag": "provisional · final pending",
+      "sources": [
+        {"path": "backend/src/services/formal-release/releaseGateService.ts"},
+        {"path": "backend/src/services/formal-release/formalReleasePackageService.ts"}
+      ]
+    },
+    {
+      "id": "isolation_gate",
+      "label": "执行隔离",
+      "sublabel": "paper / sandbox only",
+      "type": "security",
+      "row": 2,
+      "col": 4,
+      "tag": "FTR-5 通过 · 正式适配器禁用",
+      "sources": [
+        {"path": "backend/src/services/formal-release/executionIsolationService.ts"}
+      ]
+    },
+    {
+      "id": "audit_store",
+      "label": "审计证据库",
+      "sublabel": "28 个来源 artifact · SHA-256",
+      "type": "database",
+      "row": 1,
+      "col": 0,
+      "tag": "FTR-6 已逐字节校验"
+    },
+    {
+      "id": "trade_boundary",
+      "label": "交易硬边界",
+      "sublabel": "四锁 false · 禁止下单",
+      "type": "security",
+      "row": 2,
+      "col": 1,
+      "tag": "持续生效 · 正式交易禁止",
+      "sources": [
+        {"path": "docs/TRADE_BOUNDARY_CONTRACT.md"},
+        {"path": "docs/current-stage-state.json"}
+      ]
+    }
+  ],
+  "connections": [
+    {"from": "user_entry", "to": "formal_api", "label": "受控请求", "variant": "emphasis"},
+    {"from": "formal_api", "to": "candidate", "label": "冻结评审范围"},
+    {"from": "candidate", "to": "data_gate", "label": "候选参数"},
+    {"from": "data_gate", "to": "benchmark_gate", "label": "正式快照"},
+    {"from": "benchmark_gate", "to": "validation_gate", "label": "合格基准", "labelAt": [890, 244]},
+    {"from": "validation_gate", "to": "review_queue", "label": "冻结证据"},
+    {"from": "review_queue", "to": "human_review", "label": "A6 集中复核", "variant": "dashed"},
+    {"from": "human_review", "to": "release_package", "label": "A6 通过", "variant": "emphasis", "labelAt": [390, 414]},
+    {"from": "validation_gate", "to": "isolation_gate", "label": "边界回归", "variant": "security", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [890, 449]},
+    {"from": "release_package", "to": "audit_store", "label": "评审证据", "fromSide": "left", "toSide": "right", "route": "straight"},
+    {"from": "release_package", "to": "trade_boundary", "label": "保持锁定", "variant": "security", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [290, 449]}
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "已实现基础",
+      "items": [
+        "A0 与 FTR-1 至 FTR-6 自动验收通过",
+        "六时点 6/6；验证 5/6、53 路径",
+        "FTR-6 已校验 28 个来源 artifact"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "当前阻断",
+      "items": [
+        "A6 八类集中人工核查尚未执行",
+        "当前 8 pending / 0 approved",
+        "A7 final review package 尚未准入"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "声明边界",
+      "items": [
+        "可声明：provisional 评审包可供人工审核",
+        "不可声明：final 评审包已通过",
+        "不得声明：正式交易、订单创建或自动交易已解锁"
+      ]
+    }
+  ]
+}

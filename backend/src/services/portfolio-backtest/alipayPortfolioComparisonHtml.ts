@@ -152,7 +152,7 @@ export function renderAlipayPortfolioComparisonHtml(study: AlipayPortfolioCompar
         <span class="confidence">研究置信度：低</span>
         <h2>${escapeHtml(study.conclusion.headline)}</h2>
         <p>这是${horizonLabel}历史样本的风险收益比较，不是收益预测。主组合只有在收益更高且回撤更小时才标记为“双优”；成立前代理比例和风险必须与收益结果一起看。</p>
-        <div class="rule-line"><span>${escapeHtml(study.period.startDate)} 至 ${escapeHtml(study.period.endDate)}</span><span>${study.period.tradingDays}个共同交易日</span><span>初始资金 ${money(study.snapshot.initialCapital)}</span><span>目标 现金/黄金/债券/权益 = ${escapeHtml(targetWeightLabel)}</span><span>偏离严格&gt;3个百分点</span></div>
+        <div class="rule-line"><span>${escapeHtml(study.period.startDate)} 至 ${escapeHtml(study.period.endDate)}</span><span>${study.period.tradingDays}个共同交易日</span><span>初始资金 ${money(study.snapshot.initialCapital)}</span><span>目标 现金/黄金/债券/权益 = ${escapeHtml(targetWeightLabel)}</span><span>偏离严格&gt;${study.frozenRules.driftThresholdPercentagePoints}个百分点</span></div>
       </article>
       <article class="card hero-metrics">
         <div class="hero-metric"><span>主组合年化</span><strong class="${main.metrics.annualizedReturnPercent >= 0 ? 'up' : 'down'}">${percent(main.metrics.annualizedReturnPercent)}</strong></div>
@@ -215,7 +215,7 @@ export function renderAlipayPortfolioComparisonHtml(study: AlipayPortfolioCompar
       <div class="table-shell"><table class="data-table"><thead><tr><th>策略</th><th class="number">直接历史年化</th><th class="number">较${horizonLabel}主结果</th><th class="number">直接历史月回撤</th><th class="number">较${horizonLabel}主结果</th></tr></thead><tbody>${directSensitivityRows}</tbody></table></div>
     </section>
 
-    <section class="card section"><div class="section-header"><div><h2>固定计算口径</h2><div class="section-note">这些参数在读取结果前冻结，没有按历史最优值调参。</div></div></div><div class="method"><div><strong>主组合再平衡</strong><span>四桶任一绝对偏离严格超过3个百分点，下一有效净值恢复全部目标。</span></div><div><strong>单品网格</strong><span>初始85/15；相对上次成交每±3%交易初始资金3%，每日最多一档。</span></div><div><strong>止盈止损</strong><span>相对本轮入场达到+10%/-10%时下一净值清仓，次月首个净值日再入。</span></div><div><strong>月度回撤</strong><span>每月最后一个有效净值组成月末序列，再计算峰值至谷值最大跌幅。</span></div></div></section>
+    <section class="card section"><div class="section-header"><div><h2>固定计算口径</h2><div class="section-note">这些参数在读取结果前冻结，没有按历史最优值调参。</div></div></div><div class="method"><div><strong>主组合再平衡</strong><span>四桶任一绝对偏离严格超过${study.frozenRules.driftThresholdPercentagePoints}个百分点，下一有效净值恢复全部目标。</span></div><div><strong>单品网格</strong><span>初始85/15；相对上次成交每±3%交易初始资金3%，每日最多一档。</span></div><div><strong>止盈止损</strong><span>相对本轮入场达到+10%/-10%时下一净值清仓，次月首个净值日再入。</span></div><div><strong>月度回撤</strong><span>每月最后一个有效净值组成月末序列，再计算峰值至谷值最大跌幅。</span></div></div></section>
 
     <footer class="footer">生成于 ${escapeHtml(study.generatedAt)} · 仅允许 RESEARCH / OBSERVE / COMPARE · 禁止 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE</footer>
   </main>

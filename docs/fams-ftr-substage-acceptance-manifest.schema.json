@@ -4,7 +4,7 @@
   "title": "FAMS FTR-0 to FTR-6 Substage Acceptance Manifest Set",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "generatedAt", "stageId", "currentStateSource", "architectureDecision", "supportsControlledAutomation", "supportsUnattendedEndToEndAutomation", "supportsFormalTradingUnlock", "stageOrder", "stages"],
+  "required": ["schemaVersion", "generatedAt", "stageId", "currentStateSource", "architectureDecision", "supportsControlledAutomation", "supportsUnattendedEndToEndAutomation", "supportsFormalTradingUnlock", "humanReviewExecutionMode", "automationSelfApprovalAllowed", "provisionalEvidencePolicy", "productionUnlockStage", "stageOrder", "stages"],
   "properties": {
     "schemaVersion": {"const": "fams.formal_release_readiness.substage_manifest_set.v1"},
     "generatedAt": {"type": "string", "format": "date-time"},
@@ -14,6 +14,10 @@
     "supportsControlledAutomation": {"const": true},
     "supportsUnattendedEndToEndAutomation": {"const": false},
     "supportsFormalTradingUnlock": {"const": false},
+    "humanReviewExecutionMode": {"const": "batch_after_automated_scope"},
+    "automationSelfApprovalAllowed": {"const": false},
+    "provisionalEvidencePolicy": {"const": "all_automated_results_remain_provisional_until_batch_human_review_passes"},
+    "productionUnlockStage": {"const": "separate_future_high_risk_stage"},
     "stageOrder": {
       "const": ["FTR-0", "FTR-1", "FTR-2", "FTR-3", "FTR-4", "FTR-5", "FTR-6"]
     },

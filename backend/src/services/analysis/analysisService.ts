@@ -28,6 +28,7 @@ import { researchAssetIdentityService } from '../asset/researchAssetIdentityServ
 import { alternativeAssetFactsetService } from '../valuation/alternativeAssetFactsetService.js'
 import { ensureUser } from '../../utils/user.js'
 import { allocationPolicyService } from '../allocation/allocationPolicyService.js'
+import { ALIPAY_ALLOCATION_STRATEGY } from '../allocation/alipayAllocationStrategy.js'
 import { portfolioRelativeRotationService } from '../relative-rotation/portfolioRelativeRotationService.js'
 
 type AdviceActionType = 'buy' | 'sell' | 'hold' | 'rebalance' | 'grid_order' | 'dca'
@@ -227,6 +228,18 @@ interface AdviceExecutionReviewAction {
   }>
 }
 
+type AdviceExecutionDiagnostic = {
+  actionId: string
+  assetSymbol: string | null
+  actionType: string
+  humanDecision: string | null
+  suggestedPrice: number | null
+  observedPricePointCount: number
+  marketTouched: boolean | null
+  transactionCount: number
+  reasonCodes: string[]
+}
+
 class AnalysisService {
   private readonly adviceDisclaimer = 'AI 建议仅用于辅助决策，不自动交易，不构成投资建议。'
   private fivdRPortfolioCache: {
@@ -335,7 +348,7 @@ class AnalysisService {
       {
         account_id: 'alipay',
         account_name: '支付宝',
-        strategy: '长期配置：现金5% / 黄金25% / 债券25% / 权益45%',
+        strategy: `长期配置：${ALIPAY_ALLOCATION_STRATEGY.label}`,
         current_value: alipay?.currentValue || 0,
         status: alipay?.buckets?.some((bucket: any) => bucket.triggered) ? 'rebalance_required' : 'within_policy',
         trade_action_ready: false,
@@ -363,9 +376,9 @@ class AnalysisService {
           {
             sequence: 7, action: 'retain_cash', amount: actionPlan.cashIncreaseTarget,
             first_tranche_amount: firstTranche(actionPlan.cashIncreaseTarget), state: 'manual_review',
-            reason: '债券减持资金不全部再投入，保留到现金5%的目标水平。',
+            reason: `债券减持资金不全部再投入，保留到现金${ALIPAY_ALLOCATION_STRATEGY.weights.cash}%的目标水平。`,
           },
-        ],
+        ].filter((action) => Number(action.amount) > 0),
         guardrails: [
           '严格偏离大于3个百分点才触发；触发后以完整目标为方向。',
           '第一批25%只进入人工复核；第二至四批必须等待统一RRG新的周频点。',
@@ -463,7 +476,7 @@ class AnalysisService {
         fullAmount: item.amount,
       })),
     ]
-    return rows.map((row, index) => {
+    return rows.filter((row) => row.fullAmount > 0).map((row, index) => {
       const position = positionBySymbol.get(row.symbol)
       const amount = firstTranche(row.fullAmount)
       const rrg = rrgBySymbol.get(row.symbol) as any
@@ -475,7 +488,7 @@ class AnalysisService {
           ? 'structural_exit_wait_manual_confirmation'
           : 'blocked_by_redeemability_and_fee_evidence'
       return {
-        id: `allocation_v2_${row.symbol}_${generatedAt.getTime()}_${index}`,
+        id: `allocation_v3_${row.symbol}_${generatedAt.getTime()}_${index}`,
         type: row.type,
         title: row.title,
         description: row.description,
@@ -486,7 +499,7 @@ class AnalysisService {
         suggestedAmount: amount,
         confidence: row.actionType === 'rebalance' ? 0.7 : 0.85,
         parameters: {
-          strategy: 'alipay_5_25_25_45',
+          strategy: ALIPAY_ALLOCATION_STRATEGY.id,
           fullAmount: row.fullAmount,
           firstTrancheAmount: amount,
           ...sharedGate,
@@ -664,6 +677,91 @@ class AnalysisService {
     summary.sellSide.executedNotional = Number(summary.sellSide.executedNotional.toFixed(2))
 
     return summary
+  }
+
+  private async buildAdviceExecutionDiagnostics(generatedAt: Date, actions: any[]) {
+    const executableActions = actions.filter((action) => action.actionType === 'buy' || action.actionType === 'sell')
+    const assetIds = Array.from(new Set(executableActions.map((action) => action.assetId).filter(Boolean))) as string[]
+    const prices = assetIds.length > 0
+      ? await prisma.priceHistory.findMany({
+          where: { assetId: { in: assetIds }, timestamp: { gte: generatedAt }, isValid: true },
+          orderBy: { timestamp: 'asc' },
+          select: { assetId: true, closePrice: true, highPrice: true, lowPrice: true, timestamp: true, source: true },
+        })
+      : []
+    const pricesByAsset = new Map<string, typeof prices>()
+    prices.forEach((price) => pricesByAsset.set(price.assetId, [...(pricesByAsset.get(price.assetId) || []), price]))
+
+    const actionDiagnostics: AdviceExecutionDiagnostic[] = executableActions.map((action) => {
+      const observedPrices = action.assetId ? pricesByAsset.get(action.assetId) || [] : []
+      const suggestedPrice = typeof action.suggestedPrice === 'number' && action.suggestedPrice > 0 ? action.suggestedPrice : null
+      const transactionCount = action.transactions.length
+      const humanDecision = action.execution?.decision || (['accepted', 'rejected', 'skipped', 'executed'].includes(action.status) ? action.status : null)
+      const marketTouched = suggestedPrice === null || observedPrices.length === 0
+        ? null
+        : action.actionType === 'buy'
+        ? observedPrices.some((price) => (price.lowPrice ?? price.closePrice) <= suggestedPrice)
+        : observedPrices.some((price) => (price.highPrice ?? price.closePrice) >= suggestedPrice)
+      const reasonCodes: string[] = []
+      if (transactionCount > 0) reasonCodes.push('execution_record_present')
+      if (!humanDecision) reasonCodes.push('human_decision_pending')
+      if (humanDecision === 'rejected') reasonCodes.push('human_rejected')
+      if (humanDecision === 'expired' || humanDecision === 'skipped') reasonCodes.push('human_skipped_or_expired')
+      if (suggestedPrice === null) reasonCodes.push('suggested_price_missing')
+      else if (observedPrices.length === 0) reasonCodes.push('market_price_not_observed_after_advice')
+      else if (marketTouched === false) reasonCodes.push('market_price_not_touched')
+      else if (marketTouched === true) reasonCodes.push('market_price_touched')
+      if ((humanDecision === 'accepted' || humanDecision === 'executed') && transactionCount === 0) {
+        reasonCodes.push('execution_record_missing_after_acceptance')
+      }
+      return {
+        actionId: action.id,
+        assetSymbol: action.asset?.symbol || null,
+        actionType: action.actionType,
+        humanDecision,
+        suggestedPrice,
+        observedPricePointCount: observedPrices.length,
+        marketTouched,
+        transactionCount,
+        reasonCodes,
+      }
+    })
+    const humanDecisionRecordedCount = actionDiagnostics.filter((item) => item.humanDecision !== null).length
+    const humanAcceptedCount = actionDiagnostics.filter((item) => item.humanDecision === 'accepted' || item.humanDecision === 'executed').length
+    const executionRecordedCount = actionDiagnostics.filter((item) => item.transactionCount > 0).length
+    const marketEvidenceAvailableCount = actionDiagnostics.filter((item) => item.observedPricePointCount > 0).length
+    const marketTouchedCount = actionDiagnostics.filter((item) => item.marketTouched === true).length
+    const reasonBreakdown = actionDiagnostics.flatMap((item) => item.reasonCodes).reduce<Record<string, number>>((acc, reason) => {
+      acc[reason] = (acc[reason] || 0) + 1
+      return acc
+    }, {})
+    const evidenceSignals = humanDecisionRecordedCount + executionRecordedCount + marketEvidenceAvailableCount
+    return {
+      schemaVersion: 'fams.advice.execution_diagnostics.v1',
+      generatedAt: new Date().toISOString(),
+      adviceGeneratedAt: generatedAt.toISOString(),
+      suggestedActionCount: actions.length,
+      executableActionCount: executableActions.length,
+      humanDecisionRecordedCount,
+      humanAcceptedCount,
+      marketEvidenceAvailableCount,
+      marketTouchedCount,
+      executionRecordedCount,
+      acceptedExecutionRate: humanAcceptedCount > 0 ? Number((executionRecordedCount / humanAcceptedCount).toFixed(4)) : null,
+      evidenceSufficiency: executableActions.length === 0
+        ? 'not_applicable'
+        : evidenceSignals === 0
+        ? 'insufficient'
+        : humanDecisionRecordedCount === executableActions.length
+        ? 'sufficient'
+        : 'partial',
+      reasonBreakdown,
+      actionDiagnostics,
+      notes: [
+        '接受后执行率仅以已记录人工接受的动作作为分母；没有有效分母时返回 null。',
+        '市场触价只使用 Advice 生成后的本地 PriceHistory；无价格点时不推断是否触价。',
+      ],
+    }
   }
 
   private buildStructuredAdvicePayload(params: {
@@ -1683,7 +1781,7 @@ class AnalysisService {
               const core = broker?.buckets.find((bucket: any) => bucket.key === 'core')
               const volatility = broker?.buckets.find((bucket: any) => bucket.key === 'volatility')
               const cash = broker?.buckets.find((bucket: any) => bucket.key === 'trading_cash')
-              return `支付宝按现金5%、黄金25%、债券25%、权益45%管理，第一批25%仅进入人工复核；统一RRG门控：${describe('007467')}，${describe('022430')}，${describe('002611')}。同花顺当前核心仓${core?.currentRatio.toFixed(1)}%、波动仓${volatility?.currentRatio.toFixed(1)}%、交易现金${cash?.currentRatio.toFixed(1)}%，先停止新增波动仓并恢复50/25/25结构。`
+              return `支付宝按${ALIPAY_ALLOCATION_STRATEGY.label}管理，第一批25%仅进入人工复核；统一RRG门控：${describe('007467')}，${describe('022430')}，${describe('002611')}。同花顺当前核心仓${core?.currentRatio.toFixed(1)}%、波动仓${volatility?.currentRatio.toFixed(1)}%、交易现金${cash?.currentRatio.toFixed(1)}%，先停止新增波动仓并恢复50/25/25结构。`
             })()
           : `已生成 ${sortedSuggestions.length} 条结构化建议，优先处理高优先级纪律和仓位相关动作。`
         : '当前未生成明确动作建议，建议继续观察仓位与市场信号。',
@@ -1918,6 +2016,61 @@ class AnalysisService {
     }
   }
 
+  async listAdviceSummaries(userId: string, options: { limit?: number } = {}) {
+    const normalizedUserId = userId || 'default'
+    await this.ensureUser(normalizedUserId)
+    const limit = Math.min(100, Math.max(1, Number(options.limit || 30)))
+    const advices = await prisma.advice.findMany({
+      where: { userId: normalizedUserId },
+      orderBy: { generatedAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        generatedAt: true,
+        summaryText: true,
+        riskLevel: true,
+        status: true,
+        inputSnapshotJson: true,
+        recommendationJson: true,
+        adviceInputSnapshotId: true,
+        actions: { select: { actionType: true, status: true } },
+      },
+    })
+
+    return {
+      schemaVersion: 'fams.analysis.advice_summaries.v1',
+      generatedAt: new Date().toISOString(),
+      userId: normalizedUserId,
+      readOnly: true,
+      count: advices.length,
+      items: advices.map((advice) => {
+        const input = this.parseJson<Record<string, any>>(advice.inputSnapshotJson, {})
+        const recommendation = this.parseJson<Record<string, any>>(advice.recommendationJson, {})
+        const accountSummaries = Array.isArray(recommendation.structuredAdvice?.account_summaries)
+          ? recommendation.structuredAdvice.account_summaries
+          : []
+        const accountIds = accountSummaries
+          .map((account: any) => String(account?.account_id || '').trim())
+          .filter(Boolean)
+        const executableActionCount = advice.actions.filter((action) => action.actionType === 'buy' || action.actionType === 'sell').length
+        return {
+          adviceId: advice.id,
+          generatedAt: advice.generatedAt,
+          summaryText: advice.summaryText || '未记录建议摘要',
+          riskLevel: advice.riskLevel,
+          status: advice.status,
+          scope: recommendation.structuredAdvice?.scope || input.scope || 'portfolio',
+          accountIds,
+          accountLabels: accountSummaries.map((account: any) => String(account?.account_name || account?.account_id || '')).filter(Boolean),
+          actionCount: advice.actions.length,
+          executableActionCount,
+          adviceInputSnapshotId: advice.adviceInputSnapshotId,
+          backtestEligible: executableActionCount > 0,
+        }
+      }),
+    }
+  }
+
   async getAdviceDetail(userId: string, adviceId: string) {
     const normalizedUserId = userId || 'default'
     await this.ensureUser(normalizedUserId)
@@ -1984,6 +2137,7 @@ class AnalysisService {
       })),
     }))
     const executionReview = this.buildAdviceExecutionReview(advice.actions)
+    const executionDiagnostics = await this.buildAdviceExecutionDiagnostics(advice.generatedAt, advice.actions)
 
     return {
       adviceId: advice.id,
@@ -2002,6 +2156,7 @@ class AnalysisService {
       inputSnapshot: snapshotPayload,
       actions,
       executionReview,
+      executionDiagnostics,
       artifactRefs: [
         `advice:${advice.id}`,
         ...(adviceInputSnapshot ? [`advice_input_snapshot:${adviceInputSnapshot.id}`] : []),

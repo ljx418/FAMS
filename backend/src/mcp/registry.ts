@@ -14,9 +14,15 @@ import { operationService } from '../services/operation/operationService.js'
 import { assetTrendService } from '../services/market-data/assetTrendService.js'
 import { dailyReviewService } from '../services/review/dailyReviewService.js'
 import { brokerReviewReconciliationService } from '../services/review/brokerReviewReconciliationService.js'
+import { volatilityWorkflowService } from '../services/review/volatilityWorkflowService.js'
 import { gridStrategyService } from '../services/strategy/gridStrategyService.js'
 import { screenshotCaptureService } from '../services/capture/screenshotCaptureService.js'
 import { getVisionCaptureStatus } from '../services/capture/visionCaptureService.js'
+import { industryCrowdingService } from '../services/relative-rotation/industryCrowdingService.js'
+import { relativeRotationService } from '../services/relative-rotation/relativeRotationService.js'
+import { relativeRotationUniverseService } from '../services/relative-rotation/relativeRotationUniverseService.js'
+import { relativeRotationResearchStudyService, type ResearchStudyInput } from '../services/relative-rotation/relativeRotationResearchStudyService.js'
+import { z } from 'zod'
 
 export type PermissionMetadata = {
   userContext: 'required' | 'optional' | 'none'
@@ -42,12 +48,13 @@ export type McpToolDefinition = {
   permissions: PermissionMetadata
   safety: SafetyMetadata
   aliases?: string[]
+  parameterSchema?: z.ZodTypeAny
   handler: (params: any) => Promise<any>
 }
 
 export type McpCallContext = {
   requestId?: string
-  transport?: 'http' | 'stdio'
+  transport?: 'http' | 'stdio' | 'streamable_http'
   userId?: string
   userContextSource?: 'http_header' | 'stdio_context'
 }
@@ -65,7 +72,7 @@ export type McpCallEnvelope = {
   audit: {
     calledAt: string
     requestId?: string
-    transport?: 'http' | 'stdio'
+    transport?: 'http' | 'stdio' | 'streamable_http'
     userId?: string
     userContextSource?: 'explicit_parameter' | 'http_header' | 'stdio_context'
     parameterUserId?: string
@@ -139,6 +146,13 @@ const asyncPermission = (scopes: string[]): PermissionMetadata => ({
 })
 
 const tradeWritePermission = (scopes: string[]): PermissionMetadata => ({
+  userContext: 'required',
+  scopes,
+  writes: true,
+  requiresHumanConfirmation: true,
+})
+
+const confirmedWritePermission = (scopes: string[]): PermissionMetadata => ({
   userContext: 'required',
   scopes,
   writes: true,
@@ -229,6 +243,126 @@ const buildTradeConfirmationBlock = (toolName: string, params: TradeWriteParams)
 const hasHumanConfirmation = (confirmation?: HumanConfirmation) => (
   confirmation?.confirmed === true && typeof confirmation.confirmedBy === 'string' && confirmation.confirmedBy.trim().length > 0
 )
+
+const deletionConfirmationSchema = z.object({
+  confirmed: z.literal(true),
+  confirmedBy: z.string().trim().min(1).max(120),
+  confirmedAt: z.string().datetime().optional(),
+  reason: z.string().trim().max(500).optional(),
+}).strict()
+
+const buildDeletionConfirmationBlock = (
+  toolName: string,
+  userId: string,
+  identifier: Record<string, string>,
+  label: string,
+) => ({
+  blocked: true,
+  requiresHumanConfirmation: true,
+  code: 'HUMAN_CONFIRMATION_REQUIRED',
+  message: `删除${label}会移除研究配置或本地轮动记录，必须先经过人工确认。`,
+  confirmationRequired: {
+    tool: toolName,
+    requiredFields: ['confirmation.confirmed=true', 'confirmation.confirmedBy'],
+    target: identifier,
+  },
+  nextActions: [{
+    type: 'confirm_relative_rotation_delete',
+    label: `人工确认后删除${label}`,
+    method: 'POST',
+    endpoint: '/api/v1/mcp/call',
+    body: {
+      name: toolName,
+      parameters: {
+        userId,
+        ...identifier,
+        confirmation: { confirmed: true, confirmedBy: 'human' },
+      },
+    },
+  }],
+})
+
+const rotationDetailSchema = z.enum(['summary', 'series']).default('summary')
+const rotationFrequencySchema = z.enum(['weekly', 'daily']).default('weekly')
+const rotationMarketSchema = z.enum(['CN', 'HK', 'US']).default('CN')
+const tailSchema = z.number().int().min(1).max(120).default(12)
+const researchStudySchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  market: z.enum(['CN', 'HK', 'US']),
+  frequency: z.enum(['weekly', 'daily']).default('weekly'),
+  historyYears: z.number().int().min(1).max(10).optional(),
+  benchmark: z.object({
+    mode: z.enum(['market_default', 'equal_weight_targets']).optional(),
+    targetKeys: z.array(z.string().trim().min(1)).max(30).optional(),
+  }).strict().optional(),
+  period: z.union([
+    z.object({ mode: z.literal('rolling'), rollingWeeks: z.number().int().min(4).max(520).optional() }).strict(),
+    z.object({ mode: z.literal('fixed'), startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).strict(),
+  ]),
+  targets: z.array(z.object({
+    code: z.string().trim().min(1).max(40),
+    name: z.string().trim().min(1).max(120).optional(),
+    kind: z.enum(['equity', 'index']).optional(),
+  }).strict()).min(1).max(30),
+  comparisonTargetKeys: z.array(z.string().trim().min(1)).length(2).optional(),
+}).strict()
+
+const volatilityCaptureFields = {
+  userId: z.string().trim().min(1),
+  sessionType: z.enum(['open', 'pre_close', 'manual']).optional(),
+  holdingsCaptureId: z.string().trim().min(1).optional(),
+  tradesCaptureId: z.string().trim().min(1).optional(),
+  ordinaryOrdersCaptureId: z.string().trim().min(1).optional(),
+  conditionalOrdersCaptureId: z.string().trim().min(1).optional(),
+  zeroNewTradesConfirmed: z.boolean().optional(),
+}
+
+const volatilityReconcileSchema = z.object(volatilityCaptureFields).strict()
+const volatilityRunSchema = z.object({
+  ...volatilityCaptureFields,
+  idempotencyKey: z.string().trim().min(1).max(160).optional(),
+}).strict()
+const volatilityResultSchema = z.object({
+  userId: z.string().trim().min(1),
+  operationId: z.string().trim().min(1).optional(),
+  reviewId: z.string().trim().min(1).optional(),
+  includeHtml: z.boolean().optional(),
+}).strict().refine((value) => Number(Boolean(value.operationId)) + Number(Boolean(value.reviewId)) === 1, {
+  message: 'Exactly one of operationId or reviewId is required',
+  path: ['operationId'],
+})
+
+const compactRotationPoints = (points: unknown, tail: number) => (
+  Array.isArray(points) ? points.slice(-tail) : []
+)
+
+const summarizeTimeline = (timeline: any, detail: 'summary' | 'series', tail: number, targetKeys: string[] = []) => {
+  const requested = new Set(targetKeys)
+  const items = (timeline.items || []).filter((item: any) => requested.size === 0 || requested.has(item.targetKey) || requested.has(item.symbol))
+  return {
+    schemaVersion: timeline.schemaVersion,
+    generatedAt: timeline.generatedAt,
+    universe: timeline.universe,
+    market: timeline.market,
+    benchmark: timeline.benchmark,
+    formulaVersion: timeline.formulaVersion,
+    frequency: timeline.frequency,
+    visibleRange: timeline.visibleRange,
+    availableDateCount: timeline.availableDateCount,
+    eligibleCount: timeline.eligibleCount,
+    readyCount: timeline.readyCount,
+    limitedCount: timeline.limitedCount,
+    refreshRecommended: timeline.refreshRecommended,
+    refreshReasons: timeline.refreshReasons,
+    associations: timeline.associations,
+    notTradingAdvice: timeline.notTradingAdvice,
+    items: items.map((item: any) => ({
+      ...item,
+      points: detail === 'series' ? compactRotationPoints(item.points, tail) : undefined,
+      latest: Array.isArray(item.points) ? item.points.at(-1) || null : null,
+    })),
+  }
+}
 
 const getAuditUserId = (parameters?: Record<string, unknown>) => {
   const userId = parameters?.userId
@@ -567,6 +701,7 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     inputSchema: {
       type: 'object',
       properties: {
+        userId: { type: 'string' },
         operation_id: { type: 'string' },
       },
       required: ['operation_id'],
@@ -574,7 +709,7 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     outputSchema: operationOutputSchema,
     permissions: readPermission(['operation:read']),
     safety: readSafety,
-    handler: async (params: { operation_id: string }) => operationService.getOperation(params.operation_id),
+    handler: async (params: { userId: string; operation_id: string }) => operationService.getOperation(params.operation_id, params.userId),
   },
 
   'operation.get_artifact': {
@@ -685,6 +820,386 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     ),
   },
 
+  'relative_rotation.get_industry_crowding': {
+    name: 'relative_rotation.get_industry_crowding',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '读取行业拥挤度、20日归一化资金流评分和板块覆盖状态。默认只返回摘要；需要轨迹时必须指定板块代码。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string' },
+        year: { type: 'number', minimum: 2010 },
+        frequency: { type: 'string', enum: ['weekly', 'daily'], default: 'weekly' },
+        detail: { type: 'string', enum: ['summary', 'series'], default: 'summary' },
+        boardCodes: { type: 'array', items: { type: 'string', pattern: '^BK\\d{4,}$' }, maxItems: 20 },
+        tail: { type: 'number', minimum: 1, maximum: 120, default: 12 },
+      },
+      required: ['userId'],
+      additionalProperties: false,
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['relative_rotation:read']),
+    safety: readSafety,
+    parameterSchema: z.object({
+      userId: z.string().trim().min(1),
+      year: z.number().int().min(2010).max(2100).optional(),
+      frequency: rotationFrequencySchema,
+      detail: rotationDetailSchema,
+      boardCodes: z.array(z.string().trim().regex(/^BK\d{4,}$/i)).max(20).default([]),
+      tail: tailSchema,
+    }).strict().superRefine((value, context) => {
+      if (value.detail === 'series' && value.boardCodes.length === 0) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['boardCodes'], message: 'series detail requires at least one board code' })
+      }
+    }),
+    handler: async (params: any) => {
+      const report: any = await industryCrowdingService.getReport(params.userId, {
+        year: params.year,
+        frequency: params.frequency,
+        boardCodes: params.boardCodes.length > 0 ? params.boardCodes : undefined,
+      })
+      const boards = params.detail === 'series'
+        ? (report.boards || []).map((board: any) => ({
+            ...board,
+            points: compactRotationPoints(board.points, params.tail),
+          }))
+        : (report.boards || []).map((board: any) => ({
+            code: board.code,
+            name: board.name,
+            dataStatus: board.dataStatus,
+            priceStatus: board.priceStatus,
+            flowStatus: board.flowStatus,
+            lastPriceDate: board.lastPriceDate,
+            lastFlowDate: board.lastFlowDate,
+            lastError: board.lastError,
+            latest: board.latest,
+          }))
+      return {
+        schemaVersion: report.schemaVersion,
+        generatedAt: report.generatedAt,
+        year: report.year,
+        frequency: report.frequency,
+        asOfDate: report.asOfDate,
+        boardCount: report.boardCount,
+        readyCount: report.readyCount,
+        partialCount: report.partialCount,
+        unavailableCount: report.unavailableCount,
+        coverageByDate: params.detail === 'series' ? (report.coverageByDate || []).slice(-params.tail) : report.coverageByDate?.at(-1) || null,
+        summaries: report.summaries,
+        benchmark: report.benchmark,
+        methodology: report.methodology,
+        marketFlow: {
+          pointCount: report.marketFlow?.points?.length || 0,
+          latest: report.marketFlow?.points?.at(-1) || null,
+        },
+        warnings: report.warnings,
+        notTradingAdvice: report.notTradingAdvice,
+        boards,
+      }
+    },
+  },
+
+  'relative_rotation.get_market_flow': {
+    name: 'relative_rotation.get_market_flow',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '读取沪深两市整体主力资金流及归一化强度；该数据独立于行业板块相加结果。',
+    inputSchema: {
+      type: 'object',
+      properties: { userId: { type: 'string' }, year: { type: 'number', minimum: 2010 }, tail: { type: 'number', minimum: 1, maximum: 120, default: 60 } },
+      required: ['userId'],
+      additionalProperties: false,
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['relative_rotation:read']),
+    safety: readSafety,
+    parameterSchema: z.object({
+      userId: z.string().trim().min(1),
+      year: z.number().int().min(2010).max(2100).optional(),
+      tail: z.number().int().min(1).max(120).default(60),
+    }).strict(),
+    handler: async (params: any) => {
+      const report: any = await industryCrowdingService.getReport(params.userId, { year: params.year, frequency: 'weekly' })
+      return {
+        schemaVersion: 'fams.relative_rotation.market_flow.v1',
+        generatedAt: report.generatedAt,
+        asOfDate: report.asOfDate,
+        pointCount: report.marketFlow?.points?.length || 0,
+        points: compactRotationPoints(report.marketFlow?.points, params.tail),
+        methodology: report.methodology?.provider,
+        warnings: report.warnings,
+        notTradingAdvice: true,
+      }
+    },
+  },
+
+  'relative_rotation.refresh_industry_crowding': {
+    name: 'relative_rotation.refresh_industry_crowding',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '启动行业价格与主力资金流补齐任务。需要重试残留缓存或源失败的板块时设置 force=true。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string' }, year: { type: 'number', minimum: 2010 },
+        boardCodes: { type: 'array', items: { type: 'string', pattern: '^BK\\d{4,}$' }, maxItems: 128 },
+        force: { type: 'boolean', default: false }, idempotencyKey: { type: 'string' },
+      },
+      required: ['userId'], additionalProperties: false,
+    },
+    outputSchema: operationOutputSchema,
+    permissions: asyncPermission(['relative_rotation:write', 'operation:write']),
+    safety: asyncOperationSafety,
+    parameterSchema: z.object({
+      userId: z.string().trim().min(1),
+      year: z.number().int().min(2010).max(2100).optional(),
+      boardCodes: z.array(z.string().trim().regex(/^BK\d{4,}$/i)).max(128).default([]),
+      force: z.boolean().default(false),
+      idempotencyKey: z.string().trim().min(1).max(180).optional(),
+    }).strict(),
+    handler: async (params: any) => operationService.startIndustryCrowdingBackfillOperation({
+      ...params,
+      executionMode: 'inline',
+      createdBy: 'agent',
+    }),
+  },
+
+  'relative_rotation.get_holdings_timeline': {
+    name: 'relative_rotation.get_holdings_timeline',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '读取当前持仓相对沪深300的轮动轨迹与数据覆盖状态；默认返回摘要，series 仅返回指定证券。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string' }, frequency: { type: 'string', enum: ['weekly', 'daily'], default: 'weekly' },
+        years: { type: 'number', minimum: 1, maximum: 8, default: 8 }, detail: { type: 'string', enum: ['summary', 'series'], default: 'summary' },
+        symbols: { type: 'array', items: { type: 'string' }, maxItems: 30 }, tail: { type: 'number', minimum: 1, maximum: 120, default: 12 },
+      }, required: ['userId'], additionalProperties: false,
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['relative_rotation:read', 'position:read']),
+    safety: readSafety,
+    parameterSchema: z.object({
+      userId: z.string().trim().min(1), frequency: rotationFrequencySchema,
+      years: z.number().int().min(1).max(8).default(8), detail: rotationDetailSchema,
+      symbols: z.array(z.string().trim().min(1).max(40)).max(30).default([]), tail: tailSchema,
+    }).strict().superRefine((value, context) => {
+      if (value.detail === 'series' && value.symbols.length === 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ['symbols'], message: 'series detail requires at least one symbol' })
+    }),
+    handler: async (params: any) => summarizeTimeline(
+      await relativeRotationService.getHoldingsTimeline(params.userId, { frequency: params.frequency, years: params.years }),
+      params.detail, params.tail, params.symbols,
+    ),
+  },
+
+  'relative_rotation.refresh_holdings_timeline': {
+    name: 'relative_rotation.refresh_holdings_timeline',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '启动当前持仓相对轮动的历史行情刷新任务，完成后使用 operation.get 或查询工具读取结果。',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, years: { type: 'number', minimum: 1, maximum: 8, default: 8 }, idempotencyKey: { type: 'string' } }, required: ['userId'], additionalProperties: false },
+    outputSchema: operationOutputSchema,
+    permissions: asyncPermission(['relative_rotation:write', 'operation:write']),
+    safety: asyncOperationSafety,
+    parameterSchema: z.object({ userId: z.string().trim().min(1), years: z.number().int().min(1).max(8).default(8), idempotencyKey: z.string().trim().min(1).max(180).optional() }).strict(),
+    handler: async (params: any) => operationService.startRelativeRotationHistoryRefreshOperation({ ...params, executionMode: 'inline', createdBy: 'agent' }),
+  },
+
+  'relative_rotation.list_watchlist': {
+    name: 'relative_rotation.list_watchlist',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '列出当前用户的轮动市场自选及其历史数据就绪状态。',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' } }, required: ['userId'], additionalProperties: false },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['relative_rotation:read']),
+    safety: readSafety,
+    parameterSchema: z.object({ userId: z.string().trim().min(1) }).strict(),
+    handler: async (params: any) => relativeRotationUniverseService.listWatchlist(params.userId),
+  },
+
+  'relative_rotation.add_watchlist_item': {
+    name: 'relative_rotation.add_watchlist_item',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '将一个标准市场代码加入轮动自选。该调用只保存身份与配置，不会隐式联网刷新历史；请随后调用 refresh_watchlist_timeline。',
+    inputSchema: {
+      type: 'object', properties: {
+        userId: { type: 'string' }, market: { type: 'string', enum: ['CN', 'HK', 'US'] }, code: { type: 'string' }, years: { type: 'number', minimum: 1, maximum: 8, default: 8 },
+      }, required: ['userId', 'market', 'code'], additionalProperties: false,
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['relative_rotation:write']),
+    safety: directWriteSafety,
+    parameterSchema: z.object({
+      userId: z.string().trim().min(1), market: z.enum(['CN', 'HK', 'US']), code: z.string().trim().min(1).max(40), years: z.number().int().min(1).max(8).default(8),
+    }).strict(),
+    handler: async (params: any) => relativeRotationUniverseService.addWatchlistItem(params.userId, params.market, params.code, { refresh: false, years: params.years }),
+  },
+
+  'relative_rotation.delete_watchlist_item': {
+    name: 'relative_rotation.delete_watchlist_item',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '删除轮动市场自选及其本地轮动记录。必须先提供人工确认；共享行情缓存不会被删除。',
+    inputSchema: {
+      type: 'object', properties: { userId: { type: 'string' }, itemId: { type: 'string' }, confirmation: humanConfirmationSchema },
+      required: ['userId', 'itemId'], additionalProperties: false,
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: confirmedWritePermission(['relative_rotation:write']),
+    safety: confirmedWriteSafety,
+    parameterSchema: z.object({ userId: z.string().trim().min(1), itemId: z.string().trim().min(1), confirmation: deletionConfirmationSchema.optional() }).strict(),
+    handler: async (params: any) => {
+      if (!hasHumanConfirmation(params.confirmation)) return buildDeletionConfirmationBlock('relative_rotation.delete_watchlist_item', params.userId, { itemId: params.itemId }, '轮动自选')
+      return relativeRotationUniverseService.deleteWatchlistItem(params.userId, params.itemId)
+    },
+  },
+
+  'relative_rotation.get_watchlist_timeline': {
+    name: 'relative_rotation.get_watchlist_timeline',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '读取市场自选与同市场持仓的相对轮动轨迹；默认摘要，series 可按 targetKey 或证券代码选择。',
+    inputSchema: {
+      type: 'object', properties: {
+        userId: { type: 'string' }, market: { type: 'string', enum: ['CN', 'HK', 'US'], default: 'CN' }, frequency: { type: 'string', enum: ['weekly', 'daily'], default: 'weekly' },
+        years: { type: 'number', minimum: 1, maximum: 8, default: 8 }, detail: { type: 'string', enum: ['summary', 'series'], default: 'summary' },
+        targetKeys: { type: 'array', items: { type: 'string' }, maxItems: 30 }, tail: { type: 'number', minimum: 1, maximum: 120, default: 12 },
+      }, required: ['userId'], additionalProperties: false,
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['relative_rotation:read', 'position:read']),
+    safety: readSafety,
+    parameterSchema: z.object({
+      userId: z.string().trim().min(1), market: rotationMarketSchema, frequency: rotationFrequencySchema, years: z.number().int().min(1).max(8).default(8), detail: rotationDetailSchema,
+      targetKeys: z.array(z.string().trim().min(1).max(80)).max(30).default([]), tail: tailSchema,
+    }).strict().superRefine((value, context) => {
+      if (value.detail === 'series' && value.targetKeys.length === 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ['targetKeys'], message: 'series detail requires at least one target key' })
+    }),
+    handler: async (params: any) => summarizeTimeline(
+      await relativeRotationUniverseService.getUniverseTimeline(params.userId, { market: params.market, frequency: params.frequency, years: params.years }),
+      params.detail, params.tail, params.targetKeys,
+    ),
+  },
+
+  'relative_rotation.refresh_watchlist_timeline': {
+    name: 'relative_rotation.refresh_watchlist_timeline',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '启动市场自选轮动历史刷新任务。targetKeys 必须来自 list_watchlist 或 get_watchlist_timeline。',
+    inputSchema: {
+      type: 'object', properties: {
+        userId: { type: 'string' }, market: { type: 'string', enum: ['CN', 'HK', 'US'], default: 'CN' }, targetKeys: { type: 'array', items: { type: 'string' }, maxItems: 30 },
+        years: { type: 'number', minimum: 1, maximum: 8, default: 8 }, idempotencyKey: { type: 'string' },
+      }, required: ['userId', 'targetKeys'], additionalProperties: false,
+    },
+    outputSchema: operationOutputSchema,
+    permissions: asyncPermission(['relative_rotation:write', 'operation:write']),
+    safety: asyncOperationSafety,
+    parameterSchema: z.object({
+      userId: z.string().trim().min(1), market: rotationMarketSchema, targetKeys: z.array(z.string().trim().min(1).max(80)).min(1).max(30),
+      years: z.number().int().min(1).max(8).default(8), idempotencyKey: z.string().trim().min(1).max(180).optional(),
+    }).strict(),
+    handler: async (params: any) => operationService.startRelativeRotationUniverseRefreshOperation({ ...params, executionMode: 'inline', createdBy: 'agent' }),
+  },
+
+  'relative_rotation.list_research_studies': {
+    name: 'relative_rotation.list_research_studies',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '列出用户保存的相对轮动专题研究及完整研究配置。',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' } }, required: ['userId'], additionalProperties: false },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['relative_rotation:read']),
+    safety: readSafety,
+    parameterSchema: z.object({ userId: z.string().trim().min(1) }).strict(),
+    handler: async (params: any) => relativeRotationResearchStudyService.listStudies(params.userId),
+  },
+
+  'relative_rotation.create_research_study': {
+    name: 'relative_rotation.create_research_study',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '创建完整的相对轮动专题研究配置。创建不自动联网刷新；随后调用 refresh_research_timeline。',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, study: { type: 'object', description: '研究名称、市场、频率、基准、区间和目标列表。' } }, required: ['userId', 'study'], additionalProperties: false },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['relative_rotation:write']),
+    safety: directWriteSafety,
+    parameterSchema: z.object({ userId: z.string().trim().min(1), study: researchStudySchema }).strict(),
+    handler: async (params: any) => relativeRotationResearchStudyService.createStudy(params.userId, params.study as ResearchStudyInput),
+  },
+
+  'relative_rotation.update_research_study': {
+    name: 'relative_rotation.update_research_study',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '用一整份合法研究定义替换既有专题配置，不会自动刷新行情或重新计算轨迹。',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, studyId: { type: 'string' }, study: { type: 'object' } }, required: ['userId', 'studyId', 'study'], additionalProperties: false },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['relative_rotation:write']),
+    safety: directWriteSafety,
+    parameterSchema: z.object({ userId: z.string().trim().min(1), studyId: z.string().trim().min(1), study: researchStudySchema }).strict(),
+    handler: async (params: any) => relativeRotationResearchStudyService.updateStudy(params.userId, params.studyId, params.study as ResearchStudyInput),
+  },
+
+  'relative_rotation.delete_research_study': {
+    name: 'relative_rotation.delete_research_study',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '删除一个保存的专题研究。必须先提供人工确认；共享行情缓存不会被删除。',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, studyId: { type: 'string' }, confirmation: humanConfirmationSchema }, required: ['userId', 'studyId'], additionalProperties: false },
+    outputSchema: successEnvelopeSchema,
+    permissions: confirmedWritePermission(['relative_rotation:write']),
+    safety: confirmedWriteSafety,
+    parameterSchema: z.object({ userId: z.string().trim().min(1), studyId: z.string().trim().min(1), confirmation: deletionConfirmationSchema.optional() }).strict(),
+    handler: async (params: any) => {
+      if (!hasHumanConfirmation(params.confirmation)) return buildDeletionConfirmationBlock('relative_rotation.delete_research_study', params.userId, { studyId: params.studyId }, '专题研究')
+      return relativeRotationResearchStudyService.deleteStudy(params.userId, params.studyId)
+    },
+  },
+
+  'relative_rotation.get_research_timeline': {
+    name: 'relative_rotation.get_research_timeline',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '读取已保存专题的相对轮动轨迹、关联关系、数据状态和来源提示；series 仅返回指定目标。',
+    inputSchema: {
+      type: 'object', properties: {
+        userId: { type: 'string' }, studyId: { type: 'string' }, detail: { type: 'string', enum: ['summary', 'series'], default: 'summary' },
+        targetKeys: { type: 'array', items: { type: 'string' }, maxItems: 30 }, tail: { type: 'number', minimum: 1, maximum: 120, default: 12 },
+      }, required: ['userId', 'studyId'], additionalProperties: false,
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['relative_rotation:read']),
+    safety: readSafety,
+    parameterSchema: z.object({
+      userId: z.string().trim().min(1), studyId: z.string().trim().min(1), detail: rotationDetailSchema,
+      targetKeys: z.array(z.string().trim().min(1).max(80)).max(30).default([]), tail: tailSchema,
+    }).strict().superRefine((value, context) => {
+      if (value.detail === 'series' && value.targetKeys.length === 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ['targetKeys'], message: 'series detail requires at least one target key' })
+    }),
+    handler: async (params: any) => summarizeTimeline(
+      await relativeRotationResearchStudyService.getTimeline(params.userId, { studyId: params.studyId }),
+      params.detail, params.tail, params.targetKeys,
+    ),
+  },
+
+  'relative_rotation.refresh_research_timeline': {
+    name: 'relative_rotation.refresh_research_timeline',
+    domain: 'relative_rotation',
+    version: 'v1',
+    description: '启动已保存专题的标的和基准历史刷新任务，并在完成后产出最新专题轮动时间线。',
+    inputSchema: { type: 'object', properties: { userId: { type: 'string' }, studyId: { type: 'string' }, idempotencyKey: { type: 'string' } }, required: ['userId', 'studyId'], additionalProperties: false },
+    outputSchema: operationOutputSchema,
+    permissions: asyncPermission(['relative_rotation:write', 'operation:write']),
+    safety: asyncOperationSafety,
+    parameterSchema: z.object({ userId: z.string().trim().min(1), studyId: z.string().trim().min(1), idempotencyKey: z.string().trim().min(1).max(180).optional() }).strict(),
+    handler: async (params: any) => operationService.startRelativeRotationResearchRefreshOperation({ ...params, executionMode: 'inline', createdBy: 'agent' }),
+  },
+
   'backtest.run_from_advice': {
     name: 'backtest.run_from_advice',
     domain: 'backtest',
@@ -730,6 +1245,83 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     permissions: asyncPermission(['market_data:read', 'market_data:write']),
     safety: directWriteSafety,
     handler: async (params: { assetId?: string; symbol?: string; days?: number }) => assetTrendService.getSnapshot({ ...params, persist: true }),
+  },
+
+  'volatility_workflow.reconcile': {
+    name: 'volatility_workflow.reconcile',
+    domain: 'volatility_workflow',
+    version: 'v1',
+    description: '先对账持仓、可卖数量、资金、新成交、普通委托和条件单，输出五部分报告；只读且不创建券商订单。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        sessionType: { type: 'string', enum: ['open', 'pre_close', 'manual'] },
+        holdingsCaptureId: { type: 'string' },
+        tradesCaptureId: { type: 'string' },
+        ordinaryOrdersCaptureId: { type: 'string' },
+        conditionalOrdersCaptureId: { type: 'string' },
+        zeroNewTradesConfirmed: { type: 'boolean' },
+      },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['volatility_workflow:read']),
+    safety: readSafety,
+    parameterSchema: volatilityReconcileSchema,
+    handler: async (params: any) => volatilityWorkflowService.reconcile(params),
+  },
+
+  'volatility_workflow.run': {
+    name: 'volatility_workflow.run',
+    domain: 'volatility_workflow',
+    version: 'v1',
+    description: '启动对账、30日收盘与MA、日频RRG、基本面/消息、策略差异、人工拟单和HTML报告的一键波动仓工作流。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        sessionType: { type: 'string', enum: ['open', 'pre_close', 'manual'] },
+        holdingsCaptureId: { type: 'string' },
+        tradesCaptureId: { type: 'string' },
+        ordinaryOrdersCaptureId: { type: 'string' },
+        conditionalOrdersCaptureId: { type: 'string' },
+        zeroNewTradesConfirmed: { type: 'boolean' },
+        idempotencyKey: { type: 'string' },
+      },
+      required: ['userId'],
+    },
+    outputSchema: operationOutputSchema,
+    permissions: asyncPermission(['volatility_workflow:run', 'daily_review:write', 'operation:write']),
+    safety: asyncOperationSafety,
+    parameterSchema: volatilityRunSchema,
+    handler: async (params: any) => volatilityWorkflowService.run(params),
+  },
+
+  'volatility_workflow.get_result': {
+    name: 'volatility_workflow.get_result',
+    domain: 'volatility_workflow',
+    version: 'v1',
+    description: '按 operationId 或 reviewId 获取工作流状态、真实数据报告和自包含HTML；仅查询，不重新运行工作流。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        operationId: { type: 'string' },
+        reviewId: { type: 'string' },
+        includeHtml: { type: 'boolean' },
+      },
+      required: ['userId'],
+      oneOf: [{ required: ['operationId'] }, { required: ['reviewId'] }],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['volatility_workflow:read', 'daily_review:read', 'operation:read']),
+    safety: readSafety,
+    parameterSchema: volatilityResultSchema,
+    handler: async (params: any) => volatilityWorkflowService.getResult(params),
   },
 
   'daily_review.run': {
@@ -945,8 +1537,8 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     description: '将用户提供的 PNG/JPEG/WebP 截图私有保存；仅上传不会识别或改写持仓',
     inputSchema: {
       type: 'object',
-      properties: { userId: { type: 'string' }, base64: { type: 'string' }, mimeType: { type: 'string' }, originalFilename: { type: 'string' }, conversationId: { type: 'string' } },
-      required: ['userId', 'base64'],
+      properties: { userId: { type: 'string' }, accountSource: { type: 'string', enum: ['tonghuashun', 'alipay'] }, base64: { type: 'string' }, mimeType: { type: 'string' }, originalFilename: { type: 'string' }, conversationId: { type: 'string' } },
+      required: ['userId', 'accountSource', 'base64'],
     },
     outputSchema: successEnvelopeSchema,
     permissions: asyncPermission(['capture:write']),
@@ -1082,7 +1674,7 @@ export const buildDomainPackManifest = () => {
   return {
     name: 'fams',
     displayName: 'FAMS 投资管理 DomainPack',
-    version: 'v2.0.0-alpha.1',
+    version: 'v2.1.0',
     schemaVersion: 'fams.domainpack.v1',
     transport: {
       http: {
@@ -1094,12 +1686,41 @@ export const buildDomainPackManifest = () => {
       },
       stdio: {
         status: 'implemented',
+        protocol: 'official_mcp_sdk',
         command: 'node',
         args: ['backend/dist/mcp/stdio.js'],
         sourceEntrypoint: 'backend/src/mcp/stdio.ts',
         configPath: 'mcp/financial-mcp.json',
       },
+      streamableHttp: {
+        status: 'implemented',
+        protocol: 'official_mcp_sdk',
+        endpoint: 'http://127.0.0.1:4010/mcp',
+        loopbackOnly: true,
+        sourceEntrypoint: 'backend/src/mcp/streamableHttp.ts',
+      },
     },
+    profiles: {
+      default: 'volatility',
+      environmentVariable: 'FAMS_MCP_PROFILE',
+      volatility: {
+        hostVisionOnly: true,
+        excludesBrokerOrderCreation: true,
+        executionBoundary: {
+          canCreateOrder: false,
+          autoTradeUnlocked: false,
+          formalTradingUnlocked: false,
+        },
+      },
+      full: { legacyRegistryToolsAvailable: true },
+    },
+    resources: [
+      'fams://volatility/strategy/active',
+      'fams://volatility/portfolio/latest-reconciled',
+      'fams://volatility/rules',
+      'fams://volatility/reviews/{reviewId}',
+    ],
+    prompts: ['volatility-review'],
     envelope: {
       schemaVersion: 'fams.mcp.call.v1',
       statuses: ['completed', 'blocked', 'failed'],
@@ -1164,8 +1785,29 @@ export const callMcpTool = async (
     })
   }
 
+  let validatedParameters = resolvedUser.parameters
+  if (tool.parameterSchema) {
+    const parsed = tool.parameterSchema.safeParse(resolvedUser.parameters)
+    if (!parsed.success) {
+      return buildCallEnvelope(name, parameters, tool, context, 'failed', {
+        error: {
+          code: 'INVALID_TOOL_INPUT',
+          message: `Tool '${tool.name}' received invalid parameters`,
+          details: parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), code: issue.code, message: issue.message })),
+        },
+        resolvedUser: {
+          userId: resolvedUser.userId,
+          userContextSource: resolvedUser.userContextSource,
+          parameterUserId: resolvedUser.parameterUserId,
+          contextUserId: resolvedUser.contextUserId,
+        },
+      })
+    }
+    validatedParameters = parsed.data
+  }
+
   try {
-    const result = await tool.handler(resolvedUser.parameters)
+    const result = await tool.handler(validatedParameters)
     return buildCallEnvelope(
       name,
       parameters,

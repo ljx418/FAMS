@@ -22,6 +22,8 @@ const refreshPricesSchema = {
         type: 'array',
         items: { type: 'string', minLength: 1 },
       },
+      reason: { type: 'string', enum: ['manual', 'stale_on_entry', 'missing_price_on_entry'] },
+      idempotencyKey: { type: 'string', minLength: 1, maxLength: 200 },
     },
   },
 }
@@ -260,7 +262,7 @@ export async function operationRoutes(app: FastifyInstance) {
   })
 
   app.post('/refresh-prices', { schema: refreshPricesSchema }, async (request) => {
-    const { userId, assetIds, symbols } = request.body as any
+    const { userId, assetIds, symbols, reason, idempotencyKey } = request.body as any
     if (!userId) {
       throw new Error('userId is required')
     }
@@ -269,6 +271,9 @@ export async function operationRoutes(app: FastifyInstance) {
       userId,
       assetIds,
       symbols,
+      reason,
+      idempotencyKey,
+      createdBy: reason === 'manual' || !reason ? 'user' : 'system:auto-freshness',
     })
   })
 

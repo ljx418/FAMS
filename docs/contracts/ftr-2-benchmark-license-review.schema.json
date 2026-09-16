@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-2-benchmark-license-review.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "checkedAt", "decisionOrigin", "decisionRef", "provider", "benchmarkId", "benchmarkVersion", "benchmarkType", "usageScope", "commercialAuthorizationClaimed", "sourceSnapshotHash", "authorizationRecordHash", "evidenceFiles", "allEvidenceFilesVerified", "benchmarkAuthorizationReviewed", "humanAcceptanceStatus", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_2.benchmark_license_review.v1"},
+    "stageId": {"const": "FTR-2"},
+    "status": {"const": "passed"},
+    "checkedAt": {"type": "string", "format": "date-time"},
+    "decisionOrigin": {"const": "A0_frozen_owner_public_source_use_decision"},
+    "decisionRef": {"type": "string", "minLength": 1},
+    "provider": {"const": "csindex_public"},
+    "benchmarkId": {"const": "csi300_total_return_h00300"},
+    "benchmarkVersion": {"type": "string", "pattern": "^2023-09-01_2026-09-[0-9]{2}$"},
+    "benchmarkType": {"const": "trusted_total_return"},
+    "usageScope": {"const": "local_personal_noncommercial"},
+    "commercialAuthorizationClaimed": {"const": false},
+    "sourceSnapshotHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "authorizationRecordHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "evidenceFiles": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path", "sha256"],
+        "properties": {
+          "kind": {"enum": ["raw_index_response", "official_factsheet", "official_methodology", "owner_use_declaration", "provider_authorization_audit", "a0_acceptance"]},
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      },
+      "allOf": [
+        {"contains": {"type": "object", "properties": {"kind": {"const": "raw_index_response"}}, "required": ["kind"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"kind": {"const": "official_factsheet"}}, "required": ["kind"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"kind": {"const": "official_methodology"}}, "required": ["kind"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"kind": {"const": "owner_use_declaration"}}, "required": ["kind"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"kind": {"const": "provider_authorization_audit"}}, "required": ["kind"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"kind": {"const": "a0_acceptance"}}, "required": ["kind"]}, "minContains": 1, "maxContains": 1}
+      ]
+    },
+    "allEvidenceFilesVerified": {"const": true},
+    "benchmarkAuthorizationReviewed": {"const": true},
+    "humanAcceptanceStatus": {"const": "pending_batch_review"},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  }
+}

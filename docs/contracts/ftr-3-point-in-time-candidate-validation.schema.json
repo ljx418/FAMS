@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-point-in-time-candidate-validation.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "candidateId", "candidateVersion", "generatedAt", "sourcePointInTimeReadiness", "sourcePointInTimeBackfill", "sourceOriginalFtr3", "benchmark", "priceLake", "algorithm", "walkForward", "parameterSensitivity", "groupStability", "antiFalseGreen", "summary", "accountFactsUnchanged", "realDataUsed", "status", "blockers", "prohibitedActions", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3r1.point_in_time_candidate_validation.v1"},
+    "stageId": {"const": "FTR-3R1"},
+    "candidateId": {"const": "dividend_low_vol_basket"},
+    "candidateVersion": {"const": "portfolio.strategy.dividend_low_vol_basket.v2_point_in_time"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "sourcePointInTimeReadiness": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "readyDecisionPointCount"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}, "readyDecisionPointCount": {"const": 6}}
+    },
+    "sourcePointInTimeBackfill": {"$ref": "#/$defs/evidenceRef"},
+    "sourceOriginalFtr3": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "originalPassedWindowCount", "originalPassedRatio"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}, "originalPassedWindowCount": {"const": 2}, "originalPassedRatio": {"const": 0.333333}}
+    },
+    "benchmark": {
+      "type": "object", "additionalProperties": false,
+      "required": ["benchmarkId", "benchmarkType", "path", "sha256", "hashMode", "changedForPassing"],
+      "properties": {"benchmarkId": {"const": "csi300_total_return_h00300"}, "benchmarkType": {"const": "trusted_total_return"}, "path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}, "hashMode": {"const": "formal_benchmark_content_hash"}, "changedForPassing": {"const": false}}
+    },
+    "priceLake": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "manifestPath", "manifestSha256", "symbolCount", "completedShardCount", "failedShardCount", "adjustment", "allHashesVerified"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "manifestPath": {"type": "string", "minLength": 1}, "manifestSha256": {"$ref": "#/$defs/hash"}, "symbolCount": {"type": "integer", "minimum": 1}, "completedShardCount": {"type": "integer", "minimum": 0}, "failedShardCount": {"type": "integer", "minimum": 0}, "adjustment": {"const": "qfq"}, "allHashesVerified": {"const": true}}
+    },
+    "algorithm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["selectionSource", "ranking", "weightPolicy", "maxComponents", "minimumComponents", "feeRate", "slippageRate", "benchmarkId", "thresholdReduced"],
+      "properties": {"selectionSource": {"const": "same_day_immutable_point_in_time_snapshot"}, "ranking": {"const": "evidenceAdjustedScore_desc_symbol_asc"}, "weightPolicy": {"const": "equal_weight"}, "maxComponents": {"const": 10}, "minimumComponents": {"const": 3}, "feeRate": {"const": 0.0003}, "slippageRate": {"const": 0.0005}, "benchmarkId": {"const": "csi300_total_return_h00300"}, "thresholdReduced": {"const": false}}
+    },
+    "walkForward": {
+      "type": "object", "additionalProperties": false,
+      "required": ["configuredWindowCount", "validWindowCount", "passedWindowCount", "passedRatio", "minimumPassedRatio", "windows"],
+      "properties": {"configuredWindowCount": {"const": 6}, "validWindowCount": {"type": "integer", "minimum": 0, "maximum": 6}, "passedWindowCount": {"type": "integer", "minimum": 0, "maximum": 6}, "passedRatio": {"type": "number", "minimum": 0, "maximum": 1}, "minimumPassedRatio": {"const": 0.6}, "windows": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/$defs/window"}}}
+    },
+    "parameterSensitivity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["testedParameterSetCount", "stableParameterSetCount", "stableParameterSetRatio", "bestWorstReturnSpreadPercentPoints", "maxDrawdownSpreadPercentPoints", "bestWorstReturnSpreadWithinPolicy", "maxDrawdownSpreadWithinPolicy", "status", "variants", "cashDividendVariant"],
+      "properties": {
+        "testedParameterSetCount": {"const": 5}, "stableParameterSetCount": {"type": "integer", "minimum": 0, "maximum": 5}, "stableParameterSetRatio": {"type": "number", "minimum": 0, "maximum": 1}, "bestWorstReturnSpreadPercentPoints": {"$ref": "#/$defs/nullableNumber"}, "maxDrawdownSpreadPercentPoints": {"$ref": "#/$defs/nullableNumber"}, "bestWorstReturnSpreadWithinPolicy": {"type": "boolean"}, "maxDrawdownSpreadWithinPolicy": {"type": "boolean"}, "status": {"enum": ["passed", "failed"]},
+        "variants": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/variant"}},
+        "cashDividendVariant": {"type": "object", "additionalProperties": false, "required": ["status", "countedAsTestedParameterSet", "reason"], "properties": {"status": {"const": "not_applicable"}, "countedAsTestedParameterSet": {"const": false}, "reason": {"const": "qfq_series_already_represents_reinvested_distribution_effect"}}}
+      }
+    },
+    "groupStability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["releaseEffectivePathCount", "industryGroupCount", "marketRegimeGroupCount", "liquidityGroupCount", "status", "industryGroups", "marketRegimeGroups", "liquidityGroups"],
+      "properties": {
+        "releaseEffectivePathCount": {"type": "integer", "minimum": 0}, "industryGroupCount": {"type": "integer", "minimum": 0}, "marketRegimeGroupCount": {"type": "integer", "minimum": 0}, "liquidityGroupCount": {"type": "integer", "minimum": 0}, "status": {"enum": ["passed", "insufficient"]},
+        "industryGroups": {"type": "array", "items": {"$ref": "#/$defs/industryGroup"}},
+        "marketRegimeGroups": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/marketGroup"}},
+        "liquidityGroups": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/liquidityGroup"}}
+      }
+    },
+    "antiFalseGreen": {
+      "type": "object", "additionalProperties": false,
+      "required": ["latestCandidateSnapshotBackfillDetected", "futureCandidateSelectionReuseDetected", "failedWindowsRemoved", "benchmarkChangedForPassing", "thresholdReduced", "historicalSecurityStatusProxyUsed"],
+      "properties": {"latestCandidateSnapshotBackfillDetected": {"const": false}, "futureCandidateSelectionReuseDetected": {"const": false}, "failedWindowsRemoved": {"const": false}, "benchmarkChangedForPassing": {"const": false}, "thresholdReduced": {"const": false}, "historicalSecurityStatusProxyUsed": {"const": false}}
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pointInTimeCandidateV2ValidationPassed", "candidateV2RefreezeAllowed", "ftr4EntryAllowed"],
+      "properties": {"pointInTimeCandidateV2ValidationPassed": {"type": "boolean"}, "candidateV2RefreezeAllowed": {"type": "boolean"}, "ftr4EntryAllowed": {"const": false}}
+    },
+    "accountFactsUnchanged": {"const": true},
+    "realDataUsed": {"const": true},
+    "status": {"enum": ["passed", "failed", "insufficient"]},
+    "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "prohibitedActions": {"type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "allOf": [{"contains": {"const": "ADD"}}, {"contains": {"const": "REDUCE"}}, {"contains": {"const": "ORDER_CREATE"}}, {"contains": {"const": "AUTO_TRADE"}}]},
+    "formalTradingUnlocked": {"const": false}, "autoTradeUnlocked": {"const": false}, "canCreateOrder": {"const": false}, "orderCreateAllowed": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "passed"}}, "required": ["status"]},
+      "then": {"properties": {"blockers": {"maxItems": 0}, "walkForward": {"properties": {"validWindowCount": {"const": 6}, "passedWindowCount": {"minimum": 4}, "passedRatio": {"minimum": 0.6}}}, "parameterSensitivity": {"properties": {"stableParameterSetRatio": {"minimum": 0.6}, "bestWorstReturnSpreadPercentPoints": {"type": "number", "maximum": 15}, "maxDrawdownSpreadPercentPoints": {"type": "number", "maximum": 10}, "bestWorstReturnSpreadWithinPolicy": {"const": true}, "maxDrawdownSpreadWithinPolicy": {"const": true}, "status": {"const": "passed"}}}, "groupStability": {"properties": {"releaseEffectivePathCount": {"minimum": 30}, "industryGroupCount": {"minimum": 3}, "marketRegimeGroupCount": {"minimum": 3}, "liquidityGroupCount": {"minimum": 3}, "status": {"const": "passed"}}}, "summary": {"properties": {"pointInTimeCandidateV2ValidationPassed": {"const": true}, "candidateV2RefreezeAllowed": {"const": true}}}}}
+    }
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "evidenceRef": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}},
+    "nullableNumber": {"type": ["number", "null"]},
+    "window": {
+      "type": "object", "additionalProperties": false,
+      "required": ["windowId", "decisionDate", "trainingStartDate", "trainingEndDate", "validationStartDate", "validationEndDate", "selectedSymbols", "selectedComponentCount", "selectedComponents", "selectedIndustries", "liquidityValues", "sourceSnapshotPath", "sourceSnapshotSha256", "definitionHash", "parameterSnapshotHash", "validationSampleSize", "requiredTradingDays", "commonTradingDayCount", "perSymbolPriceCoverage", "priceCoveragePercent", "benchmarkCoveragePercent", "totalReturnPercent", "benchmarkReturnPercent", "excessReturnPercent", "maxDrawdownPercent", "annualizedTurnoverPercent", "resultHash", "dataQualityStatus", "status", "blockers"],
+      "properties": {
+        "windowId": {"type": "string", "pattern": "^wf-0[1-6]$"}, "decisionDate": {"type": "string", "format": "date"}, "trainingStartDate": {"type": "string", "format": "date"}, "trainingEndDate": {"type": "string", "format": "date"}, "validationStartDate": {"type": "string", "format": "date"}, "validationEndDate": {"type": "string", "format": "date"},
+        "selectedSymbols": {"type": "array", "minItems": 3, "maxItems": 10, "uniqueItems": true, "items": {"type": "string", "pattern": "^\\d{6}$"}}, "selectedComponentCount": {"type": "integer", "minimum": 3, "maximum": 10}, "selectedComponents": {"type": "array", "minItems": 3, "maxItems": 10, "items": {"type": "object", "additionalProperties": false, "required": ["symbol", "industry"], "properties": {"symbol": {"type": "string", "pattern": "^\\d{6}$"}, "industry": {"type": "string", "minLength": 1}}}}, "selectedIndustries": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "liquidityValues": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["symbol", "medianVolumeHands", "coveredTradingDays", "requiredTradingDays", "priceCoveragePercent"], "properties": {"symbol": {"type": "string", "pattern": "^\\d{6}$"}, "medianVolumeHands": {"type": ["number", "null"]}, "coveredTradingDays": {"type": "integer", "minimum": 0}, "requiredTradingDays": {"const": 60}, "priceCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100}}}},
+        "sourceSnapshotPath": {"type": "string", "minLength": 1}, "sourceSnapshotSha256": {"$ref": "#/$defs/hash"}, "definitionHash": {"$ref": "#/$defs/hash"}, "parameterSnapshotHash": {"$ref": "#/$defs/hash"}, "validationSampleSize": {"type": "integer", "minimum": 0}, "requiredTradingDays": {"const": 60}, "commonTradingDayCount": {"type": "integer", "minimum": 0, "maximum": 60}, "perSymbolPriceCoverage": {"type": "array", "minItems": 3, "maxItems": 10, "items": {"$ref": "#/$defs/priceCoverage"}}, "priceCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100}, "benchmarkCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100}, "totalReturnPercent": {"$ref": "#/$defs/nullableNumber"}, "benchmarkReturnPercent": {"$ref": "#/$defs/nullableNumber"}, "excessReturnPercent": {"$ref": "#/$defs/nullableNumber"}, "maxDrawdownPercent": {"$ref": "#/$defs/nullableNumber"}, "annualizedTurnoverPercent": {"$ref": "#/$defs/nullableNumber"}, "resultHash": {"$ref": "#/$defs/hash"}, "dataQualityStatus": {"enum": ["passed", "insufficient"]}, "status": {"enum": ["passed", "failed", "insufficient"]}, "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "variant": {
+      "type": "object", "additionalProperties": false,
+      "required": ["variantId", "frequency", "feeRate", "slippageRate", "status", "validWindowCount", "passedWindowCount", "passedRatio", "averageTotalReturnPercent", "worstMaxDrawdownPercent", "inputHash", "resultHash", "windows"],
+      "properties": {"variantId": {"enum": ["baseline_quarterly", "monthly_rebalance", "fee_plus_20bp", "slippage_plus_20bp", "fee_slippage_plus_10bp"]}, "frequency": {"enum": ["quarterly", "monthly"]}, "feeRate": {"type": "number", "minimum": 0}, "slippageRate": {"type": "number", "minimum": 0}, "status": {"enum": ["completed", "insufficient"]}, "validWindowCount": {"type": "integer", "minimum": 0, "maximum": 6}, "passedWindowCount": {"type": "integer", "minimum": 0, "maximum": 6}, "passedRatio": {"type": ["number", "null"], "minimum": 0, "maximum": 1}, "averageTotalReturnPercent": {"$ref": "#/$defs/nullableNumber"}, "worstMaxDrawdownPercent": {"$ref": "#/$defs/nullableNumber"}, "inputHash": {"$ref": "#/$defs/hash"}, "resultHash": {"$ref": "#/$defs/hash"}, "windows": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/$defs/window"}}}
+    },
+    "priceCoverage": {"type": "object", "additionalProperties": false, "required": ["symbol", "coveredTradingDays", "requiredTradingDays", "priceCoveragePercent"], "properties": {"symbol": {"type": "string", "pattern": "^\\d{6}$"}, "coveredTradingDays": {"type": "integer", "minimum": 0}, "requiredTradingDays": {"const": 60}, "priceCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100}}},
+    "industryGroup": {"type": "object", "additionalProperties": false, "required": ["groupId", "pathIds", "effectivePathCount", "sampleCoveragePercent", "inputHash", "resultHash", "status"], "properties": {"groupId": {"type": "string", "minLength": 1}, "pathIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^wf-0[1-6]:\\d{6}$"}}, "effectivePathCount": {"type": "integer", "minimum": 0}, "sampleCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100}, "inputHash": {"$ref": "#/$defs/hash"}, "resultHash": {"$ref": "#/$defs/hash"}, "status": {"enum": ["passed", "insufficient"]}}},
+    "marketGroup": {"type": "object", "additionalProperties": false, "required": ["groupId", "windowIds", "effectivePathCount", "sampleCoveragePercent", "inputHash", "resultHash", "status"], "properties": {"groupId": {"enum": ["market:down", "market:neutral", "market:up"]}, "windowIds": {"type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": {"type": "string", "pattern": "^wf-0[1-6]$"}}, "effectivePathCount": {"type": "integer", "minimum": 1}, "sampleCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100}, "inputHash": {"$ref": "#/$defs/hash"}, "resultHash": {"$ref": "#/$defs/hash"}, "status": {"enum": ["passed", "insufficient"]}}},
+    "liquidityGroup": {"type": "object", "additionalProperties": false, "required": ["groupId", "pathIds", "sampleCount", "effectivePathCount", "sampleCoveragePercent", "inputHash", "resultHash", "status"], "properties": {"groupId": {"enum": ["liquidity:low", "liquidity:medium", "liquidity:high"]}, "pathIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^wf-0[1-6]:\\d{6}$"}}, "sampleCount": {"type": "integer", "minimum": 1}, "effectivePathCount": {"type": "integer", "minimum": 0}, "sampleCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100}, "inputHash": {"$ref": "#/$defs/hash"}, "resultHash": {"$ref": "#/$defs/hash"}, "status": {"enum": ["passed", "insufficient"]}}}
+  }
+}

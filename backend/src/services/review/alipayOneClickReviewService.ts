@@ -1,6 +1,7 @@
 import { prisma } from '../../db/prisma.js'
 import { ensureUser } from '../../utils/user.js'
 import { analysisService } from '../analysis/analysisService.js'
+import { ALIPAY_ALLOCATION_STRATEGY } from '../allocation/alipayAllocationStrategy.js'
 import { allocationPolicyService } from '../allocation/allocationPolicyService.js'
 import { dailyReviewSynthesisService, getDailyReviewLlmReadiness } from './dailyReviewSynthesisService.js'
 import { dailyReviewService, type DailyReviewSession } from './dailyReviewService.js'
@@ -142,6 +143,7 @@ class AlipayOneClickReviewService {
     const positionVariance = sourceSnapshot && Number.isFinite(capturedTotal) ? money(currentAlipayValue - capturedTotal) : null
     if (positionVariance !== null && Math.abs(positionVariance) > 0.01) blockers.push('alipay_positions_do_not_match_capture')
     if (allocationPlan.classification.status !== 'complete') blockers.push('alipay_allocation_classification_incomplete')
+    if (allocationPlan.strategyContract.status !== 'active') blockers.push(`alipay_allocation_strategy_${allocationPlan.strategyContract.status}`)
 
     const llm = getDailyReviewLlmReadiness()
     if (!llm.enabled) blockers.push('strict_llm_unavailable')
@@ -230,14 +232,14 @@ class AlipayOneClickReviewService {
         operationId: comparison.operation.id,
         status: comparison.operation.status,
         summary: comparison.summary,
-        actualAllocationContract: 'approved_allocation_v2_5_25_25_45',
+        actualAllocationContract: ALIPAY_ALLOCATION_STRATEGY.id,
         researchComparisonContract: 'alipay_research_10_25_40_25_v1',
       } : {
         operationId: null,
         status: 'failed',
         summary: null,
         failureCode: comparisonFailure || 'portfolio_comparison_unavailable',
-        actualAllocationContract: 'approved_allocation_v2_5_25_25_45',
+        actualAllocationContract: ALIPAY_ALLOCATION_STRATEGY.id,
         researchComparisonContract: 'alipay_research_10_25_40_25_v1',
       },
     }

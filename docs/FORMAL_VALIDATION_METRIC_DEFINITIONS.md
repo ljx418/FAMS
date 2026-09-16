@@ -1,6 +1,6 @@
 # Formal Validation 指标定义
 
-更新时间：2026-07-16
+更新时间：2026-09-14
 
 ## 1. 目的
 
@@ -19,6 +19,8 @@ excludedStrategyReasons
 
 release candidate 的失败结果不得为获得全绿而静默移除。`allReleaseCandidatesPassed=true` 才能设置 `formalValidationPassed=true`。
 
+2026-09-14 路线 A 重入后，候选角色、门槛适用性和候选级 benchmark 以 `FORMAL_VALIDATION_PROFILE_CONTRACT.md` 为准。七个对象继续全部保留，但 `allReleaseCandidatesPassed` 只统计 `candidateRole=product_release_candidate` 且 `formalGateApplicable=true` 的对象；其他对象必须显示为 `formalGateStatus=not_applicable`，不能被删除或冒充 passed。
+
 ## 2. 指标定义
 
 ### effectivePath
@@ -35,7 +37,7 @@ rebalanceScheduleResolved=true
 artifactReplayable=true
 ```
 
-`effectivePathCount` 是满足以上条件的路径数量。缺 benchmark 或 replay 不可复算的路径不得计入。
+`effectivePathCount` 是满足以上条件的路径数量。缺 benchmark 或 replay 不可复算的路径不得计入。`equity_selection_release_v1` 中一条 release path 固定为“候选成分 × 冻结验证窗口”，同一成分/窗口只能计数一次。
 
 上述集合用于兼容已经完成的 S4 formal-review 基线。进入 FTR-3 release candidate 验证时必须额外满足：
 
@@ -53,14 +55,24 @@ benchmarkQualificationPassed=true
 ```text
 validationSampleSize >= configuredMinSampleSize
 excessReturn >= 0
-maxDrawdown <= configuredMaxDrawdown
+maxDrawdown >= configuredMaxDrawdown
 turnoverWithinLimit=true
 dataQualityStatus != insufficient
 ```
 
+FTR-3 `equity_selection_release_v1` 的冻结值为：
+
+```text
+configuredMinSampleSize=60 个交易日
+configuredMaxDrawdown=-35%  # 回撤不得低于 -35%
+maxAnnualizedTurnoverPercent=200%
+```
+
+换手口径固定为：验证窗口开始时的初始建仓不计入换手率分子，但初始建仓交易成本必须进入净值；窗口内后续日历调仓的双边绝对成交额计入换手率分子。这样可避免短窗口仅因初始资金部署被错误年化为高换手，同时不能隐藏真实调仓成本。
+
 `walkForwardPassedRatio = passedWindows / validWindows`。数据缺失导致无效的窗口不进入分母，但必须进入 `insufficientWindowCount`。
 
-### industryGroupCount
+### 分组适用性与 `industryGroupCount`
 
 行业分组必须满足：
 
@@ -71,6 +83,10 @@ groupSampleCoverage >= 80%
 
 `industryGroupCount` 只统计满足以上条件的行业组。
 
+行业分组只对 `equity_selection_release_v1` 强制。`strategic_allocation_reference_v1`、`current_holdings_diagnostic_v1` 和 `engineering_path_only_v1` 不参与本阶段 release gate，行业分组为 `not_applicable`；该状态不得转换成 `passed`。
+
+`equity_selection_release_v1` 还必须分别形成至少 3 个市场状态组和 3 个流动性组。市场状态按冻结 benchmark 窗口收益的确定性三分位划分，流动性按冻结成分序列中位成交量的确定性三分位划分，算法和输入哈希必须进入 artifact。
+
 ### parameterSensitivityStatus
 
 参数敏感性从 `insufficient` 升级至少需要：
@@ -80,6 +96,13 @@ testedParameterSets >= 5
 stableParameterSetRatio >= 0.6
 bestWorstReturnSpreadWithinPolicy=true
 maxDrawdownSpreadWithinPolicy=true
+```
+
+其中两个离散度布尔值必须由真实参数重放计算，不得由样本长度或主曲线代理：
+
+```text
+bestWorstReturnSpreadPercentPoints <= 15
+maxDrawdownSpreadPercentPoints <= 10
 ```
 
 ### groupStabilityStatus
@@ -97,8 +120,10 @@ eachGroupHasEffectivePath=true
 
 ```text
 effectivePathCount >= 30
-releaseEffectivePathCount >= 30  # FTR-3，仅 official/trusted benchmark
-industryGroupCount >= 3
+releaseEffectivePathCount >= 30  # 仅对 formalGateApplicable=true 的产品候选
+industryGroupCount >= 3          # equity_selection_release_v1
+marketRegimeGroupCount >= 3      # equity_selection_release_v1
+liquidityGroupCount >= 3         # equity_selection_release_v1
 walkForwardWindows >= 6
 walkForwardPassedRatio >= 0.6
 parameterSensitivityStatus != insufficient
@@ -108,6 +133,10 @@ totalReturnBenchmarkAvailable=true or validationStatus=insufficient
 ```
 
 任一门槛不满足，`formalValidationStatus` 必须是 `insufficient` 或 `failed`，不得写成 `passed`。
+
+非产品对象不适用上述 release gate 时必须输出 `formalGateStatus=not_applicable` 和明确的 `exclusionReason`；它们既不帮助也不阻止 `allReleaseCandidatesPassed`，但其真实研究/诊断结果仍须保留。
+
+`releaseEffectivePathCount` 的汇总值只用于展示；每个候选必须独立达到 30，不能用其他候选的路径数量抵消。参数组、walk-forward 窗口、行业/市场/流动性分组必须有独立输入快照和输出哈希。
 
 即使 `formalValidationPassed=true`，仍必须保持：
 

@@ -95,6 +95,27 @@ export async function positionRoutes(app: FastifyInstance) {
     return positionService.getApprovedAllocationPlan(userId)
   })
 
+  app.post('/allocation-policy/:userId/confirm-permanent', async (request, reply) => {
+    const { userId } = request.params as { userId: string }
+    const body = request.body as Record<string, unknown>
+    try {
+      return await positionService.confirmPermanentAllocationStrategy(userId, {
+        confirmed: body.confirmed === true,
+        confirmedBy: typeof body.confirmedBy === 'string' ? body.confirmedBy : '',
+      })
+    } catch (error) {
+      const statusCode = Number((error as Error & { statusCode?: number }).statusCode || 500)
+      return reply.code(statusCode).send({
+        code: statusCode === 409 ? 'ALIPAY_STRATEGY_TRANSITION_NOT_AVAILABLE' : 'ALIPAY_STRATEGY_TRANSITION_FAILED',
+        message: error instanceof Error ? error.message : '组合策略确认失败',
+        formalTradingUnlocked: false,
+        autoTradeUnlocked: false,
+        canCreateOrder: false,
+        orderCreateAllowed: false,
+      })
+    }
+  })
+
   app.get('/:id/sleeves', async (request) => {
     const { id } = request.params as { id: string }
     const query = request.query as Record<string, string | undefined>

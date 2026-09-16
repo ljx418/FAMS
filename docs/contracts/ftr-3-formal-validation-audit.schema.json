@@ -2,16 +2,113 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://fams.local/schemas/ftr-3-formal-validation-audit.schema.json",
   "type": "object",
-  "additionalProperties": true,
-  "required": ["schemaVersion", "status", "formalValidationPassed", "allReleaseCandidatesPassed", "releaseCandidateSet", "releaseEffectivePathCount", "industryGroupCount", "strategyCount", "checks", "blockers", "notTradingAdvice"],
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "generatedAt", "realDataUsed", "formalTradingEligible", "formalValidationPassed", "allReleaseCandidatesPassed", "releaseCandidateSet", "validationProfileSet", "releaseEffectivePathCount", "industryGroupCount", "marketRegimeGroupCount", "liquidityGroupCount", "strategyCount", "productReleaseCandidateCount", "passedStrategies", "warningStrategies", "insufficientStrategies", "failedStrategies", "notApplicableStrategies", "checks", "blockers", "warnings", "humanAcceptanceStatus", "prohibitedActions", "notTradingAdvice", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed", "accountFactsUnchanged", "protectedAccountDigestBefore", "protectedAccountDigestAfter", "sourceChain", "evidenceArtifacts"],
   "properties": {
     "schemaVersion": {"const": "portfolio.formal_validation_audit.v1"},
+    "stageId": {"const": "FTR-3"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "realDataUsed": {"const": true},
     "status": {"enum": ["passed", "warning", "insufficient", "failed"]},
+    "formalTradingEligible": {"type": "boolean"},
     "formalValidationPassed": {"type": "boolean"},
     "allReleaseCandidatesPassed": {"type": "boolean"},
+    "releaseCandidateSet": {"type": "object"},
+    "validationProfileSet": {"type": "object"},
     "releaseEffectivePathCount": {"type": "integer", "minimum": 0},
     "industryGroupCount": {"type": "integer", "minimum": 0},
-    "checks": {"type": "array", "minItems": 1},
-    "notTradingAdvice": {"const": true}
+    "marketRegimeGroupCount": {"type": "integer", "minimum": 0},
+    "liquidityGroupCount": {"type": "integer", "minimum": 0},
+    "strategyCount": {"const": 7},
+    "productReleaseCandidateCount": {"type": "integer", "minimum": 1},
+    "passedStrategies": {"type": "integer", "minimum": 0},
+    "warningStrategies": {"type": "integer", "minimum": 0},
+    "insufficientStrategies": {"type": "integer", "minimum": 0},
+    "failedStrategies": {"type": "integer", "minimum": 0},
+    "notApplicableStrategies": {"type": "integer", "minimum": 0},
+    "checks": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["strategyId", "strategyVersion", "candidateRole", "validationProfileId", "formalGateApplicable", "formalGateStatus", "status", "blockers", "evidenceRefs"],
+        "properties": {
+          "strategyId": {"type": "string", "minLength": 1},
+          "strategyVersion": {"type": "string", "minLength": 1},
+          "candidateRole": {"type": "string", "minLength": 1},
+          "validationProfileId": {"type": "string", "minLength": 1},
+          "formalGateApplicable": {"type": "boolean"},
+          "formalGateStatus": {"enum": ["passed", "failed", "insufficient", "not_applicable"]},
+          "status": {"enum": ["passed", "warning", "insufficient", "failed"]},
+          "blockers": {"type": "array", "items": {"type": "string"}},
+          "evidenceRefs": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "humanAcceptanceStatus": {"const": "pending_batch_review"},
+    "prohibitedActions": {"const": ["ADD", "REDUCE", "ORDER_CREATE", "AUTO_TRADE"]},
+    "notTradingAdvice": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+    ,"accountFactsUnchanged": {"const": true},
+    "protectedAccountDigestBefore": {"$ref": "#/$defs/accountDigest"},
+    "protectedAccountDigestAfter": {"$ref": "#/$defs/accountDigest"},
+    "sourceChain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["a0Acceptance", "ftr1DataGovernance", "ftr2BenchmarkQualification", "r1CandidateValidation"],
+      "properties": {
+        "a0Acceptance": {"$ref": "#/$defs/artifactRef"},
+        "ftr1DataGovernance": {"$ref": "#/$defs/artifactRef"},
+        "ftr2BenchmarkQualification": {"$ref": "#/$defs/artifactRef"},
+        "r1CandidateValidation": {"$ref": "#/$defs/artifactRef"}
+      }
+    },
+    "evidenceArtifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateSet", "validationProfileSet", "parameterReplay", "walkForwardReplay", "groupStability", "tradeabilityReconciliation", "failureTaxonomy"],
+      "properties": {
+        "candidateSet": {"$ref": "#/$defs/artifactRef"},
+        "validationProfileSet": {"$ref": "#/$defs/artifactRef"},
+        "parameterReplay": {"$ref": "#/$defs/artifactRef"},
+        "walkForwardReplay": {"$ref": "#/$defs/artifactRef"},
+        "groupStability": {"$ref": "#/$defs/artifactRef"},
+        "tradeabilityReconciliation": {"$ref": "#/$defs/artifactRef"},
+        "failureTaxonomy": {"$ref": "#/$defs/artifactRef"}
+      }
+    }
+  },
+  "$defs": {
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "accountDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["positionCount", "openPositionCount", "positionHash", "transactionCount", "transactionHash", "draftCount", "draftHash", "externalOrderCount", "externalOrderHash"],
+      "properties": {
+        "positionCount": {"type": "integer", "minimum": 1},
+        "openPositionCount": {"type": "integer", "minimum": 1},
+        "positionHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "transactionCount": {"type": "integer", "minimum": 0},
+        "transactionHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "draftCount": {"type": "integer", "minimum": 0},
+        "draftHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "externalOrderCount": {"type": "integer", "minimum": 0},
+        "externalOrderHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    }
   }
 }

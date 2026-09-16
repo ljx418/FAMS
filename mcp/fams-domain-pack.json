@@ -1,7 +1,7 @@
 {
   "name": "fams",
   "displayName": "FAMS 投资管理 DomainPack",
-  "version": "v2.0.0-alpha.1",
+  "version": "v2.1.0",
   "schemaVersion": "fams.domainpack.v1",
   "sourceOfTruth": "GET /api/v1/mcp/domain-pack",
   "connectorManifest": "mcp/harnessos-connector.json",
@@ -15,12 +15,59 @@
     },
     "stdio": {
       "status": "implemented",
+      "protocol": "official_mcp_sdk",
       "command": "node",
       "args": ["backend/dist/mcp/stdio.js"],
       "sourceEntrypoint": "backend/src/mcp/stdio.ts",
       "configPath": "mcp/financial-mcp.json"
+    },
+    "streamableHttp": {
+      "status": "implemented",
+      "protocol": "official_mcp_sdk",
+      "endpoint": "http://127.0.0.1:4010/mcp",
+      "loopbackOnly": true,
+      "sourceEntrypoint": "backend/src/mcp/streamableHttp.ts"
     }
   },
+  "profiles": {
+    "default": "volatility",
+    "environmentVariable": "FAMS_MCP_PROFILE",
+    "volatility": {
+      "hostVisionOnly": true,
+      "canonicalTools": [
+        "volatility_workflow.reconcile",
+        "volatility_workflow.run",
+        "volatility_workflow.get_result",
+        "capture.upload_screenshot",
+        "capture.apply_extraction",
+        "capture.get_preview",
+        "capture.update_row",
+        "capture.confirm_rows",
+        "operation.get",
+        "market_data.get_asset_trend",
+        "daily_review.get",
+        "daily_review.get_latest",
+        "daily_review.export_html",
+        "grid_strategy.list_templates"
+      ],
+      "executionBoundary": {
+        "canCreateOrder": false,
+        "autoTradeUnlocked": false,
+        "formalTradingUnlocked": false,
+        "userMustExecuteInBroker": true
+      }
+    },
+    "full": {
+      "legacyRegistryToolsAvailable": true
+    }
+  },
+  "resources": [
+    "fams://volatility/strategy/active",
+    "fams://volatility/portfolio/latest-reconciled",
+    "fams://volatility/rules",
+    "fams://volatility/reviews/{reviewId}"
+  ],
+  "prompts": ["volatility-review"],
   "domains": [
     "market_data",
     "position",
@@ -32,7 +79,9 @@
     "transaction",
     "daily_review",
     "strategy",
-    "capture"
+    "capture",
+    "relative_rotation",
+    "volatility_workflow"
   ],
   "contractRules": {
     "userContext": "工具必须通过显式 userId、HTTP x-fams-user-id / x-user-id header 或 stdio context.userId 限定用户范围；参数 userId 与调用上下文冲突时必须失败",
@@ -43,6 +92,9 @@
     "callEnvelope": "所有工具调用必须返回 fams.mcp.call.v1；status 只能为 completed、blocked、failed；audit 必须包含 calledAt、transport、userId、writes 与 requiresHumanConfirmation 等可用上下文"
   },
   "canonicalTools": [
+    "volatility_workflow.reconcile",
+    "volatility_workflow.run",
+    "volatility_workflow.get_result",
     "market_data.get_real_time_price",
     "market_data.refresh_prices",
     "position.list",
@@ -72,6 +124,22 @@
     "capture.get_preview",
     "capture.vision_status",
     "capture.update_row",
-    "capture.confirm_rows"
+    "capture.confirm_rows",
+    "relative_rotation.get_industry_crowding",
+    "relative_rotation.get_market_flow",
+    "relative_rotation.refresh_industry_crowding",
+    "relative_rotation.get_holdings_timeline",
+    "relative_rotation.refresh_holdings_timeline",
+    "relative_rotation.list_watchlist",
+    "relative_rotation.add_watchlist_item",
+    "relative_rotation.delete_watchlist_item",
+    "relative_rotation.get_watchlist_timeline",
+    "relative_rotation.refresh_watchlist_timeline",
+    "relative_rotation.list_research_studies",
+    "relative_rotation.create_research_study",
+    "relative_rotation.update_research_study",
+    "relative_rotation.delete_research_study",
+    "relative_rotation.get_research_timeline",
+    "relative_rotation.refresh_research_timeline"
   ]
 }

@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-open-source-provider-probe.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "stageId", "generatedAt", "decisionDate", "mode", "sourcePolicy",
+    "referenceUniverse", "evidenceFiles", "providerProbes", "sourceTerms", "adapterGapAssessment",
+    "summary", "accountFactsUnchanged", "realDataUsed", "status", "blockers", "prohibitedActions",
+    "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "fams.ftr_3r.open_source_provider_probe.v1" },
+    "stageId": { "const": "FTR-3R0A" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "decisionDate": { "const": "2025-12-12" },
+    "mode": { "const": "full_market_single_decision_point_probe" },
+    "sourcePolicy": { "const": "baostock_primary_akshare_cross_check_official_disclosure_evidence" },
+    "referenceUniverse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "symbolCount", "sha256", "minimumCoveragePercent", "minimumRequiredSymbols"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "symbolCount": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "minimumCoveragePercent": { "const": 80 },
+        "minimumRequiredSymbols": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "evidenceFiles": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["provider", "path", "sha256", "exists"],
+        "properties": {
+          "provider": { "enum": ["baostock_universe", "baostock_samples", "akshare_dividend"] },
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "exists": { "const": true }
+        }
+      }
+    },
+    "providerProbes": {
+      "type": "object", "additionalProperties": false,
+      "required": ["baostock", "akshare", "tushare"],
+      "properties": {
+        "baostock": {
+          "type": "object", "additionalProperties": false,
+          "required": ["version", "liveCall", "universeStatus", "universeSymbolCount", "universeCoveragePercent", "universeElapsedMs", "historyTradeStateFieldsPresent", "announcementAwareFundamentalFieldsPresent", "dividendAnnouncementFieldsPresent", "listingLifecycleFieldsPresent", "historicalIndustryFieldsPresent", "sampleSymbolCount"],
+          "properties": {
+            "version": { "type": "string", "minLength": 1 },
+            "liveCall": { "const": true },
+            "universeStatus": { "enum": ["passed", "timeout", "error"] },
+            "universeSymbolCount": { "type": "integer", "minimum": 0 },
+            "universeCoveragePercent": { "type": "number", "minimum": 0, "maximum": 100 },
+            "universeElapsedMs": { "type": "integer", "minimum": 0 },
+            "historyTradeStateFieldsPresent": { "type": "boolean" },
+            "announcementAwareFundamentalFieldsPresent": { "type": "boolean" },
+            "dividendAnnouncementFieldsPresent": { "type": "boolean" },
+            "listingLifecycleFieldsPresent": { "type": "boolean" },
+            "historicalIndustryFieldsPresent": { "type": "boolean" },
+            "sampleSymbolCount": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "akshare": {
+          "type": "object", "additionalProperties": false,
+          "required": ["version", "liveCall", "status", "rowCount", "dividendAnnouncementFieldsPresent"],
+          "properties": {
+            "version": { "type": "string", "minLength": 1 },
+            "liveCall": { "const": true },
+            "status": { "enum": ["passed", "error"] },
+            "rowCount": { "type": "integer", "minimum": 0 },
+            "dividendAnnouncementFieldsPresent": { "type": "boolean" }
+          }
+        },
+        "tushare": {
+          "type": "object", "additionalProperties": false,
+          "required": ["configured", "tokenInArtifact", "currentAdapterSingleSymbolOnly", "currentAdapterAnnouncementFieldsMissing", "currentAdapterIndustryMembershipMissing", "currentAdapterHistoricalStatusEndpointsMissing"],
+          "properties": {
+            "configured": { "type": "boolean" },
+            "tokenInArtifact": { "const": false },
+            "currentAdapterSingleSymbolOnly": { "type": "boolean" },
+            "currentAdapterAnnouncementFieldsMissing": { "type": "boolean" },
+            "currentAdapterIndustryMembershipMissing": { "type": "boolean" },
+            "currentAdapterHistoricalStatusEndpointsMissing": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "sourceTerms": {
+      "type": "object", "additionalProperties": false,
+      "required": ["usageScope", "sdkLicenseNotTreatedAsDataLicense", "reviewStatus", "references"],
+      "properties": {
+        "usageScope": { "const": "local_personal_noncommercial" },
+        "sdkLicenseNotTreatedAsDataLicense": { "const": true },
+        "reviewStatus": { "enum": ["reviewable", "blocked"] },
+        "references": { "type": "array", "minItems": 2, "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      }
+    },
+    "adapterGapAssessment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["batchImplementationReady", "historicalUniverseAdapterReady", "announcementCutoffAdapterReady", "historicalIndustryMembershipAdapterReady", "historicalTradeStateAdapterReady", "recommendedPrimaryMode"],
+      "properties": {
+        "batchImplementationReady": { "type": "boolean" },
+        "historicalUniverseAdapterReady": { "type": "boolean" },
+        "announcementCutoffAdapterReady": { "type": "boolean" },
+        "historicalIndustryMembershipAdapterReady": { "type": "boolean" },
+        "historicalTradeStateAdapterReady": { "type": "boolean" },
+        "recommendedPrimaryMode": { "enum": ["open_source_only", "tushare_bulk_with_open_source_cross_check", "blocked_pending_provider"] }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["historicalUniverseProbePassed", "historicalTradeStateProbePassed", "announcementAwareFundamentalProbePassed", "dividendAnnouncementProbePassed", "historicalIndustryProbePassed", "akshareDividendCrossCheckPassed", "fullMarketBackfillReady", "ftr3r0bEntryAllowed"],
+      "properties": {
+        "historicalUniverseProbePassed": { "type": "boolean" },
+        "historicalTradeStateProbePassed": { "type": "boolean" },
+        "announcementAwareFundamentalProbePassed": { "type": "boolean" },
+        "dividendAnnouncementProbePassed": { "type": "boolean" },
+        "historicalIndustryProbePassed": { "type": "boolean" },
+        "akshareDividendCrossCheckPassed": { "type": "boolean" },
+        "fullMarketBackfillReady": { "type": "boolean" },
+        "ftr3r0bEntryAllowed": { "type": "boolean" }
+      }
+    },
+    "accountFactsUnchanged": { "const": true },
+    "realDataUsed": { "const": true },
+    "status": { "enum": ["passed", "insufficient"] },
+    "blockers": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "prohibitedActions": {
+      "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "ADD" } },
+        { "contains": { "const": "REDUCE" } },
+        { "contains": { "const": "ORDER_CREATE" } },
+        { "contains": { "const": "AUTO_TRADE" } }
+      ]
+    },
+    "formalTradingUnlocked": { "const": false },
+    "autoTradeUnlocked": { "const": false },
+    "canCreateOrder": { "const": false },
+    "orderCreateAllowed": { "const": false }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "passed" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "blockers": { "maxItems": 0 },
+          "summary": {
+            "properties": {
+              "historicalUniverseProbePassed": { "const": true },
+              "historicalTradeStateProbePassed": { "const": true },
+              "announcementAwareFundamentalProbePassed": { "const": true },
+              "dividendAnnouncementProbePassed": { "const": true },
+              "historicalIndustryProbePassed": { "const": true },
+              "akshareDividendCrossCheckPassed": { "const": true },
+              "fullMarketBackfillReady": { "const": true },
+              "ftr3r0bEntryAllowed": { "const": true }
+            }
+          },
+          "adapterGapAssessment": { "properties": { "batchImplementationReady": { "const": true } } }
+        }
+      }
+    }
+  ]
+}

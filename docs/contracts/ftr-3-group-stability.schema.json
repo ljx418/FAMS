@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-group-stability.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "candidateId", "validationProfileId", "industryGroups", "marketRegimeGroups", "liquidityGroups", "industryGroupCount", "marketRegimeGroupCount", "liquidityGroupCount", "algorithm", "inputHash", "realDataUsed", "notTradingAdvice"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3.group_stability.v1"},
+    "stageId": {"const": "FTR-3"},
+    "status": {"enum": ["passed", "failed", "insufficient"]},
+    "candidateId": {"type": "string", "minLength": 1},
+    "validationProfileId": {"const": "equity_selection_release_v1"},
+    "industryGroups": {"$ref": "#/$defs/groups"},
+    "marketRegimeGroups": {"$ref": "#/$defs/groups"},
+    "liquidityGroups": {"$ref": "#/$defs/groups"},
+    "industryGroupCount": {"type": "integer", "minimum": 0},
+    "marketRegimeGroupCount": {"type": "integer", "minimum": 0},
+    "liquidityGroupCount": {"type": "integer", "minimum": 0},
+    "algorithm": {"type": "object"},
+    "inputHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "realDataUsed": {"const": true},
+    "notTradingAdvice": {"const": true}
+  },
+  "$defs": {"groups": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["groupId", "effectivePathCount", "sampleCoveragePercent", "status", "evidenceRefs"], "properties": {"groupId": {"type": "string", "minLength": 1}, "effectivePathCount": {"type": "integer", "minimum": 0}, "sampleCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100}, "status": {"enum": ["passed", "failed", "insufficient"]}, "evidenceRefs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}}}}
+}

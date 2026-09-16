@@ -207,9 +207,17 @@ const CHAT_SESSION_STORAGE_KEY = 'fams.chat.conversationId'
 
 const welcomeTaskCards = [
   {
+    id: 'portfolio_summary',
+    title: '查看当前持仓',
+    description: '直接读取持仓数、总市值、盈亏和估值截止时间，不创建后台任务。',
+    prompt: '查看当前持仓摘要',
+    icon: <DatabaseOutlined />,
+    tone: 'slate',
+  },
+  {
     id: 'daily_review',
     title: '生成当前持仓复盘',
-    description: '查询最新价与30日收盘价，绘制 MA5/MA10/MA30，并复核策略和人工网格。',
+    description: '需要确认；查询行情并生成 MA、策略复核和人工计划网格。',
     prompt: '现在生成一次当前持仓复盘',
     icon: <FileSearchOutlined />,
     tone: 'blue',
@@ -1048,16 +1056,16 @@ export function FamsChatBox() {
             </Button>
           </Space>
         )}
-        styles={{ body: { padding: 18, background: '#f8fafc' }, header: { background: '#ffffff', borderBottomColor: '#e2e8f0' } }}
+        styles={{ body: { padding: 18, background: '#f8fafc', overflowY: 'auto' }, header: { background: '#ffffff', borderBottomColor: '#e2e8f0' } }}
       >
-        <div className="flex h-full min-h-0 flex-col gap-3 text-slate-900">
-          <Alert
-            type="info"
-            showIcon
-            icon={<SafetyCertificateOutlined />}
-            message="ChatBox 不创建订单"
-            description="允许研究、观察、比较、提醒和人工计划草案；正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 始终受交易 gate 阻断。"
-          />
+        <div className="flex min-h-full flex-col gap-3 text-slate-900">
+          <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-950">
+            <div className="flex items-center gap-2 font-medium"><SafetyCertificateOutlined />研究助手，不创建订单</div>
+            <details className="mt-1 text-blue-800">
+              <summary className="cursor-pointer">查看权限边界</summary>
+              <div className="pt-1 leading-5">允许研究、观察、比较、提醒和人工计划草案；正式 ADD / REDUCE / ORDER_CREATE / AUTO_TRADE 始终受交易 gate 阻断。</div>
+            </details>
+          </div>
 
           {messages.length <= 1 ? (
             <div className="space-y-2">
@@ -1080,7 +1088,7 @@ export function FamsChatBox() {
             />
           )}
 
-          <div className="min-h-[320px] flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="min-h-[320px] rounded-xl border border-slate-200 bg-slate-50 p-4">
             <Space direction="vertical" size={12} className="w-full">
               {messages.map((item) => (
                 <div key={item.id} className={`flex ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -1108,7 +1116,7 @@ export function FamsChatBox() {
             </Space>
           </div>
 
-          <Space.Compact className="w-full">
+          <Space.Compact className="sticky bottom-0 z-10 w-full border-t border-slate-200 bg-slate-50 py-2">
             <Input.TextArea
               value={input}
               autoSize={{ minRows: 2, maxRows: 6 }}

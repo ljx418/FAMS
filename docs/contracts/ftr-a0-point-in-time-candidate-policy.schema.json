@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-a0-point-in-time-candidate-policy.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "candidateVersion", "selectionArtifactRef", "selectionArtifactSha256", "componentIds", "policy", "definitionHash", "realDataUsed", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_a0.point_in_time_candidate_policy.v1"},
+    "candidateVersion": {"const": "portfolio.strategy.dividend_low_vol_basket.v2_point_in_time"},
+    "selectionArtifactRef": {"type": "string", "minLength": 1},
+    "selectionArtifactSha256": {"$ref": "#/$defs/sha256"},
+    "componentIds": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9]{6}$"}},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateId", "candidateVersion", "componentSelectionMode", "selectionSource", "ranking", "weightPolicy", "maxComponents", "minimumComponents", "feeRate", "slippageRate", "benchmarkId", "windows"],
+      "properties": {
+        "candidateId": {"const": "dividend_low_vol_basket"},
+        "candidateVersion": {"const": "portfolio.strategy.dividend_low_vol_basket.v2_point_in_time"},
+        "componentSelectionMode": {"const": "point_in_time_dynamic"},
+        "selectionSource": {"const": "same_day_immutable_point_in_time_snapshot"},
+        "ranking": {"const": "evidenceAdjustedScore_desc_symbol_asc"},
+        "weightPolicy": {"const": "equal_weight"},
+        "maxComponents": {"const": 10},
+        "minimumComponents": {"const": 3},
+        "feeRate": {"const": 0.0003},
+        "slippageRate": {"const": 0.0005},
+        "benchmarkId": {"const": "csi300_total_return_h00300"},
+        "windows": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["windowId", "decisionDate", "trainingStartDate", "trainingEndDate", "validationStartDate", "validationEndDate", "selectedSymbols", "sourceSnapshotSha256", "parameterSnapshotHash"],
+            "properties": {
+              "windowId": {"type": "string", "pattern": "^wf-0[1-6]$"},
+              "decisionDate": {"type": "string", "format": "date"},
+              "trainingStartDate": {"type": "string", "format": "date"},
+              "trainingEndDate": {"type": "string", "format": "date"},
+              "validationStartDate": {"type": "string", "format": "date"},
+              "validationEndDate": {"type": "string", "format": "date"},
+              "selectedSymbols": {"type": "array", "minItems": 3, "maxItems": 10, "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9]{6}$"}},
+              "sourceSnapshotSha256": {"$ref": "#/$defs/sha256"},
+              "parameterSnapshotHash": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        }
+      }
+    },
+    "definitionHash": {"$ref": "#/$defs/sha256"},
+    "realDataUsed": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+}

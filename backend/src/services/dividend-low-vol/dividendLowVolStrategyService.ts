@@ -548,16 +548,18 @@ export class DividendLowVolStrategyService {
   }
 
   private buildDataVerification(evidenceRefs: string[]): DividendLowVolFactSet['dataVerification'] {
-    const providerRefs = evidenceRefs.filter((ref) => ref.startsWith('quote-list-canonical-provider:'))
+    const providerRefs = evidenceRefs.filter((ref) => ref.startsWith('quote-list-canonical-provider:') || ref.startsWith('free-source-provider:'))
     const warnings = evidenceRefs.filter((ref) => ref.startsWith('warning:'))
     const crossCheckedFields = [
-      ...(evidenceRefs.some((ref) => ref.startsWith('quote-list-canonical:')) ? ['identity_industry_market_cap'] : []),
-      ...(evidenceRefs.some((ref) => ref.startsWith('market-bar-canonical:')) && evidenceRefs.some((ref) => ref.startsWith('market-feature-daily:')) ? ['price_history_feature'] : []),
-      ...(evidenceRefs.some((ref) => ref.startsWith('dividend:eastmoney:')) || evidenceRefs.some((ref) => ref.startsWith('dividend:public-seed:')) ? ['dividend_history'] : []),
-      ...(evidenceRefs.some((ref) => ref.startsWith('fundamental:eastmoney:')) ? ['fundamental_snapshot'] : []),
+      ...(evidenceRefs.some((ref) => ref.startsWith('quote-list-canonical:') || ref.startsWith('free-source-lifecycle:')) ? ['identity_industry_market_cap'] : []),
+      ...((evidenceRefs.some((ref) => ref.startsWith('market-bar-canonical:')) && evidenceRefs.some((ref) => ref.startsWith('market-feature-daily:')))
+        || (evidenceRefs.some((ref) => ref.startsWith('market-history-free-provider:')) && evidenceRefs.some((ref) => ref.startsWith('free-source-tradeability:')))
+        ? ['price_history_feature'] : []),
+      ...(evidenceRefs.some((ref) => ref.startsWith('dividend:eastmoney:') || ref.startsWith('dividend:public-seed:') || ref.startsWith('dividend:free-akshare:')) ? ['dividend_history'] : []),
+      ...(evidenceRefs.some((ref) => ref.startsWith('fundamental:eastmoney:') || ref.startsWith('fundamental:free-akshare:')) ? ['fundamental_snapshot'] : []),
       ...(evidenceRefs.some((ref) => ref.startsWith('leader:')) ? ['industry_leader'] : []),
     ]
-    const providerCount = new Set(providerRefs.map((ref) => ref.split(':').at(-1) || ref)).size
+    const providerCount = new Set(providerRefs.map((ref) => ref.split(':').slice(0, 3).join(':'))).size
     const fallbackUsed = evidenceRefs.some((ref) => ref.includes('using public') || ref.includes('public-seed') || ref.includes('leader-seed'))
     const status = crossCheckedFields.length < 3
       ? 'insufficient'
@@ -569,8 +571,10 @@ export class DividendLowVolStrategyService {
     return {
       status,
       providerCount,
-      primaryProvider: providerRefs[0]?.split(':').at(-1) || (fallbackUsed ? 'fallback_seed' : undefined),
-      freshnessStatus: evidenceRefs.some((ref) => ref.startsWith('market-bar-canonical:') || ref.startsWith('market-feature-daily:')) ? 'fresh' : 'unknown',
+      primaryProvider: providerRefs[0]?.startsWith('free-source-provider:')
+        ? providerRefs[0].split(':')[2]
+        : providerRefs[0]?.split(':').at(-1) || (fallbackUsed ? 'fallback_seed' : undefined),
+      freshnessStatus: evidenceRefs.some((ref) => ref.startsWith('market-bar-canonical:') || ref.startsWith('market-feature-daily:') || ref.startsWith('market-history-free-provider:')) ? 'fresh' : 'unknown',
       crossCheckedFields,
       warningCount: warnings.length,
       warnings: warnings.slice(0, 20),

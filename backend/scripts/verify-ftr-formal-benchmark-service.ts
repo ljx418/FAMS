@@ -12,13 +12,16 @@ function validInput(): FormalBenchmarkImportInput {
     benchmarkType: 'trusted_total_return',
     provider: 'authorized_fixture_provider',
     licenseRef: 'license-review:FTR-2:test-only',
+    usageScope: 'licensed_commercial',
+    authorizationEvidenceRefs: ['fixture:license', 'fixture:terms', 'fixture:review'],
+    commercialAuthorizationClaimed: true,
     currency: 'CNY',
     points: [
       { date: '2026-08-18', value: 1000 },
       { date: '2026-08-19', value: 1005 },
       { date: '2026-08-20', value: 1010 },
     ],
-    sourceRefs: ['fixture:trusted-total-return:test-only'],
+    sourceRefs: ['fixture:trusted-total-return:test-only', 'fixture:factsheet', 'fixture:methodology'],
   }
 }
 
@@ -38,6 +41,7 @@ async function main() {
   assert.equal(audit.status, 'passed')
   assert.equal(audit.benchmarkQualificationPassed, true)
   assert.equal(audit.contentHashVerified, true)
+  assert.equal(audit.benchmarkAuthorizationReviewed, true)
   const replay = await service.buildSeries(`${input.benchmarkId}@${input.version}`, input.points.map((point) => point.date))
   assert.equal(replay.series.size, 3)
   assert.equal(replay.series.get('2026-08-20')?.cumulativeReturnPercent, 1)
@@ -58,6 +62,16 @@ async function main() {
     ],
   }), /not_strictly_ordered_or_duplicate/)
   assert.throws(() => service.validateImport({ ...validInput(), contentHash: '0'.repeat(64) }), /content_hash_mismatch/)
+  assert.throws(() => service.validateImport({
+    ...validInput(),
+    benchmarkType: 'official_total_return',
+    usageScope: 'local_personal_noncommercial',
+    commercialAuthorizationClaimed: false,
+  }), /official_benchmark_requires_commercial_authorization/)
+  assert.throws(() => service.validateImport({
+    ...validInput(),
+    authorizationEvidenceRefs: ['fixture:only-one'],
+  }), /authorization_evidence_insufficient/)
   await assert.rejects(
     service.importBenchmark({ ...validInput(), points: [...validInput().points, { date: '2026-08-21', value: 1020 }] }, { userId: 'reviewer-1', email: 'data.reviewer@example.test' }),
     /benchmark_version_conflict/,

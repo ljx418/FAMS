@@ -225,8 +225,23 @@ class PriceService {
           lastUpdated: priceData.timestamp,
         },
       }),
-      prisma.priceHistory.create({
-        data: {
+      prisma.priceHistory.upsert({
+        where: {
+          assetId_timestamp_source: {
+            assetId,
+            timestamp: priceData.timestamp,
+            source: priceData.source,
+          },
+        },
+        update: {
+          closePrice: priceData.price,
+          openPrice: priceData.openPrice,
+          highPrice: priceData.high24h,
+          lowPrice: priceData.low24h,
+          volume: priceData.volume24h,
+          isValid: priceData.isValid,
+        },
+        create: {
           assetId,
           timestamp: priceData.timestamp,
           closePrice: priceData.price,

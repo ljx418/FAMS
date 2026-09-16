@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { FormalDataProviderService, type FormalFieldEvidence, type FormalProviderAuthorizationRecord, type FormalProviderAuthorizationStore } from '../src/services/formal-release/formalDataProviderService.js'
+import { FORMAL_DATA_FIELD_IDS, FormalDataProviderService, type FormalFieldEvidence, type FormalProviderAuthorizationRecord, type FormalProviderAuthorizationStore } from '../src/services/formal-release/formalDataProviderService.js'
 
 class MemoryAuthorizationStore implements FormalProviderAuthorizationStore {
   records: FormalProviderAuthorizationRecord[] = []
@@ -16,18 +16,24 @@ class MemoryAuthorizationStore implements FormalProviderAuthorizationStore {
 }
 
 function evidence(asOfDate: string): FormalFieldEvidence[] {
-  return ['price_history', 'tradeability', 'financial_statements', 'industry_classification'].map((fieldId) => ({
+  return FORMAL_DATA_FIELD_IDS.map((fieldId) => ({
     candidateStrategyId: 'dividend_low_vol_leader_v1',
     candidateStrategyVersion: '1.0.0',
     fieldId,
     critical: true,
+    applicability: 'required',
+    notApplicableReason: null,
     providerId: 'tushare_pro',
     providerClass: 'authorized_commercial',
     sourceEndpoint: `pro.${fieldId}`,
     asOfDate,
     fetchedAt: '2026-08-20T01:00:00.000Z',
     coveragePercent: 100,
+    crossCheckStatus: 'official_verified',
     evidenceRefs: [`tushare:${fieldId}:20260820`],
+    evidenceHash: 'a'.repeat(64),
+    warnings: [],
+    inputBlockers: [],
   }))
 }
 
@@ -48,8 +54,21 @@ async function main() {
     providerClass: 'authorized_commercial',
     decision: 'approved',
     authorizationRef: 'license-review:FTR-1:test-only',
+    authorizationBasis: 'commercial_license',
+    usageScope: 'licensed_scope',
     authorizedScopes: ['daily', 'financial', 'dividend', 'tradeability'],
     evidenceRefs: ['review:test-only'],
+    sourceTerms: [{
+      sourceId: 'tushare-license-test',
+      title: 'Commercial license test evidence',
+      url: 'https://example.invalid/tushare-license-test',
+      fetchedAt: '2026-08-20T00:00:00.000Z',
+      contentHash: 'b'.repeat(64),
+      reviewStatus: 'reviewed_for_commercial_use',
+    }],
+    endpointAllowlist: ['daily', 'financial', 'dividend', 'tradeability'],
+    sourceSnapshotHash: 'c'.repeat(64),
+    credentialRequired: true,
     reviewerUserId: 'reviewer-1',
     reviewerEmail: 'data.reviewer@example.test',
     effectiveFrom: new Date('2026-08-01T00:00:00.000Z'),
@@ -82,7 +101,7 @@ async function main() {
   })
   assert.equal(staleSnapshot.status, 'blocked')
   assert.equal(staleSnapshot.formalDataGovernancePassed, false)
-  assert.ok(staleSnapshot.blockers.includes('critical_field_stale'))
+  assert.ok(staleSnapshot.blockers.includes('required_field_stale'))
 
   store.records[0].recordHash = '0'.repeat(64)
   const tamperedAudit = await service.authorizationAudit('tushare_pro', now)

@@ -5,6 +5,7 @@ import { FilterOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons
 import { ExperienceModeToggle, type ExperienceMode } from '../components/common/ExperienceModeToggle'
 import { PlainLanguageHelp } from '../components/common/PlainLanguageHelp'
 import { DividendLowVolDecisionCard } from '../components/dividend-low-vol/DividendLowVolDecisionCard'
+import { InvestmentWorkflowBar } from '../components/investment-workflow/InvestmentWorkflowBar'
 import {
   checkDividendLowVolAlerts,
   createDividendLowVolManualPretradeCheck,
@@ -1061,81 +1062,6 @@ const DividendLowVol: React.FC = () => {
     },
   ]
 
-  const plainColumns: ColumnsType<Candidate> = [
-    {
-      title: '标的',
-      key: 'identity',
-      width: 190,
-      fixed: 'left',
-      render: (_, candidate) => (
-        <div>
-          <div className="text-sm font-medium text-white">{candidate.identity.symbol} {candidate.identity.name}</div>
-          <div className="mt-1 text-xs text-gray-500">{candidate.identity.industry || '行业待确认'}</div>
-        </div>
-      ),
-    },
-    {
-      title: '普通话结论',
-      key: 'plainConclusion',
-      width: 260,
-      render: (_, candidate) => {
-        const hasDataGap = (candidate.dataGapSummary || []).length > 0 || (candidate.alerts || []).some((alert) => alert.type === 'DIVIDEND_DATA_GAP')
-        const avoid = candidate.disposition === 'avoid' || candidate.dividend.dividendTrapFlag
-        const build = candidate.alerts.some((alert) => alert.type === 'DIVIDEND_BUILD_PLAN' || alert.type === 'DIVIDEND_ADD_ON_PULLBACK')
-        const low = candidate.alerts.some((alert) => alert.type === 'DIVIDEND_LOW_ZONE')
-        const label = avoid ? '风险剔除' : hasDataGap ? '数据不足' : build ? '可生成观察草案' : low ? '低位观察' : '可研究观察'
-        const color = avoid ? '#ef4444' : hasDataGap ? '#fbbf24' : build ? '#34d399' : '#38bdf8'
-        return (
-          <div className="space-y-2 text-xs">
-            <Tag color={color}>{label}</Tag>
-            <div className="text-gray-300">
-              {avoid
-                ? '当前触发风险或剔除条件，不进入草案。'
-                : hasDataGap
-                  ? '关键指标或事实不足，需刷新或看专业证据。'
-                  : build
-                    ? '符合观察草案条件，但仍需人工复核。'
-                    : '可以继续研究，先看区间和数据可信度。'}
-            </div>
-          </div>
-        )
-      },
-    },
-    {
-      title: '为什么',
-      key: 'why',
-      render: (_, candidate) => (
-        <div className="space-y-1 text-xs leading-5 text-gray-300">
-          <div>股息率 {formatScore(candidate.dividend.ttmDividendYield)}%，综合分 {formatScore(candidate.scores.evidenceAdjustedScore)}。</div>
-          <div>质量 {formatScore(candidate.scores.dividendQualityScore)}，低波 {formatScore(candidate.scores.lowVolScore)}。</div>
-          {((candidate.blockedReasons || []).length > 0 || (candidate.dataGapSummary || []).length > 0) && (
-            <div className="text-amber-200">
-              需复核：{[
-                ...(candidate.blockedReasons || []),
-                ...(candidate.dataGapSummary || []).map((gap) => gap.userMessage || gap.blockedReason),
-              ].slice(0, 2).map(shortIssueLabel).join('、')}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: '区间/下一步',
-      key: 'next',
-      width: 240,
-      render: (_, candidate) => (
-        <div className="space-y-2 text-xs">
-          <div className="flex flex-wrap gap-1">
-            <Tag color={candidate.timing.lowZoneScore >= 65 ? '#34d399' : '#64748b'}>低位 {formatScore(candidate.timing.lowZoneScore)}</Tag>
-            <Tag color={candidate.timing.highZoneScore >= 65 ? '#fbbf24' : '#64748b'}>高位 {formatScore(candidate.timing.highZoneScore)}</Tag>
-            <Tag color={dataTrustColor[candidate.dataTrust?.grade || 'INSUFFICIENT']}>{candidate.dataTrust?.grade || '证据不足'}</Tag>
-          </div>
-          <div className="text-gray-400">先查看买卖观察区间；草案只进入人工复核，不创建订单。</div>
-        </div>
-      ),
-    },
-  ]
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -1144,15 +1070,21 @@ const DividendLowVol: React.FC = () => {
           <div className="mt-1 text-sm text-gray-400">全 A 预筛 · 股息率 &gt; 4% · 行业龙头 · 低波动 · 分红可持续 · 建仓/卖出提醒</div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <InputNumber min={20} max={6000} step={100} value={scanLimit} onChange={(value) => setScanLimit(Number(value || DEFAULT_ALL_A_LIMIT))} />
+          {experienceMode === 'expert' && (
+            <>
+              <InputNumber min={20} max={6000} step={100} value={scanLimit} onChange={(value) => setScanLimit(Number(value || DEFAULT_ALL_A_LIMIT))} />
+              <Button loading={scanLoading} onClick={runScan}>扫描全 A 样本</Button>
+              <Button loading={auditLoading} onClick={createAuditPackage}>生成 GPT 审计包</Button>
+            </>
+          )}
           <Button icon={<RobotOutlined />} onClick={() => askChatBox('请用普通话解释当前红利低波策略页面，包括候选、买卖观察区间、数据可信和为什么不能正式交易')}>
             用 ChatBox 解释
           </Button>
-          <Button loading={scanLoading} onClick={runScan}>扫描全 A 样本</Button>
-          <Button loading={auditLoading} onClick={createAuditPackage}>生成 GPT 审计包</Button>
           <Button icon={<ReloadOutlined />} loading={loading} onClick={loadCandidates}>刷新</Button>
         </div>
       </div>
+
+      <InvestmentWorkflowBar currentStep="position_strategy" />
 
       <Alert
         type="warning"
@@ -1203,6 +1135,35 @@ const DividendLowVol: React.FC = () => {
         loadingRefresh={loading}
       />
 
+      {experienceMode === 'plain' ? (
+        <Card
+          data-testid="dividend-plain-next-step"
+          title={<span className="text-white">下一步只做一件事</span>}
+          className="bg-[#1a1a2e] border-surface-border"
+          styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}
+        >
+          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <div className="text-sm font-medium text-white">
+                {topVisibleCandidates.length > 0 ? '先查看前三候选的买卖观察区间' : '先刷新候选数据并确认数据缺口'}
+              </div>
+              <div className="mt-1 text-sm leading-6 text-gray-400">
+                {topVisibleCandidates.length > 0
+                  ? '确认观察区间和失效条件后，才生成供人工复核的清单。需要看候选淘汰、滚动验证或原始证据时再切换专家模式。'
+                  : '当前不会猜测标的或价格。刷新后仍无完整候选时，请切换专家模式查看具体缺失证据。'}
+              </div>
+            </div>
+            <Button
+              type="primary"
+              loading={topVisibleCandidates.length > 0 ? tradingZoneLoading : loading}
+              onClick={topVisibleCandidates.length > 0 ? loadTradingZones : loadCandidates}
+            >
+              {topVisibleCandidates.length > 0 ? '查看观察区间' : '刷新候选数据'}
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div data-testid="dividend-expert-workbench" className="space-y-4">
       <Card title="今日策略状态" className="bg-[#1a1a2e] border-surface-border" styles={{ header: { color: '#fff', borderBottomColor: '#374151' }, body: { padding: 14 } }}>
         <div className="grid gap-3 xl:grid-cols-[1.1fr_1fr_1.2fr]">
           <div className="rounded-lg border border-white/10 bg-black/10 p-3">
@@ -2198,10 +2159,10 @@ const DividendLowVol: React.FC = () => {
         ) : (
           <Table
             rowKey={(candidate) => candidate.identity.symbol}
-            columns={experienceMode === 'plain' ? plainColumns : columns}
+            columns={columns}
             dataSource={filteredCandidates}
             pagination={{ pageSize: 20, showSizeChanger: true }}
-            scroll={{ x: experienceMode === 'plain' ? 900 : 1100 }}
+            scroll={{ x: 1100 }}
             expandable={{
               onExpand: (expanded, candidate) => {
                 if (expanded) void loadCandidateHistory(candidate.identity.symbol)
@@ -2442,6 +2403,8 @@ const DividendLowVol: React.FC = () => {
               </div>
             </Card>
           )}
+        </div>
+      )}
         </div>
       )}
     </div>

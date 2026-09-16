@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-point-in-time-tradeability.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "candidateId", "candidateVersion", "validationProfileId", "sourceR1", "ftr1DataGovernanceArtifact", "denominatorDefinition", "windowIds", "componentUnionIds", "requiredPathCount", "coveredPathCount", "coveragePercent", "paths", "directHistoricalStatusOnly", "historicalStatusProxyUsed", "inputHash", "realDataUsed", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3.point_in_time_tradeability.v2"},
+    "stageId": {"const": "FTR-3"},
+    "status": {"const": "passed"},
+    "candidateId": {"const": "dividend_low_vol_basket"},
+    "candidateVersion": {"const": "portfolio.strategy.dividend_low_vol_basket.v2_point_in_time"},
+    "validationProfileId": {"const": "equity_selection_release_v1"},
+    "sourceR1": {"$ref": "#/$defs/ref"},
+    "ftr1DataGovernanceArtifact": {"$ref": "#/$defs/ref"},
+    "denominatorDefinition": {"const": "dynamic_selected_component_per_window"},
+    "windowIds": {"type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true},
+    "componentUnionIds": {"type": "array", "minItems": 20, "maxItems": 20, "uniqueItems": true},
+    "requiredPathCount": {"const": 53},
+    "coveredPathCount": {"const": 53},
+    "coveragePercent": {"const": 100},
+    "paths": {
+      "type": "array", "minItems": 53, "maxItems": 53,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["pathId", "symbol", "windowId", "decisionDate", "requiredPoints", "coveredPoints", "coveragePercent", "directTradeStatus", "directIsST", "historicalStatusProxyUsed", "status", "snapshotPath", "snapshotSha256", "evidenceRef"],
+        "properties": {
+          "pathId": {"type": "string", "pattern": "^wf-0[1-6]:[0-9]{6}$"},
+          "symbol": {"type": "string", "pattern": "^[0-9]{6}$"},
+          "windowId": {"type": "string", "pattern": "^wf-0[1-6]$"},
+          "decisionDate": {"type": "string", "format": "date"},
+          "requiredPoints": {"const": 60},
+          "coveredPoints": {"const": 60},
+          "coveragePercent": {"const": 100},
+          "directTradeStatus": {"const": "1"},
+          "directIsST": {"const": false},
+          "historicalStatusProxyUsed": {"const": false},
+          "status": {"const": "passed"},
+          "snapshotPath": {"type": "string", "minLength": 1},
+          "snapshotSha256": {"$ref": "#/$defs/hash"},
+          "evidenceRef": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "directHistoricalStatusOnly": {"const": true},
+    "historicalStatusProxyUsed": {"const": false},
+    "inputHash": {"$ref": "#/$defs/hash"},
+    "realDataUsed": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "ref": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}}
+  }
+}

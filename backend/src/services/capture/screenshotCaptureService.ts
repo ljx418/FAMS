@@ -9,6 +9,8 @@ import { assetIdentityResolver } from '../asset/assetIdentityResolver.js'
 import { transactionService } from '../transaction/transactionService.js'
 
 const MAX_BYTES = 10 * 1024 * 1024
+const accountSourceSchema = z.enum(['tonghuashun', 'alipay'])
+export type ScreenshotAccountSource = z.infer<typeof accountSourceSchema>
 const CAPTURE_ROOT = resolve(
   process.env.FAMS_CAPTURE_STORAGE_DIR
     || dirname(fileURLToPath(import.meta.url)),
@@ -66,6 +68,13 @@ function isMarketValueHolding(fields: Record<string, unknown>) {
 function isExternalFundTrade(fields: Record<string, unknown>) {
   return String(fields.transactionBasis || '').toLowerCase() === 'fund_notional'
     || String(fields.accountId || '').toLowerCase() === 'alipay'
+}
+
+function normalizeAccountSource(value: unknown): ScreenshotAccountSource | null {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (['tonghuashun', 'ths', 'broker'].includes(normalized)) return 'tonghuashun'
+  if (normalized === 'alipay') return 'alipay'
+  return null
 }
 
 function normalizedFundEntryType(fields: Record<string, unknown>) {
@@ -140,6 +149,7 @@ function extensionFor(mime: string) {
 class ScreenshotCaptureService {
   async upload(input: {
     userId: string
+    accountSource: ScreenshotAccountSource
     buffer: Buffer
     mimeType?: string
     originalFilename?: string
@@ -147,6 +157,7 @@ class ScreenshotCaptureService {
     capturedAt?: Date
   }) {
     await ensureUser(prisma, input.userId)
+    const accountSource = accountSourceSchema.parse(input.accountSource)
     if (!input.buffer.length || input.buffer.length > MAX_BYTES) throw new Error('Screenshot must be between 1 byte and 10MB')
     const detectedMime = detectMime(input.buffer)
     if (!detectedMime) throw new Error('Only real PNG, JPEG, and WebP screenshot files are accepted')
@@ -155,7 +166,11 @@ class ScreenshotCaptureService {
     }
     const sha256 = createHash('sha256').update(input.buffer).digest('hex')
     const existing = await prisma.screenshotCapture.findUnique({ where: { userId_sha256: { userId: input.userId, sha256 } } })
-    if (existing) return { capture: existing, reused: true }
+    if (existing) {
+      if (!existing.accountSource) throw new Error('Existing screenshot has no verified account source; upload a different image or resolve the historical capture first')
+      if (existing.accountSource !== accountSource) throw new Error('The same screenshot cannot be reused for a different account source')
+      return { capture: existing, reused: true }
+    }
     const userDir = resolve(CAPTURE_ROOT, input.userId.replace(/[^a-zA-Z0-9_-]/g, '_'))
     await mkdir(userDir, { recursive: true, mode: 0o700 })
     const storagePath = resolve(userDir, `${sha256}${extensionFor(detectedMime)}`)
@@ -163,6 +178,7 @@ class ScreenshotCaptureService {
     const capture = await prisma.screenshotCapture.create({
       data: {
         userId: input.userId,
+        accountSource,
         conversationId: input.conversationId,
         mimeType: detectedMime,
         originalFilename: input.originalFilename,
@@ -178,6 +194,7 @@ class ScreenshotCaptureService {
 
   async uploadBase64(input: {
     userId: string
+    accountSource: ScreenshotAccountSource
     base64: string
     mimeType?: string
     originalFilename?: string
@@ -265,18 +282,26 @@ class ScreenshotCaptureService {
       include: { asset: true },
     })
     const prepared = []
-    const accountIds = new Set(parsed
-      .map((row) => String((row.fields as Record<string, unknown>).accountId || '').trim().toLowerCase())
-      .filter(Boolean))
+    const captureAccountSource = normalizeAccountSource(capture.accountSource)
+    const accountIds = new Set<string>(captureAccountSource ? [captureAccountSource] : parsed
+      .map((row) => normalizeAccountSource((row.fields as Record<string, unknown>).accountId))
+      .filter((value): value is ScreenshotAccountSource => Boolean(value)))
     const seenHoldingSymbols = new Set<string>()
     let accountSummaryCount = 0
     for (let rowIndex = 0; rowIndex < parsed.length; rowIndex += 1) {
-      const row = parsed[rowIndex]
-      const fields = row.fields as Record<string, unknown>
+      const parsedRow = parsed[rowIndex]
+      const extractedAccountSource = normalizeAccountSource((parsedRow.fields as Record<string, unknown>).accountId)
+      const fields = captureAccountSource
+        ? { ...(parsedRow.fields as Record<string, unknown>), accountId: captureAccountSource }
+        : parsedRow.fields as Record<string, unknown>
+      const row = { ...parsedRow, fields }
       const symbol = String(fields.symbol || '').trim().toUpperCase()
       const identity = symbol ? await assetIdentityResolver.resolve(symbol) : null
       const matchedAsset = identity?.matchedAsset || null
       const issues = this.validateRow(row)
+      if (captureAccountSource && extractedAccountSource && extractedAccountSource !== captureAccountSource) {
+        issues.push('account_source_conflict')
+      }
       if (row.rowType === 'account_summary') {
         accountSummaryCount += 1
         if (accountSummaryCount > 1) issues.push('duplicate_account_summary_in_capture')
@@ -404,7 +429,12 @@ class ScreenshotCaptureService {
     const previousDiff = parseJson<Record<string, any>>(row.diffJson, {})
     const corrections = Array.isArray(previousDiff.corrections) ? previousDiff.corrections : []
     const nextRowType = update.rowType || row.rowType as CaptureExtractionRow['rowType']
-    const nextFields = update.fields || previousFields
+    const captureAccountSource = normalizeAccountSource(row.capture.accountSource)
+    const submittedFields = update.fields || previousFields
+    const submittedAccountSource = normalizeAccountSource(submittedFields.accountId)
+    const nextFields = captureAccountSource
+      ? { ...submittedFields, accountId: captureAccountSource }
+      : submittedFields
     const nextRawText = update.rawText ?? row.rawText
     const nextFieldConfidence = update.fieldConfidence || previousConfidence
     const nextConfidence = update.confidence ?? row.confidence
@@ -438,6 +468,9 @@ class ScreenshotCaptureService {
     const identity = symbol ? await assetIdentityResolver.resolve(symbol) : null
     const matchedAsset = identity?.matchedAsset || null
     const issues = this.validateRow(candidate)
+    if (captureAccountSource && submittedAccountSource && submittedAccountSource !== captureAccountSource) {
+      issues.push('account_source_conflict')
+    }
     if (candidate.rowType !== 'account_summary' && !matchedAsset) issues.push('asset_not_matched_locally')
     if (candidate.rowType === 'account_summary') {
       const siblings = await prisma.screenshotCaptureRow.count({
@@ -513,9 +546,10 @@ class ScreenshotCaptureService {
       prisma.position.findMany({ where: { userId, status: 'open' }, include: { asset: true } }),
     ])
     if (!capture) throw new Error('Screenshot capture not found')
-    const accountIds = new Set(rows
-      .map((row) => String(parseJson<Record<string, unknown>>(row.fieldsJson, {}).accountId || '').trim().toLowerCase())
-      .filter(Boolean))
+    const captureAccountSource = normalizeAccountSource(capture.accountSource)
+    const accountIds = new Set<string>(captureAccountSource ? [captureAccountSource] : rows
+      .map((row) => normalizeAccountSource(parseJson<Record<string, unknown>>(row.fieldsJson, {}).accountId))
+      .filter((value): value is ScreenshotAccountSource => Boolean(value)))
     const shownHoldingAssetIds = new Set(rows
       .filter((row) => row.rowType === 'holding' && row.status !== 'ignored' && row.assetId)
       .map((row) => row.assetId!))

@@ -222,6 +222,7 @@ export interface PortfolioBenchmarkQualificationAudit {
 
 export interface PortfolioFormalValidationAudit {
   schemaVersion: 'portfolio.formal_validation_audit.v1'
+  stageId?: 'FTR-3'
   status: PortfolioModelEffectivenessStatus
   formalTradingEligible: boolean
   formalValidationPassed: boolean
@@ -236,13 +237,22 @@ export interface PortfolioFormalValidationAudit {
   }
   releaseEffectivePathCount: number
   industryGroupCount: number
+  marketRegimeGroupCount?: number
+  liquidityGroupCount?: number
   strategyCount: number
+  productReleaseCandidateCount?: number
   passedStrategies: number
   warningStrategies: number
   insufficientStrategies: number
   failedStrategies: number
+  notApplicableStrategies?: number
   checks: Array<{
     strategyId: string
+    strategyVersion?: string
+    candidateRole?: string
+    validationProfileId?: string
+    formalGateApplicable?: boolean
+    formalGateStatus?: PortfolioModelEffectivenessStatus | 'not_applicable'
     status: PortfolioModelEffectivenessStatus
     oosStatus: PortfolioModelEffectivenessStatus
     walkForwardStatus: PortfolioModelEffectivenessStatus
@@ -253,7 +263,14 @@ export interface PortfolioFormalValidationAudit {
   }>
   blockers: string[]
   warnings: string[]
+  validationProfileSet?: Record<string, unknown>
+  humanAcceptanceStatus?: 'pending_batch_review'
+  prohibitedActions?: PortfolioBacktestProhibitedAction[]
   notTradingAdvice: true
+  formalTradingUnlocked?: false
+  autoTradeUnlocked?: false
+  canCreateOrder?: false
+  orderCreateAllowed?: false
 }
 
 export interface PortfolioManualSignoffAudit {

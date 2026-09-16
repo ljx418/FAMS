@@ -35,7 +35,20 @@ export interface PositionSummary {
   positionsCount: number
   cashValue: number
   cashWeight: number
+  priceFreshness: {
+    thresholdHours: number
+    checkedAt: string
+    valuationAsOf: string | null
+    oldestPriceAt: string | null
+    status: 'fresh' | 'stale' | 'missing' | 'refreshing'
+    missingSymbols: string[]
+    staleSymbols: string[]
+    activeRefreshOperationId: string | null
+    shouldAutoRefresh: boolean
+  }
 }
+
+const POSITION_PRICE_FRESHNESS_HOURS = 12
 
 // 自动标签映射表
 const ASSET_TYPE_TAGS: Record<string, string[]> = {
@@ -266,6 +279,14 @@ class PositionService {
 
   async getApprovedAllocationPlan(userId: string) {
     return allocationPolicyService.getCurrentPlan(userId)
+  }
+
+  async confirmPermanentAllocationStrategy(userId: string, input: { confirmed: boolean; confirmedBy: string }) {
+    return allocationPolicyService.confirmPermanentPortfolioStrategy({
+      userId,
+      confirmed: input.confirmed,
+      confirmedBy: input.confirmedBy,
+    })
   }
 
   async updatePositionTarget(userId: string, tag: string, targetValue: number) {
@@ -941,7 +962,14 @@ class PositionService {
   async getPositionSummary(userId: string): Promise<PositionSummary> {
     const positions = await prisma.position.findMany({
       where: { userId, status: 'open' },
-      include: { asset: { include: { assetTags: { include: { tag: true } } } } },
+      include: {
+        asset: {
+          include: {
+            assetTags: { include: { tag: true } },
+            priceHistory: { orderBy: { timestamp: 'desc' }, take: 1 },
+          },
+        },
+      },
     })
 
     const totalValue = positions.reduce((sum, p) => sum + (p.marketValue || 0), 0)  // 元
@@ -951,6 +979,40 @@ class PositionService {
     const cashValue = positions
       .filter((p) => p.asset.type === 'cash')
       .reduce((sum, p) => sum + (p.marketValue || 0), 0)
+    const checkedAt = new Date()
+    const staleBefore = checkedAt.getTime() - POSITION_PRICE_FRESHNESS_HOURS * 60 * 60 * 1000
+    const pricedPositions = positions.filter((position) => position.asset.type !== 'cash')
+    const timestamps = pricedPositions.map((position) => {
+      const timestamp = position.asset.lastUpdated || position.asset.priceHistory[0]?.timestamp || null
+      return {
+        symbol: position.asset.symbol,
+        timestamp,
+        hasValuation: Number(position.currentPrice || 0) > 0 || Number(position.marketValue || 0) > 0,
+      }
+    })
+    const missingSymbols = timestamps
+      .filter((item) => !item.hasValuation || !item.timestamp)
+      .map((item) => item.symbol)
+    const staleSymbols = timestamps
+      .filter((item) => item.timestamp && item.timestamp.getTime() < staleBefore)
+      .map((item) => item.symbol)
+    const validTimestamps = timestamps
+      .map((item) => item.timestamp?.getTime())
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+    const activeRefresh = await prisma.operation.findFirst({
+      where: {
+        userId,
+        type: 'refresh_prices',
+        status: { in: ['queued', 'running', 'cancelling'] },
+      },
+      orderBy: { requestedAt: 'desc' },
+      select: { id: true },
+    })
+    const baseFreshnessStatus = missingSymbols.length > 0
+      ? 'missing'
+      : staleSymbols.length > 0
+        ? 'stale'
+        : 'fresh'
 
     return {
       totalValue,
@@ -960,6 +1022,17 @@ class PositionService {
       positionsCount: positions.length,
       cashValue,
       cashWeight: totalValue > 0 ? (cashValue / totalValue) * 100 : 0,
+      priceFreshness: {
+        thresholdHours: POSITION_PRICE_FRESHNESS_HOURS,
+        checkedAt: checkedAt.toISOString(),
+        valuationAsOf: validTimestamps.length > 0 ? new Date(Math.min(...validTimestamps)).toISOString() : null,
+        oldestPriceAt: validTimestamps.length > 0 ? new Date(Math.min(...validTimestamps)).toISOString() : null,
+        status: activeRefresh ? 'refreshing' : baseFreshnessStatus,
+        missingSymbols,
+        staleSymbols,
+        activeRefreshOperationId: activeRefresh?.id || null,
+        shouldAutoRefresh: !activeRefresh && baseFreshnessStatus !== 'fresh',
+      },
     }
   }
 

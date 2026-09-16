@@ -14,7 +14,8 @@
     "verify:fivd-r-runtime": "node scripts/verify-fivd-r-runtime.mjs",
     "verify:relative-rotation-watchlist-runtime": "node scripts/verify-relative-rotation-watchlist-runtime.mjs",
     "verify:v2-px-host-bridge": "node scripts/verify-v2-px-host-bridge.mjs",
-    "verify:daily-review-static-report": "node scripts/verify-static-daily-review-report.mjs"
+    "verify:daily-review-static-report": "node scripts/verify-static-daily-review-report.mjs",
+    "verify:alipay-threshold-sensitivity": "node scripts/verify-alipay-ytd-threshold-sensitivity-runtime.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",

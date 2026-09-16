@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, App as AntApp, Button, Card, Checkbox, Descriptions, Input, Modal, Space, Tag } from 'antd'
+import { Alert, App as AntApp, Button, Card, Checkbox, Descriptions, Input, Modal, Segmented, Space, Tag } from 'antd'
 import { EditOutlined, SafetyCertificateOutlined, UploadOutlined } from '@ant-design/icons'
 import { API_BASE } from '../../config/api'
 
@@ -17,6 +17,8 @@ type ScreenshotCapturePanelProps = {
   onEvent?: (event: ScreenshotCaptureEvent) => void
   onConfirmed?: (event: ScreenshotCaptureEvent) => void
   tradePositionEffectPolicy?: 'apply' | 'included_in_latest_snapshot'
+  defaultAccountSource?: 'tonghuashun' | 'alipay'
+  lockAccountSource?: boolean
 }
 
 type ScreenshotPreview = {
@@ -24,6 +26,7 @@ type ScreenshotPreview = {
     id: string
     documentType: string
     status: string
+    accountSource: 'tonghuashun' | 'alipay' | null
     warnings: string[]
     extraction?: { missingHoldings?: Array<Record<string, unknown>> }
   }
@@ -109,6 +112,8 @@ export function ScreenshotCapturePanel({
   onEvent,
   onConfirmed,
   tradePositionEffectPolicy = 'apply',
+  defaultAccountSource = 'tonghuashun',
+  lockAccountSource = false,
 }: ScreenshotCapturePanelProps) {
   const { message } = AntApp.useApp()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -119,6 +124,16 @@ export function ScreenshotCapturePanel({
   const [preview, setPreview] = useState<ScreenshotPreview>()
   const [draftFields, setDraftFields] = useState<Record<string, Record<string, unknown>>>({})
   const [visionStatus, setVisionStatus] = useState<VisionCaptureStatus>()
+  const [accountSource, setAccountSource] = useState<'tonghuashun' | 'alipay'>(defaultAccountSource)
+
+  useEffect(() => {
+    setAccountSource(defaultAccountSource)
+    setFile(undefined)
+    setCaptureId(undefined)
+    setPreview(undefined)
+    setDraftFields({})
+    setConsent(false)
+  }, [defaultAccountSource])
 
   const applyPreview = useCallback((next: ScreenshotPreview) => {
     setPreview(next)
@@ -155,6 +170,7 @@ export function ScreenshotCapturePanel({
     if (!file) throw new Error('请先选择截图')
     const form = new FormData()
     form.append('userId', userId)
+    form.append('accountSource', accountSource)
     if (conversationId) form.append('conversationId', conversationId)
     form.append('screenshot', file)
     const result = await jsonRequest<{ capture: { id: string } }>('/api/v1/captures/screenshots', { method: 'POST', body: form })
@@ -281,6 +297,29 @@ export function ScreenshotCapturePanel({
         }}
       />
       <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium text-slate-700">截图账户</span>
+        {lockAccountSource ? (
+          <Tag color={accountSource === 'alipay' ? 'cyan' : 'blue'}>
+            {accountSource === 'alipay' ? '支付宝' : '同花顺'}
+          </Tag>
+        ) : (
+          <Segmented
+            aria-label="选择截图所属账户"
+            value={accountSource}
+            disabled={loading || Boolean(captureId)}
+            onChange={(value) => {
+              setAccountSource(value as 'tonghuashun' | 'alipay')
+              resetForFile(undefined)
+            }}
+            options={[
+              { label: '同花顺', value: 'tonghuashun' },
+              { label: '支付宝', value: 'alipay' },
+            ]}
+          />
+        )}
+        <span className="text-slate-500">账户来源会写入审计记录，识别冲突时禁止确认。</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
         <Button size={compact ? 'small' : 'middle'} icon={<UploadOutlined />} onClick={() => inputRef.current?.click()} disabled={loading}>
           选择持仓/成交/委托截图
         </Button>
@@ -320,7 +359,7 @@ export function ScreenshotCapturePanel({
               type="info"
               showIcon
               message="截图缺失的现有持仓只提示差异，绝不自动减仓或平仓"
-              description={`文档类型：${preview.capture.documentType}；可确认 ${preview.rows.filter((row) => row.status === 'ready').length}/${preview.rows.length} 行；不会创建券商订单。`}
+              description={`账户：${preview.capture.accountSource === 'alipay' ? '支付宝' : '同花顺'}；文档类型：${preview.capture.documentType}；可确认 ${preview.rows.filter((row) => row.status === 'ready').length}/${preview.rows.length} 行；不会创建券商订单。`}
             />
             {preview.rows.some((row) => row.rowType === 'trade') && tradePositionEffectPolicy === 'included_in_latest_snapshot' ? (
               <Alert

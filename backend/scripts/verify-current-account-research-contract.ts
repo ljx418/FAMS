@@ -57,11 +57,14 @@ async function main() {
   assert.equal(money(account.currentValue), money(Number(snapshot?.statedTotal)))
   assert.deepEqual(
     account.buckets.map((bucket) => [bucket.key, bucket.targetRatio]),
-    [['cash', 5], ['gold', 25], ['bond', 25], ['equity', 45]],
+    [['cash', 10], ['gold', 15], ['bond', 50], ['equity', 25]],
   )
+  assert.equal(plan.strategyContract.id, 'approved_allocation_v3_high_defense_10_15_50_25_2026')
+  assert.equal(plan.strategyContract.status, 'active')
   assert.equal(money(account.buckets.reduce((sum, bucket) => sum + bucket.currentValue, 0)), money(account.currentValue))
   assert.equal(money(account.buckets.reduce((sum, bucket) => sum + bucket.targetValue, 0)), money(account.currentValue))
   assert.deepEqual(plan.strategyActions.trancheRatios, [0.25, 0.25, 0.25, 0.25])
+  assert.equal(plan.strategyActions.rebalanceRequired, false)
   for (const value of [
     plan.strategyActions.bondReductionTarget,
     plan.strategyActions.goldIncreaseTarget,
@@ -117,7 +120,7 @@ async function main() {
   const drafts = Array.isArray(report.oneClickWorkflow?.tradeDrafts)
     ? report.oneClickWorkflow.tradeDrafts
     : []
-  assert.ok(drafts.length > 0)
+  assert.equal(drafts.length, 0)
   for (const draft of drafts) {
     assert.ok(Number.isFinite(Number(draft.fullAmount)) && Number(draft.fullAmount) >= 0)
     assert.ok(Number.isFinite(Number(draft.firstTrancheAmount)) && Number(draft.firstTrancheAmount) >= 0)

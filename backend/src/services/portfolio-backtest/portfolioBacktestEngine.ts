@@ -69,6 +69,147 @@ function annualizationFactor(days: number) {
 export class PortfolioBacktestEngine {
   private priceSeriesCache = new Map<string, Promise<LoadedPriceSeries>>()
 
+  async runFormalValidationStrategies(input: PortfolioBacktestInputBuildResult): Promise<PortfolioBacktestStrategyResult[]> {
+    const results: PortfolioBacktestStrategyResult[] = []
+    for (const definition of input.strategies) results.push(await this.runStrategy(definition, input))
+    return results
+  }
+
+  runFormalValidationStrategyWithSeries(input: {
+    definition: PortfolioStrategyDefinition
+    priceSeries: Record<string, Array<{ date: string; close: number }>>
+    benchmarkId: string
+    benchmarkPoints: Array<{ date: string; value: number }>
+    startDate: string
+    endDate: string
+    sourceEvidenceRefs: string[]
+    dividendEvents?: Record<string, Array<{ date: string; cashPerShare: number; evidenceRef: string }>>
+  }) {
+    const seriesBySymbol = new Map<string, PriceSeries>()
+    for (const [symbol, points] of Object.entries(input.priceSeries)) {
+      seriesBySymbol.set(symbol, new Map(points
+        .filter((point) => point.date >= input.startDate && point.date <= input.endDate && Number.isFinite(point.close) && point.close > 0)
+        .map((point) => [point.date, point.close])))
+    }
+    const benchmarkByDate = new Map(input.benchmarkPoints
+      .filter((point) => point.date >= input.startDate && point.date <= input.endDate && Number.isFinite(point.value) && point.value > 0)
+      .map((point) => [point.date, point.value]))
+    const dates = this.resolveCommonDates(input.definition, seriesBySymbol).filter((date) => benchmarkByDate.has(date))
+    const missingSymbols = input.definition.components
+      .filter((component) => component.assetClass !== 'cash')
+      .map((component) => component.symbol || component.proxySymbol || '')
+      .filter((symbol) => !symbol || !seriesBySymbol.has(symbol))
+    const blockedReasons = [
+      ...(missingSymbols.length > 0 ? missingSymbols.map((symbol) => `formal_series_missing:${symbol || 'unknown'}`) : []),
+      ...(dates.length < 2 ? ['formal_common_price_dates_insufficient'] : []),
+    ]
+    const initialCapital = 100000
+    let portfolioValue = initialCapital
+    let peak = initialCapital
+    let lastValue = initialCapital
+    let turnoverNotional = 0
+    let totalCost = 0
+    let cashBalance = initialCapital
+    let reservedDividendCash = 0
+    let dividendCashReceived = 0
+    let lastRebalanceKey = ''
+    const shares = new Map<string, number>()
+    const equityCurve: PortfolioBacktestCurvePoint[] = []
+    const dailyReturns: number[] = []
+    const benchmarkBase = dates.length > 0 ? benchmarkByDate.get(dates[0]) : undefined
+    const dividendEventsByTradingDate = new Map<string, Array<{ symbol: string; cashPerShare: number; evidenceRef: string }>>()
+    if (input.definition.dividendPolicy === 'cash') {
+      for (const [symbol, events] of Object.entries(input.dividendEvents || {})) {
+        for (const event of events) {
+          const tradingDate = dates.find((date) => date >= event.date)
+          if (!tradingDate || !Number.isFinite(event.cashPerShare) || event.cashPerShare <= 0) continue
+          const current = dividendEventsByTradingDate.get(tradingDate) || []
+          current.push({ symbol, cashPerShare: event.cashPerShare, evidenceRef: event.evidenceRef })
+          dividendEventsByTradingDate.set(tradingDate, current)
+        }
+      }
+    }
+
+    for (let index = 0; index < dates.length; index += 1) {
+      const date = dates[index]
+      portfolioValue = this.markedPortfolioValue(input.definition, seriesBySymbol, date, shares, cashBalance)
+      for (const event of dividendEventsByTradingDate.get(date) || []) {
+        const heldShares = shares.get(event.symbol) || 0
+        const price = seriesBySymbol.get(event.symbol)?.get(date)
+        if (heldShares <= 0 || !price || price <= 0) continue
+        const distributionValue = Math.min(heldShares * event.cashPerShare, heldShares * price)
+        shares.set(event.symbol, heldShares - (distributionValue / price))
+        cashBalance += distributionValue
+        reservedDividendCash += distributionValue
+        dividendCashReceived += distributionValue
+      }
+      portfolioValue = this.markedPortfolioValue(input.definition, seriesBySymbol, date, shares, cashBalance)
+      if (index === 0 || this.shouldRebalance(date, lastRebalanceKey, input.definition.rebalancePolicy.frequency)) {
+        const rebalanced = this.rebalanceWithCash(
+          input.definition,
+          seriesBySymbol,
+          date,
+          Math.max(0, portfolioValue - reservedDividendCash),
+          shares,
+        )
+        if (index > 0) turnoverNotional += rebalanced.turnover
+        totalCost += rebalanced.cost
+        cashBalance = rebalanced.cash + reservedDividendCash
+        lastRebalanceKey = this.rebalanceKey(date, input.definition.rebalancePolicy.frequency)
+      }
+      portfolioValue = this.markedPortfolioValue(input.definition, seriesBySymbol, date, shares, cashBalance)
+      peak = Math.max(peak, portfolioValue)
+      const dailyReturnPercent = index === 0 ? 0 : ((portfolioValue / lastValue) - 1) * 100
+      if (index > 0) dailyReturns.push(dailyReturnPercent / 100)
+      const benchmarkValue = benchmarkByDate.get(date)
+      const benchmarkNetValue = benchmarkBase && benchmarkValue ? benchmarkValue / benchmarkBase : null
+      equityCurve.push({
+        date,
+        netValue: round(portfolioValue / initialCapital, 6) || 0,
+        cumulativeReturnPercent: round(((portfolioValue / initialCapital) - 1) * 100, 4) || 0,
+        dailyReturnPercent: round(dailyReturnPercent, 4) || 0,
+        drawdownPercent: round(peak > 0 ? ((portfolioValue / peak) - 1) * 100 : 0, 4) || 0,
+        benchmark: benchmarkNetValue === null ? {} : {
+          [input.benchmarkId]: {
+            netValue: round(benchmarkNetValue, 6) || 0,
+            cumulativeReturnPercent: round((benchmarkNetValue - 1) * 100, 4) || 0,
+          },
+        },
+      })
+      lastValue = portfolioValue
+    }
+    const benchmarkReturnPercent = equityCurve.at(-1)?.benchmark?.[input.benchmarkId]?.cumulativeReturnPercent ?? null
+    const metrics = this.metrics(
+      equityCurve,
+      dailyReturns,
+      turnoverNotional,
+      totalCost,
+      initialCapital,
+      benchmarkReturnPercent,
+      input.definition.dividendPolicy === 'cash' ? (dividendCashReceived / initialCapital) * 100 : null,
+    )
+    return {
+      definition: input.definition,
+      status: blockedReasons.length === 0 ? 'completed' as const : 'insufficient' as const,
+      equityCurve,
+      drawdownCurve: equityCurve.map((point) => ({ date: point.date, drawdownPercent: point.drawdownPercent })),
+      metrics,
+      dataCoverage: {
+        priceCoveragePercent: dates.length > 0 ? 100 : 0,
+        benchmarkCoveragePercent: dates.length > 0 ? 100 : 0,
+        missingSymbols,
+      },
+      blockedReasons,
+      warnings: [
+        'formal_validation_replay_uses_ftr1_cross_checked_primary_series',
+        ...(input.definition.dividendPolicy === 'cash'
+          ? ['cash_dividend_replay_converts_qfq_reinvestment_value_to_reserved_cash_on_real_ex_date']
+          : []),
+      ],
+      evidenceRefs: input.sourceEvidenceRefs,
+    }
+  }
+
   async run(input: PortfolioBacktestInputBuildResult): Promise<PortfolioBacktestResult> {
     const strategies: PortfolioBacktestStrategyResult[] = []
     for (const definition of input.strategies) {
@@ -196,6 +337,7 @@ export class PortfolioBacktestEngine {
     let lastValue = initialCapital
     let turnoverNotional = 0
     let totalCost = 0
+    let cashBalance = initialCapital
     const shares = new Map<string, number>()
     const equityCurve: PortfolioBacktestCurvePoint[] = []
     const dailyReturns: number[] = []
@@ -204,16 +346,17 @@ export class PortfolioBacktestEngine {
 
     for (let index = 0; index < dates.length; index += 1) {
       const date = dates[index]
+      portfolioValue = this.markedPortfolioValue(definition, seriesBySymbol, date, shares, cashBalance)
       const shouldRebalance = index === 0 || this.shouldRebalance(date, lastRebalanceKey, input.request.rebalanceFrequency)
       if (shouldRebalance) {
-        const rebalanceResult = this.rebalance(definition, seriesBySymbol, date, portfolioValue, shares)
+        const rebalanceResult = this.rebalanceWithCash(definition, seriesBySymbol, date, portfolioValue, shares)
         turnoverNotional += rebalanceResult.turnover
         totalCost += rebalanceResult.cost
-        portfolioValue -= rebalanceResult.cost
+        cashBalance = rebalanceResult.cash
         lastRebalanceKey = this.rebalanceKey(date, input.request.rebalanceFrequency)
       }
 
-      portfolioValue = this.valuePortfolio(definition, seriesBySymbol, date, shares, portfolioValue)
+      portfolioValue = this.markedPortfolioValue(definition, seriesBySymbol, date, shares, cashBalance)
       peak = Math.max(peak, portfolioValue)
       const dailyReturnPercent = index === 0 ? 0 : ((portfolioValue / lastValue) - 1) * 100
       if (index > 0) dailyReturns.push(dailyReturnPercent / 100)
@@ -549,49 +692,62 @@ export class PortfolioBacktestEngine {
     return 'none'
   }
 
-  private rebalance(
+  private rebalanceWithCash(
     definition: PortfolioStrategyDefinition,
     seriesBySymbol: Map<string, PriceSeries>,
     date: string,
-    portfolioValue: number,
+    grossCapital: number,
     shares: Map<string, number>,
   ) {
-    let turnover = 0
-    for (const component of definition.components) {
-      if (component.assetClass === 'cash') continue
-      const symbol = component.symbol || component.proxySymbol
-      if (!symbol) continue
-      const price = seriesBySymbol.get(symbol)?.get(date)
-      if (!price || price <= 0) continue
-      const targetValue = portfolioValue * (component.targetWeightPercent / 100)
-      const currentValue = (shares.get(symbol) || 0) * price
-      turnover += Math.abs(targetValue - currentValue)
-      shares.set(symbol, targetValue / price)
-    }
-    const cost = turnover * (definition.costModel.feeRate + definition.costModel.slippageRate)
-    return { turnover, cost }
-  }
-
-  private valuePortfolio(
-    definition: PortfolioStrategyDefinition,
-    seriesBySymbol: Map<string, PriceSeries>,
-    date: string,
-    shares: Map<string, number>,
-    currentValue: number,
-  ) {
-    let value = 0
-    let investedWeight = 0
+    const currentValues = new Map<string, number>()
     for (const component of definition.components) {
       if (component.assetClass === 'cash') continue
       const symbol = component.symbol || component.proxySymbol
       const price = symbol ? seriesBySymbol.get(symbol)?.get(date) : undefined
-      if (!symbol || !price) continue
-      value += (shares.get(symbol) || 0) * price
-      investedWeight += component.targetWeightPercent
+      if (symbol && price && price > 0) currentValues.set(symbol, (shares.get(symbol) || 0) * price)
     }
-    const cashWeight = Math.max(0, 100 - investedWeight)
-    if (cashWeight > 0) {
-      value += currentValue * (cashWeight / 100)
+    const costRate = definition.costModel.feeRate + definition.costModel.slippageRate
+    let investableCapital = grossCapital
+    let turnover = 0
+    let cost = 0
+    for (let iteration = 0; iteration < 4; iteration += 1) {
+      turnover = 0
+      for (const component of definition.components) {
+        if (component.assetClass === 'cash') continue
+        const symbol = component.symbol || component.proxySymbol
+        if (!symbol || !seriesBySymbol.get(symbol)?.get(date)) continue
+        const targetValue = investableCapital * (component.targetWeightPercent / 100)
+        turnover += Math.abs(targetValue - (currentValues.get(symbol) || 0))
+      }
+      cost = turnover * costRate
+      investableCapital = Math.max(0, grossCapital - cost)
+    }
+    let invested = 0
+    for (const component of definition.components) {
+      if (component.assetClass === 'cash') continue
+      const symbol = component.symbol || component.proxySymbol
+      const price = symbol ? seriesBySymbol.get(symbol)?.get(date) : undefined
+      if (!symbol || !price || price <= 0) continue
+      const targetValue = investableCapital * (component.targetWeightPercent / 100)
+      shares.set(symbol, targetValue / price)
+      invested += targetValue
+    }
+    return { turnover, cost, cash: Math.max(0, investableCapital - invested) }
+  }
+
+  private markedPortfolioValue(
+    definition: PortfolioStrategyDefinition,
+    seriesBySymbol: Map<string, PriceSeries>,
+    date: string,
+    shares: Map<string, number>,
+    cashBalance: number,
+  ) {
+    let value = cashBalance
+    for (const component of definition.components) {
+      if (component.assetClass === 'cash') continue
+      const symbol = component.symbol || component.proxySymbol
+      const price = symbol ? seriesBySymbol.get(symbol)?.get(date) : undefined
+      if (symbol && price && price > 0) value += (shares.get(symbol) || 0) * price
     }
     return value
   }

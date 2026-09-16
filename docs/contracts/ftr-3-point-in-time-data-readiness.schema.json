@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fams.local/schemas/ftr-3-point-in-time-data-readiness.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "candidateId", "generatedAt", "dataRoute", "sourceFtr3Artifact", "sourcePointInTimeArtifact", "referenceUniverse", "requirements", "decisionPoints", "summary", "lookAheadGuard", "accountFactsUnchanged", "realDataUsed", "status", "blockers", "prohibitedActions", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
+  "properties": {
+    "schemaVersion": {"const": "fams.ftr_3r.point_in_time_data_readiness.v3"},
+    "stageId": {"const": "FTR-3R0"},
+    "candidateId": {"const": "dividend_low_vol_basket"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "dataRoute": {"const": "qualified_free_source_point_in_time"},
+    "sourceFtr3Artifact": {"$ref": "#/$defs/evidenceRef"},
+    "sourcePointInTimeArtifact": {"$ref": "#/$defs/evidenceRef"},
+    "referenceUniverse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "provider", "fetchedAt", "symbolCount", "sha256", "historicalMembershipClaimed"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "provider": {"const": "baostock_stock_basic_lifecycle"},
+        "fetchedAt": {"type": "string", "format": "date-time"},
+        "symbolCount": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "historicalMembershipClaimed": {"const": true}
+      }
+    },
+    "requirements": {
+      "type": "object", "additionalProperties": false,
+      "required": ["decisionPointCount", "minimumCoveragePercent", "announcementCutoffRequired", "historicalSecurityStatusRequired", "historicalStatusEvidenceMode", "historicalStatusProxyAllowed", "qualifiedPointInTimeProviderRequired"],
+      "properties": {
+        "decisionPointCount": {"const": 6},
+        "minimumCoveragePercent": {"const": 80},
+        "announcementCutoffRequired": {"const": true},
+        "historicalSecurityStatusRequired": {"const": true},
+        "historicalStatusEvidenceMode": {"const": "baostock_direct_daily"},
+        "historicalStatusProxyAllowed": {"const": false},
+        "qualifiedPointInTimeProviderRequired": {"const": true}
+      }
+    },
+    "decisionPoints": {
+      "type": "array", "minItems": 6, "maxItems": 6,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["windowId", "decisionDate", "referenceUniverseCount", "minimumRequiredSymbols", "marketBarSymbolCount", "marketBarCoveragePercent", "tradeabilitySymbolCount", "tradeabilityCoveragePercent", "candidateSnapshotSymbolCount", "candidateSnapshotCoveragePercent", "historicalSecurityStatusSymbolCount", "historicalSecurityStatusCoveragePercent", "failedStatusShardCount", "statusPriceConflictCount", "historicalStatusEvidenceMode", "historicalStatusProxyAllowed", "announcementAwareFundamentalSymbolCount", "announcementAwareFundamentalCoveragePercent", "pointInTimeCandidateSnapshotPresent", "announcementCutoffVerified", "pointInTimeSelectionReady", "snapshotPath", "snapshotSha256", "blockers"],
+        "properties": {
+          "windowId": {"type": "string", "pattern": "^wf-0[1-6]$"},
+          "decisionDate": {"type": "string", "format": "date"},
+          "referenceUniverseCount": {"type": "integer", "minimum": 1},
+          "minimumRequiredSymbols": {"type": "integer", "minimum": 1},
+          "marketBarSymbolCount": {"type": "integer", "minimum": 0},
+          "marketBarCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "tradeabilitySymbolCount": {"type": "integer", "minimum": 0},
+          "tradeabilityCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "candidateSnapshotSymbolCount": {"type": "integer", "minimum": 0},
+          "candidateSnapshotCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "historicalSecurityStatusSymbolCount": {"type": "integer", "minimum": 0},
+          "historicalSecurityStatusCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "failedStatusShardCount": {"type": "integer", "minimum": 0},
+          "statusPriceConflictCount": {"type": "integer", "minimum": 0},
+          "historicalStatusEvidenceMode": {"const": "baostock_direct_daily"},
+          "historicalStatusProxyAllowed": {"const": false},
+          "announcementAwareFundamentalSymbolCount": {"type": "integer", "minimum": 0},
+          "announcementAwareFundamentalCoveragePercent": {"type": "number", "minimum": 0, "maximum": 100},
+          "pointInTimeCandidateSnapshotPresent": {"type": "boolean"},
+          "announcementCutoffVerified": {"const": true},
+          "pointInTimeSelectionReady": {"type": "boolean"},
+          "snapshotPath": {"type": "string", "minLength": 1},
+          "snapshotSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["readyDecisionPointCount", "decisionPointCount", "allDecisionPointsReady", "paidFormalProviderConfigured", "qualifiedPointInTimeProviderReady", "availableCandidateSnapshotDates", "candidateSnapshotFirstDate", "candidateSnapshotLastDate", "ftr3CandidateRedesignAllowed", "ftr4EntryAllowed"],
+      "properties": {
+        "readyDecisionPointCount": {"type": "integer", "minimum": 0, "maximum": 6},
+        "decisionPointCount": {"const": 6},
+        "allDecisionPointsReady": {"type": "boolean"},
+        "paidFormalProviderConfigured": {"type": "boolean"},
+        "qualifiedPointInTimeProviderReady": {"type": "boolean"},
+        "availableCandidateSnapshotDates": {"const": 6},
+        "candidateSnapshotFirstDate": {"const": "2025-12-12"},
+        "candidateSnapshotLastDate": {"const": "2026-06-22"},
+        "ftr3CandidateRedesignAllowed": {"type": "boolean"},
+        "ftr4EntryAllowed": {"const": false}
+      }
+    },
+    "lookAheadGuard": {
+      "type": "object", "additionalProperties": false,
+      "required": ["currentSnapshotHistoricalReuseDetected", "futureAnnouncementReuseDetected", "survivorshipBiasResolved", "currentUniverseUsedAsHistoricalMembership", "historicalSecurityStatusProxyUsed"],
+      "properties": {
+        "currentSnapshotHistoricalReuseDetected": {"const": false},
+        "futureAnnouncementReuseDetected": {"const": false},
+        "survivorshipBiasResolved": {"type": "boolean"},
+        "currentUniverseUsedAsHistoricalMembership": {"const": false},
+        "historicalSecurityStatusProxyUsed": {"const": false}
+      }
+    },
+    "accountFactsUnchanged": {"const": true},
+    "realDataUsed": {"const": true},
+    "status": {"enum": ["passed", "insufficient"]},
+    "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "prohibitedActions": {
+      "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true,
+      "allOf": [{"contains": {"const": "ADD"}}, {"contains": {"const": "REDUCE"}}, {"contains": {"const": "ORDER_CREATE"}}, {"contains": {"const": "AUTO_TRADE"}}]
+    },
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "passed"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "blockers": {"maxItems": 0},
+          "decisionPoints": {
+            "items": {
+              "properties": {
+                "marketBarCoveragePercent": {"minimum": 80},
+                "tradeabilityCoveragePercent": {"minimum": 80},
+                "candidateSnapshotCoveragePercent": {"minimum": 80},
+                "historicalSecurityStatusCoveragePercent": {"minimum": 80},
+                "announcementAwareFundamentalCoveragePercent": {"minimum": 80},
+                "pointInTimeCandidateSnapshotPresent": {"const": true},
+                "pointInTimeSelectionReady": {"const": true},
+                "blockers": {"maxItems": 0}
+              }
+            }
+          },
+          "summary": {
+            "properties": {
+              "readyDecisionPointCount": {"const": 6},
+              "allDecisionPointsReady": {"const": true},
+              "qualifiedPointInTimeProviderReady": {"const": true},
+              "ftr3CandidateRedesignAllowed": {"const": true}
+            }
+          },
+          "lookAheadGuard": {"properties": {"survivorshipBiasResolved": {"const": true}}}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "evidenceRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    }
+  }
+}

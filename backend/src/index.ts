@@ -20,6 +20,7 @@ import { fundRoutes } from './routes/fund.js'
 import { tagRoutes } from './routes/tag.js'
 import { authRoutes } from './routes/auth.js'
 import { mcpRouter } from './mcp/index.js'
+import { publicPortfolioMcpHttpRouter } from './mcp/portfolioHttp.js'
 import { agentRouter } from './agents/router.js'
 import { workflowRouter } from './workflow/router.js'
 import { llmRoutes } from './routes/llm.js'
@@ -37,11 +38,13 @@ import { factsetRefreshScheduler } from './services/operation/factsetRefreshSche
 import { runtimeHealthService } from './services/runtime/runtimeHealthService.js'
 import { dailyReviewRoutes } from './routes/dailyReview.js'
 import { captureRoutes } from './routes/capture.js'
+import { investmentWorkflowRoutes } from './routes/investmentWorkflow.js'
 import { dailyReviewScheduler } from './services/review/dailyReviewScheduler.js'
 import { dailyReviewService } from './services/review/dailyReviewService.js'
 import { alipayResearchWorkflowScheduler } from './services/review/alipayResearchWorkflowScheduler.js'
 import { brokerReviewReminderScheduler } from './services/review/brokerReviewReminderScheduler.js'
 import { industryCrowdingBackfillScheduler } from './services/relative-rotation/industryCrowdingBackfillScheduler.js'
+import { portfolioWorkflowFacade } from './services/mcp/portfolioWorkflowFacade.js'
 
 const app = Fastify({ logger: true, maxParamLength: 1024 })
 const configuredPort = Number(process.env.PORT || 4000)
@@ -160,9 +163,13 @@ async function registerRoutes() {
   await app.register(tagRoutes, { prefix: '/api/v1/tags' })
   await app.register(dailyReviewRoutes, { prefix: '/api/v1/daily-reviews' })
   await app.register(captureRoutes, { prefix: '/api/v1/captures' })
+  await app.register(investmentWorkflowRoutes, { prefix: '/api/v1/investment-workflow' })
 
   // AI Agent相关路由
   await app.register(mcpRouter, { prefix: '/api/v1/mcp' })
+  if (process.env.FAMS_MCP_HTTP_ENABLED === 'true') {
+    await app.register(publicPortfolioMcpHttpRouter, { prefix: '/mcp' })
+  }
   await app.register(agentRouter, { prefix: '/api/v1/agents' })
   await app.register(workflowRouter, { prefix: '/api/v1/workflows' })
 
@@ -194,6 +201,10 @@ async function start() {
     if (recoveredReviews.recoveredCount > 0) {
       app.log.info(recoveredReviews, 'Recovered interrupted daily portfolio reviews')
     }
+    const recoveredPortfolioMcpReviews = await portfolioWorkflowFacade.recoverInterruptedReviews()
+    if (recoveredPortfolioMcpReviews.recoveredCount > 0) {
+      app.log.info(recoveredPortfolioMcpReviews, 'Recovered interrupted public portfolio MCP reviews')
+    }
 
     await app.listen({ port: appPort, host: '0.0.0.0' })
     factsetRefreshScheduler.start(app.log)
@@ -204,6 +215,9 @@ async function start() {
     console.log(`🚀 FAMS API Server running at http://localhost:${appPort}`)
     console.log(`📖 API Docs available at http://localhost:${appPort}/api-docs`)
     console.log(`🤖 MCP Router available at http://localhost:${appPort}/api/v1/mcp`)
+    if (process.env.FAMS_MCP_HTTP_ENABLED === 'true') {
+      console.log(`🔐 Portfolio MCP available at http://localhost:${appPort}/mcp`)
+    }
   } catch (err) {
     await sqliteWriterLock?.release().catch(() => undefined)
     app.log.error(err)

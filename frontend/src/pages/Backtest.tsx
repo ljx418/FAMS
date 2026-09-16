@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, App as AntApp, Button, Card, Checkbox, Col, DatePicker, Form, Input, InputNumber, Row, Select, Tag } from 'antd'
+import { Alert, App as AntApp, Button, Card, Checkbox, Col, DatePicker, Form, Input, InputNumber, Row, Segmented, Select, Tag } from 'antd'
 import axios from 'axios'
 import { useLocation, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { RobotOutlined } from '@ant-design/icons'
+import { BarChartOutlined, HistoryOutlined, LineChartOutlined, PlayCircleOutlined, RobotOutlined } from '@ant-design/icons'
 import { ExperienceModeToggle, type ExperienceMode } from '../components/common/ExperienceModeToggle'
 import { PlainLanguageHelp } from '../components/common/PlainLanguageHelp'
 import { PortfolioBacktestSummaryCard } from '../components/backtest/PortfolioBacktestSummaryCard'
 import { StrategyComparisonExplainer } from '../components/backtest/StrategyComparisonExplainer'
+import { InvestmentWorkflowBar } from '../components/investment-workflow/InvestmentWorkflowBar'
 
 const { RangePicker } = DatePicker
 
@@ -39,6 +40,41 @@ const askChatBox = (messageText: string) => {
   window.dispatchEvent(new CustomEvent('fams-chat:ask', {
     detail: { message: messageText },
   }))
+}
+
+type AdviceSummaryOption = {
+  adviceId: string
+  generatedAt: string
+  summaryText: string
+  riskLevel: string
+  status: string
+  scope: string
+  accountIds: string[]
+  accountLabels: string[]
+  actionCount: number
+  executableActionCount: number
+  backtestEligible: boolean
+}
+
+type ScenarioComparisonResult = {
+  status: 'available' | 'insufficient'
+  replayMode: string
+  source: { type: string; id: string; snapshotRef: string }
+  inputSnapshot: { snapshotHash: string; startDate: string; endDate: string; observedThrough?: string | null; generatedAt?: string }
+  executionAssumptions?: { firstAdviceExecutionDate?: string | null; commissionRate: number; slippageRate: number }
+  dataHealth: { status: string; providers: string[]; observedThrough?: string; actualTransactionReconciliation: string; transactionCount?: number }
+  scenarios: Array<{
+    id: 'follow_advice' | 'hold_without_action' | 'actual_transactions'
+    label: string
+    curve: Array<{ date: string; equity: number; cumulativeReturnPercent: number; drawdownPercent: number }>
+    metrics: { totalReturnPercent: number | null; maxDrawdownPercent: number | null; startValue: number | null; endValue: number | null }
+    executedEvents: unknown[]
+  }>
+  timeSensitivity?: Array<{ startDate: string; offsetTradingDays: number; holdTerminalReturnPercent: number | null }>
+  adviceOutcome?: { totalActionCount: number; closedActionCount: number; openActionCountExcludedFromWinRate: number; note: string }
+  evidenceRefs: string[]
+  blockedReasons: string[]
+  permissionState: { formalTradingUnlocked: false; autoTradeUnlocked: false; canCreateOrder: false; orderCreateAllowed: false }
 }
 
 const PortfolioCurveChart: React.FC<{ strategies: any[] }> = ({ strategies }) => {
@@ -127,6 +163,54 @@ const PortfolioCurveChart: React.FC<{ strategies: any[] }> = ({ strategies }) =>
   )
 }
 
+const ScenarioComparisonChart: React.FC<{ result: ScenarioComparisonResult }> = ({ result }) => {
+  const dates = result.scenarios[0]?.curve.map((point) => point.date) || []
+  if (dates.length === 0) return <div className="flex h-64 items-center justify-center text-slate-500">当前没有可绘制的共同交易日</div>
+  const colors: Record<string, string> = {
+    follow_advice: '#2563eb',
+    hold_without_action: '#64748b',
+    actual_transactions: '#0f9f6e',
+  }
+  const option: EChartsOption = {
+    animation: false,
+    color: result.scenarios.map((scenario) => colors[scenario.id]),
+    tooltip: { trigger: 'axis', valueFormatter: (value) => `${Number(value).toFixed(2)}%` },
+    legend: { top: 0, data: result.scenarios.map((scenario) => scenario.label), textStyle: { color: '#334155' } },
+    grid: [
+      { left: 52, right: 42, top: 52, height: 190 },
+      { left: 52, right: 42, top: 286, height: 90 },
+    ],
+    xAxis: [
+      { type: 'category', boundaryGap: false, data: dates, axisLabel: { color: '#64748b' } },
+      { type: 'category', boundaryGap: false, data: dates, gridIndex: 1, axisLabel: { color: '#64748b' } },
+    ],
+    yAxis: [
+      { type: 'value', name: '累计收益', axisLabel: { formatter: '{value}%', color: '#64748b' }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+      { type: 'value', name: '回撤', gridIndex: 1, axisLabel: { formatter: '{value}%', color: '#64748b' }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+    ],
+    series: [
+      ...result.scenarios.map((scenario) => ({
+        name: scenario.label,
+        type: 'line' as const,
+        showSymbol: false,
+        smooth: true,
+        lineStyle: { width: scenario.id === 'actual_transactions' ? 3 : 2 },
+        data: scenario.curve.map((point) => point.cumulativeReturnPercent),
+      })),
+      ...result.scenarios.map((scenario) => ({
+        name: `${scenario.label}回撤`,
+        type: 'line' as const,
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        showSymbol: false,
+        areaStyle: { opacity: 0.08 },
+        data: scenario.curve.map((point) => point.drawdownPercent),
+      })),
+    ],
+  }
+  return <ReactECharts option={option} style={{ height: 410, width: '100%' }} notMerge lazyUpdate />
+}
+
 const FIXED_RULE_COLORS = ['#38bdf8', '#34d399', '#fbbf24', '#a78bfa', '#fb7185', '#f97316', '#94a3b8']
 
 const FixedRulePrimaryChart: React.FC<{
@@ -134,7 +218,8 @@ const FixedRulePrimaryChart: React.FC<{
   visibleStrategyIds: string[]
   view: 'asset' | 'return' | 'weight'
   focusedStrategyId: string
-}> = ({ study, visibleStrategyIds, view, focusedStrategyId }) => {
+  showSlider: boolean
+}> = ({ study, visibleStrategyIds, view, focusedStrategyId, showSlider }) => {
   const strategies = (study?.strategies || []).filter((strategy: any) => visibleStrategyIds.includes(strategy.strategyId))
   const focused = strategies.find((strategy: any) => strategy.strategyId === focusedStrategyId) || strategies[0]
   if (strategies.length === 0) return <div className="flex h-72 items-center justify-center text-gray-500">请选择至少一个组合</div>
@@ -146,7 +231,7 @@ const FixedRulePrimaryChart: React.FC<{
     tooltip: { trigger: 'axis', valueFormatter: (value) => `${Number(value).toFixed(2)}%` },
     legend: { type: 'scroll', top: 0, textStyle: { color: '#94a3b8' } },
     grid: { left: 56, right: 24, top: 52, bottom: 66 },
-    dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 12, height: 22 }],
+    dataZoom: showSlider ? [{ type: 'inside' }, { type: 'slider', bottom: 12, height: 22 }] : [{ type: 'inside' }],
     xAxis: {
       type: 'category',
       boundaryGap: false,
@@ -184,7 +269,7 @@ const FixedRulePrimaryChart: React.FC<{
     },
     legend: { type: 'scroll', top: 0, textStyle: { color: '#94a3b8' }, selectedMode: false },
     grid: { left: 70, right: 24, top: 52, bottom: 66 },
-    dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 12, height: 22 }],
+    dataZoom: showSlider ? [{ type: 'inside' }, { type: 'slider', bottom: 12, height: 22 }] : [{ type: 'inside' }],
     xAxis: { type: 'time', axisLabel: { color: '#94a3b8' } },
     yAxis: {
       type: 'value',
@@ -213,7 +298,8 @@ const FixedRuleSensitivityChart: React.FC<{
   mode: 'strategy' | 'aggregate'
   metric: 'peak' | 'annualized' | 'drawdown'
   onSelectStartDate: (startDate: string) => void
-}> = ({ study, visibleStrategyIds, mode, metric, onSelectStartDate }) => {
+  showSlider: boolean
+}> = ({ study, visibleStrategyIds, mode, metric, onSelectStartDate, showSlider }) => {
   const strategies = (study?.strategies || []).filter((strategy: any) => visibleStrategyIds.includes(strategy.strategyId))
   const starts = Array.from(new Set(strategies.flatMap((strategy: any) => (
     (strategy.sensitivity || []).map((point: any) => point.startDate)
@@ -263,7 +349,7 @@ const FixedRuleSensitivityChart: React.FC<{
     tooltip: { trigger: 'axis', valueFormatter: (value) => `${Number(value).toFixed(2)}%` },
     legend: { type: 'scroll', top: 0, textStyle: { color: '#94a3b8' }, selectedMode: false },
     grid: { left: 58, right: 24, top: 52, bottom: 66 },
-    dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 12, height: 22 }],
+    dataZoom: showSlider ? [{ type: 'inside' }, { type: 'slider', bottom: 12, height: 22 }] : [{ type: 'inside' }],
     xAxis: { type: 'time', axisLabel: { color: '#94a3b8' } },
     yAxis: {
       type: 'value',
@@ -293,7 +379,8 @@ const FixedRuleStudyPanel: React.FC<{
   study: any
   userId: string
   onStartDateSelected: (startDate: string) => void
-}> = ({ study, userId, onStartDateSelected }) => {
+  experienceMode: ExperienceMode
+}> = ({ study, userId, onStartDateSelected, experienceMode }) => {
   const { message } = AntApp.useApp()
   const [visibleStrategyIds, setVisibleStrategyIds] = useState<string[]>([])
   const [focusedStrategyId, setFocusedStrategyId] = useState('')
@@ -434,7 +521,7 @@ const FixedRuleStudyPanel: React.FC<{
           </div>
         )}
         <div className={detailLoading ? 'pointer-events-none opacity-50' : ''}>
-          <FixedRulePrimaryChart study={activeStudy} visibleStrategyIds={visibleStrategyIds} view={primaryView} focusedStrategyId={focusedStrategyId} />
+          <FixedRulePrimaryChart study={activeStudy} visibleStrategyIds={visibleStrategyIds} view={primaryView} focusedStrategyId={focusedStrategyId} showSlider={experienceMode === 'expert'} />
         </div>
       </div>
 
@@ -454,7 +541,7 @@ const FixedRuleStudyPanel: React.FC<{
             ))}
           </div>
         </div>
-        <FixedRuleSensitivityChart study={study} visibleStrategyIds={visibleStrategyIds} mode={sensitivityMode} metric={sensitivityMetric} onSelectStartDate={(date) => void loadDetail(date)} />
+        <FixedRuleSensitivityChart study={study} visibleStrategyIds={visibleStrategyIds} mode={sensitivityMode} metric={sensitivityMetric} onSelectStartDate={(date) => void loadDetail(date)} showSlider={experienceMode === 'expert'} />
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-400" data-testid="sensitivity-start-shortcuts">
           <span>无障碍起点选择：</span>
           {sensitivityShortcuts.map((date) => (
@@ -624,8 +711,15 @@ const Backtest: React.FC = () => {
   const { message } = AntApp.useApp()
   const location = useLocation()
   const navigate = useNavigate()
+  const requestedWorkspaceMode = new URLSearchParams(location.search).get('mode')
+  const workspaceMode: 'review' | 'portfolio' | 'history' = requestedWorkspaceMode === 'portfolio' || requestedWorkspaceMode === 'history'
+    ? requestedWorkspaceMode
+    : 'review'
   const [form] = Form.useForm()
+  const selectedAdviceId = Form.useWatch('adviceId', form)
   const [submitting, setSubmitting] = useState(false)
+  const [adviceSummariesLoading, setAdviceSummariesLoading] = useState(false)
+  const [adviceSummaries, setAdviceSummaries] = useState<AdviceSummaryOption[]>([])
   const [loadingResult, setLoadingResult] = useState(false)
   const [loadingAdviceDetail, setLoadingAdviceDetail] = useState(false)
   const [loadingExecutionReview, setLoadingExecutionReview] = useState(false)
@@ -735,6 +829,18 @@ const Backtest: React.FC = () => {
       }
       notes: string[]
     } | null
+    executionDiagnostics?: {
+      evidenceSufficiency: 'sufficient' | 'partial' | 'insufficient' | 'not_applicable'
+      suggestedActionCount: number
+      executableActionCount: number
+      humanDecisionRecordedCount: number
+      humanAcceptedCount: number
+      marketEvidenceAvailableCount: number
+      marketTouchedCount: number
+      executionRecordedCount: number
+      acceptedExecutionRate: number | null
+      reasonBreakdown: Record<string, number>
+    } | null
   }>(null)
   const [executionWindowReview, setExecutionWindowReview] = useState<null | {
     adviceId: string
@@ -766,6 +872,8 @@ const Backtest: React.FC = () => {
     }
     notes: string[]
   } | null>(null)
+  const [scenarioComparison, setScenarioComparison] = useState<ScenarioComparisonResult | null>(null)
+  const [scenarioComparisonLoading, setScenarioComparisonLoading] = useState(false)
   const [portfolioBacktestLoading, setPortfolioBacktestLoading] = useState(false)
   const [portfolioTemplates, setPortfolioTemplates] = useState<any[]>([])
   const [portfolioTemplateError, setPortfolioTemplateError] = useState<string | null>(null)
@@ -841,6 +949,33 @@ const Backtest: React.FC = () => {
     void fetchHistory()
     return () => { cancelled = true }
   }, [portfolioBacktestParams.userId])
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchAdviceSummaries = async () => {
+      setAdviceSummariesLoading(true)
+      try {
+        const response = await axios.get('/api/v1/analysis/advice-summaries', { params: { userId: 'default', limit: 50 } })
+        if (!cancelled) {
+          const items = Array.isArray(response.data?.items) ? response.data.items : []
+          setAdviceSummaries(items)
+          if (!form.getFieldValue('adviceId')) {
+            const firstEligible = items.find((item: AdviceSummaryOption) => item.backtestEligible)
+            if (firstEligible) form.setFieldValue('adviceId', firstEligible.adviceId)
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to fetch advice summaries:', error)
+          setAdviceSummaries([])
+        }
+      } finally {
+        if (!cancelled) setAdviceSummariesLoading(false)
+      }
+    }
+    void fetchAdviceSummaries()
+    return () => { cancelled = true }
+  }, [form])
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -925,7 +1060,7 @@ const Backtest: React.FC = () => {
   }, [backtestOperation?.id, backtestOperation?.status])
 
   useEffect(() => {
-    const adviceId = form.getFieldValue('adviceId') || latestRun?.adviceId
+    const adviceId = selectedAdviceId || latestRun?.adviceId
     if (!adviceId) {
       setAdviceDetail(null)
       return
@@ -955,10 +1090,10 @@ const Backtest: React.FC = () => {
     return () => {
       cancelled = true
     }
-  }, [form, latestRun?.adviceId, location.search])
+  }, [selectedAdviceId, latestRun?.adviceId, location.search])
 
   useEffect(() => {
-    const adviceId = form.getFieldValue('adviceId') || latestRun?.adviceId
+    const adviceId = selectedAdviceId || latestRun?.adviceId
     const [start, end] = form.getFieldValue('range') || []
     const startDate = latestRun?.startDate || (start ? start.format('YYYY-MM-DD') : undefined)
     const endDate = latestRun?.endDate || (end ? end.format('YYYY-MM-DD') : undefined)
@@ -997,7 +1132,7 @@ const Backtest: React.FC = () => {
     return () => {
       cancelled = true
     }
-  }, [form, latestRun?.adviceId, latestRun?.startDate, latestRun?.endDate])
+  }, [selectedAdviceId, latestRun?.adviceId, latestRun?.startDate, latestRun?.endDate, form])
 
   useEffect(() => {
     if (!latestRun?.backtestId) return undefined
@@ -1052,6 +1187,58 @@ const Backtest: React.FC = () => {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleRunScenarioComparison = async () => {
+    try {
+      const values = await form.validateFields()
+      const selectedAdvice = adviceSummaries.find((item) => item.adviceId === values.adviceId)
+      let selectedGeneratedAt = selectedAdvice?.generatedAt
+        || (adviceDetail && adviceDetail.adviceId === values.adviceId ? adviceDetail.generatedAt : null)
+      if (!selectedGeneratedAt) {
+        const detailResponse = await axios.get(`/api/v1/analysis/advice/${values.adviceId}`, { params: { userId: 'default' } })
+        selectedGeneratedAt = detailResponse.data?.generatedAt || null
+      }
+      const generatedDate = selectedGeneratedAt ? dayjs(selectedGeneratedAt).format('YYYY-MM-DD') : null
+      const [requestedStart, requestedEnd] = values.range || []
+      const requestedStartDate = requestedStart?.format('YYYY-MM-DD')
+      const startDate = generatedDate && (!requestedStartDate || requestedStartDate < generatedDate)
+        ? generatedDate
+        : requestedStartDate || generatedDate
+      const endDate = requestedEnd?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD')
+      if (!startDate) {
+        message.warning('历史建议缺少生成日期，无法冻结复盘区间')
+        return
+      }
+      setScenarioComparisonLoading(true)
+      setScenarioComparison(null)
+      const response = await axios.post('/api/v1/backtest/scenario-comparison', {
+        userId: 'default',
+        sourceType: 'advice',
+        sourceId: values.adviceId,
+        replayMode: 'saved_advice_replay',
+        startDate,
+        endDate,
+        initialCapital: Number(values.initialCapital || 100000),
+        commissionRate: 0.0003,
+        slippageRate: 0.0005,
+      })
+      setScenarioComparison(response.data)
+      if (response.data?.status === 'available') message.success('三场景复盘已使用真实价格与成交流水生成')
+      else message.warning('数据证据不足，系统已保持 insufficient 并列出阻断原因')
+    } catch (error) {
+      if ((error as any)?.errorFields) return
+      console.error('Failed to run scenario comparison:', error)
+      message.error((error as any)?.response?.data?.message || '三场景复盘失败')
+    } finally {
+      setScenarioComparisonLoading(false)
+    }
+  }
+
+  const handleWorkspaceModeChange = (value: string | number) => {
+    const params = new URLSearchParams(location.search)
+    params.set('mode', String(value))
+    navigate({ pathname: '/backtest', search: params.toString() })
   }
 
   const handleRunPortfolioBacktest = async () => {
@@ -1314,12 +1501,25 @@ const Backtest: React.FC = () => {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white mb-6">策略回测</h1>
+      <InvestmentWorkflowBar currentStep="backtest_review" />
+      <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm" aria-label="策略回测视图" data-testid="backtest-workspace-switcher">
+        <Segmented
+          block
+          value={workspaceMode}
+          onChange={handleWorkspaceModeChange}
+          options={[
+            { value: 'review', label: <span><LineChartOutlined className="mr-2" />建议复盘</span> },
+            { value: 'portfolio', label: <span><BarChartOutlined className="mr-2" />组合回测</span> },
+            { value: 'history', label: <span><HistoryOutlined className="mr-2" />历史运行</span> },
+          ]}
+        />
+      </section>
       <Card className="bg-[#1a1a2e] border-surface-border" styles={{ body: { padding: 14 } }}>
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-4xl">
             <div className="text-base font-semibold text-white">本页能做什么</div>
             <div className="mt-2 text-sm leading-6 text-gray-300">
-              用真实样本和免费数据源比较多个组合策略，先看
+              {workspaceMode === 'review' ? '用同一份真实行情和成交流水，对比按建议、不执行建议与实际持仓，先看' : '用真实样本和免费数据源比较多个组合策略，先看'}
               {' '}<PlainLanguageHelp term="收益曲线" explanation="把不同策略在同一时间段内的累计收益放在一张图上，便于看谁表现更稳定。" />、
               {' '}<PlainLanguageHelp term="最大回撤" explanation="策略期间从高点跌到低点的最大幅度，用来衡量最难受的亏损阶段。" />、
               {' '}<PlainLanguageHelp term="正式交易 gate" explanation="即使回测表现好，未通过数据、模型、人工签核和执行治理前，也不能生成正式交易动作。" />。
@@ -1336,7 +1536,8 @@ const Backtest: React.FC = () => {
           </div>
         </div>
       </Card>
-      <Card title={<span className="text-primary">组合策略对比回测</span>} className="bg-[#1a1a2e] border-surface-border">
+      {workspaceMode === 'portfolio' && <div data-testid="portfolio-backtest-workspace">
+      <Card title={<span className="text-primary">投资组合回测</span>} className="bg-[#1a1a2e] border-surface-border">
         <Alert
           className="mb-4"
           type="warning"
@@ -1543,6 +1744,7 @@ const Backtest: React.FC = () => {
               study={portfolioBacktestResult.fixedRuleStudy}
               userId={portfolioBacktestParams.userId || 'default'}
               onStartDateSelected={(startDate) => setPortfolioBacktestParams((previous) => ({ ...previous, startDate }))}
+              experienceMode={experienceMode}
             />
             {!portfolioBacktestResult.fixedRuleStudy && <ClassicPortfolioStudyPanel study={portfolioBacktestResult.classicPortfolioStudy} />}
             {portfolioBacktestResult.readinessSummary && (
@@ -1950,18 +2152,36 @@ const Backtest: React.FC = () => {
           </div>
         )}
       </Card>
-      <Card title={<span className="text-primary">基于建议发起回测</span>} className="bg-[#1a1a2e] border-surface-border">
+      </div>}
+      {workspaceMode === 'review' && <div className="space-y-6" data-testid="scenario-review-workspace">
+      <Card title={<span className="text-primary">选择历史建议并复盘</span>} className="bg-[#1a1a2e] border-surface-border">
         <Form form={form} layout="vertical" className="grid gap-4 lg:grid-cols-4">
-          <Form.Item name="adviceId" label="Advice ID" rules={[{ required: true, message: '请输入 adviceId' }]} className="lg:col-span-2 mb-0">
-            <Input placeholder="输入建议 ID，或从任务中心跳转预填" />
+          <Form.Item name="adviceId" label="选择历史建议" rules={[{ required: true, message: '请选择一条历史建议' }]} className="lg:col-span-2 mb-0">
+            <Select
+              showSearch
+              loading={adviceSummariesLoading}
+              optionFilterProp="label"
+              placeholder="按日期、账户或摘要选择建议"
+              notFoundContent={adviceSummariesLoading ? '正在读取历史建议...' : '暂无可用历史建议'}
+              options={adviceSummaries.map((advice) => ({
+                value: advice.adviceId,
+                label: `${dayjs(advice.generatedAt).format('YYYY-MM-DD HH:mm')} · ${advice.accountLabels.join('+') || advice.scope} · ${advice.summaryText} · 可回测动作 ${advice.executableActionCount}`,
+                disabled: !advice.backtestEligible,
+              }))}
+            />
           </Form.Item>
           <Form.Item name="initialCapital" label="初始资金" initialValue={100000} className="mb-0">
             <InputNumber min={1000} step={1000} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item label="操作" className="mb-0 flex items-end">
-            <Button type="primary" onClick={handleRunFromAdvice} loading={submitting}>
-              启动回测
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button data-testid="run-scenario-comparison" type="primary" icon={<PlayCircleOutlined />} onClick={handleRunScenarioComparison} loading={scenarioComparisonLoading}>
+                运行三场景复盘
+              </Button>
+              {experienceMode === 'expert' && (
+                <Button onClick={handleRunFromAdvice} loading={submitting}>运行持久化专家回测</Button>
+              )}
+            </div>
           </Form.Item>
           <Form.Item name="range" label="回测区间" className="lg:col-span-2 mb-0">
             <RangePicker style={{ width: '100%' }} />
@@ -2001,6 +2221,63 @@ const Backtest: React.FC = () => {
         )}
       </Card>
 
+      {scenarioComparison && (
+        <Card
+          data-testid="scenario-comparison-result"
+          title={<span className="text-primary">按建议、不执行与实际持仓</span>}
+          className="bg-white border-slate-200"
+        >
+          {scenarioComparison.status === 'insufficient' ? (
+            <Alert
+              type="warning"
+              showIcon
+              message="当前证据不足，未生成比较曲线"
+              description={scenarioComparison.blockedReasons.join('；') || '缺少共同交易日或真实数据证据。'}
+            />
+          ) : (
+            <div className="space-y-5 text-slate-700">
+              <div className="grid gap-3 md:grid-cols-3">
+                {scenarioComparison.scenarios.map((scenario) => (
+                  <section key={scenario.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+                    <div className="text-sm font-semibold text-slate-900">{scenario.label}</div>
+                    <div className={`mt-2 text-2xl font-semibold ${(scenario.metrics.totalReturnPercent || 0) >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {scenario.metrics.totalReturnPercent == null ? '--' : formatPercent(scenario.metrics.totalReturnPercent)}
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500">
+                      最大回撤 {scenario.metrics.maxDrawdownPercent == null ? '--' : formatPercent(scenario.metrics.maxDrawdownPercent)} · 事件 {scenario.executedEvents.length}
+                    </div>
+                  </section>
+                ))}
+              </div>
+              <div role="img" aria-label="按建议、不执行建议与实际交易的收益及回撤曲线">
+                <ScenarioComparisonChart result={scenarioComparison} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-md border border-slate-200 p-3 text-sm">
+                  <div className="font-semibold text-slate-900">数据可信</div>
+                  <div className="mt-1">行情来源：{scenarioComparison.dataHealth.providers.join('、') || '未识别'}</div>
+                  <div>观察截止：{scenarioComparison.dataHealth.observedThrough || scenarioComparison.inputSnapshot.observedThrough || '--'}</div>
+                  <div>真实成交核对：{scenarioComparison.dataHealth.actualTransactionReconciliation}</div>
+                </div>
+                <div className="rounded-md border border-slate-200 p-3 text-sm">
+                  <div className="font-semibold text-slate-900">回放口径</div>
+                  <div className="mt-1">建议下一可交易日：{scenarioComparison.executionAssumptions?.firstAdviceExecutionDate || '无可执行动作'}</div>
+                  <div>手续费 {(scenarioComparison.executionAssumptions?.commissionRate || 0) * 100}% · 滑点 {(scenarioComparison.executionAssumptions?.slippageRate || 0) * 100}%</div>
+                  <div>未闭环建议不计胜率：{scenarioComparison.adviceOutcome?.openActionCountExcludedFromWinRate ?? 0} 条</div>
+                </div>
+              </div>
+              <Alert type="info" showIcon message="研究结果不会创建订单" description="ADD、REDUCE、ORDER_CREATE、AUTO_TRADE 始终被阻断。实际交易曲线使用本地已确认成交价，三条曲线共享同一冻结快照和日期轴。" />
+              <details className="rounded-md border border-slate-200 p-3 text-xs text-slate-500">
+                <summary className="cursor-pointer font-medium text-slate-700">查看快照与证据引用</summary>
+                <div className="mt-2 break-all">Snapshot SHA-256：{scenarioComparison.inputSnapshot.snapshotHash}</div>
+                <div className="mt-2">证据 {scenarioComparison.evidenceRefs.length} 条</div>
+              </details>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {experienceMode === 'expert' && <>
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card
@@ -2025,13 +2302,35 @@ const Backtest: React.FC = () => {
                   <Tag color={adviceDetail?.riskLevel === 'high' ? '#f87171' : adviceDetail?.riskLevel === 'medium' ? '#fbbf24' : '#34d399'}>
                     风险 {adviceDetail?.riskLevel}
                   </Tag>
-                  <Tag color="#34d399">
-                    执行率 {(executionComparison.review.executionRate * 100).toFixed(0)}%
+                  <Tag color={adviceDetail?.executionDiagnostics?.evidenceSufficiency === 'sufficient' ? '#34d399' : '#fbbf24'}>
+                    {adviceDetail?.executionDiagnostics?.acceptedExecutionRate == null
+                      ? '执行证据不足，暂不计算执行率'
+                      : `接受后执行率 ${(adviceDetail.executionDiagnostics.acceptedExecutionRate * 100).toFixed(0)}%`}
                   </Tag>
                   <Tag color={executionComparison.periodMode === 'persisted' ? '#a78bfa' : executionComparison.periodMode === 'window' ? '#38bdf8' : '#64748b'}>
                     {executionComparison.periodMode === 'persisted' ? '持久化报告' : executionComparison.periodMode === 'window' ? '区间口径' : '静态口径'}
                   </Tag>
                 </div>
+
+                {adviceDetail?.executionDiagnostics ? (
+                  <div className="rounded-lg border border-amber-300/30 bg-amber-950/20 p-4" data-testid="execution-evidence-diagnostics">
+                    <div className="font-medium text-amber-100">为什么建议尚未执行</div>
+                    <div className="mt-2 grid gap-2 text-sm text-gray-300 sm:grid-cols-3">
+                      <span>可回测动作 {adviceDetail.executionDiagnostics.executableActionCount}</span>
+                      <span>已记录人工决定 {adviceDetail.executionDiagnostics.humanDecisionRecordedCount}</span>
+                      <span>有后续价格证据 {adviceDetail.executionDiagnostics.marketEvidenceAvailableCount}</span>
+                      <span>触及建议价 {adviceDetail.executionDiagnostics.marketTouchedCount}</span>
+                      <span>已接受 {adviceDetail.executionDiagnostics.humanAcceptedCount}</span>
+                      <span>有成交记录 {adviceDetail.executionDiagnostics.executionRecordedCount}</span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {Object.entries(adviceDetail.executionDiagnostics.reasonBreakdown).map(([reason, count]) => (
+                        <Tag key={reason} color="#fbbf24">{reason} × {count}</Tag>
+                      ))}
+                    </div>
+                    <p className="mb-0 mt-3 text-xs leading-5 text-gray-400">这里只解释证据链，不会为了提高执行率自动调整低波动策略参数，也不会创建订单。</p>
+                  </div>
+                ) : null}
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-lg border border-white/10 bg-[#0f172a99] p-4">
@@ -2236,6 +2535,31 @@ const Backtest: React.FC = () => {
           </Card>
         </Col>
       </Row>
+      </>}
+      </div>}
+
+      {workspaceMode === 'history' && (
+        <Card title={<span className="text-primary">历史运行</span>} className="bg-[#1a1a2e] border-surface-border" data-testid="backtest-history-workspace">
+          <div className="space-y-2">
+            {portfolioRunHistory.length === 0 ? (
+              <div className="py-10 text-center text-gray-500">当前没有已保存的投资组合回测</div>
+            ) : portfolioRunHistory.map((run) => (
+              <div key={run.operationId} className="flex flex-col gap-3 rounded-md border border-white/10 bg-black/10 p-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="font-medium text-white">{dayjs(run.requestedAt).format('YYYY-MM-DD HH:mm')} · {run.status}</div>
+                  <div className="mt-1 text-xs text-gray-400">{run.startDate} ~ {run.endDate} · 初始资金 {formatMoney(run.initialCapital)}</div>
+                </div>
+                <Button
+                  icon={<HistoryOutlined />}
+                  onClick={() => void handleLoadSavedPortfolioRun(run.operationId).then(() => handleWorkspaceModeChange('portfolio'))}
+                >
+                  恢复结果
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

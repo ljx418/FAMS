@@ -8,7 +8,7 @@
     "schemaVersion": {"const": "fams.release_candidate_set.v1"},
     "releaseCandidateStrategyIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
     "releaseCandidateStrategyVersions": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
-    "excludedStrategies": {"type": "array", "items": {"type": "object", "required": ["strategyId", "reason"]}},
+    "excludedStrategies": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["strategyId", "reason"], "properties": {"strategyId": {"type": "string", "minLength": 1}, "reason": {"type": "string", "minLength": 1}}}},
     "candidateSetHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "frozen": {"const": true}
   }

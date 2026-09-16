@@ -41,6 +41,8 @@ import {
 import { RotationChart } from '../components/relative-rotation/RotationChart'
 import { RelativeRotationResearchWorkbench } from '../components/relative-rotation/RelativeRotationResearchWorkbench'
 import { IndustryCrowdingWorkbench } from '../components/relative-rotation/IndustryCrowdingWorkbench'
+import { InvestmentWorkflowBar } from '../components/investment-workflow/InvestmentWorkflowBar'
+import { RotationStrategyDecisionPanel } from '../components/investment-workflow/RotationStrategyDecisionPanel'
 import {
   activateSleeve,
   addRotationWatchlistItem,
@@ -484,6 +486,7 @@ export default function RelativeRotation() {
 
   return (
     <div className="relative-rotation-page min-w-0 space-y-5">
+      <InvestmentWorkflowBar currentStep="position_strategy" />
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="grid gap-5 px-5 py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:px-7">
           <div className="min-w-0">
@@ -537,6 +540,8 @@ export default function RelativeRotation() {
         )}
       </section>
 
+      <RotationStrategyDecisionPanel />
+
       {universeMode === 'research' ? (
         <RelativeRotationResearchWorkbench reducedMotion={reducedMotion} />
       ) : universeMode === 'industry_crowding' ? (
@@ -582,7 +587,7 @@ export default function RelativeRotation() {
           showIcon
           message={universeMode === 'portfolio'
             ? portfolioGroup === 'all'
-              ? '14项非现金持仓使用同一个5/25/25/45多资产价格代理基准；2项现金列示但不生成坐标。该图用于跨资产相对趋势和后续批次门控，不是精确总收益归因。'
+              ? '14项非现金持仓使用同一个高防御10/15/50/25多资产价格代理基准；2项现金列示但不生成坐标。该图用于跨资产相对趋势和后续批次门控，不是精确总收益归因。'
               : portfolioGroup === 'gold'
                 ? '该分组只观察002611相对同类黄金ETF的跟踪差，不代表黄金资产轮动，也不参与黄金配置门控。黄金配置门控请查看“全部同图”。'
                 : '当前为分组诊断视图；正式配置门控统一读取“全部同图”，累计净值与价格代理的口径差异会明确披露。'

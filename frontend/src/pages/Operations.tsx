@@ -12,6 +12,7 @@ import {
   Modal,
   Progress,
   Row,
+  Segmented,
   Select,
   Space,
   Spin,
@@ -77,6 +78,9 @@ interface OperationRecord {
   artifactRefs?: string[]
   nextActions?: OperationNextAction[]
   tasks?: OperationTaskRecord[]
+  taskGroup?: 'user_task' | 'background_maintenance'
+  resultAvailability?: 'available' | 'partial' | 'none'
+  outcomeCategory?: 'active' | 'completed' | 'partial' | 'failed' | 'core_result_available_enrichment_failed'
 }
 
 interface OperationTaskRecord {
@@ -387,6 +391,15 @@ const progressStatus = (status: OperationStatus) => status === 'failed'
   : isSuccessfulStatus(status) ? 'success' : 'active'
 
 const renderOperationSummary = (record: OperationRecord) => {
+  if (record.outcomeCategory === 'core_result_available_enrichment_failed') {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <Tag color="#f59e0b">核心结果可用</Tag>
+        <Tag color="#f87171">内容增强失败</Tag>
+        <span className="text-xs text-gray-400">{record.error?.message || '保留核心产物，可单独重试增强步骤'}</span>
+      </div>
+    )
+  }
   if (record.status === 'failed') {
     return <span className="text-[#f87171]">{record.error?.message || '执行失败'}</span>
   }
@@ -2069,6 +2082,7 @@ const Operations: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | OperationStatus>('all')
   const [typeFilter, setTypeFilter] = useState<'all' | OperationType>('all')
   const [queryText, setQueryText] = useState('')
+  const [taskView, setTaskView] = useState<'user_task' | 'needs_attention' | 'background_maintenance' | 'all'>('user_task')
   const [queryScope, setQueryScope] = useState<AdviceScope>('all')
   const [startingRefresh, setStartingRefresh] = useState(false)
   const [startingAlertCheck, setStartingAlertCheck] = useState(false)
@@ -2350,7 +2364,12 @@ const Operations: React.FC = () => {
 
   const filteredOperations = useMemo(() => {
     const keyword = queryText.trim().toLowerCase()
-    const base = !keyword ? operations : operations.filter((item) =>
+    const grouped = taskView === 'all'
+      ? operations
+      : taskView === 'needs_attention'
+      ? operations.filter((item) => ['failed', 'partial', 'cancelled'].includes(item.status) || item.outcomeCategory === 'core_result_available_enrichment_failed')
+      : operations.filter((item) => item.taskGroup === taskView)
+    const base = !keyword ? grouped : grouped.filter((item) =>
       item.id.toLowerCase().includes(keyword) ||
       item.type.toLowerCase().includes(keyword) ||
       (TYPE_META[item.type]?.label || '').includes(keyword)
@@ -2360,7 +2379,7 @@ const Operations: React.FC = () => {
       if (statusDelta !== 0) return statusDelta
       return new Date(right.requestedAt).getTime() - new Date(left.requestedAt).getTime()
     })
-  }, [operations, queryText])
+  }, [operations, queryText, taskView])
 
   const stats = useMemo(() => ({
     total: filteredOperations.length,
@@ -3165,6 +3184,18 @@ const Operations: React.FC = () => {
       </Row>
 
       <Card className="bg-[#1a1a2e] border-surface-border">
+        <div className="mb-3 overflow-x-auto">
+          <Segmented
+            value={taskView}
+            onChange={(value) => setTaskView(value as typeof taskView)}
+            options={[
+              { value: 'user_task', label: '我的任务' },
+              { value: 'needs_attention', label: '需要处理' },
+              { value: 'background_maintenance', label: '后台维护' },
+              { value: 'all', label: '全部记录' },
+            ]}
+          />
+        </div>
         <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_160px]">
           <Input
             allowClear

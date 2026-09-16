@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import { formalBenchmarkService, type FormalBenchmarkImportInput } from '../services/formal-release/formalBenchmarkService.js'
-import { formalDataProviderService, type FormalProviderAuthorizationDecision, type FormalProviderId } from '../services/formal-release/formalDataProviderService.js'
+import { formalDataProviderService, type FormalAuthorizationBasis, type FormalProviderAuthorizationDecision, type FormalProviderId, type FormalSourceTermsEvidence, type FormalUsageScope } from '../services/formal-release/formalDataProviderService.js'
 import { formalReviewerAuthService, FORMAL_RELEASE_REVIEWER_ROLES, type FormalReleaseReviewerRole } from '../services/formal-release/formalReviewerAuth.js'
 import { computeOperationManifestHash, manualSignoffService, type FormalReleaseSignoffDecision } from '../services/formal-release/manualSignoffService.js'
 import { executionIsolationService } from '../services/formal-release/executionIsolationService.js'
 import { formalReleasePackageService } from '../services/formal-release/formalReleasePackageService.js'
+import { humanAcceptanceDraftService } from '../services/formal-release/humanAcceptanceDraftService.js'
 
 function httpError(message: string, statusCode: number) {
   return Object.assign(new Error(message), { statusCode })
@@ -27,7 +28,31 @@ function parseDate(value: unknown, field: string, required = false) {
   return date
 }
 
+function assertLocalHumanDraftRequest(request: { ip: string; headers: { origin?: string } }) {
+  const loopback = request.ip === '127.0.0.1' || request.ip === '::1' || request.ip === '::ffff:127.0.0.1'
+  if (!loopback) throw httpError('human_review_draft_local_request_required', 403)
+  const origin = request.headers.origin
+  if (origin && !/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(origin)) {
+    throw httpError('human_review_draft_local_origin_required', 403)
+  }
+}
+
 export async function formalReleaseRoutes(app: FastifyInstance) {
+  app.get('/human-review-drafts/current', async (request) => {
+    assertLocalHumanDraftRequest(request)
+    return humanAcceptanceDraftService.context()
+  })
+
+  app.put('/human-review-drafts/current', async (request) => {
+    assertLocalHumanDraftRequest(request)
+    return humanAcceptanceDraftService.save((request.body || {}) as {
+      packageId?: unknown
+      sourceManifestSha256?: unknown
+      expectedRevision?: unknown
+      items?: unknown
+    })
+  })
+
   app.get('/reviewer-context', async (request) => {
     const reviewer = await formalReviewerAuthService.authenticateRequest(request)
     return {
@@ -60,6 +85,12 @@ export async function formalReleaseRoutes(app: FastifyInstance) {
       authorizationRef?: string
       authorizedScopes?: string[]
       evidenceRefs?: string[]
+      authorizationBasis?: FormalAuthorizationBasis
+      usageScope?: FormalUsageScope
+      sourceTerms?: FormalSourceTermsEvidence[]
+      endpointAllowlist?: string[]
+      sourceSnapshotHash?: string | null
+      credentialRequired?: boolean
       effectiveFrom?: string
       expiresAt?: string | null
     }
@@ -72,6 +103,12 @@ export async function formalReleaseRoutes(app: FastifyInstance) {
       authorizationRef: body.authorizationRef || '',
       authorizedScopes: Array.isArray(body.authorizedScopes) ? body.authorizedScopes : [],
       evidenceRefs: Array.isArray(body.evidenceRefs) ? body.evidenceRefs : [],
+      authorizationBasis: body.authorizationBasis,
+      usageScope: body.usageScope,
+      sourceTerms: Array.isArray(body.sourceTerms) ? body.sourceTerms : [],
+      endpointAllowlist: Array.isArray(body.endpointAllowlist) ? body.endpointAllowlist : [],
+      sourceSnapshotHash: body.sourceSnapshotHash ?? null,
+      credentialRequired: body.credentialRequired,
       reviewerUserId: reviewer.userId,
       reviewerEmail: reviewer.email,
       effectiveFrom: parseDate(body.effectiveFrom, 'effective_from') || undefined,

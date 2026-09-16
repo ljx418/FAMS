@@ -122,6 +122,10 @@ docker-compose up -d
 
 系统提供MCP Server供其他Agent调用，配置见 `mcp/financial-mcp.json`
 
+波动仓管理已提供基于官方 SDK 的 stdio 和仅回环 Streamable HTTP 服务，默认仅研究/提醒/拟单且不暴露券商下单能力。详见 [波动仓管理 MCP 服务](docs/VOLATILITY_MCP_SERVICE.md)。
+
+支付宝仓位固定工作流另提供精确白名单、用户绑定和 Bearer/scope 隔离的公开档位，详见 [仓位管理 MCP 服务](docs/PORTFOLIO_MCP_SERVICE.md)。
+
 ### 可用工具
 - `get-investment-suggestions` - 投资建议
 - `get-real-time-price` - 实时价格

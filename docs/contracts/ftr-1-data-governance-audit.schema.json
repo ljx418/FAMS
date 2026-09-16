@@ -2,11 +2,167 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://fams.local/schemas/ftr-1-data-governance-audit.schema.json",
   "type": "object",
-  "additionalProperties": true,
-  "required": ["schemaVersion", "status", "dataGovernanceAudit", "conclusion", "notTradingAdvice"],
+  "additionalProperties": false,
+  "required": ["schemaVersion", "stageId", "status", "checkedAt", "realDataUsed", "userId", "auditUserExcluded", "releaseCandidateSet", "validationProfileSet", "pointInTimeEvidence", "candidateCount", "formalDataSnapshotCount", "allCandidateSnapshotsPassed", "providerAuthorizationStatus", "fieldEvidenceValidationStatus", "formalDataGovernancePassed", "criticalFieldsHaveEvidenceRefs", "noCriticalProviderUnknown", "noCriticalFreshnessUnknownOrStale", "noCriticalCoverageBlocked", "researchFallbackPromotedToFormal", "accountFactsUnchanged", "protectedAccountDigestBefore", "protectedAccountDigestAfter", "candidateSnapshots", "artifacts", "blockers", "conclusion", "prohibitedActions", "notTradingAdvice", "formalTradingUnlocked", "autoTradeUnlocked", "canCreateOrder", "orderCreateAllowed"],
   "properties": {
-    "schemaVersion": {"const": "fams.next_stage.data_governance_acceptance.v1"},
-    "status": {"enum": ["passed", "blocked"]},
-    "notTradingAdvice": {"const": true}
+    "schemaVersion": {"const": "fams.next_stage.data_governance_acceptance.v2"},
+    "stageId": {"const": "FTR-1"},
+    "status": {"const": "passed"},
+    "checkedAt": {"type": "string", "format": "date-time"},
+    "realDataUsed": {"const": true},
+    "userId": {"const": "default"},
+    "auditUserExcluded": {"const": true},
+    "releaseCandidateSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "contentHash", "candidateIds", "candidateVersions"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "version": {"const": "2026-09-15.point-in-time-candidate-v2"},
+        "contentHash": {"$ref": "#/$defs/sha256"},
+        "candidateIds": {"const": ["local_real_data_sample_60_40", "local_real_data_equal_weight_5", "local_real_data_concentrated_3", "dividend_low_vol_basket", "permanent_portfolio", "all_weather", "current_holdings_buy_and_hold"]},
+        "candidateVersions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["local_real_data_sample_60_40", "local_real_data_equal_weight_5", "local_real_data_concentrated_3", "dividend_low_vol_basket", "permanent_portfolio", "all_weather", "current_holdings_buy_and_hold"],
+          "properties": {
+            "local_real_data_sample_60_40": {"const": "portfolio.strategy.local_real_data_sample_60_40.v1"},
+            "local_real_data_equal_weight_5": {"const": "portfolio.strategy.local_real_data_equal_weight_5.v1"},
+            "local_real_data_concentrated_3": {"const": "portfolio.strategy.local_real_data_concentrated_3.v1"},
+            "dividend_low_vol_basket": {"const": "portfolio.strategy.dividend_low_vol_basket.v2_point_in_time"},
+            "permanent_portfolio": {"const": "portfolio.strategy.v1"},
+            "all_weather": {"const": "portfolio.strategy.v1"},
+            "current_holdings_buy_and_hold": {"const": "portfolio.strategy.current_holdings_buy_and_hold.v1"}
+          }
+        }
+      }
+    },
+    "validationProfileSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["setVersion", "profileSetHash", "sourcePath"],
+      "properties": {
+        "setVersion": {"const": "2026-09-15.route-a-point-in-time-v2"},
+        "profileSetHash": {"$ref": "#/$defs/sha256"},
+        "sourcePath": {"type": "string", "minLength": 1}
+      }
+    },
+    "pointInTimeEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectionArtifactPath", "selectionArtifactSha256", "decisionWindowCount", "componentWindowPathCount", "componentUnionCount", "fieldCoverage", "futureAnnouncementReuseDetected", "historicalSecurityStatusProxyUsed", "immutableReplayVerified"],
+      "properties": {
+        "selectionArtifactPath": {"type": "string", "minLength": 1},
+        "selectionArtifactSha256": {"$ref": "#/$defs/sha256"},
+        "decisionWindowCount": {"const": 6},
+        "componentWindowPathCount": {"type": "integer", "minimum": 30},
+        "componentUnionCount": {"type": "integer", "minimum": 3},
+        "fieldCoverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["price", "historicalSecurityStatus", "tradeability", "fundamental", "dividend", "industryClassification"],
+          "properties": {
+            "price": {"type": "number", "minimum": 80, "maximum": 100},
+            "historicalSecurityStatus": {"type": "number", "minimum": 80, "maximum": 100},
+            "tradeability": {"type": "number", "minimum": 80, "maximum": 100},
+            "fundamental": {"type": "number", "minimum": 80, "maximum": 100},
+            "dividend": {"type": "number", "minimum": 80, "maximum": 100},
+            "industryClassification": {"type": "number", "minimum": 80, "maximum": 100}
+          }
+        },
+        "futureAnnouncementReuseDetected": {"const": false},
+        "historicalSecurityStatusProxyUsed": {"const": false},
+        "immutableReplayVerified": {"const": true}
+      }
+    },
+    "candidateCount": {"const": 7},
+    "formalDataSnapshotCount": {"const": 7},
+    "allCandidateSnapshotsPassed": {"const": true},
+    "providerAuthorizationStatus": {"const": "passed"},
+    "fieldEvidenceValidationStatus": {"const": "passed"},
+    "formalDataGovernancePassed": {"const": true},
+    "criticalFieldsHaveEvidenceRefs": {"const": true},
+    "noCriticalProviderUnknown": {"const": true},
+    "noCriticalFreshnessUnknownOrStale": {"const": true},
+    "noCriticalCoverageBlocked": {"const": true},
+    "researchFallbackPromotedToFormal": {"const": false},
+    "accountFactsUnchanged": {"const": true},
+    "protectedAccountDigestBefore": {"$ref": "#/$defs/accountDigest"},
+    "protectedAccountDigestAfter": {"$ref": "#/$defs/accountDigest"},
+    "candidateSnapshots": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidateStrategyId", "candidateStrategyVersion", "status", "snapshotHash", "persistedSnapshotId", "blockers"],
+        "properties": {
+          "candidateStrategyId": {"enum": ["local_real_data_sample_60_40", "local_real_data_equal_weight_5", "local_real_data_concentrated_3", "dividend_low_vol_basket", "permanent_portfolio", "all_weather", "current_holdings_buy_and_hold"]},
+          "candidateStrategyVersion": {"type": "string", "minLength": 1},
+          "status": {"const": "passed"},
+          "snapshotHash": {"$ref": "#/$defs/sha256"},
+          "persistedSnapshotId": {"type": "string", "minLength": 1},
+          "blockers": {"type": "array", "maxItems": 0}
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceEvidence", "providerAuthorizationAudit", "fieldEvidenceValidation"],
+      "properties": {
+        "sourceEvidence": {"$ref": "#/$defs/artifactRef"},
+        "providerAuthorizationAudit": {"$ref": "#/$defs/artifactRef"},
+        "fieldEvidenceValidation": {"$ref": "#/$defs/artifactRef"}
+      }
+    },
+    "blockers": {"type": "array", "maxItems": 0},
+    "conclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["formalDataGovernancePassed", "benchmarkQualificationPassed", "formalValidationPassed", "humanAcceptanceStatus", "formalTradingReleaseReady"],
+      "properties": {
+        "formalDataGovernancePassed": {"const": true},
+        "benchmarkQualificationPassed": {"const": false},
+        "formalValidationPassed": {"const": false},
+        "humanAcceptanceStatus": {"const": "not_started"},
+        "formalTradingReleaseReady": {"const": false}
+      }
+    },
+    "prohibitedActions": {"const": ["ADD", "REDUCE", "ORDER_CREATE", "AUTO_TRADE"]},
+    "notTradingAdvice": {"const": true},
+    "formalTradingUnlocked": {"const": false},
+    "autoTradeUnlocked": {"const": false},
+    "canCreateOrder": {"const": false},
+    "orderCreateAllowed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "accountDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["positionCount", "openPositionCount", "positionHash", "transactionCount", "transactionHash", "draftCount", "draftHash", "externalOrderCount", "externalOrderHash"],
+      "properties": {
+        "positionCount": {"type": "integer", "minimum": 0},
+        "openPositionCount": {"type": "integer", "minimum": 0},
+        "positionHash": {"$ref": "#/$defs/sha256"},
+        "transactionCount": {"type": "integer", "minimum": 0},
+        "transactionHash": {"$ref": "#/$defs/sha256"},
+        "draftCount": {"type": "integer", "minimum": 0},
+        "draftHash": {"$ref": "#/$defs/sha256"},
+        "externalOrderCount": {"type": "integer", "minimum": 0},
+        "externalOrderHash": {"$ref": "#/$defs/sha256"}
+      }
+    }
   }
 }
