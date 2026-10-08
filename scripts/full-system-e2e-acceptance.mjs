@@ -2012,14 +2012,18 @@ main()
   })
   .finally(() => {
     for (const child of spawned) {
-      if (process.platform !== 'win32' && child.pid) {
-        try {
-          process.kill(-child.pid, 'SIGTERM')
-          continue
-        } catch {
-          // Fall through when the process group already exited.
+      const terminate = (signal) => {
+        if (process.platform !== 'win32' && child.pid) {
+          try {
+            process.kill(-child.pid, signal)
+            return
+          } catch {
+            // Fall through when the process group already exited.
+          }
         }
+        child.kill(signal)
       }
-      child.kill('SIGTERM')
+      terminate('SIGTERM')
+      setTimeout(() => terminate('SIGKILL'), 3000)
     }
   })

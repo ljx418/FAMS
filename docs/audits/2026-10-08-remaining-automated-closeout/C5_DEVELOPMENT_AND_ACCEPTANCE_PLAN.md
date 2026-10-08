@@ -70,7 +70,7 @@ quote-list 只读修复后，foundation、其余功能合同、运行态 API、�
 
 - 使用锚定 UUID 第三段的正则把 version nibble 从 `4` 改为 `1`。
 - 增加 mutation 必须实际改变原 ID 的前置断言，防止负例静默失效。
-- 将验收期间启动的 backend/Vite 置于独立进程组，并在报告写入后终止整个进程组，避免 `tsx` 子进程持有管道导致验收命令不退出。
+- 将验收期间启动的 backend/Vite 置于独立进程组；报告写入后先发送 SIGTERM，3 秒后以 SIGKILL 兜底终止整个进程组，避免 `tsx` 子进程持有管道导致验收命令不退出。
 - 定向重跑 V2-PX semantic/API/policy 合同；通过后再次执行完整 full-system E2E。
 - 第四轮失败报告仅作为发现测试波动的证据，不得作为自动范围通过证据。
 
@@ -80,3 +80,18 @@ quote-list 只读修复后，foundation、其余功能合同、运行态 API、�
 - `C5_ACCEPTANCE_AUDIT.md`。
 - `C5_PRD_SPEC_REVIEW.md`。
 - `FINAL_AUTOMATED_CLOSEOUT.md`。
+
+## 最终执行结论
+
+预收口全量验收 `2026-10-08T12-49-21-949Z` 已达到：
+
+```text
+automatedScopeStatus=passed
+fullPrdExitStatus=blocked
+browserStatus=passed
+screenshotCount=39
+consoleErrorCount=0
+http5xxCount=0
+```
+
+整体 `blocked` 是集中人工验收、MCP 外部部署和正式交易 release 未完成的真实状态，不是自动工程失败。最终提交后必须再次运行完整 E2E，并以 `backend/data/gpt-audit/full-system-e2e/LATEST_RUN.json` 指向、`headCommit` 等于当前 HEAD、`workingTreeClean=true` 作为 C5 正式证据。
