@@ -973,8 +973,11 @@ function testCoverage(commandResults) {
     ['production readiness', '生产就绪 gate'],
     ['trade action readiness', '交易动作 gate'],
     ['llm dotenv config', 'LLM dotenv 配置与密钥脱敏'],
+    ['market data reliability snapshot', '行情 provider/freshness 可靠性快照'],
+    ['llm runtime observability', 'LLM 真实调用运行态与降级原因'],
     ['chat llm planner', 'ChatBox LLM 意图路由'],
     ['chat agent core', 'ChatBox AgentCore 合同'],
+    ['portfolio mcp oauth resource server', 'MCP OAuth resource server 合同'],
     ['frontend build', '前端构建'],
     ['current stage consistency', '唯一状态源与文档一致性'],
     ['next stage documentation baseline', 'Drawio/架构/门禁文档基线'],
@@ -998,6 +1001,7 @@ function testCoverage(commandResults) {
     ['ftr provisional package', 'FTR-6 provisional 包合同'],
     ['a6 human draft', 'A6 人工反馈草稿合同'],
     ['strict trade remains blocked', 'FTR 严格交易锁合同'],
+    ['critical read performance', '关键读取路径性能预算'],
   ]
   const rows = required.map(([name, label]) => {
     const result = commandResults.find((item) => item.name === name)
@@ -1612,8 +1616,11 @@ async function main() {
     ['production readiness', ['npm', 'run', 'test:production-readiness'], backendDir, 240000],
     ['trade action readiness', ['npm', 'run', 'test:trade-action-readiness'], backendDir, 240000],
     ['llm dotenv config', ['npm', 'run', 'test:llm-dotenv-config'], backendDir, 180000],
+    ['market data reliability snapshot', ['npm', 'run', 'test:market-data-reliability-snapshot'], backendDir, 240000],
+    ['llm runtime observability', ['npm', 'run', 'test:llm-runtime-observability'], backendDir, 240000],
     ['chat llm planner', ['npm', 'run', 'test:chat-llm-planner'], backendDir, 240000],
     ['chat agent core', ['npm', 'run', 'test:chat-agent-core'], backendDir, 180000],
+    ['portfolio mcp oauth resource server', ['npm', 'run', 'test:portfolio-mcp-oauth-resource-server'], backendDir, 300000],
     ['frontend build', ['npm', 'run', 'build'], frontendDir, 240000],
     ['current stage consistency', ['npm', 'run', 'test:current-stage-consistency'], backendDir, 240000],
     ['next stage documentation baseline', ['npm', 'run', 'test:next-stage-documentation-baseline'], backendDir, 240000],
@@ -1671,12 +1678,29 @@ async function main() {
   const backendServer = serverResults.find((item) => item.name === 'backend')
   if (backendServer?.status === 'passed') {
     commandResults.push(await runCommand(
+      'critical read performance',
+      ['npm', 'run', 'test:critical-read-performance'],
+      backendDir,
+      300000,
+    ))
+    commandResults.push(await runCommand(
       'daily review real data',
       ['npm', 'run', 'test:daily-review-real-data-e2e'],
       backendDir,
       600000,
     ))
   } else {
+    commandResults.push({
+      name: 'critical read performance',
+      command: 'npm run test:critical-read-performance',
+      cwd: 'backend',
+      status: 'failed',
+      exitCode: null,
+      durationMs: 0,
+      stdout: '',
+      stderr: 'Backend startup failed; performance budget was not executed.',
+      timedOut: false,
+    })
     commandResults.push({
       name: 'daily review real data',
       command: 'npm run test:daily-review-real-data-e2e',
@@ -1702,8 +1726,38 @@ async function main() {
     keySource: body?.keySource,
     model: body?.model,
     chatAgentEnabled: body?.chatAgentEnabled,
+    plannerRuntimeAvailability: body?.plannerRuntimeAvailability,
+    summaryRuntimeAvailability: body?.summaryRuntimeAvailability,
+    runtime: body?.runtime,
     secretsRedacted: body?.secretsRedacted,
   })))
+  apiResults.push(await apiCheck('行情可靠性快照', `${backendUrl}/api/v1/prices/reliability?userId=default&scope=holdings&limit=300`, {}, (body) => (
+    body?.schemaVersion === 'fams.market_data.reliability.v1'
+      && ['healthy', 'degraded', 'blocked'].includes(body?.status)
+      && body?.freshness?.totalSymbols > 0
+      && body?.realtimeGuarantee === false
+      && body?.formalTradingUnlocked === false
+  ), (body) => ({
+    status: body?.status,
+    reasons: body?.reasons,
+    mode: body?.mode,
+    realtimeGuarantee: body?.realtimeGuarantee,
+    freshness: {
+      status: body?.freshness?.status,
+      latestTradeDate: body?.freshness?.latestTradeDate,
+      totalSymbols: body?.freshness?.totalSymbols,
+    },
+    providerRuntime: body?.providerRuntime,
+    blockers: body?.blockers,
+    recoveryActions: body?.recoveryActions,
+    prohibitedActions: body?.prohibitedActions,
+  })))
+  apiResults.push(await apiCheck('MCP 公网发布准备状态', `${backendUrl}/api/v1/mcp/public-release-readiness`, {}, (body) => (
+    body?.oauthResourceServerCodeReady === true
+      && body?.externalHttpsDeploymentVerified === false
+      && body?.publicInternetReleaseReady === false
+      && body?.brokerOrderToolsExposed === false
+  ), (body) => body))
   apiResults.push(await apiCheck('ChatBox 消息意图路由', `${backendUrl}/api/v1/chat/messages`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -1823,6 +1877,8 @@ async function main() {
     '持仓归属记录虽已 confirmed，其分类正确性、截图行纠正、曲线语义和最终 UX 体验仍需集中人工核查，自动化不得代签。',
     '建议级 point_in_time_simulation 已通过真实 OHLC、防前视和桌面/移动验证；它仍是研究回放，不代表正式交易验证。',
     'FTR provisional 链通过不等于 final review package 或正式交易 release。',
+    'MCP OAuth resource-server 代码和本地 JWT 合同通过不等于公网 HTTPS、外部身份提供方配置或 ChatGPT 连接已完成。',
+    'LLM configured 只表示配置存在；只有真实调用成功才能显示 available，配额或鉴权失败必须显示 unavailable 并使用可识别的确定性降级。',
   ]
   if (runtimeDisclosure.status !== 'ok') {
     limitations.push(runtimeDisclosure.humanConclusion)
@@ -1843,6 +1899,7 @@ async function main() {
       target: [
         '数据源与证据层：截图/Excel、账户来源、公开行情、分红、行业、交易约束、evidenceRefs。',
         '投资工作流层：三类资产归属、行业轮动网格、红利低波建议、组合配置、统一场景比较。',
+        '运行可信层：关键读取预算、行情 provider/freshness 快照、LLM 真实调用状态、MCP OAuth resource server。',
         '策略与验证层：红利低波、组合回测、冻结策略逐日 point-in-time 重算、formal validation。',
         'Operation 审计层：所有重任务落 Operation 与 artifact，支持任务中心追溯。',
         '前端体验层：Assets -> Positions -> 三类策略 -> Backtest -> DailyReviews -> Operations，ChatBox 与专家页双轨。',

@@ -10,6 +10,25 @@ import { alipayResearchWorkflowService } from '../services/review/alipayResearch
 import { runtimeHealthService } from '../services/runtime/runtimeHealthService.js'
 import { ensureUser } from '../utils/user.js'
 
+const READ_CACHE_TTL_MS = Math.max(5_000, Math.min(5 * 60_000, Number(process.env.FAMS_PORTFOLIO_READ_CACHE_TTL_MS || 60_000)))
+
+type ReadCacheEntry<T> = { expiresAt: number; value: T }
+const readCache = new Map<string, ReadCacheEntry<unknown>>()
+
+async function readThroughCache<T>(key: string, loader: () => Promise<T>): Promise<T> {
+  const cached = readCache.get(key) as ReadCacheEntry<T> | undefined
+  if (cached && cached.expiresAt > Date.now()) return cached.value
+  const value = await loader()
+  readCache.set(key, { expiresAt: Date.now() + READ_CACHE_TTL_MS, value })
+  return value
+}
+
+function invalidatePortfolioRunCache(userId: string) {
+  for (const key of readCache.keys()) {
+    if (key.startsWith(`runs:${userId}:`) || key.startsWith(`latest:${userId}:`)) readCache.delete(key)
+  }
+}
+
 export async function portfolioBacktestRoutes(app: FastifyInstance) {
   app.post('/alipay-comparison/run', async (request) => {
     const body = (request.body || {}) as { userId?: string; idempotencyKey?: string }
@@ -104,28 +123,31 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
   })
 
   app.get('/templates', async () => {
-    const [runtimeHealth, marketDataCutoff] = await Promise.all([
-      runtimeHealthService.check({ prisma, lightweight: true }),
-      prisma.marketBarCanonical.aggregate({
-        where: { timeframe: '1d', tradeDate: { lte: new Date() }, closePrice: { gt: 0 } },
-        _max: { tradeDate: true, updatedAt: true },
-      }),
-    ])
-    return {
-      schemaVersion: 'portfolio.strategy_backtest.templates.v1',
-      generatedAt: new Date().toISOString(),
-      templates: portfolioStrategyRegistry.listPresetTemplates(),
-      allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'PLAN_DRAFT'],
-      prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
-      notTradingAdvice: true,
-      dataObservedThrough: marketDataCutoff._max.tradeDate?.toISOString().slice(0, 10) || null,
-      dataUpdatedAt: marketDataCutoff._max.updatedAt?.toISOString() || null,
-      runtimeHealth: {
-        status: runtimeHealth.status,
-        sqliteHealthy: runtimeHealth.sqliteHealthy,
-        decision: runtimeHealth.decision,
-      },
-    }
+    return readThroughCache('templates', async () => {
+      const [runtimeHealth, marketDataCutoff] = await Promise.all([
+        runtimeHealthService.check({ prisma, lightweight: true }),
+        prisma.marketBarCanonical.aggregate({
+          where: { timeframe: '1d', tradeDate: { lte: new Date() }, closePrice: { gt: 0 } },
+          _max: { tradeDate: true, updatedAt: true },
+        }),
+      ])
+      return {
+        schemaVersion: 'portfolio.strategy_backtest.templates.v1',
+        generatedAt: new Date().toISOString(),
+        cacheTtlMs: READ_CACHE_TTL_MS,
+        templates: portfolioStrategyRegistry.listPresetTemplates(),
+        allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'PLAN_DRAFT'],
+        prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
+        notTradingAdvice: true,
+        dataObservedThrough: marketDataCutoff._max.tradeDate?.toISOString().slice(0, 10) || null,
+        dataUpdatedAt: marketDataCutoff._max.updatedAt?.toISOString() || null,
+        runtimeHealth: {
+          status: runtimeHealth.status,
+          sqliteHealthy: runtimeHealth.sqliteHealthy,
+          decision: runtimeHealth.decision,
+        },
+      }
+    })
   })
 
   app.post('/run', async (request, reply) => {
@@ -474,6 +496,7 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
         where: { id: operation.id },
         data: { artifactRefsJson: JSON.stringify(artifactRefs) },
       })
+      invalidatePortfolioRunCache(input.request.userId)
       return {
         schemaVersion: 'portfolio.strategy_backtest.operation_submission.v1',
         operationId: operation.id,
@@ -529,48 +552,51 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
     const query = request.query as { userId?: string; limit?: string }
     const userId = String(query.userId || 'default')
     const limit = Math.min(100, Math.max(1, Number.parseInt(String(query.limit || '20'), 10) || 20))
-    const operations = await prisma.operation.findMany({
-      where: { userId, type: 'portfolio_backtest_run' },
-      orderBy: { requestedAt: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        status: true,
-        requestedAt: true,
-        completedAt: true,
-        inputJson: true,
-        resultJson: true,
-        artifactRefsJson: true,
-      },
+    return readThroughCache(`runs:${userId}:${limit}`, async () => {
+      const operations = await prisma.operation.findMany({
+        where: { userId, type: 'portfolio_backtest_run' },
+        orderBy: { requestedAt: 'desc' },
+        take: limit,
+        select: {
+          id: true,
+          status: true,
+          requestedAt: true,
+          completedAt: true,
+          inputJson: true,
+          resultJson: true,
+          artifactRefsJson: true,
+        },
+      })
+      const parse = <T,>(value: string, fallback: T): T => {
+        try { return JSON.parse(value) as T } catch { return fallback }
+      }
+      return {
+        schemaVersion: 'portfolio.strategy_backtest.run_history.v1',
+        generatedAt: new Date().toISOString(),
+        cacheTtlMs: READ_CACHE_TTL_MS,
+        userId,
+        runs: operations.map((operation) => {
+          const input = parse<Record<string, any>>(operation.inputJson, {})
+          const result = parse<Record<string, any>>(operation.resultJson, {})
+          const artifacts = result.artifacts || {}
+          const fixed = artifacts['23_fixed_rule_primary_run.json'] || null
+          return {
+            operationId: operation.id,
+            status: operation.status,
+            requestedAt: operation.requestedAt,
+            completedAt: operation.completedAt,
+            strategyIds: input.portfolioStrategyIds || [],
+            startDate: input.startDate || null,
+            endDate: fixed?.actualPeriod?.endDate || input.endDate || null,
+            initialCapital: input.initialCapital || null,
+            ruleMode: input.ruleMode || 'request_override',
+            fixedRuleAvailable: Boolean(fixed?.strategies?.length),
+            artifactRefs: parse<string[]>(operation.artifactRefsJson, []),
+          }
+        }),
+        notTradingAdvice: true,
+      }
     })
-    const parse = <T,>(value: string, fallback: T): T => {
-      try { return JSON.parse(value) as T } catch { return fallback }
-    }
-    return {
-      schemaVersion: 'portfolio.strategy_backtest.run_history.v1',
-      generatedAt: new Date().toISOString(),
-      userId,
-      runs: operations.map((operation) => {
-        const input = parse<Record<string, any>>(operation.inputJson, {})
-        const result = parse<Record<string, any>>(operation.resultJson, {})
-        const artifacts = result.artifacts || {}
-        const fixed = artifacts['23_fixed_rule_primary_run.json'] || null
-        return {
-          operationId: operation.id,
-          status: operation.status,
-          requestedAt: operation.requestedAt,
-          completedAt: operation.completedAt,
-          strategyIds: input.portfolioStrategyIds || [],
-          startDate: input.startDate || null,
-          endDate: fixed?.actualPeriod?.endDate || input.endDate || null,
-          initialCapital: input.initialCapital || null,
-          ruleMode: input.ruleMode || 'request_override',
-          fixedRuleAvailable: Boolean(fixed?.strategies?.length),
-          artifactRefs: parse<string[]>(operation.artifactRefsJson, []),
-        }
-      }),
-      notTradingAdvice: true,
-    }
   })
 
   app.get('/runs/latest-compatible', async (request) => {
@@ -589,42 +615,57 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
         notTradingAdvice: true,
       }
     }
-    const candidates = await prisma.operation.findMany({
-      where: { userId, type: 'portfolio_backtest_run', status: 'completed' },
-      orderBy: { requestedAt: 'desc' },
-      take: 50,
-    })
-    for (const operation of candidates) {
-      let input: Record<string, any> = {}
-      let stored: Record<string, any> = {}
-      try { input = JSON.parse(operation.inputJson || '{}') } catch { input = {} }
-      const storedStrategyIds = Array.from(new Set((Array.isArray(input.portfolioStrategyIds) ? input.portfolioStrategyIds : []).map(String))).sort()
-      if (storedStrategyIds.length !== requestedStrategyIds.length || storedStrategyIds.some((id, index) => id !== requestedStrategyIds[index])) continue
-      try { stored = JSON.parse(operation.resultJson || '{}') } catch { stored = {} }
-      const result = stored.artifacts?.['03_backtest_results.json']?.result || null
-      if (!result) continue
+    return readThroughCache(`latest:${userId}:${requestedStrategyIds.join(',')}`, async () => {
+      const candidates = await prisma.operation.findMany({
+        where: { userId, type: 'portfolio_backtest_run', status: 'completed' },
+        orderBy: { requestedAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          status: true,
+          requestedAt: true,
+          completedAt: true,
+          inputJson: true,
+          artifactRefsJson: true,
+        },
+      })
+      for (const candidate of candidates) {
+        let input: Record<string, any> = {}
+        try { input = JSON.parse(candidate.inputJson || '{}') } catch { input = {} }
+        const storedStrategyIds = Array.from(new Set((Array.isArray(input.portfolioStrategyIds) ? input.portfolioStrategyIds : []).map(String))).sort()
+        if (storedStrategyIds.length !== requestedStrategyIds.length || storedStrategyIds.some((id, index) => id !== requestedStrategyIds[index])) continue
+        const operation = await prisma.operation.findUnique({ where: { id: candidate.id }, select: { resultJson: true } })
+        let stored: Record<string, any> = {}
+        try { stored = JSON.parse(operation?.resultJson || '{}') } catch { stored = {} }
+        const result = stored.artifacts?.['03_backtest_results.json']?.result || null
+        if (!result) continue
+        return {
+          schemaVersion: 'portfolio.strategy_backtest.latest_compatible.v1',
+          generatedAt: new Date().toISOString(),
+          cacheTtlMs: READ_CACHE_TTL_MS,
+          found: true,
+          operationId: candidate.id,
+          status: candidate.status,
+          requestedAt: candidate.requestedAt,
+          completedAt: candidate.completedAt,
+          strategyIds: storedStrategyIds,
+          result,
+          artifactRefs: JSON.parse(candidate.artifactRefsJson || '[]'),
+          allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'PLAN_DRAFT'],
+          prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
+          notTradingAdvice: true,
+        }
+      }
       return {
         schemaVersion: 'portfolio.strategy_backtest.latest_compatible.v1',
-        found: true,
-        operationId: operation.id,
-        status: operation.status,
-        requestedAt: operation.requestedAt,
-        completedAt: operation.completedAt,
-        strategyIds: storedStrategyIds,
-        result,
-        artifactRefs: JSON.parse(operation.artifactRefsJson || '[]'),
-        allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'PLAN_DRAFT'],
-        prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
+        generatedAt: new Date().toISOString(),
+        cacheTtlMs: READ_CACHE_TTL_MS,
+        found: false,
+        reason: 'no_compatible_saved_run',
+        requestedStrategyIds,
         notTradingAdvice: true,
       }
-    }
-    return {
-      schemaVersion: 'portfolio.strategy_backtest.latest_compatible.v1',
-      found: false,
-      reason: 'no_compatible_saved_run',
-      requestedStrategyIds,
-      notTradingAdvice: true,
-    }
+    })
   })
 
   app.get('/runs/:operationId', async (request, reply) => {

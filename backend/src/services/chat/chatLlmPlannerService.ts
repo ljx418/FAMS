@@ -1,5 +1,6 @@
 import { complete, type Context, type Model } from '@earendil-works/pi-ai'
 import { getFamsLlmConfig, getFamsLlmPublicStatus } from '../../config/llmConfig.js'
+import { llmRuntimeStatusService } from '../llm/llmRuntimeStatusService.js'
 import type { FamsChatIntent } from './famsChatTypes.js'
 
 const SUPPORTED_CHAT_LLM_PROVIDERS = new Set(['openai', 'openai_compatible', 'deepseek'])
@@ -180,6 +181,7 @@ class ChatLlmPlannerService {
       return null
     }
 
+    llmRuntimeStatusService.recordAttempt('chat_planner', { provider: config.provider, model: config.model })
     const context: Context = {
       systemPrompt: [
         '你是 FAMS ChatBox 的受控意图路由器，只能把用户消息分类为 FAMS 已允许的 intent。',
@@ -209,15 +211,26 @@ class ChatLlmPlannerService {
         },
       ],
     }
-    const response = await complete(buildModel(config), context, {
-      apiKey: config.apiKey,
-      maxTokens: 300,
-      temperature: 0,
-      signal: AbortSignal.timeout(config.timeoutMs),
-    })
-    const text = extractText(response)
-    const parsed = parseJsonObject(text)
-    return parsed ? sanitizeDecision(parsed) : null
+    try {
+      const response = await complete(buildModel(config), context, {
+        apiKey: config.apiKey,
+        maxTokens: 300,
+        temperature: 0,
+        signal: AbortSignal.timeout(config.timeoutMs),
+      })
+      if ((response as any)?.stopReason === 'error') {
+        throw new Error(cleanSummaryText((response as any)?.errorMessage, 240) || 'llm_planner_provider_error')
+      }
+      const text = extractText(response)
+      const parsed = parseJsonObject(text)
+      const decision = parsed ? sanitizeDecision(parsed) : null
+      if (!decision) throw new Error('invalid response: unusable planner payload')
+      llmRuntimeStatusService.recordSuccess('chat_planner')
+      return decision
+    } catch (error) {
+      llmRuntimeStatusService.recordFailure('chat_planner', error)
+      throw error
+    }
   }
 
   async summarizeResult(input: SummaryInput): Promise<SummarySynthesis | null> {
@@ -225,6 +238,7 @@ class ChatLlmPlannerService {
     if (!config.configured || !config.chatAgentEnabled || !config.apiKey || !SUPPORTED_CHAT_LLM_PROVIDERS.has(config.provider)) {
       return null
     }
+    llmRuntimeStatusService.recordAttempt('chat_summary', { provider: config.provider, model: config.model })
     const context: Context = {
       systemPrompt: [
         '你是 FAMS ChatBox 的结果摘要器。白名单工具已经完成计算，你只能压缩和解释给定证据。',
@@ -246,37 +260,65 @@ class ChatLlmPlannerService {
         ].join('\n'),
       }],
     }
-    const response = await complete(buildModel(config), context, {
-      apiKey: config.apiKey,
-      maxTokens: 700,
-      temperature: 0.1,
-      signal: AbortSignal.timeout(config.timeoutMs),
-    })
-    if ((response as any)?.stopReason === 'error') {
-      throw new Error(cleanSummaryText((response as any)?.errorMessage, 240) || 'llm_summary_provider_error')
+    try {
+      const response = await complete(buildModel(config), context, {
+        apiKey: config.apiKey,
+        maxTokens: 700,
+        temperature: 0.1,
+        signal: AbortSignal.timeout(config.timeoutMs),
+      })
+      if ((response as any)?.stopReason === 'error') {
+        throw new Error(cleanSummaryText((response as any)?.errorMessage, 240) || 'llm_summary_provider_error')
+      }
+      const rawText = extractText(response)
+      const parsed = parseJsonObject(rawText)
+      if (parsed) {
+        const summary = sanitizeSummary(parsed, config.model)
+        if (summary) {
+          llmRuntimeStatusService.recordSuccess('chat_summary')
+          return summary
+        }
+      }
+      const plainText = cleanSummaryText(rawText.replace(/```(?:json)?|```/gi, ''), 700)
+      if (plainText && !plainText.startsWith('{')) {
+        llmRuntimeStatusService.recordSuccess('chat_summary')
+        return { reply: plainText, source: 'llm', model: config.model }
+      }
+      throw new Error('invalid response: unusable summary payload')
+    } catch (error) {
+      llmRuntimeStatusService.recordFailure('chat_summary', error)
+      throw error
     }
-    const rawText = extractText(response)
-    const parsed = parseJsonObject(rawText)
-    if (parsed) {
-      const summary = sanitizeSummary(parsed, config.model)
-      if (summary) return summary
-    }
-    const plainText = cleanSummaryText(rawText.replace(/```(?:json)?|```/gi, ''), 700)
-    if (plainText && !plainText.startsWith('{')) return { reply: plainText, source: 'llm', model: config.model }
-    console.warn('ChatBox LLM returned an unusable summary payload', {
-      textLength: rawText.length,
-      parsedKeys: parsed ? Object.keys(parsed).slice(0, 12) : [],
-    })
-    return null
   }
 
   publicStatus() {
+    const configured = this.isAvailable()
+    const runtime = llmRuntimeStatusService.publicStatus()
+    const plannerState = runtime.capabilities.chatPlanner.state
+    const summaryState = runtime.capabilities.chatSummary.state
     return {
       ...getFamsLlmPublicStatus(),
-      plannerAvailable: this.isAvailable(),
-      plannerMode: this.isAvailable() ? 'pi_ai_llm_intent_router' : 'deterministic_planner_fallback',
-      summaryAvailable: this.isAvailable(),
-      summaryMode: this.isAvailable() ? 'llm_structured_result_synthesis' : 'deterministic_summary_fallback',
+      plannerConfigured: configured,
+      plannerAvailable: configured && plannerState === 'available',
+      plannerRuntimeAvailability: plannerState,
+      plannerMode: !configured
+        ? 'deterministic_planner_fallback'
+        : plannerState === 'available'
+          ? 'pi_ai_llm_intent_router'
+          : plannerState === 'not_attempted'
+            ? 'llm_configured_runtime_unverified'
+            : 'deterministic_planner_fallback_after_provider_failure',
+      summaryConfigured: configured,
+      summaryAvailable: configured && summaryState === 'available',
+      summaryRuntimeAvailability: summaryState,
+      summaryMode: !configured
+        ? 'deterministic_summary_fallback'
+        : summaryState === 'available'
+          ? 'llm_structured_result_synthesis'
+          : summaryState === 'not_attempted'
+            ? 'llm_configured_runtime_unverified'
+            : 'deterministic_summary_fallback_after_provider_failure',
+      runtime,
       toolExecutionBoundary: 'fams_allowlisted_tools_only',
       formalTradingUnlocked: false,
       autoTradeUnlocked: false,

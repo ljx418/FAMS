@@ -139,7 +139,11 @@ type ChatResponse = {
       keySource?: string | null
       model?: string
       plannerAvailable?: boolean
+      plannerConfigured?: boolean
+      plannerRuntimeAvailability?: 'not_attempted' | 'available' | 'degraded' | 'unavailable'
       plannerMode?: string
+      summaryAvailable?: boolean
+      summaryRuntimeAvailability?: 'not_attempted' | 'available' | 'degraded' | 'unavailable'
       secretsRedacted?: boolean
     }
     summarySynthesis?: {
@@ -684,7 +688,8 @@ function AgentStatusDetails({ response }: { response?: ChatResponse }) {
           {response.agentCore.llm ? (
             <div>
               LLM：{response.agentCore.llm.configured ? `${response.agentCore.llm.provider || '-'} / ${response.agentCore.llm.model || '-'}` : '未配置'}｜
-              Planner：{response.agentCore.llm.plannerAvailable ? response.agentCore.llm.plannerMode || '可用' : 'deterministic fallback'}｜
+              Planner：{response.agentCore.llm.plannerRuntimeAvailability === 'available' ? '增强可用' : response.agentCore.llm.plannerRuntimeAvailability === 'not_attempted' ? '已配置，尚未验证' : '确定性降级'}｜
+              Summary：{response.agentCore.llm.summaryRuntimeAvailability === 'available' ? '增强可用' : response.agentCore.llm.summaryRuntimeAvailability === 'not_attempted' ? '已配置，尚未验证' : '规则摘要降级'}｜
               Key：{response.agentCore.llm.keySource || '无'}（已脱敏）
             </div>
           ) : null}
@@ -1157,7 +1162,8 @@ export function FamsChatBox() {
               <>
                 <br />
                 LLM：{latestAgentCore.llm.configured ? `${latestAgentCore.llm.provider || '-'} / ${latestAgentCore.llm.model || '-'}` : '未配置'}｜
-                Planner：{latestAgentCore.llm.plannerAvailable ? latestAgentCore.llm.plannerMode || '可用' : 'deterministic fallback'}｜
+                Planner：{latestAgentCore.llm.plannerRuntimeAvailability === 'available' ? '增强可用' : latestAgentCore.llm.plannerRuntimeAvailability === 'not_attempted' ? '已配置，尚未验证' : '确定性降级'}｜
+                Summary：{latestAgentCore.llm.summaryRuntimeAvailability === 'available' ? '增强可用' : latestAgentCore.llm.summaryRuntimeAvailability === 'not_attempted' ? '已配置，尚未验证' : '规则摘要降级'}｜
                 Key：{latestAgentCore.llm.keySource || '无'}（已脱敏）
               </>
             ) : null}

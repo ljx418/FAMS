@@ -8,11 +8,11 @@
 import { FastifyInstance } from 'fastify'
 import { llmService } from '../services/llm/llmService.js'
 import { assetIdentityResolver } from '../services/asset/assetIdentityResolver.js'
-import { getFamsLlmPublicStatus } from '../config/llmConfig.js'
+import { chatLlmPlannerService } from '../services/chat/chatLlmPlannerService.js'
 
 export async function llmRoutes(app: FastifyInstance) {
   app.get('/status', async () => {
-    return getFamsLlmPublicStatus()
+    return chatLlmPlannerService.publicStatus()
   })
 
   // 获取股票 AI 事实观察

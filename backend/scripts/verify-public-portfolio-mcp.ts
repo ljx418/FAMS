@@ -52,6 +52,7 @@ async function verifyPlanDecisionWriteBoundary() {
       userId: fixtureUserId,
       scopes: new Set(['portfolio:read', 'review:run', 'capture:write', 'plan:write']),
       transport: 'stdio',
+      authType: 'stdio',
     }
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     const server = createPublicPortfolioMcpServer(principal)
@@ -90,6 +91,7 @@ async function main() {
     userId: 'default',
     scopes: new Set(['portfolio:read']),
     transport: 'stdio',
+    authType: 'stdio',
   }
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
   const server = createPublicPortfolioMcpServer(principal)

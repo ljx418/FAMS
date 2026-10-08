@@ -3,10 +3,25 @@ import { priceService } from '../services/price/priceService.js'
 import { marketDataService } from '../services/market-data/marketDataService.js'
 import { assetIdentityResolver } from '../services/asset/assetIdentityResolver.js'
 import { assetTrendService } from '../services/market-data/assetTrendService.js'
+import { marketDataReliabilityService } from '../services/market-data/marketDataReliabilityService.js'
 
 export async function priceRoutes(app: FastifyInstance) {
   app.get('/providers', async () => {
     return marketDataService.listProviders()
+  })
+
+  app.get('/reliability', async (request) => {
+    const query = request.query as { userId?: string; scope?: string; limit?: string }
+    const allowedScopes = new Set(['active_strategy', 'holdings', 'dividend_low_vol', 'all_cached'])
+    const scope = allowedScopes.has(String(query.scope || 'holdings'))
+      ? String(query.scope || 'holdings') as 'active_strategy' | 'holdings' | 'dividend_low_vol' | 'all_cached'
+      : 'holdings'
+    const requestedLimit = Number(query.limit || 300)
+    return marketDataReliabilityService.buildReport({
+      userId: String(query.userId || 'default'),
+      scope,
+      limit: Number.isFinite(requestedLimit) ? Math.max(1, Math.min(6000, requestedLimit)) : 300,
+    })
   })
 
   app.get('/trend', async (request) => {

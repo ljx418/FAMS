@@ -86,6 +86,21 @@ npm run mcp:portfolio-token -- revoke --user default --id <token-id>
 cd backend
 npm run test:portfolio-mcp-contract
 npm run test:portfolio-mcp-http
+npm run test:portfolio-mcp-oauth-resource-server
 ```
+
+## OAuth Resource Server
+
+远程发布使用外部 OAuth 授权服务器，FAMS 只作为 resource server：
+
+- protected-resource metadata：`/.well-known/oauth-protected-resource` 与 `/.well-known/oauth-protected-resource/mcp`；
+- JWT：RS256、JWKS、issuer、audience、expiry、subject、FAMS user claim 和 scope 全量校验；
+- 401/403：返回包含 `resource_metadata` 的 `WWW-Authenticate` challenge；
+- 本地 `fams_mcp_*` opaque token 与 OAuth JWT 为两个明确的 principal 类型；
+- FAMS 不签发 OAuth token，不实现授权服务器。
+
+必需配置：`FAMS_MCP_OAUTH_ENABLED`、`FAMS_MCP_PUBLIC_BASE_URL`、`FAMS_MCP_OAUTH_ISSUER`、`FAMS_MCP_OAUTH_AUDIENCE`、`FAMS_MCP_OAUTH_JWKS_URI`、`FAMS_MCP_ALLOWED_ORIGINS`。
+
+只读发布准备状态位于 `/api/v1/mcp/public-release-readiness`。即使全 HTTPS 配置通过预检，自动化仍保持 `externalHttpsDeploymentVerified=false`、`publicInternetReleaseReady=false`，直到外部部署和人工 OAuth 流程核查完成。
 
 验收覆盖官方 SDK 握手、真实数据库仓位读取、精确工具白名单、resources/prompt、stdio 子进程、Bearer 必填、Origin 白名单、scope 隔离、令牌撤销以及 `Transaction` 零变化。

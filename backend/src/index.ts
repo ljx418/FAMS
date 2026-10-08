@@ -21,6 +21,7 @@ import { tagRoutes } from './routes/tag.js'
 import { authRoutes } from './routes/auth.js'
 import { mcpRouter } from './mcp/index.js'
 import { publicPortfolioMcpHttpRouter } from './mcp/portfolioHttp.js'
+import { portfolioMcpOAuthMetadataRouter } from './mcp/portfolioOAuthMetadata.js'
 import { agentRouter } from './agents/router.js'
 import { workflowRouter } from './workflow/router.js'
 import { llmRoutes } from './routes/llm.js'
@@ -171,6 +172,7 @@ async function registerRoutes() {
 
   // AI Agent相关路由
   await app.register(mcpRouter, { prefix: '/api/v1/mcp' })
+  await app.register(portfolioMcpOAuthMetadataRouter)
   if (process.env.FAMS_MCP_HTTP_ENABLED === 'true') {
     await app.register(publicPortfolioMcpHttpRouter, { prefix: '/mcp' })
   }

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { createPublicPortfolioMcpServer } from './publicPortfolioServer.js'
 import { portfolioMcpAuthService } from '../services/mcp/portfolioMcpAuthService.js'
+import { PortfolioMcpOAuthError, portfolioMcpOAuthService } from '../services/mcp/portfolioMcpOAuthService.js'
 
 const firstHeader = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value
 
@@ -30,11 +31,18 @@ export async function publicPortfolioMcpHttpRouter(app: FastifyInstance) {
     let principal
     try {
       const authorization = firstHeader(request.headers.authorization as string | string[] | undefined)
-      principal = await portfolioMcpAuthService.authenticateBearer(authorization)
+      principal = await portfolioMcpAuthService.authenticateHttpBearer(authorization)
       portfolioMcpAuthService.assertRateLimit(principal)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'MCP authentication failed'
-      const status = message === 'MCP_RATE_LIMIT_EXCEEDED' ? 429 : 401
+      const status = error instanceof PortfolioMcpOAuthError
+        ? error.statusCode
+        : message === 'MCP_RATE_LIMIT_EXCEEDED'
+          ? 429
+          : 401
+      const oauthError = status === 403 ? 'insufficient_scope' : 'invalid_token'
+      const challenge = portfolioMcpOAuthService.wwwAuthenticate({ error: oauthError, scopes: ['portfolio:read'] })
+      if (challenge && (status === 401 || status === 403)) reply.header('WWW-Authenticate', challenge)
       return jsonRpcError(reply, status, -32002, message)
     }
 

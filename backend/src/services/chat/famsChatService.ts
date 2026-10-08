@@ -1216,11 +1216,12 @@ class FamsChatService {
       }
       return plan
     } catch (error: any) {
+      const runtime = chatLlmPlannerService.publicStatus()
       return {
         intent: deterministicIntent,
         confidence: 0.6,
         context: {},
-        reason: `llm_planner_failed_fallback:${String(error?.message || error).slice(0, 120)}`,
+        reason: `llm_planner_failed_fallback:${runtime.runtime.capabilities.chatPlanner.lastFailureCode || 'PROVIDER_ERROR'}`,
       }
     }
   }
@@ -2024,9 +2025,10 @@ class FamsChatService {
       }
     } catch (error) {
       // 摘要是可降级的展示增强，不能让它阻断白名单工具的业务结果。
+      const runtime = chatLlmPlannerService.publicStatus()
       console.warn('ChatBox LLM summary fallback', {
         intent: input.intent,
-        reason: String((error as any)?.message || error).slice(0, 180),
+        reason: runtime.runtime.capabilities.chatSummary.lastFailureCode || 'PROVIDER_ERROR',
       })
     }
     return {
@@ -2073,6 +2075,7 @@ class FamsChatService {
     toolAudit?: Record<string, unknown>
     summarySynthesis?: { source: 'llm' | 'deterministic'; model?: string }
   }): FamsChatResponse {
+    const llmStatus = chatLlmPlannerService.publicStatus()
     const structuredResult = this.enrichStructuredResult({
       structuredResult: input.structuredResult,
       reply: input.reply,
@@ -2100,14 +2103,16 @@ class FamsChatService {
       prohibitedActions: PROHIBITED_ACTIONS,
       agentCore: {
         provider: 'pi-agent-core',
-        mode: chatLlmPlannerService.isAvailable() ? 'pi_agent_loop' : 'deterministic_planner',
+        mode: llmStatus.plannerAvailable ? 'pi_agent_loop' : 'deterministic_planner',
         runtimeAvailable: input.runtimeAvailable,
         nodeVersion: process.version,
-        llm: chatLlmPlannerService.publicStatus(),
+        llm: llmStatus,
         summarySynthesis: input.summarySynthesis,
-        note: chatLlmPlannerService.isAvailable()
+        note: llmStatus.plannerAvailable
           ? 'LLM routes intent and summarizes completed structured results. All executable actions still pass through allowlisted tools and confirmations.'
-          : 'PI AgentCore is integrated as the controlled tool/runtime adapter. Deterministic planner is used until FAMS_CHAT_LLM_ENABLED=1 is configured.',
+          : llmStatus.plannerConfigured
+            ? 'LLM is configured but not currently verified as available. PI AgentCore uses the deterministic planner until a real provider call succeeds.'
+            : 'PI AgentCore is integrated as the controlled tool/runtime adapter. Deterministic planner is used until FAMS_CHAT_LLM_ENABLED=1 is configured.',
       },
       notTradingAdvice: true,
     }

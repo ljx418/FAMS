@@ -1,21 +1,17 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { prisma } from '../../db/prisma.js'
 import { ensureUser } from '../../utils/user.js'
+import { portfolioMcpOAuthService } from './portfolioMcpOAuthService.js'
+import { PORTFOLIO_MCP_SCOPES, type PortfolioMcpScope } from './portfolioMcpScopes.js'
 
-export const PORTFOLIO_MCP_SCOPES = [
-  'portfolio:read',
-  'review:run',
-  'capture:write',
-  'plan:write',
-] as const
-
-export type PortfolioMcpScope = typeof PORTFOLIO_MCP_SCOPES[number]
+export { PORTFOLIO_MCP_SCOPES, type PortfolioMcpScope } from './portfolioMcpScopes.js'
 
 export type PortfolioMcpPrincipal = {
   subject: string
   userId: string
   scopes: Set<PortfolioMcpScope>
   transport: 'stdio' | 'streamable_http'
+  authType: 'stdio' | 'local_opaque_token' | 'oauth_jwt'
   tokenId?: string
 }
 
@@ -72,6 +68,7 @@ class PortfolioMcpAuthService {
       userId,
       scopes: new Set(PORTFOLIO_MCP_SCOPES),
       transport: 'stdio',
+      authType: 'stdio',
     }
   }
 
@@ -155,7 +152,26 @@ class PortfolioMcpAuthService {
       userId: record.userId,
       scopes: new Set(scopes),
       transport: 'streamable_http',
+      authType: 'local_opaque_token',
       tokenId: record.id,
+    }
+  }
+
+  async authenticateHttpBearer(authorization: string | undefined): Promise<PortfolioMcpPrincipal> {
+    const match = authorization?.match(/^Bearer\s+([^\s]+)$/i)
+    if (!match) throw new Error('MCP_BEARER_TOKEN_REQUIRED')
+    if (match[1].startsWith('fams_mcp_') || match[1].split('.').length !== 3) {
+      return this.authenticateBearer(authorization)
+    }
+    const verified = await portfolioMcpOAuthService.verifyAccessToken(match[1])
+    const user = await prisma.user.findUnique({ where: { id: verified.userId }, select: { id: true } })
+    if (!user) throw new Error('MCP_OAUTH_USER_NOT_FOUND')
+    return {
+      subject: `oauth:${verified.subject}`,
+      userId: user.id,
+      scopes: new Set(verified.scopes),
+      transport: 'streamable_http',
+      authType: 'oauth_jwt',
     }
   }
 

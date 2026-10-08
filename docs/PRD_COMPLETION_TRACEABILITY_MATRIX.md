@@ -16,13 +16,16 @@
 
 | 规格域 | 需求范围 | 工程/自动验收现状 | 未完成内容 | 最终证据 | 集中人工项 |
 | --- | --- | --- | --- | --- | --- |
-| 红利低波研究 | `DIVIDEND_LOW_VOL_PRD.md` §3-§8 | 候选、区间、滚动回测、FIVD-R、人工计划草案和交易阻断已实现 | 正式 provider、可信 benchmark、formal validation | 15/16/17 audit +真实回测 | 数据、模型、风险 |
+| 红利低波研究 | `DIVIDEND_LOW_VOL_PRD.md` §3-§8 | 候选、区间、滚动回测、FIVD-R、受控 point-in-time 数据、可信 total-return benchmark、formal validation、人工计划草案和交易阻断已实现并自动通过 | A6 数据/模型/风险复核；商业数据授权与正式交易 release 不在当前自动完成范围 | 15/16/17 audit + FTR-1/2/3 v2 +真实回测 | 数据、模型、风险 |
 | 每日投资组合复盘 | DPR-001..DPR-030 | `30/30` 工程追踪；真实数据 E2E 已通过；人工未执行 | 集中普通用户体验验收；正式数据/模型门禁不属于 DPR 产品功能完成 | `DAILY_PORTFOLIO_REVIEW_TRACEABILITY_MATRIX.md` + 私有证据索引 | 普通用户体验 |
 | V2-PX External Brain | PX-REQ-001..PX-REQ-020 | `20/20` 工程合同和自动验收；PX6-02 为 `0/10` | 集中真实 Chrome 人工体验 10 项 | `V2_PX_PRD_TRACEABILITY_MATRIX.md` + 私有 Chrome 证据索引 | V2-PX 体验 |
 | ChatBox 第一入口 | 工具矩阵与结构化结果合同 | 查询、quick-run、确认、Operation、图表、数据健康与阻断已实现 | 最终用户可理解性核查 | ChatBox audits + E2E screenshots | 普通用户体验 |
 | 双轨工作台/资产 Excel | UX-F7 合同 | 普通用户入口、专家多页、Excel 导入导出已自动验收 | 集中人工视觉/可读性确认 | UX-F7 HTML/audit | 产品体验 |
 | 三类资产投资工作流 | `INVESTMENT_WORKFLOW_UX_PRD.md` 20 项 | `19/20`：WF-0..WF-8 工程与自动验收通过；冻结策略逐时点模拟已使用真实数据通过 | 集中策略归类、曲线含义和移动路径人工体验 1 项 | WF-7 报告 + WF-8 逐时点审计 | 产品体验 |
+| 投资策略设置 | `INVESTMENT_POLICY_SETTINGS_PRD.md` | 三桶目标比例、每桶/标的上限、止损区间、策略准入和只读决策摘要已实现；真实 default 账户自动验收通过 | 用户核对并启用自己的真实参数；未启用前只提示偏差，不自动改仓 | `docs/automation-audits/investment-policy/evidence/investment-policy-acceptance.json` | 参数与启用确认 |
 | Formal Release Readiness | FTR-0..FTR-6 | A0/FTR-1/FTR-2/FTR-3 point-in-time v2 正式链已通过；FTR-3 为 5/6 窗口、53 条动态路径且失败窗口保留；8 项不可自签队列、执行隔离和 28-artifact provisional package 已完成 | 使用 A6 图文工作台完成集中人工核查；通过后按同一哈希生成 A7 final review package | 13-18 audit + FREE-P1/R0/R1 evidence + v2 正式链 + A6 draft + final package | 数据/模型/风险/合规/final |
+
+运行质量补强 C1-C4 已在 2026-10-08 完成：关键读取性能预算、行情可靠性快照、LLM 真实调用状态和 MCP OAuth resource-server 合同均有专项审计；它们提高可观察性和可用性，不改变上述人工门禁或交易权限。
 
 ## 3. 剩余目标到实体、步骤和证据
 

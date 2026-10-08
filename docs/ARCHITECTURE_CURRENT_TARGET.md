@@ -4,7 +4,7 @@
 
 ## 1. 架构结论
 
-FAMS 当前是 React/Vite + Fastify + Prisma/SQLite 的模块化单体。已完成 ChatBox、普通用户工作台、专家多 Tab、资产 Excel、三类资产策略路由、行业轮动网格、红利低波建议、组合策略、统一场景比较、冻结策略逐时点模拟、每日持仓复盘、RRG、真实数据研究回测、Operation 审计、Formal Release Readiness 工程服务和交易阻断。FTR 与投资工作流的文档支撑自动化范围均已实现；当前仍需集中人工验收，不能声明 PRD 全部完成。
+FAMS 当前是 React/Vite + Fastify + Prisma/SQLite 的模块化单体。已完成 ChatBox、普通用户工作台、专家多 Tab、资产 Excel、三类资产策略路由、行业轮动网格、红利低波建议、组合策略、统一场景比较、冻结策略逐时点模拟、每日持仓复盘、RRG、真实数据研究回测、Operation 审计、Formal Release Readiness 工程服务和交易阻断。2026-10-08 又完成了关键读取性能预算、行情 provider/freshness 可靠性快照、LLM 真实调用状态和 MCP OAuth resource-server 合同。FTR 与投资工作流的文档支撑自动化范围均已实现；当前仍需集中人工验收，不能声明 PRD 全部完成。
 
 ```text
 当前能力：research / formal-review-ready / manual draft / paper-sandbox audit / FTR engineering complete
@@ -50,6 +50,9 @@ ChatBox 是第一入口但不是唯一入口；上述专家页必须继续保留
 | `backend/src/routes/relativeRotation.ts` | 已开发并自动验收 | 观察池、组合 RRG、研究运行和行业拥挤度 |
 | `backend/src/routes/formalRelease.ts` | 已开发，业务 gate blocked | 正式 provider 授权、Benchmark 导入、签核和 review package 受控 API |
 | `backend/src/routes/investmentWorkflow.ts` | 已开发并自动验收 | readiness、策略归属、策略运行和场景比较；不创建订单 |
+| `backend/src/routes/price.ts` + `marketDataReliabilityService.ts` | 已开发并专项验收 | 聚合 provider 运行统计与 canonical freshness，输出 healthy/degraded/blocked、恢复动作和明确的非实时保证 |
+| `backend/src/routes/llm.ts` + `llmRuntimeStatusService.ts` | 已开发并专项验收 | 区分 configured 与真实 available；将鉴权、配额、超时、网络和无效响应映射为稳定失败码，不泄露密钥或原始错误 |
+| `backend/src/mcp/portfolioOAuthMetadata.ts` + `portfolioMcpOAuthService.ts` | 已开发并专项验收，公网部署待外部配置 | RFC 9728 protected-resource metadata、RS256/JWKS、issuer/audience/scope 校验及标准 401/403 challenge；不包含授权服务器或公网部署 |
 | `PortfolioBacktestInputBuilder` | 已开发并验收 | 构建持仓、永久组合、全天候、红利低波和自定义输入 |
 | `portfolioBacktestReviewService` | 已开发，签核能力不足 | 保存复核材料；不能创建订单 |
 | `operationService` | 已开发并验收 | 持久化任务状态和 artifact refs |
@@ -79,6 +82,9 @@ ChatBox 是第一入口但不是唯一入口；上述专家页必须继续保留
 | `AlipayAllocationStrategy` | 已开发并自动验收 | 年前高防御、年后永久组合的受控配置策略 |
 | `ScenarioComparisonService` | 已开发并自动验收 | 统一比较 actual/hold/follow_advice；带冻结 `fams.grid-strategy.v2` 时使用真实 canonical OHLC 逐日动态重算 |
 | `pointInTimeGridSimulation` | 已开发并自动验收 | 逐日维护网格档位、父子激活、T+1、现金、仓位和费用；输出可见截止日、决策、事件、曲线与哈希 |
+| `portfolioBacktest.ts` 读取缓存 | 已开发并专项验收 | 60 秒进程内 read-through cache；新持久化回测后失效；`latest-compatible` 先筛轻量候选再读取完整结果 |
+
+上述运行可信能力的边界：本地专项通过只证明当前真实账户和测试环境中的预算、失败分类与协议合同；它不证明免费行情为实时 SLA，不证明 LLM 配额可用，也不证明 MCP 已部署到公网或已经完成人工 ChatGPT 连接。
 
 ## 3. Formal Release Readiness 工程实现状态
 

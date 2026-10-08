@@ -8,6 +8,7 @@
 FTR 当前：A0/FTR-1/FTR-2/FTR-3 point-in-time v2 正式链已通过；免费来源 5216/5216 标的与六时点 6/6 ready，红利低波 5/6 窗口、53 条动态路径通过自动门槛，`wf-04` 失败保留
 FTR 自动化段：FTR-4 不可自签队列已冻结 8 类审查项，FTR-5 隔离回归已通过，FTR-6 provisional review package 已生成并逐字节校验
 投资工作流：WF-0 至 WF-8 文档支撑的自动化实现与真实数据验收已完成；PRD 自动覆盖 19/20，冻结策略逐时点模拟已通过真实 OHLC、防前视和双视口验收
+运行可信补强：C1 关键读取预算、C2 行情可靠性快照、C3 LLM 运行态、C4 MCP OAuth resource server 已专项通过；公网 MCP/外部 IdP/ChatGPT 连接仍未部署或人工验证
 剩余目标一：A6、V2-PX 和投资工作流集中人工核查；通过后只使用已签核的同一 artifact 哈希重建 A7 最终评审包
 剩余目标二：集中核验策略归类、截图纠错、曲线语义与移动端路径；通过后重跑 PRD 矩阵
 自动化段出门：batchHumanReviewReady=true / formalTradingReleaseReviewReady=true / finalFormalReleaseReviewPackageReady=false / evidence=provisional
@@ -25,6 +26,7 @@ FTR 自动化段：FTR-4 不可自签队列已冻结 8 类审查项，FTR-5 隔�
 | --- | --- | --- | --- | --- | --- |
 | 体验 | `FamsChatBox.tsx`、`Assets.tsx`、`Positions.tsx`、`InvestmentPolicy.tsx`、`RelativeRotation.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`DailyReviews.tsx`、`Operations.tsx` | 双轨体验和 WF-0..8 自动验收通过；统一投资政策及冻结策略逐时点回放已实现；策略归属及截图修正仍待人工确认 | 保留 ChatBox 首入口和专家页；统一展示备用现金、三类策略预算、警示带、单标的/行业上限、真实持仓评估和显式激活状态 | 普通用户按资产录入 -> 策略归属 -> 投资政策 -> 对应策略 -> 回测 -> 复盘前进，专家可下钻证据 | Headless Chrome 双视口 + policy / point-in-time audit + 人工清单 |
 | API | `chat.ts`、`position.ts`、`investmentWorkflow.ts`、`investmentPolicy.ts`、`backtest.ts`、`dailyReview.ts`、`relativeRotation.ts`、`formalRelease.ts`、`operation.ts` | 日常复盘/RRG/投资工作流/FTR API 已实现；冻结网格策略逐时点 source 与 compare API 已实现；正式交易仍 blocked | 保持 Fastify 模块边界，统一读取状态源、投资工作流 services、投资政策和 FTR services | 页面、ChatBox、审计包读取同一事实和同一交易锁 | API contract audit |
+| 运行可信 | `portfolioBacktest.ts` read-through cache、`marketDataReliabilityService.ts`、`llmRuntimeStatusService.ts`、`portfolioMcpOAuthService.ts`、`portfolioOAuthMetadata.ts` | 当前真实账户关键读取预算已通过；行情状态可解释；LLM 配额失败不再冒充可用；MCP OAuth resource-server 代码通过但公网配置未完成 | 保持自动化专项回归；公网 MCP 另行完成 HTTPS、外部 OAuth 配置和人工连接验收 | 用户能区分缓存读取、行情新鲜度、LLM 降级和 MCP 公网未就绪状态 | C1-C4 audit + full-system E2E API/command evidence |
 | 投资决策 | `InvestmentPolicyService`、`PositionStrategyAssignmentService`、`RotationVolatilityStrategyService`、`AlipayAllocationStrategy`、`ScenarioComparisonService`、`pointInTimeGridSimulation` | 三类资产路由、统一政策版本、轮动/红利/组合策略和冻结网格逐时点场景比较已实现；缺行业事实继续诚实告警 | 集中人工确认策略归属、行业事实、曲线语义和移动体验；无冻结版本 Advice 保持阻断 | 用户能设置独立备用现金、50/30/20 初始预算、风险上限，并比较按冻结策略、不执行、实仓曲线 | investment-policy audit + WF-7 + WF-8 真实数据/双视口证据 |
 | 输入 | `PortfolioBacktestInputBuilder`、`ReleaseCandidateSetService` | 七对象已冻结，但旧版未区分工程样本、诊断、参照和产品候选 | `FormalValidationProfileSet`：角色、profile、benchmark、成分与适用性不可变 | 用户明确知道哪些对象参与 release gate、哪些只作研究或诊断 | `release_candidate_set.json` + `validation_profile_set.json` |
 | 计算 | `PortfolioBacktestEngine` + `FormalValidationService` + point-in-time runner/verifier | FTR-3 v2 自动门禁通过；六窗口 5/6，失败窗口保留，尚待模型人工复核 | A6 只复核冻结结果；任何否决均打回对应 FTR 阶段，不得现场改参数 | 计算结果与放行结论可分别审计 | deterministic replay + service contract + failed-window evidence |

@@ -20,6 +20,24 @@
       "endpointPath": "/mcp",
       "enableEnvironment": "FAMS_MCP_HTTP_ENABLED=true",
       "authentication": "Authorization: Bearer fams_mcp_*",
+      "oauthResourceServer": {
+        "status": "code_ready_external_https_and_idp_deployment_pending",
+        "authentication": "external OAuth JWT access token or local fams_mcp_* opaque token",
+        "protectedResourceMetadataPaths": [
+          "/.well-known/oauth-protected-resource",
+          "/.well-known/oauth-protected-resource/mcp"
+        ],
+        "requiredEnvironment": [
+          "FAMS_MCP_OAUTH_ENABLED",
+          "FAMS_MCP_PUBLIC_BASE_URL",
+          "FAMS_MCP_OAUTH_ISSUER",
+          "FAMS_MCP_OAUTH_AUDIENCE",
+          "FAMS_MCP_OAUTH_JWKS_URI"
+        ],
+        "authorizationServerOwnedByFams": false,
+        "externalHttpsDeploymentVerified": false,
+        "publicInternetReleaseReady": false
+      },
       "originAllowlistEnvironment": "FAMS_MCP_ALLOWED_ORIGINS",
       "rateLimitEnvironment": "FAMS_MCP_RATE_LIMIT_PER_MINUTE",
       "internetExposureRule": "必须在 HTTPS 反向代理或安全隧道之后；不得直接暴露 Fastify 明文端口"

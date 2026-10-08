@@ -118,6 +118,16 @@ export interface ProviderHealthSummaryItem {
   status: 'healthy' | 'degraded' | 'failing' | 'unknown'
 }
 
+export interface ProviderReliabilitySnapshotItem extends ProviderHealthSummaryItem {
+  capabilities: MarketDataCapability[]
+  attempted: boolean
+  consecutiveFailures: number
+  lastSuccessAt: string | null
+  lastFailureAt: string | null
+  circuitOpen: boolean
+  circuitOpenUntil: string | null
+}
+
 interface ClassifiedProviderError {
   code: string
   category: 'network' | 'empty_data' | 'unsupported_symbol' | 'invalid_price' | 'validation_failed' | 'provider_failure'
@@ -206,6 +216,28 @@ class MarketDataService {
         fallbackHits: health.fallbackHits,
         healthScore: health.healthScore,
         status: health.status as 'healthy' | 'degraded' | 'failing' | 'unknown',
+      }
+    })
+  }
+
+  getProviderReliabilitySnapshot(): ProviderReliabilitySnapshotItem[] {
+    return this.providers.map((provider) => {
+      const health = this.getProviderHealthSnapshot(provider.key)
+      return {
+        provider: provider.key,
+        label: provider.label,
+        capabilities: [...provider.capabilities],
+        attempted: health.successes + health.failures > 0,
+        successes: health.successes,
+        failures: health.failures,
+        fallbackHits: health.fallbackHits,
+        consecutiveFailures: health.consecutiveFailures,
+        lastSuccessAt: health.lastSuccessAt,
+        lastFailureAt: health.lastFailureAt,
+        circuitOpen: Boolean(health.circuitOpenUntil && new Date(health.circuitOpenUntil).getTime() > Date.now()),
+        circuitOpenUntil: health.circuitOpenUntil,
+        healthScore: health.healthScore,
+        status: health.status as ProviderReliabilitySnapshotItem['status'],
       }
     })
   }
