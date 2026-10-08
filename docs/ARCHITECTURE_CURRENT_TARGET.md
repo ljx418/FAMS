@@ -1,15 +1,15 @@
 # FAMS 当前架构与下一阶段目标架构
 
-更新时间：2026-09-16
+更新时间：2026-10-08
 
 ## 1. 架构结论
 
-FAMS 当前是 React/Vite + Fastify + Prisma/SQLite 的模块化单体。已完成 ChatBox、普通用户工作台、专家多 Tab、资产 Excel、三类资产策略路由、行业轮动网格、红利低波建议、组合策略、统一场景比较、每日持仓复盘、RRG、真实数据研究回测、Operation 审计、Formal Release Readiness 工程服务和交易阻断。FTR 与投资工作流的文档支撑自动化范围均已实现；当前仍需集中人工验收，并另行实现建议级冻结策略逐日重算，不能声明 PRD 全部完成。
+FAMS 当前是 React/Vite + Fastify + Prisma/SQLite 的模块化单体。已完成 ChatBox、普通用户工作台、专家多 Tab、资产 Excel、三类资产策略路由、行业轮动网格、红利低波建议、组合策略、统一场景比较、冻结策略逐时点模拟、每日持仓复盘、RRG、真实数据研究回测、Operation 审计、Formal Release Readiness 工程服务和交易阻断。FTR 与投资工作流的文档支撑自动化范围均已实现；当前仍需集中人工验收，不能声明 PRD 全部完成。
 
 ```text
 当前能力：research / formal-review-ready / manual draft / paper-sandbox audit / FTR engineering complete
-当前自动化结果：FTR provisional chain passed + investment workflow WF-0..7 passed + PRD 18/20
-剩余目标：batch human acceptance -> dynamic point-in-time advice replay -> final review package
+当前自动化结果：FTR provisional chain passed + investment workflow WF-0..8 passed + PRD 19/20
+剩余目标：batch human acceptance -> final review package
 不在本阶段：production order enablement / AUTO_TRADE / unattended release
 ```
 
@@ -77,7 +77,8 @@ ChatBox 是第一入口但不是唯一入口；上述专家页必须继续保留
 | `PositionStrategyAssignmentService` | 已开发并自动验收，人工确认待执行 | 将同花顺轮动/红利资产与支付宝组合资产映射到默认策略；16 个真实持仓当前待确认 |
 | `RotationVolatilityStrategyService` | 已开发并自动验收 | RRG + MACD + 均线 + 成交量，输出研究级波动交易网格 |
 | `AlipayAllocationStrategy` | 已开发并自动验收 | 年前高防御、年后永久组合的受控配置策略 |
-| `ScenarioComparisonService` | 已开发并自动验收，动态模拟待补 | 统一比较 actual/hold/follow_advice；当前不具备冻结策略逐日动态重算能力 |
+| `ScenarioComparisonService` | 已开发并自动验收 | 统一比较 actual/hold/follow_advice；带冻结 `fams.grid-strategy.v2` 时使用真实 canonical OHLC 逐日动态重算 |
+| `pointInTimeGridSimulation` | 已开发并自动验收 | 逐日维护网格档位、父子激活、T+1、现金、仓位和费用；输出可见截止日、决策、事件、曲线与哈希 |
 
 ## 3. Formal Release Readiness 工程实现状态
 
@@ -137,7 +138,7 @@ Assets / Positions / RelativeRotation / DividendLowVol / Backtest / DailyReviews
 - provider secret 只存在于服务配置，不进入 DTO、日志和 artifact。
 - 前端只显示 gate 结果和可执行的恢复动作，不根据 UI 状态自行推导交易权限。
 - 任一入口都必须读取同一交易边界合同。
-- 场景比较只消费已声明的数据与 advice artifact；在 `point_in_time_simulation` 完成前，不得把静态建议外推冒充逐日历史建议。
+- 场景比较只消费已声明的数据与冻结策略 artifact；无冻结版本时继续阻断，禁止把保存建议回放冒充逐日动态模拟。
 - 统一投资政策先识别组合外备用现金，再以首次草案 `50/30/20` 管理三类策略预算；目标与用户警示区间只产生告警，不自动再平衡。
 - 活动投资政策不可原地修改；单标的覆盖必须绑定草案版本和审计理由。单标的或行业容量耗尽时只阻断新增买入研究草案，不自动卖出现有仓位。
 - 每用户同时最多一份草案和一份活动政策；激活、旧版替换与评估快照必须在同一事务中完成。
@@ -162,9 +163,9 @@ S0-S8 accepted + FTR services implemented
   -> A7 final formal-release review package
   -> separate future production-unlock stage
 
-WF-0..WF-7 documented automated scope (complete, PRD 18/20)
-  -> concentrated human correction/assignment/UX review (pending)
-  -> advice-level point-in-time dynamic replay stage (not implemented)
+WF-0..WF-8 documented automated scope (complete, PRD 19/20)
+  -> frozen-strategy point-in-time dynamic replay (automated accepted)
+  -> concentrated human correction/assignment/UX review (pending, final 1/20)
   -> PRD traceability rerun (must reach 20/20 before full-completion claim)
 ```
 
@@ -192,7 +193,7 @@ orderCreateAllowed=false
 | 多角色签核打断自动化开发 | 无法连续完成 A1-A5 | 先冻结 provisional artifact，A6 集中签核；失败按依赖图打回 | 自动签核或删除人工 gate 不允许 |
 | 生产订单风险 | 真实资金风险 | 生产适配器保持 disabled | 在同阶段启用会把评审与执行混在一起 |
 | 引擎职责过重 | 维护和测试耦合 | 模块化单体内拆服务 | 立即微服务化扩大风险且不关闭 blocker |
-| 静态 advice 冒充历史动态 advice | 产生前视偏差和虚假回测 | 独立实现冻结策略、逐日输入、逐日 advice、幂等重放和 artifact hash | 用当前建议回填整个历史区间不可接受 |
+| 静态 advice 冒充历史动态 advice | 产生前视偏差和虚假回测 | 已实现冻结策略、逐日输入、每日决策、未来数据不变性和 artifact hash；无版本 Advice 继续阻断 | 用当前建议回填整个历史区间不可接受 |
 | 持仓策略归属误判 | 错误策略作用于真实资产 | 自动建议 + 人工逐持仓确认；确认前保持 pending | 根据账户来源直接永久写死归属不可接受 |
 
 ## 7. 架构出门条件
@@ -204,6 +205,6 @@ orderCreateAllowed=false
 3. 用户从哪个页面触发、看见什么结果、在哪里追溯证据。
 4. 每个 FTR gate 的机器门槛、集中人工门槛、证据失效规则和失败归属。
 5. 为什么 release review ready 仍不等于正式交易 unlocked。
-6. 为什么 WF-0..WF-7 自动通过仍不等于投资工作流 PRD 20/20，以及动态时点模拟需要哪些新证据。
+6. 为什么 WF-0..WF-8 自动通过仍不等于投资工作流 PRD 20/20，以及最后一项集中人工体验如何验收。
 
 无法回答任一问题，架构文档不得出门。

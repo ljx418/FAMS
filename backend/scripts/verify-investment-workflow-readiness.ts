@@ -50,7 +50,10 @@ async function main() {
   })
   const ready = await investmentWorkflowService.getReadiness(userId)
   const readyRotation = ready.strategies.find((item) => item.strategyFamily === 'rotation_volatility')!
-  assert.equal(readyRotation.researchReady, true)
+  assert.equal(readyRotation.confirmedPositionCount, 1)
+  assert.equal(readyRotation.blockers.includes('strategy_assignment_confirmation_required'), false)
+  assert.equal(readyRotation.blockers.includes('strategy_has_no_confirmed_position'), false)
+  assert.equal(readyRotation.researchReady, readyRotation.blockers.length === 0)
   assert.equal(readyRotation.manualDraftReady, false)
   assert.equal(await prisma.transaction.count({ where: { userId } }), beforeTransactions)
   assert.equal(ready.permissionState.formalTradingUnlocked, false)
@@ -98,7 +101,8 @@ async function main() {
     realData: { symbol: latestBar.symbol, asOf: latestBar.tradeDate, provider: latestBar.primaryProvider },
     gates: {
       unconfirmedAssignmentBlocksResearch: true,
-      confirmedAssignmentUnlocksResearchOnly: true,
+      confirmedAssignmentRemovesAssignmentBlocker: true,
+      researchReadinessStillRequiresFreshMarketData: true,
       manualDraftRemainsBlockedUntilStrategySignal: true,
       unifiedResultRuntimeSchemaPassed: true,
       falseTradingStateRejected: true,

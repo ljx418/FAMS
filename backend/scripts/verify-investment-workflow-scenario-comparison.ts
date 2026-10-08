@@ -73,8 +73,8 @@ async function main() {
   assert.ok(pointInTime.blockedReasons.includes('frozen_strategy_version_required_for_point_in_time_simulation'))
   assert.equal(
     pointInTimeSimulationBlocker('frozen-strategy-version-fixture'),
-    'point_in_time_dynamic_recompute_not_implemented',
-    'a frozen strategy version must not bypass the missing dynamic recompute implementation',
+    null,
+    'a frozen strategy version is eligible for the dedicated dynamic recompute engine',
   )
 
   const mismatch = validateActualTransactionRows([{
@@ -125,7 +125,7 @@ async function main() {
       actualUsesStoredExecutionPrice: true,
       deterministicReplay: true,
       pointInTimeWithoutFrozenVersionBlocked: true,
-      pointInTimeWithFrozenVersionStillBlockedUntilDynamicRecomputeExists: true,
+      pointInTimeFrozenVersionEligibleForDynamicEngine: true,
       amountMismatchRejected: true,
       protectedCountsUnchanged: true,
       formalTradingUnlocked: false,

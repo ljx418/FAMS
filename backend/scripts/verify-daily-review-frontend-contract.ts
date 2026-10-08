@@ -3,12 +3,14 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const repoRoot = resolve(import.meta.dirname, '../..')
-const [page, app, layout, chat, capturePanel, service, workflowService, workflowDag, decisionPanel, auditDrawer] = await Promise.all([
+const [page, app, layout, chat, capturePanel, reconciliationPanel, rotationDecisionPanel, service, workflowService, workflowDag, decisionPanel, auditDrawer] = await Promise.all([
   readFile(resolve(repoRoot, 'frontend/src/pages/DailyReviews.tsx'), 'utf8'),
   readFile(resolve(repoRoot, 'frontend/src/App.tsx'), 'utf8'),
   readFile(resolve(repoRoot, 'frontend/src/components/layout/AppLayout.tsx'), 'utf8'),
   readFile(resolve(repoRoot, 'frontend/src/components/chat/FamsChatBox.tsx'), 'utf8'),
   readFile(resolve(repoRoot, 'frontend/src/components/capture/ScreenshotCapturePanel.tsx'), 'utf8'),
+  readFile(resolve(repoRoot, 'frontend/src/components/review/BrokerReconciliationPanel.tsx'), 'utf8'),
+  readFile(resolve(repoRoot, 'frontend/src/components/investment-workflow/RotationStrategyDecisionPanel.tsx'), 'utf8'),
   readFile(resolve(repoRoot, 'backend/src/services/chat/famsChatService.ts'), 'utf8'),
   readFile(resolve(repoRoot, 'backend/src/services/review/dailyReviewWorkflowService.ts'), 'utf8'),
   readFile(resolve(repoRoot, 'frontend/src/components/review/DailyReviewWorkflowDag.tsx'), 'utf8'),
@@ -27,6 +29,9 @@ assert.match(capturePanel, /consentGranted: true/)
 assert.match(capturePanel, /setConsent\(false\)/)
 assert.match(capturePanel, /MAX_FILE_SIZE = 10 \* 1024 \* 1024/)
 assert.doesNotMatch(capturePanel, /storagePath/)
+for (const text of ['事实批次已确认', '仓位影响口径', '计划匹配候选', '候选未经人工确认不等于已执行']) assert.match(capturePanel, new RegExp(text))
+for (const text of ['对账运行 ID', '证据批次 ID', '持久化状态', '幂等复用', '助手价格不会自动变成有效委托', '不能创建券商订单']) assert.match(reconciliationPanel, new RegExp(text))
+for (const text of ['策略运行已留痕', '研究快照', '计划不等于委托', '计划 ID', '草案 ID', '交易副作用']) assert.match(rotationDecisionPanel, new RegExp(text))
 assert.match(page, /NODE_REVIEW_STORAGE_PREFIX/)
 assert.match(page, /localNodeReviewsAreFormalSignoff: false/)
 assert.match(page, /<DailyReviewWorkflowDag/)
@@ -66,4 +71,7 @@ console.log(JSON.stringify({
   dagNodeDetailAndAdvancedAuditSeparated: true,
   decisionSummaryAndDeterministicDerivation: true,
   dualGridAndFourFocusAssets: true,
+  tradeLedgerEvidenceChainVisible: true,
+  strategyRunAndPlanIdsVisible: true,
+  planDoesNotEqualOrderCopyVisible: true,
 }, null, 2))

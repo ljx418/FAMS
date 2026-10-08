@@ -2,7 +2,7 @@
 
 **版本**：1.0  
 **日期**：2026-10-08  
-**状态**：Approved for controlled implementation / implementation in progress  
+**状态**：Implemented / Verified 2026-10-08
 
 ## 目标与参与者
 
@@ -57,3 +57,5 @@
 ## 核心测试
 
 对应开发计划 AC-01 至 AC-06、AC-17、AC-19、AC-20。
+
+实现入口：`TradeLedgerService`、`TransactionService`、`ScreenshotCaptureService`、`BrokerReviewReconciliationService`、`/api/v1/trade-ledger/*` 与同名 MCP 工具。验收结果记录于 `../audits/2026-10-08-trade-plan-ledger/README.md`。

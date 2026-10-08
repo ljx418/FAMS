@@ -19,6 +19,10 @@ const spawned = []
 const auditEnv = {
   FAMS_FACTSET_SCHEDULER_ENABLED: '0',
   FAMS_DIVIDEND_LOW_VOL_DAILY_SCHEDULER_ENABLED: '0',
+  FAMS_DAILY_REVIEW_SCHEDULER_ENABLED: 'false',
+  FAMS_ALIPAY_RESEARCH_SCHEDULER_ENABLED: 'false',
+  FAMS_BROKER_REVIEW_REMINDER_ENABLED: 'false',
+  FAMS_INDUSTRY_CROWDING_BACKFILL_ENABLED: 'false',
   FAMS_QUOTE_LIST_CACHE_READ_ONLY: '1',
 }
 
@@ -367,7 +371,10 @@ function buildHumanAuditReadiness(model) {
     ['审计导航与证据地图', model.humanReviewGuide?.status === 'passed', '报告首页“先读这里”和“证据地图”'],
     ['原始 PRD 与架构文档', model.documentAudit?.status === 'passed', '文档一致性审计矩阵'],
     ['代码实现映射', model.codeInspection?.status === 'passed', '代码检视矩阵中的页面、路由、服务入口'],
-    ['功能覆盖矩阵', Array.isArray(model.prdCoverage?.rows) && model.prdCoverage.rows.length >= 12 && model.prdCoverage?.knownGapCount >= 2, 'PRD 功能覆盖矩阵必须同时列出自动通过项、人工待验项和受控开发缺口'],
+    ['功能覆盖矩阵', Array.isArray(model.prdCoverage?.rows)
+      && model.prdCoverage.rows.length >= 12
+      && model.prdCoverage?.knownGapCount === 1
+      && model.prdCoverage.rows.some((item) => item.disposition === 'human_pending' && item.status === 'blocked'), 'PRD 功能覆盖矩阵必须证明自动范围通过，并只保留集中人工核验这一项缺口'],
     ['自动化测试证据', model.testCoverage?.status === 'passed', '命令、耗时、stdout/stderr 摘要'],
     ['真实 API 交叉验证', assessOverall(model.api || []) === 'passed', 'API 请求、HTTP 状态、响应摘要'],
     ['可视化截图证据', model.browser?.status === 'passed' && (model.browser?.screenshots?.length || 0) >= 18, 'Headless 浏览器截图路径，覆盖三视口与完整投资工作流'],
@@ -423,17 +430,17 @@ function buildVisualEvidenceAudit(model) {
       },
       {
         id: 'VIS-03',
-        severity: 'minor_product_issue',
-        status: 'failed',
-        finding: '建议复盘和组合回测截图中出现重复的“券商波动交易复盘提醒”，遮挡右侧局部内容。该问题不改变本轮计算结果，但前端视觉体验仍需修复，不能声明视觉体验已完整出门。',
+        severity: 'regression_check',
+        status: 'passed',
+        finding: '券商复盘提醒已改为单实例、只展示最新未读项；本轮截图用于复核提醒不再重复堆叠。',
         evidence: 'screenshots/09-backtest-result.png / screenshots/09b-portfolio-backtest-result.png',
       },
       {
         id: 'VIS-04',
         severity: 'controlled_gap',
         status: 'blocked',
-        finding: '当前截图能够证明三场景结果、组合回测参数与交易锁可见，但不构成人工策略归属签核或 advice-level point-in-time 动态重算证据。',
-        evidence: 'screenshots/09-backtest-result.png + screenshots/09b-portfolio-backtest-result.png',
+        finding: '当前截图和真实数据合同已证明 advice 回放、冻结策略逐日 point-in-time 模拟、组合回测和交易锁；策略归属与曲线语义仍需集中人工签核。',
+        evidence: 'screenshots/09-backtest-result.png + screenshots/09c-point-in-time-simulation.png + point-in-time real-data contract',
       },
     ],
     conclusion: 'report_is_human_auditable_but_product_visual_and_full_prd_exit_remain_blocked',
@@ -468,7 +475,7 @@ function buildHumanReviewGuide(model) {
     },
     {
       claim: '投资工作流自动化范围完成，但 PRD 并未全部完成',
-      howToVerify: '核对投资工作流 readiness API、WF-1..WF-7 命令、18/20 覆盖，以及人工待确认和 point_in_time_simulation 受控阻断两项。',
+      howToVerify: '核对投资工作流 readiness API、WF-1..WF-8 命令、19/20 覆盖，以及唯一的集中人工确认待验项。',
       evidence: '/api/v1/investment-workflow/readiness + investment workflow commands + PRD 功能覆盖矩阵',
       status: model.prdCoverage?.automatedStatus === 'passed' && model.prdCoverage?.status === 'blocked' ? 'passed' : 'failed',
     },
@@ -514,7 +521,7 @@ function buildHumanReviewGuide(model) {
       '可以声明本阶段核心研究路径、人工计划草案路径、组合回测路径和 ChatBox 受控业务助手路径完成自动化验收。',
       '可以声明报告具备截图、API、命令、代码映射、PRD 覆盖、Git 版本和限制项证据。',
       '可以声明 LLM 密钥状态只展示 keySource，真实密钥未进入报告。',
-      '可以声明投资工作流 WF-0..WF-7 文档支撑的自动化范围通过；必须同时披露 PRD 仅 18/20。',
+      '可以声明投资工作流 WF-0..WF-8 文档支撑的自动化范围通过；必须同时披露 PRD 仅 19/20。',
     ],
     cannotClaim: [
       '不能声明正式 ADD / REDUCE 已释放。',
@@ -522,7 +529,7 @@ function buildHumanReviewGuide(model) {
       '不能声明免费数据源等同于正式授权 total-return benchmark。',
       '不能声明每日实时数据最新性已经被本报告完全证明。',
       '若 runtime disclosure 显示 SQLite critical、持久化候选池为空或 fixture fallback，不能声明红利低波真实持久化候选池完整可用。',
-      '不能声明投资工作流 PRD 全部完成：截图/归属/UX 人工确认仍 pending，建议级 point_in_time_simulation 仍未实现。',
+      '不能声明投资工作流 PRD 全部完成：截图纠正、策略归属、曲线语义和移动体验的集中人工确认仍 pending。',
     ],
     auditSteps,
     evidenceMap,
@@ -583,23 +590,25 @@ async function buildDocumentAudit() {
     },
     {
       id: 'investment_workflow_prd_and_plan',
-      label: '投资工作流 PRD 与 WF-0..WF-7 验收计划完整存在',
+      label: '投资工作流 PRD 与 WF-0..WF-8 验收计划完整存在',
       status: investmentPrd.includes('行业轮动') && investmentPrd.includes('红利低波') && investmentPrd.includes('投资组合')
-        && investmentPlan.includes('WF-7') && investmentPlan.includes('18/20') ? 'passed' : 'failed',
+        && investmentPlan.includes('WF-8') && investmentPlan.includes('19/20') ? 'passed' : 'failed',
       evidence: 'INVESTMENT_WORKFLOW_UX_PRD.md / INVESTMENT_WORKFLOW_DEVELOPMENT_ACCEPTANCE_PLAN.md',
     },
     {
       id: 'investment_gap_honestly_disclosed',
-      label: '权威状态与架构文档一致披露 18/20、人工待验和动态时点缺口',
+      label: '权威状态与架构文档一致披露 19/20、逐时点已实现和集中人工待验',
       status: stateText.includes('"prdFullyComplete": false')
+        && stateText.includes('"pointInTimeDynamicRecomputeReady": true')
         && `${targetGap}\n${architecture}\n${traceability}`.includes('point_in_time_simulation')
-        && `${targetGap}\n${architecture}`.includes('18/20') ? 'passed' : 'failed',
+        && `${targetGap}\n${architecture}`.includes('19/20') ? 'passed' : 'failed',
       evidence: 'current-stage-state.json / TARGET_ARCHITECTURE_GAP.md / ARCHITECTURE_CURRENT_TARGET.md / PRD_COMPLETION_TRACEABILITY_MATRIX.md',
     },
     {
       id: 'drawio_r6_current_implementation',
       label: 'Drawio 第 2 页包含第六条投资工作流实体链且无伪全绿',
-      status: drawioReadout.includes('R6 投资工作流') && drawioReadout.includes('动态逐日重算明确 blocked')
+      status: drawioReadout.includes('R6 投资工作流') && drawioReadout.includes('pointInTimeGridSimulation')
+        && drawioReadout.includes('19/20')
         && drawioReadout.includes('PRD 全量仍未出门') ? 'passed' : 'failed',
       evidence: 'target-architecture-gap.drawio / read-drawio-output.txt',
     },
@@ -653,6 +662,8 @@ async function buildCodeInspectionAudit() {
     rotationService: 'backend/src/services/investment-workflow/rotationVolatilityStrategyService.ts',
     allocationStrategy: 'backend/src/services/allocation/alipayAllocationStrategy.ts',
     scenarioComparison: 'backend/src/services/backtest/scenarioComparisonService.ts',
+    backtestRoutes: 'backend/src/routes/backtest.ts',
+    pointInTimeEngine: 'backend/src/services/backtest/pointInTimeGridSimulation.ts',
   }
   const source = Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([key, relativePath]) => [
     key,
@@ -765,10 +776,13 @@ async function buildCodeInspectionAudit() {
     {
       id: 'investment_workflow_frontend_chain',
       label: '前端保留资产、仓位、轮动、红利、回测和复盘的连续三步工作流',
-      status: source.assetsPage.includes('基本信息确认')
+      status: source.assetsPage.includes('<h1 className="sr-only">资产管理</h1>')
+        && source.assetsPage.includes('导入资产')
         && source.positionsPage.includes('PositionStrategyAssignmentPanel')
         && source.relativeRotationPage.includes('RotationStrategyDecisionPanel')
         && source.backtestPage.includes('按建议、不执行与实际持仓')
+        && source.backtestPage.includes('冻结网格策略')
+        && source.backtestPage.includes('运行逐日模拟')
         && source.dailyReviewsPage.includes('每日持仓复盘')
         && source.workflowBar.includes('basic_information_confirmation')
         && source.workflowBar.includes('position_strategy')
@@ -777,7 +791,7 @@ async function buildCodeInspectionAudit() {
     },
     {
       id: 'investment_workflow_backend_chain',
-      label: '后端投资工作流 API 与三类策略/场景服务实体存在并保持交易阻断',
+      label: '后端投资工作流 API、三类策略和逐时点场景服务实体存在并保持交易阻断',
       status: source.backendIndex.includes('investmentWorkflowRoutes')
         && source.investmentRoutes.includes('/readiness')
         && source.investmentRoutes.includes('/assignments')
@@ -785,8 +799,12 @@ async function buildCodeInspectionAudit() {
         && source.investmentService.includes('getReadiness')
         && source.rotationService.includes('RotationVolatilityStrategyService')
         && source.allocationStrategy.includes('AlipayAllocationStrategy')
-        && source.scenarioComparison.includes('point_in_time_dynamic_recompute_not_implemented') ? 'passed' : 'failed',
-      evidence: 'investmentWorkflow.ts / investment-workflow services / alipayAllocationStrategy.ts / scenarioComparisonService.ts',
+        && source.backtestRoutes.includes('/scenario-comparison/point-in-time-sources')
+        && source.scenarioComparison.includes('simulateFrozenDowntrendGrid')
+        && source.pointInTimeEngine.includes('visibleThrough')
+        && source.pointInTimeEngine.includes('const decisions:')
+        && source.pointInTimeEngine.includes('decisions.push') ? 'passed' : 'failed',
+      evidence: 'investmentWorkflow.ts / backtest.ts / investment-workflow services / alipayAllocationStrategy.ts / scenarioComparisonService.ts / pointInTimeGridSimulation.ts',
     },
   ]
   return {
@@ -917,14 +935,14 @@ function buildPrdCoverage(commandResults, apiResults, screenshots) {
     {
       capability: '真实账户策略归属、截图行纠正与最终 UX 语义确认',
       status: 'blocked',
-      evidence: '16 个真实持仓策略归属仍 pending；属于集中人工核查，不得由自动化代签',
+      evidence: '16 个持仓归属记录已 confirmed，但分类正确性、截图纠正、曲线语义和移动体验仍需集中人工核查，不得由自动化代签',
       disposition: 'human_pending',
     },
     {
       capability: '建议级 point_in_time_simulation：冻结策略逐日动态重算',
-      status: 'blocked',
-      evidence: 'ScenarioComparisonService 明确返回 point_in_time_dynamic_recompute_not_implemented；需独立后续开发与防前视验收',
-      disposition: 'controlled_product_gap',
+      status: hasPassedCommand('investment workflow point in time') && hasPassedShot('冻结策略逐时点模拟') ? 'passed' : 'failed',
+      evidence: '真实 canonical OHLC 合同 + 防前视追加不变性 + 09c-point-in-time-simulation.png',
+      disposition: 'automated',
     },
   ]
   const automatedRows = rows.filter((item) => item.disposition === 'automated')
@@ -965,6 +983,7 @@ function testCoverage(commandResults) {
     ['investment workflow rotation', '行业轮动波动策略合同'],
     ['investment workflow portfolio policy', '支付宝组合策略合同'],
     ['investment workflow scenario comparison', '三场景统一回测合同'],
+    ['investment workflow point in time', '冻结策略逐时点真实数据与防前视合同'],
     ['investment workflow cross page', '跨页用户路径合同'],
     ['v2 px semantic contract', 'V2-PX 语义合同'],
     ['v2 px policy', 'V2-PX 策略与容器边界'],
@@ -1132,7 +1151,14 @@ async function runBrowserEvidence(apiResults) {
       await page.getByTestId('run-scenario-comparison').click({ force: true })
       await page.getByTestId('scenario-comparison-result').waitFor({ timeout: 180000 })
       await waitForBodyText(page, ['按建议执行', '不执行建议', '实际交易流水'], 30000)
-      screenshots.push(await screenshot(page, '09-backtest-result.png', '三场景真实数据复盘结果', '按建议、不执行建议和实际交易流水使用同一时间轴展示；动态时点重算仍单独阻断。', ['按建议执行', '不执行建议', '实际交易流水']))
+      screenshots.push(await screenshot(page, '09-backtest-result.png', '三场景真实数据复盘结果', '按建议、不执行建议和实际交易流水使用同一时间轴展示。', ['按建议执行', '不执行建议', '实际交易流水']))
+      await page.getByText('冻结网格策略', { exact: true }).click()
+      await page.getByTestId('point-in-time-source').waitFor({ timeout: 30000 })
+      await page.getByRole('button', { name: '运行逐日模拟' }).waitFor({ timeout: 30000 })
+      await page.getByRole('button', { name: '运行逐日模拟' }).click()
+      await page.getByTestId('scenario-comparison-result').waitFor({ timeout: 180000 })
+      await waitForBodyText(page, ['按冻结策略逐日执行', '当前策略回套历史', '冻结版本：fams.grid-strategy.v2'], 120000)
+      screenshots.push(await screenshot(page, '09c-point-in-time-simulation.png', '冻结策略逐时点模拟', '真实 canonical OHLC、冻结 grid v2 和逐日可见数据生成三场景曲线，并明确回套历史边界。', ['按冻结策略逐日执行', '当前策略回套历史', '冻结版本：fams.grid-strategy.v2']))
       await page.getByText('组合回测', { exact: true }).first().click()
       await page.getByTestId('portfolio-backtest-workspace').waitFor({ timeout: 30000 })
       await waitForBodyText(page, ['投资组合回测', '运行并保存固定规则回测'], 30000)
@@ -1491,7 +1517,7 @@ function renderReport(model) {
 
   <h2>目标架构与当前实现</h2>
   <div class="card">
-    <p>目标架构是“数据源与证据层 → 三类资产与策略归属 → 策略/回测/验证层 → Operation 审计层 → ChatBox/专家页双轨体验 → 交易 Gate”。当前实现已覆盖 WF-0..WF-7 自动范围与 FTR provisional 链；完整出门仍受集中人工核查和建议级动态逐日时点模拟阻断。</p>
+    <p>目标架构是“数据源与证据层 → 三类资产与策略归属 → 策略/回测/验证层 → Operation 审计层 → ChatBox/专家页双轨体验 → 交易 Gate”。当前实现已覆盖 WF-0..WF-8 自动范围与 FTR provisional 链；投资工作流为 19/20，完整出门只保留集中人工核查。</p>
     ${renderJson(model.architecture)}
   </div>
 
@@ -1571,6 +1597,7 @@ async function main() {
     ['investment workflow rotation', ['npm', 'run', 'test:investment-workflow-rotation-strategy'], backendDir, 360000],
     ['investment workflow portfolio policy', ['npm', 'run', 'test:investment-workflow-portfolio-policy'], backendDir, 240000],
     ['investment workflow scenario comparison', ['npm', 'run', 'test:investment-workflow-scenario-comparison'], backendDir, 360000],
+    ['investment workflow point in time', ['npm', 'run', 'test:investment-workflow-point-in-time'], backendDir, 360000],
     ['investment workflow cross page', ['npm', 'run', 'test:investment-workflow-cross-page'], backendDir, 240000],
     ['v2 px semantic contract', ['npm', 'run', 'test:v2-px-semantic-contract'], backendDir, 240000],
     ['v2 px policy', ['npm', 'run', 'test:v2-px-policy'], backendDir, 240000],
@@ -1742,8 +1769,8 @@ async function main() {
     '若免费数据源或本地缓存不是最新交易日，报告会保留数据新鲜度风险，不会声明每日实时保证。',
     'tradeActionReadiness 验收通过只代表严格命令按预期拒绝且交易锁保持关闭，不代表策略可以交易。',
     '投资工作流真实数据基线来自本地 default 账户；报告只展示数量和状态，不公开账户金额及个人资产明细。',
-    '16 个持仓策略归属、截图行纠正和最终 UX 语义确认仍需集中人工核查，自动化不得代签。',
-    '建议级 point_in_time_simulation 冻结策略逐日动态重算未实现，完整 PRD 出门必须保持 blocked。',
+    '持仓归属记录虽已 confirmed，其分类正确性、截图行纠正、曲线语义和最终 UX 体验仍需集中人工核查，自动化不得代签。',
+    '建议级 point_in_time_simulation 已通过真实 OHLC、防前视和桌面/移动验证；它仍是研究回放，不代表正式交易验证。',
     'FTR provisional 链通过不等于 final review package 或正式交易 release。',
   ]
   if (runtimeDisclosure.status !== 'ok') {
@@ -1772,9 +1799,9 @@ async function main() {
       ],
       current: [
         '已实现三类资产归属、行业轮动/波动网格、红利低波、支付宝组合策略和统一回测入口。',
-        '已实现组合策略多曲线与 advice 三场景回放、Daily Review、Operation artifact。',
+        '已实现组合策略多曲线、advice 三场景回放、冻结 grid v2 逐时点模拟、Daily Review 和 Operation artifact。',
         '已实现 FTR-1..6 provisional 自动链和交易 gate；人工签核与正式自动交易仍未开放。',
-        '已知缺口：人工集中确认 pending；advice-level point_in_time_simulation 未实现；PRD 18/20。',
+        '已知缺口：已确认归属的正确性、截图纠正、曲线语义和移动体验仍待集中人工确认；投资工作流 PRD 19/20。',
       ],
     },
     documentAudit,
@@ -1794,7 +1821,6 @@ async function main() {
       orderCreateAllowed: false,
       remainingBlockers: [
         'A6/V2-PX/投资工作流集中人工验收尚未完成',
-        'advice-level point_in_time_simulation 冻结策略逐日动态重算尚未实现',
         '人工签核链路未完成 final release signoff',
         '生产下单适配器未启用',
         'AUTO_TRADE 按策略继续锁定',

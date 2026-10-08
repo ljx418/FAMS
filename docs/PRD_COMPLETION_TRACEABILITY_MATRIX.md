@@ -1,6 +1,6 @@
 # FAMS PRD 完成追踪与集中验收矩阵
 
-更新时间：2026-09-14
+更新时间：2026-10-08
 
 ## 1. 权威规格与状态优先级
 
@@ -21,6 +21,7 @@
 | V2-PX External Brain | PX-REQ-001..PX-REQ-020 | `20/20` 工程合同和自动验收；PX6-02 为 `0/10` | 集中真实 Chrome 人工体验 10 项 | `V2_PX_PRD_TRACEABILITY_MATRIX.md` + 私有 Chrome 证据索引 | V2-PX 体验 |
 | ChatBox 第一入口 | 工具矩阵与结构化结果合同 | 查询、quick-run、确认、Operation、图表、数据健康与阻断已实现 | 最终用户可理解性核查 | ChatBox audits + E2E screenshots | 普通用户体验 |
 | 双轨工作台/资产 Excel | UX-F7 合同 | 普通用户入口、专家多页、Excel 导入导出已自动验收 | 集中人工视觉/可读性确认 | UX-F7 HTML/audit | 产品体验 |
+| 三类资产投资工作流 | `INVESTMENT_WORKFLOW_UX_PRD.md` 20 项 | `19/20`：WF-0..WF-8 工程与自动验收通过；冻结策略逐时点模拟已使用真实数据通过 | 集中策略归类、曲线含义和移动路径人工体验 1 项 | WF-7 报告 + WF-8 逐时点审计 | 产品体验 |
 | Formal Release Readiness | FTR-0..FTR-6 | A0/FTR-1/FTR-2/FTR-3 point-in-time v2 正式链已通过；FTR-3 为 5/6 窗口、53 条动态路径且失败窗口保留；8 项不可自签队列、执行隔离和 28-artifact provisional package 已完成 | 使用 A6 图文工作台完成集中人工核查；通过后按同一哈希生成 A7 final review package | 13-18 audit + FREE-P1/R0/R1 evidence + v2 正式链 + A6 draft + final package | 数据/模型/风险/合规/final |
 
 ## 3. 剩余目标到实体、步骤和证据

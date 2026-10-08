@@ -54,6 +54,8 @@
     "test:investment-workflow-portfolio-policy": "node node_modules/tsx/dist/cli.mjs scripts/verify-investment-workflow-portfolio-policy.ts",
     "test:investment-policy": "node node_modules/tsx/dist/cli.mjs scripts/verify-investment-policy.ts",
     "test:investment-workflow-scenario-comparison": "node node_modules/tsx/dist/cli.mjs scripts/verify-investment-workflow-scenario-comparison.ts",
+    "test:investment-workflow-point-in-time": "node node_modules/tsx/dist/cli.mjs scripts/verify-investment-workflow-point-in-time.ts",
+    "test:investment-workflow-point-in-time-ui": "node ../scripts/verify-point-in-time-ui.mjs",
     "test:frontend-usability-grid-replay": "node node_modules/tsx/dist/cli.mjs scripts/verify-frontend-usability-grid-replay.ts",
     "test:frontend-usability-rotation-cache": "node node_modules/tsx/dist/cli.mjs scripts/verify-frontend-usability-rotation-cache.ts",
     "test:investment-workflow-cross-page": "node node_modules/tsx/dist/cli.mjs scripts/verify-investment-workflow-cross-page.ts",

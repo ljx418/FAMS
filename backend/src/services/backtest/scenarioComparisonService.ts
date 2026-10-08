@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../../db/prisma.js'
 import { ensureUser } from '../../utils/user.js'
 import { gridReplayService } from './gridReplayService.js'
+import { simulateFrozenDowntrendGrid, type PointInTimeCandle } from './pointInTimeGridSimulation.js'
 
 const requestSchema = z.object({
   userId: z.string().min(1),
@@ -106,6 +107,11 @@ const stableStringify = (value: unknown): string => {
   return JSON.stringify(value)
 }
 const hash = (value: unknown) => createHash('sha256').update(stableStringify(value)).digest('hex')
+const rulesDescription = (assetType: string, market: string) => (
+  market === 'CN' && ['stock', 'etf'].includes(assetType)
+    ? 'CN stock/ETF 100-share lot'
+    : 'fractional lot follows stored asset contract'
+)
 
 function normalizeSnapshotPosition(row: any, assetById: Map<string, any>): SnapshotPosition | null {
   const asset = row.assetId ? assetById.get(String(row.assetId)) : null
@@ -155,12 +161,64 @@ export function validateActualTransactionRows(rows: Array<{
 }
 
 export function pointInTimeSimulationBlocker(strategyVersionId: string | null) {
-  return strategyVersionId
-    ? 'point_in_time_dynamic_recompute_not_implemented'
-    : 'frozen_strategy_version_required_for_point_in_time_simulation'
+  return strategyVersionId ? null : 'frozen_strategy_version_required_for_point_in_time_simulation'
 }
 
 class ScenarioComparisonService {
+  async listPointInTimeSources(userId = 'default') {
+    await ensureUser(prisma, userId)
+    const plans = await prisma.gridPlan.findMany({
+      where: { userId, strategyVersionId: { not: null }, orders: { some: {} } },
+      include: { asset: true, strategyVersion: { include: { strategy: true } } },
+      orderBy: { createdAt: 'desc' },
+    })
+    const latestByVersionAndAsset = new Map<string, typeof plans[number]>()
+    for (const plan of plans) {
+      const key = `${plan.assetId}:${plan.strategyVersionId}`
+      if (!latestByVersionAndAsset.has(key)) latestByVersionAndAsset.set(key, plan)
+    }
+    const sources = await Promise.all(Array.from(latestByVersionAndAsset.values()).map(async (plan) => {
+      const symbol = plan.asset.symbol.replace(/\.(SH|SZ|BJ|SS)$/i, '')
+      const [first, last] = await Promise.all([
+        prisma.marketBarCanonical.findFirst({
+          where: { symbol, market: plan.asset.exchange === 'HK' ? 'HK' : plan.asset.exchange === 'US' ? 'US' : 'CN', timeframe: '1d', dataVersion: 'canonical.v1' },
+          orderBy: { tradeDate: 'asc' }, select: { tradeDate: true },
+        }),
+        prisma.marketBarCanonical.findFirst({
+          where: { symbol, market: plan.asset.exchange === 'HK' ? 'HK' : plan.asset.exchange === 'US' ? 'US' : 'CN', timeframe: '1d', dataVersion: 'canonical.v1' },
+          orderBy: { tradeDate: 'desc' }, select: { tradeDate: true },
+        }),
+      ])
+      const supported = plan.strategyVersion?.schemaVersion === 'fams.grid-strategy.v2'
+      return {
+        sourceType: 'grid_plan' as const,
+        sourceId: plan.id,
+        assetId: plan.assetId,
+        symbol,
+        name: plan.asset.name,
+        strategyVersionId: plan.strategyVersionId,
+        strategyName: plan.strategyVersion?.strategy.name || '冻结网格策略',
+        strategySchemaVersion: plan.strategyVersion?.schemaVersion || null,
+        strategyCreatedAt: plan.strategyVersion?.createdAt.toISOString() || null,
+        planCreatedAt: plan.createdAt.toISOString(),
+        observedFrom: first ? dateKey(first.tradeDate) : null,
+        observedThrough: last ? dateKey(last.tradeDate) : null,
+        supported,
+        blockers: [
+          ...(supported ? [] : ['point_in_time_strategy_schema_not_supported']),
+          ...(first && last ? [] : ['point_in_time_real_ohlc_insufficient']),
+        ],
+      }
+    }))
+    return {
+      schemaVersion: 'fams.backtest.point-in-time-sources.v1',
+      generatedAt: new Date().toISOString(),
+      sources,
+      permissionState: { formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false },
+      notTradingAdvice: true,
+    }
+  }
+
   private async loadSource(input: z.output<typeof requestSchema>): Promise<SourceBundle> {
     if (input.sourceType === 'advice') {
       const advice = await prisma.advice.findFirst({
@@ -340,6 +398,132 @@ class ScenarioComparisonService {
     }
   }
 
+  private async compareGridPointInTime(input: z.output<typeof requestSchema>) {
+    const plan = await prisma.gridPlan.findFirst({
+      where: { id: input.sourceId, userId: input.userId },
+      include: { asset: true, strategyVersion: { include: { strategy: true } } },
+    })
+    if (!plan) throw Object.assign(new Error('Grid plan not found'), { statusCode: 404 })
+    if (!plan.strategyVersion) {
+      return {
+        schemaVersion: 'fams.backtest.scenario-comparison.v3', status: 'insufficient' as const, replayMode: input.replayMode,
+        source: { type: 'grid_plan', id: plan.id, assetId: plan.assetId, strategyVersionId: null }, scenarios: [],
+        blockedReasons: ['frozen_strategy_version_required_for_point_in_time_simulation'],
+        permissionState: { formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false },
+      }
+    }
+    const bundle = await this.loadSource(input)
+    const symbol = plan.asset.symbol.replace(/\.(SH|SZ|BJ|SS)$/i, '')
+    const market = plan.asset.exchange === 'HK' ? 'HK' : plan.asset.exchange === 'US' ? 'US' : 'CN'
+    const rows = await prisma.marketBarCanonical.findMany({
+      where: {
+        symbol, market, timeframe: '1d', dataVersion: 'canonical.v1',
+        tradeDate: { gte: new Date(`${input.startDate}T00:00:00.000Z`), lte: new Date(`${input.endDate}T23:59:59.999Z`) },
+      },
+      orderBy: [{ tradeDate: 'asc' }, { updatedAt: 'desc' }],
+    })
+    const byDate = new Map<string, PointInTimeCandle>()
+    const scores = new Map<string, number>()
+    for (const row of rows) {
+      const date = dateKey(row.tradeDate)
+      const score = (row.adjustType === 'none' ? 100 : row.adjustType === 'qfq' ? 20 : 0) + (row.validationStatus === 'valid' ? 5 : 0)
+      if ((scores.get(date) ?? -1) >= score) continue
+      scores.set(date, score)
+      byDate.set(date, {
+        date,
+        open: Number(row.openPrice || row.closePrice), high: Number(row.highPrice || row.closePrice),
+        low: Number(row.lowPrice || row.closePrice), close: row.closePrice,
+        provider: row.primaryProvider || 'market_bar_canonical', sourceRef: `market-bar-canonical:${row.id}`,
+      })
+    }
+    const candles = Array.from(byDate.values()).sort((left, right) => left.date.localeCompare(right.date))
+    const position = bundle.positions.find((item) => item.assetId === plan.assetId)
+    const initialQuantity = Number(position?.quantity || 0)
+    const firstClose = candles[0]?.close || Number(position?.currentPrice || 0)
+    const initialCapital = input.initialCapital ?? Math.max(Number(position?.marketValue || 0), initialQuantity * firstClose)
+    const simulation = simulateFrozenDowntrendGrid({
+      strategyVersionId: plan.strategyVersion.id,
+      strategyVersionCreatedAt: plan.strategyVersion.createdAt.toISOString(),
+      strategyAuditHash: plan.strategyVersion.auditHash,
+      strategyConfig: parseObject(plan.strategyVersion.versionBundleJson),
+      asset: { id: plan.assetId, symbol, assetType: plan.asset.type, market },
+      candles,
+      initialQuantity,
+      initialCapital,
+      commissionRate: input.commissionRate,
+      slippageRate: input.slippageRate,
+    })
+    if (simulation.status === 'insufficient') {
+      return {
+        schemaVersion: 'fams.backtest.scenario-comparison.v3', status: 'insufficient' as const, replayMode: input.replayMode,
+        source: { type: 'grid_plan', id: plan.id, assetId: plan.assetId, strategyVersionId: plan.strategyVersion.id },
+        inputSnapshot: { startDate: input.startDate, endDate: input.endDate, observedThrough: candles.at(-1)?.date || null },
+        dataHealth: { status: 'insufficient', providers: Array.from(new Set(candles.map((row) => row.provider))), actualTransactionReconciliation: 'not_evaluated' },
+        scenarios: [], evidenceRefs: candles.map((row) => row.sourceRef), blockedReasons: simulation.blockedReasons,
+        warnings: simulation.warnings,
+        permissionState: { formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false },
+      }
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        userId: input.userId, assetId: plan.assetId,
+        executedAt: { gte: new Date(`${input.startDate}T00:00:00.000Z`), lte: new Date(`${input.endDate}T23:59:59.999Z`) },
+      },
+      include: { asset: true }, orderBy: { executedAt: 'asc' },
+    })
+    const reconciliation = validateActualTransactionRows(transactions)
+    if (reconciliation.status !== 'exact') {
+      return {
+        schemaVersion: 'fams.backtest.scenario-comparison.v3', status: 'insufficient' as const, replayMode: input.replayMode,
+        source: { type: 'grid_plan', id: plan.id, assetId: plan.assetId, strategyVersionId: plan.strategyVersion.id },
+        inputSnapshot: { snapshotHash: simulation.inputSnapshotHash, startDate: input.startDate, endDate: input.endDate, observedThrough: candles.at(-1)?.date || null },
+        dataHealth: { status: 'insufficient', providers: Array.from(new Set(candles.map((row) => row.provider))), actualTransactionReconciliation: reconciliation.status },
+        scenarios: [], evidenceRefs: candles.map((row) => row.sourceRef), blockedReasons: reconciliation.blockers,
+        warnings: simulation.warnings,
+        permissionState: { formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false },
+      }
+    }
+    const prices = new Map([[symbol, candles.map((row) => ({ date: row.date, close: row.close, provider: row.provider, sourceRef: row.sourceRef }))]])
+    const positions: SnapshotPosition[] = [{
+      assetId: plan.assetId, symbol, assetType: plan.asset.type, quantity: initialQuantity,
+      currentPrice: firstClose, marketValue: initialQuantity * firstClose,
+    }]
+    const replayBase = { dates: candles.map((row) => row.date), positions, prices, initialCapital, commissionRate: input.commissionRate, slippageRate: input.slippageRate }
+    const hold = this.replay({ id: 'hold_without_action', ...replayBase, events: [] })
+    const actualEvents: ReplayEvent[] = transactions.map((row) => ({
+      id: row.id, date: dateKey(row.executedAt), symbol, type: row.type, quantity: row.quantity,
+      price: row.price, amount: row.amount, fee: row.fee, sourceRef: `transaction:${row.id}`,
+    }))
+    const actual = this.replay({ id: 'actual_transactions', ...replayBase, events: actualEvents, commissionRate: 0, slippageRate: 0 })
+    const scenarios = [
+      { id: 'follow_advice', label: '按冻结策略逐日执行', status: 'available', curve: simulation.curve, metrics: simulation.metrics, executedEvents: simulation.executedEvents },
+      { id: 'hold_without_action', label: '不执行建议', status: 'available', ...hold },
+      { id: 'actual_transactions', label: '实际交易流水', status: 'available', ...actual },
+    ]
+    return {
+      schemaVersion: 'fams.backtest.scenario-comparison.v3', status: 'available' as const, replayMode: input.replayMode,
+      source: { type: 'grid_plan', id: plan.id, assetId: plan.assetId, snapshotRef: bundle.snapshotRef, strategyVersionId: plan.strategyVersion.id },
+      strategy: simulation.strategy,
+      inputSnapshot: { snapshotHash: simulation.inputSnapshotHash, startDate: input.startDate, endDate: input.endDate, observedThrough: candles.at(-1)?.date || null, generatedAt: new Date().toISOString() },
+      executionAssumptions: {
+        adviceExecutionTiming: 'frozen_grid_evaluated_against_each_completed_daily_ohlc', firstAdviceExecutionDate: simulation.executedEvents[0]?.date || null,
+        commissionRate: input.commissionRate, slippageRate: input.slippageRate,
+        lotPolicy: `${rulesDescription(plan.asset.type, market)}; T+1 sells; parent orders activate on later trading date`,
+        intradayOrdering: 'bullish_day_open_low_high_close_else_open_high_low_close',
+      },
+      dataHealth: {
+        status: 'sufficient', providers: Array.from(new Set(candles.map((row) => row.provider))), observedThrough: candles.at(-1)?.date || null,
+        actualTransactionReconciliation: reconciliation.status, transactionCount: transactions.length, dailyDecisionCount: simulation.decisions.length,
+      },
+      scenarios, dailyDecisions: simulation.decisions,
+      evidenceRefs: Array.from(new Set([...bundle.evidenceRefs, ...candles.map((row) => row.sourceRef), ...actualEvents.map((row) => row.sourceRef)])),
+      blockedReasons: [], warnings: simulation.warnings,
+      permissionState: { formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false },
+      notTradingAdvice: true,
+    }
+  }
+
   private replay(input: {
     id: 'follow_advice' | 'hold_without_action' | 'actual_transactions'
     dates: string[]
@@ -431,15 +615,7 @@ class ScenarioComparisonService {
       const plan = await prisma.gridPlan.findFirst({ where: { id: input.sourceId, userId: input.userId }, select: { id: true, assetId: true, strategyVersionId: true } })
       if (!plan) throw Object.assign(new Error('Grid plan not found'), { statusCode: 404 })
       if (input.replayMode === 'point_in_time_simulation') {
-        return {
-          schemaVersion: 'fams.backtest.scenario-comparison.v2',
-          status: 'insufficient' as const,
-          replayMode: input.replayMode,
-          source: { type: 'grid_plan', id: plan.id, strategyVersionId: plan.strategyVersionId },
-          scenarios: [],
-          blockedReasons: [pointInTimeSimulationBlocker(plan.strategyVersionId)],
-          permissionState: { formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false },
-        }
+        return this.compareGridPointInTime(input)
       }
       const grid = await gridReplayService.replay({
         userId: input.userId,
@@ -471,7 +647,8 @@ class ScenarioComparisonService {
     const bundle = await this.loadSource(input)
     const blockers: string[] = []
     if (input.replayMode === 'point_in_time_simulation') {
-      blockers.push(pointInTimeSimulationBlocker(bundle.strategyVersionId))
+      const blocker = pointInTimeSimulationBlocker(bundle.strategyVersionId)
+      if (blocker) blockers.push(blocker)
     }
     if (dateKey(bundle.generatedAt) > input.endDate) blockers.push('source_generated_after_backtest_window')
     const priceMatrix = await this.loadPriceSeries(bundle, input.startDate, input.endDate)

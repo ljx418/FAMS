@@ -7,6 +7,10 @@ const OWNER = `alipay-research:${process.pid}:${Math.random().toString(36).slice
 const LEASE_MS = 20 * 60 * 1000
 const CATCH_UP_MINUTES = 15
 
+function schedulerEnabled() {
+  return !['0', 'false', 'no', 'off'].includes(String(process.env.FAMS_ALIPAY_RESEARCH_SCHEDULER_ENABLED ?? 'true').trim().toLowerCase())
+}
+
 function localParts(date: Date, timezone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
@@ -146,6 +150,10 @@ class AlipayResearchWorkflowScheduler {
 
   start(logger: { info: (...args: any[]) => void; error: (...args: any[]) => void } = console) {
     if (this.task) return { started: false, reason: 'already_started' }
+    if (!schedulerEnabled()) {
+      logger.info({ scheduler: ALIPAY_RESEARCH_WORKFLOW_KEY }, 'Alipay research workflow scheduler disabled')
+      return { started: false, reason: 'disabled' }
+    }
     this.task = cron.schedule('* * * * 1-5', () => {
       void this.runDue().catch((error) => logger.error({ error }, 'Alipay research workflow scheduler failed'))
     }, { timezone: 'Asia/Shanghai' })

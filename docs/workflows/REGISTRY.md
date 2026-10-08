@@ -12,8 +12,8 @@
 | 支付宝一键投资复盘 | `WORKFLOW-alipay-one-click-review.md` | Implemented | 每日复盘页“一键生成复盘与金额草案” | AlipayOneClickReviewService |
 | 支付宝持仓组合持久化与滑动窗口比较 | `WORKFLOW-alipay-portfolio-window-comparison.md` | Implemented | 持仓组合对比页手动运行、历史选择、可选调度器 | AlipayResearchWorkflowService |
 | 截图导入与人工确认 | `../DAILY_PORTFOLIO_REVIEW_PRD.md` | Approved | ScreenshotCapturePanel | ScreenshotCaptureService |
-| 交易事实采集与对账 | `WORKFLOW-trade-fact-ingestion-reconciliation.md` | Approved / implementation in progress | 宿主结构化截图、CSV、人工补录、复盘前检 | ScreenshotCaptureService / TransactionService / BrokerReviewReconciliationService |
-| 人工交易计划与执行生命周期 | `WORKFLOW-trade-plan-execution-lifecycle.md` | Approved / implementation in progress | 仓位调整复盘、轮动波动策略、后续委托与成交回填 | DailyReviewService / RotationVolatilityStrategyService / GridReplayService |
+| 交易事实采集与对账 | `WORKFLOW-trade-fact-ingestion-reconciliation.md` | Implemented / Verified 2026-10-08 | 宿主结构化截图、CSV、人工补录、复盘前检 | TradeLedgerService / ScreenshotCaptureService / TransactionService / BrokerReviewReconciliationService |
+| 人工交易计划与执行生命周期 | `WORKFLOW-trade-plan-execution-lifecycle.md` | Implemented / Verified 2026-10-08 | 仓位调整复盘、轮动波动策略、后续委托与成交回填 | DailyReviewService / RotationVolatilityStrategyService / PlanExecutionService / GridReplayService |
 | 组合相对轮动 | `../RRG_WATCHLIST_PRD.md` | Approved | RRG页面、组合分析 | PortfolioRelativeRotationService |
 | 自动或正式交易 | `../TRADE_BOUNDARY_CONTRACT.md` | Deprecated/Locked | 无 | 无 |
 
@@ -32,7 +32,8 @@
 | AnalysisWorkflowProfile / Operation | 支付宝一键投资复盘、支付宝持仓组合持久化与滑动窗口比较 |
 | AlipayResearchWorkflowScheduler / SchedulerLease | 支付宝一键投资复盘、支付宝持仓组合持久化与滑动窗口比较 |
 | BrokerReviewReminderScheduler / Alert / ChatBox | 券商波动交易每日复盘提醒（不自动运行、不下单） |
-| TransactionService / ScreenshotCaptureService | 交易事实采集与对账 |
+| TradeLedgerService / TransactionService / ScreenshotCaptureService | 交易事实采集与对账 |
+| PlanExecutionService / GridOrderDraftEvent / PlanExecutionLink | 人工交易计划与执行生命周期 |
 | InvestmentResearchSnapshot / GridPlan / GridOrderDraft | 人工交易计划与执行生命周期 |
 | GridStrategyService / DailyReviewService | 波动策略委托草案安全编译 |
 | GridReplayService | 人工交易计划与执行生命周期、建议质量回放 |

@@ -61,10 +61,27 @@ type AdviceSummaryOption = {
   backtestEligible: boolean
 }
 
+type PointInTimeSourceOption = {
+  sourceId: string
+  assetId: string
+  symbol: string
+  name: string
+  strategyVersionId: string
+  strategyName: string
+  strategySchemaVersion: string
+  strategyCreatedAt: string
+  planCreatedAt: string
+  observedFrom: string | null
+  observedThrough: string | null
+  supported: boolean
+  blockers: string[]
+}
+
 type ScenarioComparisonResult = {
   status: 'available' | 'insufficient'
   replayMode: string
-  source: { type: string; id: string; snapshotRef: string }
+  source: { type: string; id: string; snapshotRef?: string; strategyVersionId?: string | null }
+  strategy?: { id: string; schemaVersion: string; auditHash: string; configHash: string; createdAt: string; historicalPolicyApplication: boolean }
   inputSnapshot: { snapshotHash: string; startDate: string; endDate: string; observedThrough?: string | null; generatedAt?: string }
   executionAssumptions?: { firstAdviceExecutionDate?: string | null; commissionRate: number; slippageRate: number }
   dataHealth: { status: string; providers: string[]; observedThrough?: string; actualTransactionReconciliation: string; transactionCount?: number }
@@ -79,6 +96,8 @@ type ScenarioComparisonResult = {
   adviceOutcome?: { totalActionCount: number; closedActionCount: number; openActionCountExcludedFromWinRate: number; note: string }
   evidenceRefs: string[]
   blockedReasons: string[]
+  warnings?: string[]
+  dailyDecisions?: Array<{ decisionDate: string; visibleThrough: string; executedOrderRefs: string[] }>
   permissionState: { formalTradingUnlocked: false; autoTradeUnlocked: false; canCreateOrder: false; orderCreateAllowed: false }
 }
 
@@ -722,9 +741,13 @@ const Backtest: React.FC = () => {
     : 'review'
   const [form] = Form.useForm()
   const selectedAdviceId = Form.useWatch('adviceId', form)
+  const scenarioSourceType = Form.useWatch('scenarioSourceType', form) || 'advice'
+  const scenarioReplayMode = Form.useWatch('replayMode', form) || 'saved_advice_replay'
   const [submitting, setSubmitting] = useState(false)
   const [adviceSummariesLoading, setAdviceSummariesLoading] = useState(false)
   const [adviceSummaries, setAdviceSummaries] = useState<AdviceSummaryOption[]>([])
+  const [pointInTimeSourcesLoading, setPointInTimeSourcesLoading] = useState(false)
+  const [pointInTimeSources, setPointInTimeSources] = useState<PointInTimeSourceOption[]>([])
   const [loadingResult, setLoadingResult] = useState(false)
   const [loadingAdviceDetail, setLoadingAdviceDetail] = useState(false)
   const [loadingExecutionReview, setLoadingExecutionReview] = useState(false)
@@ -1045,6 +1068,33 @@ const Backtest: React.FC = () => {
   }, [form])
 
   useEffect(() => {
+    let cancelled = false
+    const fetchSources = async () => {
+      setPointInTimeSourcesLoading(true)
+      try {
+        const response = await axios.get('/api/v1/backtest/scenario-comparison/point-in-time-sources', { params: { userId: 'default' } })
+        if (cancelled) return
+        const items = Array.isArray(response.data?.sources) ? response.data.sources as PointInTimeSourceOption[] : []
+        setPointInTimeSources(items)
+        const first = items.find((item) => item.supported && item.blockers.length === 0)
+        if (first && !form.getFieldValue('pointInTimeSourceId')) {
+          form.setFieldValue('pointInTimeSourceId', first.sourceId)
+          if (first.observedFrom && first.observedThrough) form.setFieldValue('range', [dayjs(first.observedFrom), dayjs(first.observedThrough)])
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to fetch point-in-time sources:', error)
+          setPointInTimeSources([])
+        }
+      } finally {
+        if (!cancelled) setPointInTimeSourcesLoading(false)
+      }
+    }
+    void fetchSources()
+    return () => { cancelled = true }
+  }, [form])
+
+  useEffect(() => {
     const params = new URLSearchParams(location.search)
     const view = params.get('view')
     if (view !== 'report' || !backtestResult || loadingResult) return
@@ -1259,10 +1309,14 @@ const Backtest: React.FC = () => {
   const handleRunScenarioComparison = async () => {
     try {
       const values = await form.validateFields()
+      const sourceType = (values.scenarioSourceType || 'advice') as 'advice' | 'grid_plan'
+      const replayMode = values.replayMode || 'saved_advice_replay'
+      const selectedPointSource = pointInTimeSources.find((item) => item.sourceId === values.pointInTimeSourceId)
       const selectedAdvice = adviceSummaries.find((item) => item.adviceId === values.adviceId)
-      let selectedGeneratedAt = selectedAdvice?.generatedAt
-        || (adviceDetail && adviceDetail.adviceId === values.adviceId ? adviceDetail.generatedAt : null)
-      if (!selectedGeneratedAt) {
+      let selectedGeneratedAt = sourceType === 'grid_plan'
+        ? selectedPointSource?.observedFrom || null
+        : selectedAdvice?.generatedAt || (adviceDetail && adviceDetail.adviceId === values.adviceId ? adviceDetail.generatedAt : null)
+      if (sourceType === 'advice' && !selectedGeneratedAt) {
         const detailResponse = await axios.get(`/api/v1/analysis/advice/${values.adviceId}`, { params: { userId: 'default' } })
         selectedGeneratedAt = detailResponse.data?.generatedAt || null
       }
@@ -1281,9 +1335,9 @@ const Backtest: React.FC = () => {
       setScenarioComparison(null)
       const response = await axios.post('/api/v1/backtest/scenario-comparison', {
         userId: 'default',
-        sourceType: 'advice',
-        sourceId: values.adviceId,
-        replayMode: 'saved_advice_replay',
+        sourceType,
+        sourceId: sourceType === 'grid_plan' ? values.pointInTimeSourceId : values.adviceId,
+        replayMode,
         startDate,
         endDate,
         initialCapital: Number(values.initialCapital || 100000),
@@ -1291,7 +1345,7 @@ const Backtest: React.FC = () => {
         slippageRate: 0.0005,
       })
       setScenarioComparison(response.data)
-      if (response.data?.status === 'available') message.success('三场景复盘已使用真实价格与成交流水生成')
+      if (response.data?.status === 'available') message.success(replayMode === 'point_in_time_simulation' ? '冻结策略逐日模拟已使用真实 OHLC 与成交流水生成' : '三场景复盘已使用真实价格与成交流水生成')
       else message.warning('数据证据不足，系统已保持 insufficient 并列出阻断原因')
     } catch (error) {
       if ((error as any)?.errorFields) return
@@ -2234,10 +2288,33 @@ const Backtest: React.FC = () => {
       </div>}
       {workspaceMode === 'review' && <div className="space-y-6" data-testid="scenario-review-workspace">
       <GridReplayPanel />
-      <Card title={<span className="text-primary">选择历史建议并复盘</span>} className="bg-[#1a1a2e] border-surface-border">
+      <Card title={<span className="text-slate-950">选择证据口径并复盘</span>} className="border-slate-200 bg-white">
         <Form form={form} layout="vertical" className="grid gap-4 lg:grid-cols-4">
-          <Form.Item name="adviceId" label="选择历史建议" rules={[{ required: true, message: '请选择一条历史建议' }]} className="lg:col-span-2 mb-0">
+          <Form.Item name="scenarioSourceType" label="复盘来源" initialValue="advice" className="mb-0">
+            <Segmented
+              data-testid="scenario-source-type"
+              block
+              options={[{ label: '历史建议', value: 'advice' }, { label: '冻结网格策略', value: 'grid_plan' }]}
+              onChange={(value) => {
+                form.setFieldValue('scenarioSourceType', value)
+                if (value === 'advice') form.setFieldValue('replayMode', 'saved_advice_replay')
+                else form.setFieldValue('replayMode', 'point_in_time_simulation')
+                setScenarioComparison(null)
+              }}
+            />
+          </Form.Item>
+          <Form.Item name="replayMode" label="计算口径" initialValue="saved_advice_replay" className="mb-0">
             <Select
+              data-testid="scenario-replay-mode"
+              options={[
+                { value: 'saved_advice_replay', label: '保存结果回放', disabled: scenarioSourceType === 'grid_plan' },
+                { value: 'point_in_time_simulation', label: '冻结策略逐日模拟', disabled: scenarioSourceType === 'advice' },
+              ]}
+            />
+          </Form.Item>
+          {scenarioSourceType === 'advice' ? <Form.Item name="adviceId" label="选择历史建议" rules={[{ required: true, message: '请选择一条历史建议' }]} className="lg:col-span-2 mb-0">
+            <Select
+              data-testid="advice-replay-source"
               showSearch
               loading={adviceSummariesLoading}
               optionFilterProp="label"
@@ -2249,16 +2326,35 @@ const Backtest: React.FC = () => {
                 disabled: !advice.backtestEligible,
               }))}
             />
-          </Form.Item>
+          </Form.Item> : <Form.Item name="pointInTimeSourceId" label="选择冻结策略版本" rules={[{ required: true, message: '请选择冻结策略版本' }]} className="lg:col-span-2 mb-0">
+            <Select
+              data-testid="point-in-time-source"
+              showSearch
+              loading={pointInTimeSourcesLoading}
+              optionFilterProp="label"
+              placeholder="选择带冻结版本的网格计划"
+              notFoundContent={pointInTimeSourcesLoading ? '正在读取冻结策略...' : '暂无具备真实 OHLC 的冻结策略'}
+              onChange={(value) => {
+                const source = pointInTimeSources.find((item) => item.sourceId === value)
+                if (source?.observedFrom && source.observedThrough) form.setFieldValue('range', [dayjs(source.observedFrom), dayjs(source.observedThrough)])
+                setScenarioComparison(null)
+              }}
+              options={pointInTimeSources.map((source) => ({
+                value: source.sourceId,
+                label: `${source.name} ${source.symbol} · ${source.strategyName} · ${source.strategySchemaVersion}`,
+                disabled: !source.supported || source.blockers.length > 0,
+              }))}
+            />
+          </Form.Item>}
           <Form.Item name="initialCapital" label="初始资金" initialValue={100000} className="mb-0">
             <InputNumber min={1000} step={1000} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item label="操作" className="mb-0 flex items-end">
             <div className="flex flex-wrap gap-2">
               <Button data-testid="run-scenario-comparison" type="primary" icon={<PlayCircleOutlined />} onClick={handleRunScenarioComparison} loading={scenarioComparisonLoading}>
-                运行三场景复盘
+                {scenarioReplayMode === 'point_in_time_simulation' ? '运行逐日模拟' : '运行三场景复盘'}
               </Button>
-              {experienceMode === 'expert' && (
+              {experienceMode === 'expert' && scenarioSourceType === 'advice' && (
                 <Button onClick={handleRunFromAdvice} loading={submitting}>运行持久化专家回测</Button>
               )}
             </div>
@@ -2266,6 +2362,11 @@ const Backtest: React.FC = () => {
           <Form.Item name="range" label="回测区间" className="lg:col-span-2 mb-0">
             <RangePicker style={{ width: '100%' }} />
           </Form.Item>
+          <div className="lg:col-span-2 self-end rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+            {scenarioSourceType === 'grid_plan'
+              ? '逐日模拟每天只读取当日及此前已完成 K 线。若冻结版本晚于回测起点，页面会明确标记为“当前策略回套历史”，不会冒充历史真实建议。'
+              : '保存结果回放只复核当时已落盘的建议，不会用后来行情重新生成建议。'}
+          </div>
         </Form>
 
         {latestRun && (
@@ -2344,8 +2445,12 @@ const Backtest: React.FC = () => {
                   <div className="mt-1">建议下一可交易日：{scenarioComparison.executionAssumptions?.firstAdviceExecutionDate || '无可执行动作'}</div>
                   <div>手续费 {(scenarioComparison.executionAssumptions?.commissionRate || 0) * 100}% · 滑点 {(scenarioComparison.executionAssumptions?.slippageRate || 0) * 100}%</div>
                   <div>未闭环建议不计胜率：{scenarioComparison.adviceOutcome?.openActionCountExcludedFromWinRate ?? 0} 条</div>
+                  {scenarioComparison.strategy ? <div>冻结版本：{scenarioComparison.strategy.schemaVersion} · 日决策 {scenarioComparison.dailyDecisions?.length || 0} 个</div> : null}
                 </div>
               </div>
+              {scenarioComparison.strategy?.historicalPolicyApplication ? (
+                <Alert type="warning" showIcon message="当前策略回套历史" description="该冻结策略版本生成时间晚于回测起点。本结果用于检验固定规则在历史数据上的表现，不代表系统在当时已经给出这些建议。" />
+              ) : null}
               <Alert type="info" showIcon message="研究结果不会创建订单" description="ADD、REDUCE、ORDER_CREATE、AUTO_TRADE 始终被阻断。实际交易曲线使用本地已确认成交价，三条曲线共享同一冻结快照和日期轴。" />
               <details className="rounded-md border border-slate-200 p-3 text-xs text-slate-500">
                 <summary className="cursor-pointer font-medium text-slate-700">查看快照与证据引用</summary>

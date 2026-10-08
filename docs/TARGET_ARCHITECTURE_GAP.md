@@ -1,18 +1,18 @@
 # FAMS 目标架构 Gap 与演进路线
 
-更新时间：2026-09-16
+更新时间：2026-10-08
 
 ## 1. 当前集成状态与剩余目标
 
 ```text
 FTR 当前：A0/FTR-1/FTR-2/FTR-3 point-in-time v2 正式链已通过；免费来源 5216/5216 标的与六时点 6/6 ready，红利低波 5/6 窗口、53 条动态路径通过自动门槛，`wf-04` 失败保留
 FTR 自动化段：FTR-4 不可自签队列已冻结 8 类审查项，FTR-5 隔离回归已通过，FTR-6 provisional review package 已生成并逐字节校验
-投资工作流：WF-0 至 WF-7 文档支撑的自动化实现与真实数据验收已完成；PRD 自动覆盖 18/20，真实基线为 16 个持仓、57 条交易、16 个待确认策略归属
+投资工作流：WF-0 至 WF-8 文档支撑的自动化实现与真实数据验收已完成；PRD 自动覆盖 19/20，冻结策略逐时点模拟已通过真实 OHLC、防前视和双视口验收
 剩余目标一：A6、V2-PX 和投资工作流集中人工核查；通过后只使用已签核的同一 artifact 哈希重建 A7 最终评审包
-剩余目标二：另立开发阶段实现 advice-level `point_in_time_simulation` 冻结策略逐日重算，未实现前不得声明 PRD 全部完成
+剩余目标二：集中核验策略归类、截图纠错、曲线语义与移动端路径；通过后重跑 PRD 矩阵
 自动化段出门：batchHumanReviewReady=true / formalTradingReleaseReviewReady=true / finalFormalReleaseReviewPackageReady=false / evidence=provisional
 集中核查出门：humanAcceptanceStatus=passed；A7 仍需按签核哈希重建后才能令 finalFormalReleaseReviewPackageReady=true
-当前项目级结论：documentedAutomatedScopePassed=true / prdRequirementPassed=18/20 / prdFullyComplete=false
+当前项目级结论：documentedAutomatedScopePassed=true / prdRequirementPassed=19/20 / prdFullyComplete=false
 未来独立高风险门：生产适配器与正式交易解锁
 始终保持：formalTradingUnlocked=false / autoTradeUnlocked=false / canCreateOrder=false / orderCreateAllowed=false
 ```
@@ -23,9 +23,9 @@ FTR 自动化段：FTR-4 不可自签队列已冻结 8 类审查项，FTR-5 隔�
 
 | 分层 | 已实现实体 | 当前状态/风险 | 下一阶段实体 | 用户可见结果 | 验收证据 |
 | --- | --- | --- | --- | --- | --- |
-| 体验 | `FamsChatBox.tsx`、`Assets.tsx`、`Positions.tsx`、`InvestmentPolicy.tsx`、`RelativeRotation.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`DailyReviews.tsx`、`Operations.tsx` | 双轨体验和 WF-0..7 自动验收通过；统一投资政策工作台已实现；策略归属及截图修正仍待人工确认 | 保留 ChatBox 首入口和专家页；统一展示备用现金、三类策略预算、警示带、单标的/行业上限、真实持仓评估和显式激活状态 | 普通用户按资产录入 -> 策略归属 -> 投资政策 -> 对应策略 -> 回测 -> 复盘前进，专家可下钻证据 | Headless Chrome 双视口 + policy API/contract audit + 人工清单 |
-| API | `chat.ts`、`position.ts`、`investmentWorkflow.ts`、`investmentPolicy.ts`、`backtest.ts`、`dailyReview.ts`、`relativeRotation.ts`、`formalRelease.ts`、`operation.ts` | 日常复盘/RRG/投资工作流/FTR API 已实现；投资政策草案、激活、评估和覆盖 API 已实现；正式交易和动态建议级时点模拟仍 blocked | 保持 Fastify 模块边界，统一读取状态源、投资工作流 services、投资政策和 FTR services | 页面、ChatBox、审计包读取同一事实和同一交易锁 | API contract audit |
-| 投资决策 | `InvestmentPolicyService`、`PositionStrategyAssignmentService`、`RotationVolatilityStrategyService`、`AlipayAllocationStrategy`、`ScenarioComparisonService` | 三类资产路由、统一政策版本、真实持仓评估、轮动新增风险容量门禁、红利建议、组合策略与场景比较已实现；14 项非现金持仓仍缺行业分类；历史建议逐日动态重算未实现 | 完成行业事实治理；为 `point_in_time_simulation` 冻结每日可见事实、政策/策略版本和 advice 输出；保持 `actual/hold/follow_advice` 三场景同口径 | 用户能设置独立备用现金、50/30/20 初始预算、警示区间和风险上限，并比较按建议、不执行、实仓曲线 | investment-policy audit + WF-7 artifacts + 后续动态模拟合同/重放证据 |
+| 体验 | `FamsChatBox.tsx`、`Assets.tsx`、`Positions.tsx`、`InvestmentPolicy.tsx`、`RelativeRotation.tsx`、`DividendLowVol.tsx`、`Backtest.tsx`、`DailyReviews.tsx`、`Operations.tsx` | 双轨体验和 WF-0..8 自动验收通过；统一投资政策及冻结策略逐时点回放已实现；策略归属及截图修正仍待人工确认 | 保留 ChatBox 首入口和专家页；统一展示备用现金、三类策略预算、警示带、单标的/行业上限、真实持仓评估和显式激活状态 | 普通用户按资产录入 -> 策略归属 -> 投资政策 -> 对应策略 -> 回测 -> 复盘前进，专家可下钻证据 | Headless Chrome 双视口 + policy / point-in-time audit + 人工清单 |
+| API | `chat.ts`、`position.ts`、`investmentWorkflow.ts`、`investmentPolicy.ts`、`backtest.ts`、`dailyReview.ts`、`relativeRotation.ts`、`formalRelease.ts`、`operation.ts` | 日常复盘/RRG/投资工作流/FTR API 已实现；冻结网格策略逐时点 source 与 compare API 已实现；正式交易仍 blocked | 保持 Fastify 模块边界，统一读取状态源、投资工作流 services、投资政策和 FTR services | 页面、ChatBox、审计包读取同一事实和同一交易锁 | API contract audit |
+| 投资决策 | `InvestmentPolicyService`、`PositionStrategyAssignmentService`、`RotationVolatilityStrategyService`、`AlipayAllocationStrategy`、`ScenarioComparisonService`、`pointInTimeGridSimulation` | 三类资产路由、统一政策版本、轮动/红利/组合策略和冻结网格逐时点场景比较已实现；缺行业事实继续诚实告警 | 集中人工确认策略归属、行业事实、曲线语义和移动体验；无冻结版本 Advice 保持阻断 | 用户能设置独立备用现金、50/30/20 初始预算、风险上限，并比较按冻结策略、不执行、实仓曲线 | investment-policy audit + WF-7 + WF-8 真实数据/双视口证据 |
 | 输入 | `PortfolioBacktestInputBuilder`、`ReleaseCandidateSetService` | 七对象已冻结，但旧版未区分工程样本、诊断、参照和产品候选 | `FormalValidationProfileSet`：角色、profile、benchmark、成分与适用性不可变 | 用户明确知道哪些对象参与 release gate、哪些只作研究或诊断 | `release_candidate_set.json` + `validation_profile_set.json` |
 | 计算 | `PortfolioBacktestEngine` + `FormalValidationService` + point-in-time runner/verifier | FTR-3 v2 自动门禁通过；六窗口 5/6，失败窗口保留，尚待模型人工复核 | A6 只复核冻结结果；任何否决均打回对应 FTR 阶段，不得现场改参数 | 计算结果与放行结论可分别审计 | deterministic replay + service contract + failed-window evidence |
 | 数据 | `FormalDataProviderService`、`FormalDataFreshnessPolicy`、`FieldEvidenceValidator`、`FreePointInTimeSnapshotService` | FTR-1 v2 已通过；5216/5216 标的、六个冻结决策点均达到 >=80%，授权范围为本机个人非商业用途 | A6 数据审核只复核来源、用途、日期、哈希和覆盖率，不补造授权 | 每个历史决策日都能说明当时知道什么、哪些股票可选 | `15_data_governance_audit.json` + `point_in_time_data_readiness.json` |
@@ -35,7 +35,7 @@ FTR 自动化段：FTR-4 不可自签队列已冻结 8 类审查项，FTR-5 隔�
 | 隔离 | `ExecutionIsolationService` + FTR-5 runner/verifier | FTR-5 自动验收通过；真实账户只读、paper intent 可用、5 类生产变更阻断 | A6 风险审核复核隔离证据；生产适配器仍 disabled | paper intent 可见，真实动作 blocked | `13_execution_isolation_audit.json` + wording/adapter records |
 | Release | `ReleaseGateService`、`FormalReleasePackageService.buildProvisional` | FTR-6 provisional 包已生成：28 个来源 artifact 逐字节校验；业务 gate 因人工签核 blocked | A6 通过后按相同哈希重建 A7 final 包，不重新计算或覆盖结论 | 一份 HTML 展示全部 gate、证据、责任人和未完成项 | source manifest + `14_release_gate_audit.json` + provisional manifest + HTML |
 
-日常产品链已实现：`FamsChatBox.tsx / Assets.tsx / Positions.tsx / RelativeRotation.tsx / DividendLowVol.tsx / Backtest.tsx / DailyReviews.tsx -> position.ts / investmentWorkflow.ts / backtest.ts / dailyReview.ts / relativeRotation.ts -> PositionStrategyAssignmentService / RotationVolatilityStrategyService / AlipayAllocationStrategy / ScenarioComparisonService / AlipayOneClickReviewService -> Operation / 私有真实数据证据`。DPR-001 至 DPR-030 的自动合同已覆盖；投资工作流 PRD 当前为 18/20，不能用日常链通过替代动态时点模拟或人工确认。
+日常产品链已实现：`FamsChatBox.tsx / Assets.tsx / Positions.tsx / RelativeRotation.tsx / DividendLowVol.tsx / Backtest.tsx / DailyReviews.tsx -> position.ts / investmentWorkflow.ts / backtest.ts / dailyReview.ts / relativeRotation.ts -> PositionStrategyAssignmentService / RotationVolatilityStrategyService / AlipayAllocationStrategy / ScenarioComparisonService / pointInTimeGridSimulation / AlipayOneClickReviewService -> Operation / 私有真实数据证据`。DPR-001 至 DPR-030 的自动合同已覆盖；投资工作流 PRD 当前为 19/20，冻结策略逐时点模拟已通过，仍不能替代最后的人工确认。
 
 统一投资政策链已实现：`InvestmentPolicy.tsx -> /api/v1/investment-policy/* -> InvestmentPolicyService -> InvestmentPolicyVersion / InvestmentPolicyAssetOverride / InvestmentPolicyEvaluationSnapshot -> RotationVolatilityStrategyService + dividend-low-vol manual draft`。活动版本不可原地修改；默认 `50/30/20`、警示带和备用现金只控制解释与告警；既有超限仓位不自动卖出，容量耗尽同时阻断轮动网格和红利低波人工草案的新增买入权重；四项交易锁始终为 `false`。
 
@@ -57,9 +57,9 @@ A0 正式 provider/benchmark 授权输入 + 七对象 inventory/profile/benchmar
 并行完成的产品链：
 WF-0 文档/合同 -> WF-1 三类资产路由 -> WF-2 行业轮动与波动网格
   -> WF-3 红利低波建议 -> WF-4 支付宝组合策略 -> WF-5 场景比较
-  -> WF-6 跨页用户路径 -> WF-7 真实数据/三视口/PRD 审计（自动范围已完成）
-  -> 集中人工：截图行纠正、16 个持仓策略归属、页面语义核查
-  -> 后续独立开发：冻结策略逐日 `point_in_time_simulation` -> 重跑 PRD 矩阵
+  -> WF-6 跨页用户路径 -> WF-7 真实数据/三视口/PRD 审计
+  -> WF-8 冻结策略逐日 `point_in_time_simulation`（真实数据、防前视、双视口通过）
+  -> 集中人工：截图行纠正、持仓策略归属、页面与曲线语义核查 -> 重跑 PRD 矩阵
 ```
 
 A0 负责取得并冻结可执行的数据使用授权，同时冻结 candidate role、`validationProfileId`、成分和候选级 benchmark；A6 只独立复核授权 artifact、适用范围、有效期与哈希，不得补签或追认缺失授权。授权或 profile 复核失败直接打回 A0，并失效依赖的后续证据。
@@ -74,7 +74,7 @@ A0 负责取得并冻结可执行的数据使用授权，同时冻结 candidate 
 
 ### 研究用户
 
-选择行业轮动、红利低波或组合 candidate -> 查看对应网格/建议/配置 -> 在统一 Backtest 比较 `actual/hold/follow_advice` 或不同组合 -> 查看收益、最大回撤、时间敏感性、数据日期与 benchmark -> 不足时回到数据或策略计划。当前 `follow_advice` 动态历史重算必须显示 controlled block。
+选择行业轮动、红利低波或组合 candidate -> 查看对应网格/建议/配置 -> 在统一 Backtest 选择保存建议回放或冻结策略逐日模拟 -> 比较 `actual/hold/follow_advice` -> 查看收益、最大回撤、日决策、数据日期与 benchmark -> 不足时回到数据或策略计划。无冻结版本时动态历史重算必须显示 controlled block。
 
 ### 审计与签核用户
 
@@ -89,14 +89,14 @@ ChatBox、专家页或 API 请求 `ADD / REDUCE / ORDER_CREATE / AUTO_TRADE` -> 
 | 里程碑 | 出门门槛 | 用户体验 |
 | --- | --- | --- |
 | M0 文档冻结 | drawio 8 页、实体映射完整、人工认可方向 | 能看懂下一阶段做什么 |
-| MW 投资工作流自动范围 | WF-0..7 合同、API、页面、真实数据和三视口通过；PRD 矩阵诚实记录 18/20 | 能按三类资产进入对应策略并查看场景比较，不误认为历史动态模拟已完成 |
+| MW 投资工作流自动范围 | WF-0..8 合同、API、页面、真实数据和多视口通过；PRD 矩阵诚实记录 19/20 | 能按三类资产进入对应策略，并审计冻结策略逐日决策与三场景曲线 |
 | M1 数据通过 | 当前候选 FTR-1 已通过；若重构动态候选，六个历史决策点行情/交易状态/证券状态/as-of 候选覆盖均 >=80%，公告日截断可验证 | 能判断每个历史时点的数据可信和恢复动作 |
 | M2 Benchmark 通过 | official/trusted total-return + 授权证据 | 能看真实总回报比较 |
 | M3 Validation 通过 | point-in-time 6/6；冻结 6 窗口通过 5/6，53 条路径及参数/分组门槛通过，失败 `wf-04` 保留 | 能看模型为何通过、哪个窗口失败及为何仍待人工复核 |
 | M4 自动证据冻结 | queue 含 8 类审查项、28 个来源 artifact 和完整哈希；8 pending、0 approved | 能一次核查完整范围 |
 | M5 集中人工核查 | 产品、数据、benchmark、模型、风险、合规和 final 全通过 | 能追溯谁批准了什么 |
 | M6 Final review package ready | 签核哈希与原证据一致，HTML 可复核 | 人类可决定是否另开生产解锁阶段 |
-| M7 PRD 全量闭环 | 人工项通过且 `point_in_time_simulation` 冻结策略逐日重算通过真实数据、防前视和回放验收 | 用户可审计历史每个建议日的输入、建议、执行场景与收益曲线 |
+| M7 PRD 全量闭环 | `point_in_time_simulation` 已自动通过；集中人工项通过并重跑矩阵达到 20/20 | 用户可审计历史每个建议日的输入、建议、执行场景与收益曲线 |
 
 ## 6. Drawio 规则
 
@@ -126,7 +126,7 @@ drawio 固定 8 页：
 ## 7. 禁止退化
 
 - 不得删除 ChatBox、普通用户工作台、资产 Excel 或专家多 Tab 的已验收能力。
-- 不得把 S0-S8 或 WF-0..WF-7 已通过的自动化范围重新画成待开发；也不得把 18/20 写成 PRD 全完成。
+- 不得把 S0-S8 或 WF-0..WF-8 已通过的自动化范围重新画成待开发；也不得把 19/20 写成 PRD 全完成。
 - 不得把已实现的 FTR Service、`DeferredHumanReviewQueueService` 或 FTR-6 provisional package 标记为待开发；也不得把 8 项 pending 写成人工已通过。
 - 不得只写验收名词而没有用户场景、操作步骤、硬门槛和失败归属。
 - 不得把截图、命令退出 0 或合同生成成功等同业务 gate passed。

@@ -1,6 +1,6 @@
 # target-architecture-gap.drawio 摘要
 
-更新时间：2026-09-16
+更新时间：2026-10-08
 
 ## 1. 当前有效结论
 
@@ -16,8 +16,8 @@
 - FTR-5 自动验收通过：真实账户只读、paper intent 可用、5 类生产变更阻断、生产适配器 disabled。
 - FTR-6 provisional review package 已生成，覆盖 A0 与 FTR-1 至 FTR-5、28 个来源 artifact，并完成逐字节 SHA-256 校验；业务 release gate 因人工签核未完成保持 blocked。
 - 自动化范围已完成；A6 图文核查工作台与私有草稿 API 已实现并通过自动合同，8 类共 32/32 步有图。当前下一步是人类完成 A6 真实核查，其中 V2-PX 的 4 张操作示意不能代替真实 Chrome 截图/trace；A6 通过后才能以相同 artifact 哈希重建 A7 final review package。
-- 投资工作流 WF-0..WF-7 文档支撑自动化范围已完成：真实基线为 16 个持仓、57 条交易、16 个待确认策略归属，PRD 自动覆盖 18/20。
-- 投资工作流剩余两项被明确保留：截图行纠正/策略归属/UX 的集中人工确认，以及 advice-level `point_in_time_simulation` 冻结策略逐日重算。后者未实现，`prdFullyComplete=false`。
+- 投资工作流 WF-0..WF-8 文档支撑自动化范围已完成，PRD 自动覆盖 19/20；冻结 `fams.grid-strategy.v2` 已用真实 canonical OHLC 完成逐日动态重算、防前视和桌面/移动端验收。
+- 投资工作流最后一项为截图纠正、策略归属、曲线语义与移动路径集中人工确认；`prdFullyComplete=false`。
 
 当前可声明：
 
@@ -28,7 +28,7 @@ formalTradingReleaseReviewReady=true
 humanAcceptanceStatus=pending_batch_review
 finalFormalReleaseReviewPackageReady=false
 investmentWorkflowAutomatedStatus=passed
-investmentWorkflowPrdCoverage=18/20
+investmentWorkflowPrdCoverage=19/20
 prdFullyComplete=false
 ```
 
@@ -46,7 +46,7 @@ orderCreateAllowed=true
 ## 2. 八页结构
 
 1. **当前基线与唯一下一步**：自动化 A0-A5 已完成，A6 图文工作台已实现但人类核查未执行，A7 和生产解锁均未放行。
-2. **存量到目标强关联映射**：R1-R6 横向实体链对齐当前代码、当前状态、目标动作、API/数据、证据和用户结果；R6 专门描述三类资产、策略路由、场景比较和动态时点模拟缺口。
+2. **存量到目标强关联映射**：R1-R6 横向实体链对齐当前代码、当前状态、目标动作、API/数据、证据和用户结果；R6 描述三类资产、策略路由和已实现的冻结策略逐时点模拟。
 3. **正式数据治理**：公开来源、本机个人非商业用途、5216/5216、六时点、freshness/coverage/evidence 与失败恢复路径。
 4. **Benchmark 与模型验证**：H00300 735 点、v2 `5/6`、53 路径、`6/3/3` 分组以及 `wf-04` 失败证据。
 5. **人工核查与证据失效**：8 类队列、FTR-5 风险证据重绑定、签核哈希、否决归属和下游失效。
@@ -109,6 +109,6 @@ Archify 规格文件为 `docs/fams-formal-release-readiness.architecture.json`�
 4. 第 5 页是否明确队列为 8 pending、0 approved，自动化不能代替人工签核。
 5. 第 6 页是否每条路径都有用户入口、连续操作、目标结果、量化门槛和证据。
 6. 第 8 页是否明确 provisional review package 不等于 final package，更不等于正式交易解锁。
-7. 第 2、4、6、8 页是否都明确投资工作流为 18/20、人工确认 pending、动态时点模拟未实现，并拒绝 PRD 全完成声明。
+7. 第 2、4、6、8 页是否都明确投资工作流为 19/20、逐时点工程已通过、人工确认 pending，并拒绝 PRD 全完成声明。
 
 原始 XML 的可读解析证据见 `docs/read-drawio-output.txt`。

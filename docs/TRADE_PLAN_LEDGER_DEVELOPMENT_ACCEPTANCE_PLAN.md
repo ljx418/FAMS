@@ -2,7 +2,7 @@
 
 **版本**：1.0  
 **日期**：2026-10-08  
-**状态**：Approved for controlled implementation / P1-P7 in progress  
+**状态**：Implemented / Verified（G0-G6 complete）
 **范围**：同花顺截图或文件输入、仓位调整复盘、轮动波动策略、网格历史回放  
 
 ## 1. 目标
@@ -247,3 +247,19 @@ G0 用户批准本计划（2026-10-08 已完成）
 ## 9. 完成定义
 
 只有 AC-01 至 AC-20 全部有可重复的自动证据，迁移不变量成立，前后端构建及关键回归通过，且页面/MCP 对人工计划和真实成交的区别清晰可见时，本阶段才可标记完成。
+
+## 10. 实施完成记录
+
+2026-10-08 已完成 P0-P7。最终事实以 `docs/audits/2026-10-08-trade-plan-ledger/README.md` 为准。
+
+| 质量门 | 结果 | 主要证据 |
+| --- | --- | --- |
+| G0 | PASS | 用户批准完整实施 |
+| G1 | PASS | 开发前审查、Schema/API SR-01 至 SR-10 决议、两份工作流规格 |
+| G2 | PASS | 采集批次、行级审计、显式 positionEffect、不可变对账；AC-01 至 AC-06 |
+| G3 | PASS | StrategyRun、GridPlan、事件流、执行关联；AC-07 至 AC-14 |
+| G4 | PASS | REST/MCP/前端证据链和权限边界；AC-15、AC-18 |
+| G5 | PASS | Grid Replay v3 三口径与成交归因；AC-16 |
+| G6 | PASS | 范围迁移、幂等复跑、哈希/外键/完整性、AC-17 至 AC-20 及关键回归 |
+
+保留边界：系统仍无券商连接，不创建或撤销真实订单；历史成交在用户确认计划关联前不会进入“实际执行”绩效。真实数据当前缺少足够的已确认计划归因和部分分钟行情，因此回测可以正确返回 `insufficient_attribution` / `insufficient_evidence`，但不得据此声明策略盈利。

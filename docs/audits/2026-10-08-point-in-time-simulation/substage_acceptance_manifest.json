@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "fams.substage-acceptance-manifest.v1",
+  "stageId": "WF-8",
+  "title": "冻结策略逐时点模拟",
+  "entryCriteria": [
+    "development_and_acceptance_plan_present",
+    "entry_audit_fatal_zero",
+    "real_frozen_strategy_version_present",
+    "real_canonical_ohlc_present"
+  ],
+  "commands": [
+    "cd backend && npm run build",
+    "cd backend && npm run test:investment-workflow-point-in-time",
+    "cd backend && npm run test:investment-workflow-scenario-comparison",
+    "cd backend && npm run test:investment-workflow-point-in-time-ui",
+    "cd frontend && npm run build"
+  ],
+  "requiredArtifacts": [
+    "docs/automation-audits/investment-workflow/WF-8/evidence/point-in-time-simulation-audit.json",
+    "docs/automation-audits/investment-workflow/WF-8/evidence/point-in-time-ui-audit.json",
+    "docs/automation-audits/investment-workflow/WF-8/evidence/point-in-time-desktop.png",
+    "docs/automation-audits/investment-workflow/WF-8/evidence/point-in-time-mobile.png",
+    "docs/audits/2026-10-08-point-in-time-simulation/ACCEPTANCE_AUDIT.md",
+    "docs/audits/2026-10-08-point-in-time-simulation/PRD_SPEC_REVIEW.md"
+  ],
+  "automatedGates": [
+    "real_data_dynamic_recompute_passed",
+    "future_append_invariance_passed",
+    "shared_timeline_passed",
+    "read_only_account_digest_passed",
+    "desktop_and_mobile_ui_evidence_passed",
+    "notification_stack_regression_closed",
+    "trade_boundary_passed"
+  ],
+  "manualGates": [
+    "deferred_to_concentrated_human_acceptance"
+  ],
+  "rollbackConditions": [
+    "future_data_changes_prior_decision",
+    "saved_replay_presented_as_point_in_time",
+    "account_fact_mutated",
+    "trade_permission_unlocked"
+  ],
+  "exitCodePolicy": {
+    "success": 0,
+    "failure": "non_zero"
+  }
+}

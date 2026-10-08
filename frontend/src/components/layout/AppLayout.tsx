@@ -65,7 +65,7 @@ const menuItems = [
 export function Layout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [glossaryOpen, setGlossaryOpen] = useState(false)
-  const [notificationApi, notificationContext] = notification.useNotification()
+  const [notificationApi, notificationContext] = notification.useNotification({ maxCount: 1 })
   const notifiedReminderIds = useRef(new Set<string>())
   const navigate = useNavigate()
   const location = useLocation()
@@ -100,24 +100,25 @@ export function Layout() {
         const response = await fetch(`${API_BASE}/api/v1/alerts/unread?userId=default&limit=30`)
         if (!response.ok || cancelled) return
         const alerts = await response.json() as Array<{ id: string; title: string; message: string }>
-        for (const alert of alerts.filter((item) => item.title.startsWith('[券商复盘提醒]')).reverse()) {
-          if (notifiedReminderIds.current.has(alert.id)) continue
-          notifiedReminderIds.current.add(alert.id)
-          const kept = [...notifiedReminderIds.current].slice(-40)
-          notifiedReminderIds.current = new Set(kept)
-          window.localStorage.setItem(storageKey, JSON.stringify(kept))
-          notificationApi.info({
-            key: alert.id,
-            message: '券商波动交易复盘提醒',
-            description: alert.message,
-            duration: 0,
-            actions: <Button type="primary" size="small" onClick={() => navigate('/daily-reviews')}>进入每日复盘</Button>,
-          })
-          if ('Notification' in window && window.Notification.permission === 'granted') {
-            new window.Notification('FAMS 券商复盘提醒', { body: alert.message, tag: alert.id })
-          }
-          window.dispatchEvent(new CustomEvent('fams:broker-review-reminder', { detail: alert }))
+        const reminders = alerts.filter((item) => item.title.startsWith('[券商复盘提醒]'))
+        const newestUnseen = reminders.find((item) => !notifiedReminderIds.current.has(item.id))
+        if (!newestUnseen) return
+
+        for (const reminder of reminders) notifiedReminderIds.current.add(reminder.id)
+        const kept = [...notifiedReminderIds.current].slice(-40)
+        notifiedReminderIds.current = new Set(kept)
+        window.localStorage.setItem(storageKey, JSON.stringify(kept))
+        notificationApi.info({
+          key: 'broker-review-reminder',
+          message: '券商波动交易复盘提醒',
+          description: newestUnseen.message,
+          duration: 0,
+          actions: <Button type="primary" size="small" onClick={() => navigate('/daily-reviews')}>进入每日复盘</Button>,
+        })
+        if ('Notification' in window && window.Notification.permission === 'granted') {
+          new window.Notification('FAMS 券商复盘提醒', { body: newestUnseen.message, tag: newestUnseen.id })
         }
+        window.dispatchEvent(new CustomEvent('fams:broker-review-reminder', { detail: newestUnseen }))
       } catch {
         // 后端暂不可用时保持静默，下一个轮询周期会重试。
       }

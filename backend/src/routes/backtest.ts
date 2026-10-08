@@ -41,6 +41,11 @@ export async function backtestRoutes(app: FastifyInstance) {
     }
   })
 
+  app.get('/scenario-comparison/point-in-time-sources', async (request) => {
+    const { userId } = request.query as { userId?: string }
+    return scenarioComparisonService.listPointInTimeSources(userId || 'default')
+  })
+
   app.get('/grid-replay/sources', async (request) => {
     const { userId } = request.query as { userId?: string }
     return gridReplayService.listSources(userId || 'default')
