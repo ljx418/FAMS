@@ -1645,7 +1645,10 @@ async function main() {
     ['strict trade remains blocked', ['npm', 'run', 'test:ftr-6-strict-trade-remains-blocked'], backendDir, 240000],
   ]
 
-  const commandResults = await runCommandsWithConcurrency(commands, Number(process.env.FAMS_E2E_COMMAND_CONCURRENCY || 2))
+  // Several acceptance commands validate hundreds of megabytes of immutable
+  // evidence. Sequential execution is the reliable default on developer hosts;
+  // callers may opt into higher concurrency when memory headroom is measured.
+  const commandResults = await runCommandsWithConcurrency(commands, Number(process.env.FAMS_E2E_COMMAND_CONCURRENCY || 1))
 
   const serverResults = []
   try {
