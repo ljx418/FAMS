@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { prisma } from '../src/db/prisma.js'
 import { portfolioRelativeRotationService } from '../src/services/relative-rotation/portfolioRelativeRotationService.js'
+import { relativeRotationService } from '../src/services/relative-rotation/relativeRotationService.js'
 
 const userId = process.env.FAMS_ACCEPTANCE_USER_ID || 'default'
 
@@ -16,8 +18,44 @@ async function protectedCounts() {
   return { positions, transactions, externalOrders }
 }
 
+async function rotationPointFootprint() {
+  const rows = await prisma.relativeRotationPoint.findMany({
+    orderBy: [
+      { symbol: 'asc' },
+      { benchmarkId: 'asc' },
+      { frequency: 'asc' },
+      { tradeDate: 'asc' },
+      { formulaVersion: 'asc' },
+    ],
+    select: {
+      symbol: true,
+      benchmarkId: true,
+      frequency: true,
+      tradeDate: true,
+      formulaVersion: true,
+      relativePrice: true,
+      relativeTrend: true,
+      relativeMomentum: true,
+      quadrant: true,
+      updatedAt: true,
+    },
+  })
+  return {
+    count: rows.length,
+    sha256: createHash('sha256').update(JSON.stringify(rows)).digest('hex'),
+  }
+}
+
 async function main() {
   const before = await protectedCounts()
+  const rotationPointsBeforeRead = await rotationPointFootprint()
+  await relativeRotationService.getHoldingsRotation(userId, { frequency: 'weekly', refresh: false })
+  const rotationPointsAfterRead = await rotationPointFootprint()
+  assert.deepEqual(
+    rotationPointsAfterRead,
+    rotationPointsBeforeRead,
+    'read-only holdings rotation must not rewrite RelativeRotationPoint rows',
+  )
   const firstStartedAt = performance.now()
   const first = await portfolioRelativeRotationService.getReport(userId, { frequency: 'weekly', years: 8 })
   const firstDurationMs = performance.now() - firstStartedAt
@@ -52,6 +90,11 @@ async function main() {
       sourceRevision: second.sourceRevision,
       observedThrough: second.observedThrough,
     },
+    readOnlyPersistenceBoundary: {
+      before: rotationPointsBeforeRead,
+      after: rotationPointsAfterRead,
+      unchanged: true,
+    },
     coverage: second.coverage,
     gates: {
       noAutomaticExternalRefreshOnEntry: true,
@@ -60,6 +103,7 @@ async function main() {
       targetedRetestAvailable: true,
       assetInspectionAvailable: true,
       protectedRecordsUnchanged: true,
+      readOnlyRotationPointsUnchanged: true,
     },
   }
   const outputDir = resolve(process.cwd(), '../docs/audits/2026-09-17-frontend-usability-grid-replay/evidence')

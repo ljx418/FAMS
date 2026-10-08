@@ -718,6 +718,9 @@ class RelativeRotationService {
         frequency: options.frequency,
         trail: options.trail,
         refresh: options.refresh,
+        // This method backs a GET/read-model route. Persisting derived points here
+        // makes ordinary page visits contend with explicit refresh/backtest jobs.
+        persist: false,
       })
       items.push({
         positionId: position.id,

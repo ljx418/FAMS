@@ -982,6 +982,7 @@ function testCoverage(commandResults) {
     ['investment workflow foundation', '投资工作流基础合同'],
     ['investment workflow readiness', '三类资产归属与 readiness'],
     ['investment workflow rotation', '行业轮动波动策略合同'],
+    ['frontend rotation read boundary', '轮动页面只读边界与快照性能合同'],
     ['investment workflow portfolio policy', '支付宝组合策略合同'],
     ['investment workflow scenario comparison', '三场景统一回测合同'],
     ['investment workflow point in time', '冻结策略逐时点真实数据与防前视合同'],
@@ -1021,6 +1022,7 @@ async function runBrowserEvidence(apiResults) {
 
   const screenshots = []
   const consoleErrors = []
+  const failedResponses = []
 
   async function withPage(viewport, task) {
     const browser = await chromium.launch({ headless: true })
@@ -1029,6 +1031,15 @@ async function runBrowserEvidence(apiResults) {
       if (message.type() === 'error' && !/^Warning:\s/.test(message.text())) consoleErrors.push(message.text())
     })
     page.on('pageerror', (error) => consoleErrors.push(error.message))
+    page.on('response', (response) => {
+      if (response.status() >= 500) {
+        failedResponses.push({
+          status: response.status(),
+          method: response.request().method(),
+          url: response.url(),
+        })
+      }
+    })
     try {
       await task(page)
     } finally {
@@ -1063,14 +1074,13 @@ async function runBrowserEvidence(apiResults) {
 
   async function captureUxBaselineMatrix() {
     for (const viewport of uxBaselineViewports) {
-      // eslint-disable-next-line no-await-in-loop
-      await withPage({ width: viewport.width, height: viewport.height }, async (page) => {
-        for (const target of uxBaselineTargets) {
-          // eslint-disable-next-line no-await-in-loop
+      for (const target of uxBaselineTargets) {
+        // Each page gets a separate browser lifetime so pending API calls from a
+        // previous route cannot overlap with or contaminate the next baseline.
+        // eslint-disable-next-line no-await-in-loop
+        await withPage({ width: viewport.width, height: viewport.height }, async (page) => {
           await page.goto(`${frontendUrl}${target.path}`, { waitUntil: 'domcontentloaded', timeout: 120000 })
-          // eslint-disable-next-line no-await-in-loop
           await waitForBodyText(page, target.requiredTexts, 120000)
-          // eslint-disable-next-line no-await-in-loop
           screenshots.push(await screenshot(
             page,
             `uxf0-${viewport.name}-${target.key}.png`,
@@ -1078,8 +1088,8 @@ async function runBrowserEvidence(apiResults) {
             `${viewport.label} 视口下验证 ${target.title} 主路径可读、主内容不被侧栏挤压。`,
             target.requiredTexts,
           ))
-        }
-      })
+        })
+      }
     }
   }
 
@@ -1198,9 +1208,10 @@ async function runBrowserEvidence(apiResults) {
   }
 
   return {
-    status: consoleErrors.length === 0 ? assessOverall(screenshots) : 'failed',
+    status: consoleErrors.length === 0 && failedResponses.length === 0 ? assessOverall(screenshots) : 'failed',
     screenshots,
     consoleErrors: consoleErrors.slice(0, 20),
+    failedResponses: failedResponses.slice(0, 50),
   }
 }
 
@@ -1323,6 +1334,18 @@ function renderReport(model) {
   `).join('\n')
   const canClaimList = model.humanReviewGuide.canClaim.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n')
   const cannotClaimList = model.humanReviewGuide.cannotClaim.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n')
+  const browserRuntimeRows = [
+    ...(model.browser.consoleErrors || []).map((message) => ({ type: 'console/page error', evidence: message })),
+    ...(model.browser.failedResponses || []).map((response) => ({
+      type: `HTTP ${response.status}`,
+      evidence: `${response.method} ${response.url}`,
+    })),
+  ].map((item) => `
+    <tr>
+      <td>${escapeHtml(item.type)}</td>
+      <td>${escapeHtml(item.evidence)}</td>
+    </tr>
+  `).join('\n')
   const screenshotHtml = model.browser.screenshots.map((shot) => `
     <section class="shot">
       <div class="shot-head"><h3>${escapeHtml(shot.title)}</h3>${renderStatus(shot.status)}</div>
@@ -1540,7 +1563,9 @@ function renderReport(model) {
   <h2>用户场景截图证据</h2>
   <div class="card">
     <p><strong>视觉证据自审：</strong>报告可用于人工复核，但产品视觉状态仍为 <code>${escapeHtml(model.visualEvidenceAudit.productVisualStatus)}</code>。响应式基线图只证明布局与可读性；真实数据必须同时核对 API 和合同证据。截图中可见的问题不会被裁掉或包装为全绿。</p>
+    <p><strong>浏览器运行时检查：</strong>控制台/Page Error ${(model.browser.consoleErrors || []).length} 项，HTTP 5xx ${(model.browser.failedResponses || []).length} 项。任一项非零都会使浏览器验收失败。</p>
   </div>
+  ${browserRuntimeRows ? `<table><thead><tr><th>运行时错误类型</th><th>证据</th></tr></thead><tbody>${browserRuntimeRows}</tbody></table>` : '<div class="card"><p>本轮没有捕获到控制台错误、Page Error 或 HTTP 5xx。</p></div>'}
   <table><thead><tr><th>ID</th><th>级别</th><th>状态</th><th>观察结论</th><th>证据</th></tr></thead><tbody>${visualFindingRows}</tbody></table>
   ${screenshotHtml}
 
@@ -1592,10 +1617,10 @@ async function main() {
     ['frontend build', ['npm', 'run', 'build'], frontendDir, 240000],
     ['current stage consistency', ['npm', 'run', 'test:current-stage-consistency'], backendDir, 240000],
     ['next stage documentation baseline', ['npm', 'run', 'test:next-stage-documentation-baseline'], backendDir, 240000],
-    ['daily review real data', ['npm', 'run', 'test:daily-review-real-data-e2e'], backendDir, 600000],
     ['investment workflow foundation', ['npm', 'run', 'test:investment-workflow-foundation'], backendDir, 600000],
     ['investment workflow readiness', ['npm', 'run', 'test:investment-workflow-readiness'], backendDir, 240000],
     ['investment workflow rotation', ['npm', 'run', 'test:investment-workflow-rotation-strategy'], backendDir, 360000],
+    ['frontend rotation read boundary', ['npm', 'run', 'test:frontend-usability-rotation-cache'], backendDir, 360000],
     ['investment workflow portfolio policy', ['npm', 'run', 'test:investment-workflow-portfolio-policy'], backendDir, 240000],
     ['investment workflow scenario comparison', ['npm', 'run', 'test:investment-workflow-scenario-comparison'], backendDir, 360000],
     ['investment workflow point in time', ['npm', 'run', 'test:investment-workflow-point-in-time'], backendDir, 360000],
@@ -1637,6 +1662,28 @@ async function main() {
       name: 'server startup',
       status: 'failed',
       error: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  const backendServer = serverResults.find((item) => item.name === 'backend')
+  if (backendServer?.status === 'passed') {
+    commandResults.push(await runCommand(
+      'daily review real data',
+      ['npm', 'run', 'test:daily-review-real-data-e2e'],
+      backendDir,
+      600000,
+    ))
+  } else {
+    commandResults.push({
+      name: 'daily review real data',
+      command: 'npm run test:daily-review-real-data-e2e',
+      cwd: 'backend',
+      status: 'failed',
+      exitCode: null,
+      durationMs: 0,
+      stdout: '',
+      stderr: 'Backend startup failed; runtime E2E was not executed.',
+      timedOut: false,
     })
   }
 
@@ -1739,7 +1786,7 @@ async function main() {
 
   const browser = serverResults.every((item) => item.status === 'passed')
     ? await runBrowserEvidence(apiResults)
-    : { status: 'blocked', screenshots: [], consoleErrors: ['Server startup failed; browser validation skipped.'] }
+    : { status: 'blocked', screenshots: [], consoleErrors: ['Server startup failed; browser validation skipped.'], failedResponses: [] }
 
   const prdCoverage = buildPrdCoverage(commandResults, apiResults, browser.screenshots)
   const coverage = testCoverage(commandResults)
