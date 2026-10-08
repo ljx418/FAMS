@@ -82,6 +82,7 @@ async function ensureServer(name, url, command, cwd, readyUrl = url) {
       cwd,
       env: { ...process.env, ...auditEnv, HOST: '127.0.0.1' },
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
     })
     child.stdout.on('data', (chunk) => process.stdout.write(`[${name}] ${chunk}`))
     child.stderr.on('data', (chunk) => process.stderr.write(`[${name}] ${chunk}`))
@@ -108,6 +109,7 @@ async function ensureFrontendServer() {
     cwd: frontendDir,
     env: { ...process.env, ...auditEnv, HOST: '127.0.0.1' },
     stdio: ['ignore', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32',
   })
   child.stdout.on('data', (chunk) => process.stdout.write(`[frontend] ${chunk}`))
   child.stderr.on('data', (chunk) => process.stderr.write(`[frontend] ${chunk}`))
@@ -2010,6 +2012,14 @@ main()
   })
   .finally(() => {
     for (const child of spawned) {
+      if (process.platform !== 'win32' && child.pid) {
+        try {
+          process.kill(-child.pid, 'SIGTERM')
+          continue
+        } catch {
+          // Fall through when the process group already exited.
+        }
+      }
       child.kill('SIGTERM')
     }
   })

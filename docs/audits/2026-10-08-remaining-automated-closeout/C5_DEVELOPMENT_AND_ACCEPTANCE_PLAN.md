@@ -62,6 +62,18 @@
 - 投资工作流 foundation 增加阶段耗时日志，任何再次超时都能定位到具体真实数据步骤。
 - 修复后必须重跑 foundation、TypeScript 和完整 full-system E2E；第三轮失败报告不得作为通过证据。
 
+## 第四轮失败与重规划（2026-10-08）
+
+quote-list 只读修复后，foundation、其余功能合同、运行态 API、浏览器 39 张截图、console 与 HTTP 5xx 均通过；全量 E2E 的唯一非预期失败变为 `v2 px semantic contract` 的 sourceRef UUID 负例。复核证明 validator 正确，失败来自负例生成器使用 `replace('-4', '-1')`：当随机 UUID 第二段恰好以 `4` 开头时，它会修改第二段而非第三段的 UUID version nibble，生成的 ID 仍然合法。
+
+重规划不修改 schema 和产品运行态，只修复测试确定性：
+
+- 使用锚定 UUID 第三段的正则把 version nibble 从 `4` 改为 `1`。
+- 增加 mutation 必须实际改变原 ID 的前置断言，防止负例静默失效。
+- 将验收期间启动的 backend/Vite 置于独立进程组，并在报告写入后终止整个进程组，避免 `tsx` 子进程持有管道导致验收命令不退出。
+- 定向重跑 V2-PX semantic/API/policy 合同；通过后再次执行完整 full-system E2E。
+- 第四轮失败报告仅作为发现测试波动的证据，不得作为自动范围通过证据。
+
 ## 产物
 
 - 新版 `acceptance-report.html` 与 `LATEST_RUN.json`。

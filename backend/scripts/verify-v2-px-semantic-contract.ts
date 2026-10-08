@@ -590,12 +590,17 @@ async function main() {
   const reviewRawRef = reviewEvidenceRefs[0]!
   const reviewSourceRef = createSourceRef('review-evidence', realReview.id, reviewRawRef)
   assert.deepEqual(parseSourceRef(reviewSourceRef), { kind: 'review-evidence', entityId: realReview.id, rawRef: reviewRawRef })
+  const invalidVersionEntityId = realOperation.id.replace(
+    /^([0-9a-f]{8}-[0-9a-f]{4}-)4/,
+    (_matched, prefix: string) => `${prefix}1`,
+  )
+  assert.notEqual(invalidVersionEntityId, realOperation.id, 'UUID version mutation must change the version nibble')
   const invalidSourceRefs = [
     `unknown:${realOperation.id}:YQ`,
     `op-artifact:${realOperation.id}:YQ=`,
     `op-artifact:${realOperation.id}:YR`,
     `op-artifact:${realOperation.id.toUpperCase()}:YQ`,
-    `op-artifact:${realOperation.id.replace('-4', '-1')}:YQ`,
+    `op-artifact:${invalidVersionEntityId}:YQ`,
     `op-artifact:${realOperation.id}:${Buffer.from('x'.repeat(513)).toString('base64url')}`,
   ]
   assert.ok(invalidSourceRefs.every((sourceRef) => parseSourceRef(sourceRef) === null), 'Malformed sourceRef was accepted')
