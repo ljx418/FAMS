@@ -771,6 +771,7 @@ model Operation {
 
   @@unique([type, idempotencyKey])
   @@index([userId, type, status])
+  @@index([userId, requestedAt])
   @@index([status, requestedAt])
   @@index([type, status, leaseExpiresAt])
   @@index([leaseOwner, leaseToken])

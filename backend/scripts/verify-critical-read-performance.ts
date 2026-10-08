@@ -8,6 +8,7 @@ const baseUrl = process.env.FAMS_API_URL || 'http://127.0.0.1:4000'
 const userId = process.env.FAMS_USER_ID || 'default'
 const p95BudgetMs = Number(process.env.FAMS_CRITICAL_READ_P95_BUDGET_MS || 1500)
 const maxBudgetMs = Number(process.env.FAMS_CRITICAL_READ_MAX_BUDGET_MS || 3000)
+const coldStartBudgetMs = Number(process.env.FAMS_CRITICAL_READ_COLD_START_BUDGET_MS || 10000)
 
 type Sample = { status: number; durationMs: number; bytes: number }
 
@@ -60,6 +61,7 @@ async function main() {
     `/api/v1/daily-reviews?userId=${encodeURIComponent(userId)}&page=1&pageSize=20`,
     `/api/v1/analysis/advice-summaries?userId=${encodeURIComponent(userId)}&limit=50`,
     `/api/v1/backtest/scenario-comparison/point-in-time-sources?userId=${encodeURIComponent(userId)}`,
+    `/api/v1/operations?userId=${encodeURIComponent(userId)}&limit=50`,
   ]
   const protectedBefore = {
     positions: await prisma.position.count({ where: { userId, status: 'open' } }),
@@ -68,6 +70,16 @@ async function main() {
   }
   const results = []
   for (const path of paths) results.push(await sample(path))
+  const operationListResponse = await fetch(`${baseUrl}/api/v1/operations?userId=${encodeURIComponent(userId)}&limit=50`)
+  assert.equal(operationListResponse.status, 200)
+  const operationList = await operationListResponse.json() as Array<Record<string, any>>
+  assert.ok(operationList.length > 0, 'operation summary list is empty')
+  const operationDetailResponse = await fetch(`${baseUrl}/api/v1/operations/${encodeURIComponent(String(operationList[0].id))}`)
+  assert.equal(operationDetailResponse.status, 200)
+  const operationDetail = await operationDetailResponse.json() as Record<string, any>
+  assert.equal(operationDetail.id, operationList[0].id, 'operation detail does not match summary id')
+  assert.ok(Object.hasOwn(operationDetail, 'result'), 'operation detail omitted result payload')
+  assert.ok(Object.hasOwn(operationDetail, 'tasks'), 'operation detail omitted task payload')
   const protectedAfter = {
     positions: await prisma.position.count({ where: { userId, status: 'open' } }),
     transactions: await prisma.transaction.count({ where: { userId } }),
@@ -76,6 +88,7 @@ async function main() {
   assert.deepEqual(protectedAfter, protectedBefore, 'critical read performance test changed protected account facts')
   for (const result of results) {
     assert.deepEqual(result.statusCodes, [200], `${result.path} returned a non-200 status`)
+    assert.ok(result.warmupMs <= coldStartBudgetMs, `${result.path} cold start ${result.warmupMs}ms exceeds ${coldStartBudgetMs}ms`)
     assert.ok(result.p95Ms <= p95BudgetMs, `${result.path} p95 ${result.p95Ms}ms exceeds ${p95BudgetMs}ms`)
     assert.ok(result.maxMs <= maxBudgetMs, `${result.path} max ${result.maxMs}ms exceeds ${maxBudgetMs}ms`)
     assert.equal(result.responseBytes.length, 1, `${result.path} response size changed across warm reads`)
@@ -86,9 +99,16 @@ async function main() {
     status: 'passed',
     realData: true,
     userId,
-    budgets: { p95Ms: p95BudgetMs, maxMs: maxBudgetMs },
+    budgets: { coldStartMs: coldStartBudgetMs, p95Ms: p95BudgetMs, maxMs: maxBudgetMs },
     protectedBefore,
     protectedAfter,
+    operationSummaryContract: {
+      listCount: operationList.length,
+      summaryResponseBytes: Buffer.byteLength(JSON.stringify(operationList)),
+      detailEndpointPreserved: true,
+      detailResultPayloadPreserved: true,
+      detailTaskPayloadPreserved: true,
+    },
     results,
     formalTradingUnlocked: false,
     autoTradeUnlocked: false,

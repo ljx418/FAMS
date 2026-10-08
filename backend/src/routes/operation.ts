@@ -231,6 +231,7 @@ export async function operationRoutes(app: FastifyInstance) {
         type,
         status,
         limit: limit ? Number(limit) : undefined,
+        summaryOnly: true,
       })
     } catch (error) {
       if (isSqliteMalformed(error)) {

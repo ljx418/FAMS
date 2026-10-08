@@ -647,6 +647,7 @@ async function buildCodeInspectionAudit() {
     llmRoutes: 'backend/src/routes/llm.ts',
     famsChatService: 'backend/src/services/chat/famsChatService.ts',
     chatLlmPlannerService: 'backend/src/services/chat/chatLlmPlannerService.ts',
+    llmRuntimeStatusService: 'backend/src/services/llm/llmRuntimeStatusService.ts',
     llmConfig: 'backend/src/config/llmConfig.ts',
     llmService: 'backend/src/services/llm/llmService.ts',
     chatPlanDoc: 'docs/CHATBOX_AGENTCORE_INTEGRATION_PLAN.md',
@@ -752,8 +753,12 @@ async function buildCodeInspectionAudit() {
     {
       id: 'backend_llm_public_status',
       label: '后端提供 LLM 公共状态接口且不暴露密钥',
-      status: source.llmRoutes.includes('/status') && source.llmRoutes.includes('getFamsLlmPublicStatus') && source.llmConfig.includes('secretsRedacted: true') ? 'passed' : 'failed',
-      evidence: `${paths.llmRoutes} / ${paths.llmConfig}`,
+      status: source.llmRoutes.includes('/status')
+        && source.llmRoutes.includes('chatLlmPlannerService.publicStatus()')
+        && source.chatLlmPlannerService.includes('llmRuntimeStatusService.publicStatus()')
+        && source.llmRuntimeStatusService.includes('secretsRedacted: true')
+        && source.llmConfig.includes('secretsRedacted: true') ? 'passed' : 'failed',
+      evidence: `${paths.llmRoutes} / ${paths.chatLlmPlannerService} / ${paths.llmRuntimeStatusService} / ${paths.llmConfig}`,
     },
     {
       id: 'backend_chat_llm_planner_controlled',
@@ -1079,20 +1084,27 @@ async function runBrowserEvidence(apiResults) {
   async function captureUxBaselineMatrix() {
     for (const viewport of uxBaselineViewports) {
       for (const target of uxBaselineTargets) {
-        // Each page gets a separate browser lifetime so pending API calls from a
-        // previous route cannot overlap with or contaminate the next baseline.
-        // eslint-disable-next-line no-await-in-loop
-        await withPage({ width: viewport.width, height: viewport.height }, async (page) => {
-          await page.goto(`${frontendUrl}${target.path}`, { waitUntil: 'domcontentloaded', timeout: 120000 })
-          await waitForBodyText(page, target.requiredTexts, 120000)
-          screenshots.push(await screenshot(
-            page,
-            `uxf0-${viewport.name}-${target.key}.png`,
-            `UX-F0 ${viewport.label} ${target.title}`,
-            `${viewport.label} 视口下验证 ${target.title} 主路径可读、主内容不被侧栏挤压。`,
-            target.requiredTexts,
-          ))
-        })
+        try {
+          // Each page gets a separate browser lifetime so pending API calls from a
+          // previous route cannot overlap with or contaminate the next baseline.
+          // eslint-disable-next-line no-await-in-loop
+          await withPage({ width: viewport.width, height: viewport.height }, async (page) => {
+            await page.goto(`${frontendUrl}${target.path}`, { waitUntil: 'domcontentloaded', timeout: 120000 })
+            await waitForBodyText(page, target.requiredTexts, 120000)
+            screenshots.push(await screenshot(
+              page,
+              `uxf0-${viewport.name}-${target.key}.png`,
+              `UX-F0 ${viewport.label} ${target.title}`,
+              `${viewport.label} 视口下验证 ${target.title} 主路径可读、主内容不被侧栏挤压。`,
+              target.requiredTexts,
+            ))
+          })
+        } catch (error) {
+          // A failed page is recorded without suppressing evidence collection for
+          // the remaining pages and viewports.
+          // eslint-disable-next-line no-await-in-loop
+          await captureFailure(`UX-F0 ${viewport.label} ${target.title}异常`, error)
+        }
       }
     }
   }

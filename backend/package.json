@@ -10,6 +10,7 @@
     "start:mcp:stdio": "node dist/mcp/stdio.js",
     "start:mcp:http": "node dist/mcp/streamableHttp.js",
     "migrate:trade-plan-ledger": "node node_modules/tsx/dist/cli.mjs scripts/apply-trade-plan-ledger-migration.ts --database prisma/dev.db",
+    "migrate:operation-read-index": "node node_modules/tsx/dist/cli.mjs scripts/apply-operation-read-index.ts --database prisma/dev.db",
     "test:trade-plan-ledger": "npm run build && node node_modules/tsx/dist/cli.mjs scripts/verify-trade-plan-ledger.ts",
     "test:volatility-mcp": "npm run build && node node_modules/tsx/dist/cli.mjs scripts/verify-downtrend-reanchor-workflow.ts && node node_modules/tsx/dist/cli.mjs scripts/verify-volatility-workflow-contract.ts && node node_modules/tsx/dist/cli.mjs scripts/verify-volatility-mcp-protocol.ts && node node_modules/tsx/dist/cli.mjs scripts/verify-volatility-mcp-stdio.ts && node node_modules/tsx/dist/cli.mjs scripts/verify-volatility-mcp-http.ts",
     "test:downtrend-reanchor": "node node_modules/tsx/dist/cli.mjs scripts/verify-downtrend-reanchor-workflow.ts",

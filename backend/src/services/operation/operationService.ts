@@ -473,6 +473,126 @@ class OperationService {
     }
   }
 
+  private toOperationSummaryDto(operation: {
+    id: string
+    userId: string
+    parentOperationId: string | null
+    type: string
+    status: string
+    requestedAt: Date
+    startedAt: Date | null
+    completedAt: Date | null
+    progressPct: number
+    progressCurrent: number | null
+    progressTotal: number | null
+    progressMessage: string | null
+    cancelRequested: boolean
+    createdBy: string
+    inputJson: string
+    errorSummary: string | null
+    leaseOwner: string | null
+    leaseToken: string | null
+    leaseExpiresAt: Date | null
+    heartbeatAt: Date | null
+    artifactRefsJson: string
+    resultPreview?: Record<string, unknown>
+    tasks: Array<{
+      id: string
+      operationId: string
+      name: string
+      taskType: string | null
+      chunkIndex: number | null
+      status: string
+      attempt: number
+      maxAttempts: number
+      idempotencyKey: string | null
+      startedAt: Date | null
+      completedAt: Date | null
+      durationMs: number | null
+      successCount: number
+      failureCount: number
+      provider: string | null
+      cacheHitRate: number | null
+      createdAt: Date
+      updatedAt: Date
+    }>
+  }) {
+    const artifactRefs = this.parseJson<string[]>(operation.artifactRefsJson, [])
+    const errorText = String(operation.errorSummary || '').toLowerCase()
+    const enrichmentFailure = /llm|deepseek|minimax|synthesis|模型汇总/.test(errorText)
+    const backgroundMaintenanceTypes = new Set([
+      'batch_factset_refresh',
+      'quote_list_market_cap_warmup',
+      'market_bar_cache_preheat',
+      'industry_crowding_backfill',
+      'relative_rotation_timeline_refresh',
+      'relative_rotation_universe_refresh',
+    ])
+    const backgroundCreatedBy = /scheduler|worker|background|preheat|warmup|automatic|auto_refresh/i.test(operation.createdBy)
+    const taskGroup = backgroundMaintenanceTypes.has(operation.type) || backgroundCreatedBy ? 'background_maintenance' : 'user_task'
+    const completedWithResult = ['completed', 'succeeded', 'partial'].includes(operation.status)
+    const resultAvailability = artifactRefs.length > 0 || completedWithResult
+      ? ['failed', 'partial', 'cancelled'].includes(operation.status) ? 'partial' : 'available'
+      : 'none'
+    const outcomeCategory = ['queued', 'running', 'cancelling'].includes(operation.status)
+      ? 'active'
+      : enrichmentFailure && resultAvailability !== 'none'
+      ? 'core_result_available_enrichment_failed'
+      : ['completed', 'succeeded'].includes(operation.status)
+      ? 'completed'
+      : operation.status === 'partial'
+      ? 'partial'
+      : 'failed'
+
+    return {
+      id: operation.id,
+      operationId: operation.id,
+      operation_id: operation.id,
+      userId: operation.userId,
+      parentOperationId: operation.parentOperationId,
+      type: operation.type,
+      status: operation.status,
+      requestedAt: operation.requestedAt,
+      startedAt: operation.startedAt,
+      completedAt: operation.completedAt,
+      progressPct: operation.progressPct,
+      progressCurrent: operation.progressCurrent,
+      progressTotal: operation.progressTotal,
+      progressMessage: operation.progressMessage,
+      cancelRequested: operation.cancelRequested,
+      createdBy: operation.createdBy,
+      input: this.parseJson<Record<string, unknown>>(operation.inputJson, {}),
+      result: operation.resultPreview || {},
+      error: operation.errorSummary ? { message: operation.errorSummary } : {},
+      errorSummary: operation.errorSummary,
+      recovery: {},
+      leaseOwner: operation.leaseOwner,
+      leaseToken: operation.leaseToken,
+      leaseExpiresAt: operation.leaseExpiresAt,
+      heartbeatAt: operation.heartbeatAt,
+      artifactRefs,
+      taskGroup,
+      resultAvailability,
+      outcomeCategory,
+      tasks: operation.tasks.map((task) => ({
+        ...task,
+        warnings: [],
+        metrics: {},
+        error: {},
+        input: {},
+        output: {},
+      })),
+      nextActions: this.buildNextActions({
+        id: operation.id,
+        userId: operation.userId,
+        type: operation.type,
+        status: operation.status,
+        resultJson: JSON.stringify(operation.resultPreview || {}),
+        artifactRefsJson: operation.artifactRefsJson,
+      }),
+    }
+  }
+
   async getArtifact(ref: string) {
     const separatorIndex = ref.indexOf(':')
     if (separatorIndex <= 0 || separatorIndex === ref.length - 1) {
@@ -3946,7 +4066,124 @@ class OperationService {
     type?: OperationType
     status?: OperationStatus
     limit?: number
+    summaryOnly?: boolean
   }) {
+    if (params.summaryOnly) {
+      const operations = await prisma.operation.findMany({
+        where: {
+          userId: params.userId,
+          ...(params.type ? { type: params.type } : {}),
+          ...(params.status ? { status: params.status } : {}),
+        },
+        orderBy: { requestedAt: 'desc' },
+        take: params.limit || 20,
+        select: {
+          id: true,
+          userId: true,
+          parentOperationId: true,
+          type: true,
+          status: true,
+          requestedAt: true,
+          startedAt: true,
+          completedAt: true,
+          progressPct: true,
+          progressCurrent: true,
+          progressTotal: true,
+          progressMessage: true,
+          cancelRequested: true,
+          createdBy: true,
+          inputJson: true,
+          errorSummary: true,
+          leaseOwner: true,
+          leaseToken: true,
+          leaseExpiresAt: true,
+          heartbeatAt: true,
+          artifactRefsJson: true,
+          tasks: {
+            orderBy: [{ createdAt: 'asc' }, { chunkIndex: 'asc' }],
+            select: {
+              id: true,
+              operationId: true,
+              name: true,
+              taskType: true,
+              chunkIndex: true,
+              status: true,
+              attempt: true,
+              maxAttempts: true,
+              idempotencyKey: true,
+              startedAt: true,
+              completedAt: true,
+              durationMs: true,
+              successCount: true,
+              failureCount: true,
+              provider: true,
+              cacheHitRate: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+        },
+      })
+      const previewTypes = new Set(['refresh_prices', 'check_alerts', 'generate_daily_advice', 'run_backtest'])
+      const previewIds: string[] = []
+      const capturedTypes = new Set<string>()
+      for (const operation of operations) {
+        if (previewTypes.has(operation.type) && !capturedTypes.has(operation.type)) {
+          capturedTypes.add(operation.type)
+          previewIds.push(operation.id)
+        }
+      }
+      const previewRows = previewIds.length > 0
+        ? await prisma.operation.findMany({
+            where: { id: { in: previewIds } },
+            select: { id: true, type: true, resultJson: true },
+          })
+        : []
+      const previews = new Map<string, Record<string, unknown>>(previewRows.map((row): [string, Record<string, unknown>] => {
+        const result = this.parseJson<Record<string, any>>(row.resultJson, {})
+        if (row.type === 'refresh_prices') {
+          return [row.id, {
+            refreshed: result.refreshed,
+            externalRefreshed: result.externalRefreshed,
+            failed: result.failed,
+            retainedLocalPrices: result.retainedLocalPrices,
+            results: Array.isArray(result.results)
+              ? result.results.filter((item: any) => item?.abnormalPriceJump).map(() => ({ abnormalPriceJump: true }))
+              : [],
+          }]
+        }
+        if (row.type === 'check_alerts') {
+          return [row.id, {
+            alertCount: result.alertCount,
+            alertedSymbols: Array.isArray(result.alertedSymbols) ? result.alertedSymbols : [],
+            refreshPrices: result.refreshPrices,
+          }]
+        }
+        if (row.type === 'generate_daily_advice') {
+          const suggestionCount = Array.isArray(result.suggestions) ? result.suggestions.length : 0
+          return [row.id, {
+            adviceId: result.adviceId,
+            suggestions: Array.from({ length: suggestionCount }, () => ({})),
+            structuredAdvice: result.structuredAdvice ? {
+              summary: result.structuredAdvice.summary,
+              risk_level: result.structuredAdvice.risk_level,
+            } : undefined,
+            marketOutlook: result.marketOutlook,
+          }]
+        }
+        return [row.id, {
+          backtestId: result.backtestId,
+          adviceId: result.adviceId,
+          symbols: Array.isArray(result.symbols) ? result.symbols : [],
+        }]
+      }))
+
+      return operations.map((operation) => this.toOperationSummaryDto({
+        ...operation,
+        resultPreview: previews.get(operation.id),
+      }))
+    }
+
     const operations = await prisma.operation.findMany({
       where: {
         userId: params.userId,

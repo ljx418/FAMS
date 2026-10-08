@@ -23,6 +23,22 @@
 - 投资工作流人工 1 项、DPR 人工体验、V2-PX 10 项、A6 8 类仍明确 pending。
 - A7 未生成；四项交易锁 false；MCP 公网 release false。
 
+## 首轮失败与重规划（2026-10-08）
+
+首轮全量 E2E 诚实返回 `failed`，不得作为 C5 通过证据。失败包含：
+
+1. 代码检视仍匹配已经被动态运行态取代的旧 LLM status helper。
+2. Operations 列表一次读取 50 条完整 `resultJson` 和 task input/output；在 1.2GB 真实 SQLite 与浏览器并发下出现 80-130 秒读延迟。
+3. 响应式截图矩阵在每日复盘首个超时后整体中止，无法区分单页失败和未执行页面。
+
+重规划保持原门槛、不删除真实数据步骤：
+
+- 列表 API 改为数据库字段投影的轻量摘要，详情继续使用 `/operations/:id` 完整读取；为 1.2GB SQLite 增加 `Operation(userId, requestedAt)` 非破坏性索引及幂等迁移。
+- C1 增加 Operations 列表并同时限制冷启动 `<=10s`、warm p95 `<=1.5s`、warm max `<=3s`。
+- 静态审计改为验证动态 `llmRuntimeStatusService` 与密钥脱敏链。
+- 24 张响应式截图逐页记录通过/失败，单页失败不得阻止后续证据采集。
+- 修复后必须重新完整运行 C1 与 full-system E2E；不得复用首轮失败报告宣布通过。
+
 ## 产物
 
 - 新版 `acceptance-report.html` 与 `LATEST_RUN.json`。
