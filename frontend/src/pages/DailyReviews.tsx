@@ -141,6 +141,7 @@ type ReviewDetail = ReviewListItem & {
     assets?: Array<Record<string, any>>
     attentionCandidates?: Array<Record<string, any>>
     decisionSummary?: Record<string, any>
+    reanchorGate?: Record<string, any>
     llmSynthesis?: Record<string, any>
     oneClickWorkflow?: Record<string, any> | null
     reconciliation?: Record<string, any> | null
@@ -251,6 +252,7 @@ export default function DailyReviews() {
   const [loading, setLoading] = useState(true)
   const [runLoading, setRunLoading] = useState(false)
   const [decisionLoadingId, setDecisionLoadingId] = useState<string>()
+  const [reanchorDecisionLoadingId, setReanchorDecisionLoadingId] = useState<string>()
   const [error, setError] = useState<string>()
   const [nodeReviews, setNodeReviews] = useState<Record<string, NodeReviewAnnotation>>({})
   const [browserNotificationPermission, setBrowserNotificationPermission] = useState(() => 'Notification' in window ? window.Notification.permission : 'unsupported')
@@ -510,6 +512,49 @@ export default function DailyReviews() {
       okButtonProps: { danger: decision === 'rejected' },
       cancelText: '取消',
       onOk: () => saveDraftDecision(draft, decision),
+    })
+  }
+
+  const saveReanchorDecision = async (candidate: any, decision: 'confirm' | 'reject') => {
+    if (!detail?.id) return
+    setReanchorDecisionLoadingId(candidate.candidateStrategyVersionId)
+    try {
+      const result = await apiJson<any>(`/api/v1/daily-reviews/${encodeURIComponent(detail.id)}/reanchor-decisions`, {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: USER_ID,
+          versionId: candidate.candidateStrategyVersionId,
+          candidateHash: candidate.candidateHash,
+          decision,
+          confirmedBy: 'fams-web-user',
+          acknowledgedNoBrokerExecution: true,
+          reason: decision === 'confirm' ? '用户在复盘页确认固定网格新锚' : '用户拒绝本次重锚，续跑中该标的仅观察',
+        }),
+      })
+      await Promise.all([loadReview(detail.id), loadHistory()])
+      if (result.continuation?.reviewId) {
+        message.success('全部重锚决定已记录；确认版本已激活，旧拟单继续阻断，续跑复盘已进入队列。')
+      } else {
+        message.success(decision === 'confirm' ? '已确认该标的新锚；仍需处理其余候选。' : '已拒绝该候选；该标的在续跑中仅观察。')
+      }
+    } catch (nextError) {
+      message.error(nextError instanceof Error ? nextError.message : '保存重锚决定失败')
+      throw nextError
+    } finally {
+      setReanchorDecisionLoadingId(undefined)
+    }
+  }
+
+  const requestReanchorDecision = (candidate: any, decision: 'confirm' | 'reject') => {
+    Modal.confirm({
+      title: decision === 'confirm' ? `确认 ${candidate.symbol} 的固定网格新锚？` : `拒绝 ${candidate.symbol} 的本次重锚？`,
+      content: decision === 'confirm'
+        ? `将保存一个新的 StrategyVersion；锚点改为最新完整收盘 ${formatNumber(candidate.candidateConfig?.fixedAnchor?.price, 4)}，只平移价格结构，不改数量、角色和仓位划分。全部候选决定完成后才激活并续跑，不会向券商下单。`
+        : '该候选不会激活；本次续跑中这个标的保持仅观察。其他标的也要完成决定后才会续跑，不会向券商下单。',
+      okText: decision === 'confirm' ? '确认新锚并记录' : '拒绝并仅观察',
+      okButtonProps: { danger: decision === 'reject' },
+      cancelText: '取消',
+      onOk: () => saveReanchorDecision(candidate, decision),
     })
   }
 
@@ -830,6 +875,9 @@ export default function DailyReviews() {
             decisionSummary={detail.report.decisionSummary}
             llmSynthesis={detail.report.llmSynthesis}
             attentionCandidates={attentionCandidates}
+            reanchorGate={detail.report.reanchorGate}
+            reanchorDecisionLoadingId={reanchorDecisionLoadingId}
+            onReanchorDecision={requestReanchorDecision}
             onOpenAttentionAudit={(symbol, evidenceRefs) => openNodeAudit('attention', { symbol, evidenceRefs })}
           />
 
@@ -905,9 +953,9 @@ export default function DailyReviews() {
       <Drawer title="历史持仓复盘" width={520} open={historyOpen} onClose={() => setHistoryOpen(false)}>
         <div className="mb-4 grid grid-cols-2 gap-3">
           <Select aria-label="筛选复盘场次" virtual={false} value={historySession} onChange={setHistorySession} options={[{ value: 'all', label: '全部场次' }, { value: 'open', label: '开盘后' }, { value: 'pre_close', label: '收盘前' }, { value: 'manual', label: '手动' }]} />
-          <Select aria-label="筛选复盘状态" virtual={false} value={historyStatus} onChange={setHistoryStatus} options={[{ value: 'all', label: '全部状态' }, { value: 'completed', label: '已完成' }, { value: 'partial', label: '部分完成' }, { value: 'failed', label: '失败' }]} />
+          <Select aria-label="筛选复盘状态" virtual={false} value={historyStatus} onChange={setHistoryStatus} options={[{ value: 'all', label: '全部状态' }, { value: 'completed', label: '已完成' }, { value: 'partial', label: '部分完成' }, { value: 'awaiting_reanchor_confirmation', label: '等待重锚决定' }, { value: 'reanchor_resolved', label: '重锚已决定' }, { value: 'failed', label: '失败' }]} />
         </div>
-        <div className="space-y-3">{history.items.length ? history.items.map((item) => <button key={item.id} type="button" onClick={() => { navigate(`/daily-reviews/${item.id}`); setHistoryOpen(false) }} className={`w-full rounded-xl border p-4 text-left ${item.id === detail?.id ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}><div className="flex items-center justify-between gap-3"><div className="font-semibold text-slate-900">{sessionLabel[item.sessionType] || item.sessionType}复盘</div><Badge status={item.status === 'completed' ? 'success' : item.status === 'partial' ? 'warning' : 'error'} text={item.status} /></div><div className="mt-2 text-sm text-slate-500">{formatDateTime(item.generatedAt)}</div><div className="mt-2 text-sm text-slate-600">复盘资产 {item.portfolio?.reviewedAssets ?? 0} · 网格 {item.counts?.gridPlans ?? 0}</div></button>) : <Empty description="当前筛选没有历史复盘" />}</div>
+        <div className="space-y-3">{history.items.length ? history.items.map((item) => <button key={item.id} type="button" onClick={() => { navigate(`/daily-reviews/${item.id}`); setHistoryOpen(false) }} className={`w-full rounded-xl border p-4 text-left ${item.id === detail?.id ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}><div className="flex items-center justify-between gap-3"><div className="font-semibold text-slate-900">{sessionLabel[item.sessionType] || item.sessionType}复盘</div><Badge status={item.status === 'completed' ? 'success' : ['partial', 'awaiting_reanchor_confirmation'].includes(item.status) ? 'warning' : item.status === 'reanchor_resolved' ? 'processing' : 'error'} text={item.status === 'awaiting_reanchor_confirmation' ? '等待重锚决定' : item.status === 'reanchor_resolved' ? '重锚已决定，等待续跑' : item.status} /></div><div className="mt-2 text-sm text-slate-500">{formatDateTime(item.generatedAt)}</div><div className="mt-2 text-sm text-slate-600">复盘资产 {item.portfolio?.reviewedAssets ?? 0} · 网格 {item.counts?.gridPlans ?? 0}</div></button>) : <Empty description="当前筛选没有历史复盘" />}</div>
       </Drawer>
 
       <DailyReviewAuditDrawer

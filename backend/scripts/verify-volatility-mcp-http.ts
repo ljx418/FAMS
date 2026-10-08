@@ -24,6 +24,7 @@ async function main() {
   await client.connect(new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`)))
   const listed = await client.listTools()
   assert(listed.tools.some((tool) => tool.name === 'volatility_workflow.run'))
+  assert(listed.tools.some((tool) => tool.name === 'trade_ledger.list_pending_matches'))
   assert(!listed.tools.some((tool) => tool.name === 'transaction.create_manual_record'))
 
   const health = await fetch(`${baseUrl}/health`)

@@ -26,6 +26,37 @@ const hkTarget = (code: string, name: string) => {
 }
 
 const defaultPeriod: RotationResearchPeriod = { mode: 'rolling', rollingWeeks: 104 }
+const emergingIndustryPeriod: RotationResearchPeriod = { mode: 'rolling', rollingWeeks: 52 }
+
+/**
+ * A narrower, fully exchange-traded theme basket for comparing the 159851
+ * financial-technology holding with adjacent growth industries.  It uses a
+ * shorter 52-week observation window because newer themes, including
+ * commercial space and grid equipment, do not have the same history as the
+ * mature sector ETFs.  Proxies remain explicit instead of backfilling a
+ * broader index or a different security.
+ */
+export const cnEmergingIndustryEtfRotationPreset: IndustryRotationPreset = {
+  name: 'A股科技产业轮动：行业ETF（含159851）',
+  market: 'CN',
+  frequency: 'weekly',
+  historyYears: 3,
+  benchmark: { mode: 'market_default', targetKeys: [] },
+  period: emergingIndustryPeriod,
+  targets: [
+    cnTarget('159851', '金融科技ETF'),
+    cnTarget('512480', '半导体ETF'),
+    cnTarget('515070', '人工智能ETF'),
+    cnTarget('516160', '新能源ETF'),
+    cnTarget('515790', '光伏ETF'),
+    cnTarget('512400', '有色金属ETF'),
+    cnTarget('562500', '机器人ETF'),
+    cnTarget('561380', '电网设备ETF'),
+    cnTarget('159326', '特高压代理（电网设备主题ETF）'),
+    cnTarget('159206', '卫星ETF（商业航天代理）'),
+  ],
+  comparisonTargetKeys: ['CN:equity:159851', 'CN:equity:512480'],
+}
 
 /**
  * Broad, exchange-traded A-share sector proxies.  The basket deliberately
@@ -85,6 +116,12 @@ export const industryRotationPresetChoices: Array<{
   market: RotationMarket
   draft: IndustryRotationPreset
 }> = [
+  {
+    key: 'preset-industry-cn-emerging-etf',
+    label: '预设 · A股科技产业ETF轮动（含159851）',
+    market: 'CN',
+    draft: cnEmergingIndustryEtfRotationPreset,
+  },
   {
     key: 'preset-industry-cn',
     label: '预设 · A股行业轮动（ETF）',

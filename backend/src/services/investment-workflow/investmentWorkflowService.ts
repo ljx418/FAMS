@@ -374,7 +374,9 @@ export class InvestmentWorkflowService {
     const providers = Array.from(new Set([
       ...bars.map((bar) => bar.primaryProvider || 'unknown'),
       ...(positions.some((position) => Boolean(position.asset.industry)) ? ['asset_master'] : []),
-      ...symbols.map((symbol) => quoteListSnapshots.get(symbol)?.source).filter((value): value is string => Boolean(value)),
+      ...symbols
+        .filter((symbol) => quoteListSnapshots.has(symbol))
+        .map((symbol) => quoteListSnapshots.get(symbol)?.source || 'eastmoney_quote_list_cache'),
     ]))
     const record = await prisma.investmentResearchSnapshot.upsert({
       where: { inputHash },

@@ -54,6 +54,12 @@ export function BrokerReconciliationPanel({ reconciliation }: { reconciliation?:
       message={readiness.requiredInputsReady ? '持仓与新成交已对账' : '强制材料未就绪，订单草案保持阻断'}
       description={readiness.ordersFullyReconciled ? '普通委托和条件单均已核对。' : '委托截图为可选材料；缺失时只能生成“人工查重”候选，不能给出确定的新增结论。'}
     />
+    <Descriptions className="mt-3" size="small" bordered column={{ xs: 1, sm: 2, lg: 4 }} items={[
+      { key: 'run', label: '对账运行 ID', children: text(reconciliation.reconciliationRunId) },
+      { key: 'batch', label: '证据批次 ID', children: text(reconciliation.ingestionBatchId) },
+      { key: 'status', label: '持久化状态', children: <Tag color={reconciliation.reconciliationStatus === 'ready' ? 'success' : reconciliation.reconciliationStatus === 'warning' ? 'warning' : 'error'}>{reconciliation.reconciliationStatus || 'unknown'}</Tag> },
+      { key: 'reused', label: '幂等复用', children: reconciliation.reconciliationReused ? '是' : '否' },
+    ]} />
 
     <div className="mt-5 grid gap-4 xl:grid-cols-2">
       <section className="rounded-xl border border-slate-200 p-4 xl:col-span-2"><h3 className="mt-0 text-base font-semibold">1. 已确认事实</h3>

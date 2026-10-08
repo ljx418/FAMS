@@ -3,10 +3,13 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../db/prisma.js'
 import { ensureUser } from '../../utils/user.js'
 import { assetIdentityResolver } from '../asset/assetIdentityResolver.js'
 import { transactionService } from '../transaction/transactionService.js'
+import { tradeLedgerService } from '../trade-ledger/tradeLedgerService.js'
+import { planExecutionService } from '../trade-ledger/planExecutionService.js'
 
 const MAX_BYTES = 10 * 1024 * 1024
 const accountSourceSchema = z.enum(['tonghuashun', 'alipay'])
@@ -669,10 +672,25 @@ class ScreenshotCaptureService {
     if (selected.length === 0) throw new Error('No screenshot rows selected')
     const blocked = selected.filter((row) => row.status !== 'ready' && row.status !== 'confirmed')
     if (blocked.length > 0) throw new Error(`Blocked rows cannot be confirmed: ${blocked.map((row) => row.rowIndex).join(', ')}`)
-    const results: Array<Record<string, unknown>> = []
-    for (const row of selected) {
+    const positionEffectPolicy = input.tradePositionEffectPolicy === 'included_in_latest_snapshot' ? 'record_only' : 'apply'
+    const { batch } = await tradeLedgerService.stageScreenshotConfirmation({
+      userId: capture.userId,
+      capture,
+      rows: selected,
+      positionEffectPolicy,
+    })
+    if (batch.status === 'blocked') throw new Error(`Trade ingestion batch is blocked: ${batch.id}`)
+
+    try {
+      const confirmation = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const results: Array<Record<string, unknown>> = []
+        for (const row of selected) {
       if (row.status === 'confirmed') {
         results.push({ rowId: row.id, status: 'already_confirmed' })
+        await tx.tradeIngestionRow.update({
+          where: { batchId_rowIndex: { batchId: batch.id, rowIndex: row.rowIndex } },
+          data: { status: 'duplicate' },
+        })
         continue
       }
       const fields = parseJson<Record<string, unknown>>(row.fieldsJson, {})
@@ -681,7 +699,7 @@ class ScreenshotCaptureService {
         if (availableCash === null) throw new Error(`Row ${row.rowIndex} does not have a valid availableCash`)
         const accountId = String(fields.accountId || '').trim().toLowerCase()
         const accountIds = new Set(accountId ? [accountId] : [])
-        const cashPositions = await prisma.position.findMany({
+        const cashPositions = await tx.position.findMany({
           where: { userId: capture.userId, status: 'open', asset: { type: 'cash' } },
           include: { asset: true },
         })
@@ -695,12 +713,12 @@ class ScreenshotCaptureService {
             ? cashPositions.find((position) => position.asset.symbol === 'ALIPAY-YUEBAO')
             : null)
           || null
-        const cashAsset = existing?.asset || await prisma.asset.findFirst({
+        const cashAsset = existing?.asset || await tx.asset.findFirst({
           where: accountId === 'alipay' ? { symbol: 'ALIPAY-YUEBAO' } : { type: 'cash' },
         })
         if (!cashAsset) throw new Error('Cash asset is required before confirming account summary')
         const position = existing
-          ? await prisma.position.update({
+          ? await tx.position.update({
               where: { id: existing.id },
               data: {
                 quantity: availableCash,
@@ -724,7 +742,7 @@ class ScreenshotCaptureService {
                     : existing.labels,
               },
             })
-          : await prisma.position.create({
+          : await tx.position.create({
               data: {
                 userId: capture.userId,
                 assetId: cashAsset.id,
@@ -750,7 +768,7 @@ class ScreenshotCaptureService {
                     : JSON.stringify([]),
               },
             })
-        await prisma.positionSnapshot.create({
+        await tx.positionSnapshot.create({
           data: {
             userId: capture.userId,
             positionId: position.id,
@@ -780,13 +798,13 @@ class ScreenshotCaptureService {
         const quantity = valueBased ? 1 : asPositive(fields.quantity, true)!
         const screenshotCost = valueBased ? marketValue - holdingPnl! : asPositive(fields.avgCost)!
         const currentPrice = valueBased ? marketValue : asPositive(fields.currentPrice) || screenshotCost
-        const existing = await prisma.position.findFirst({ where: { userId: capture.userId, assetId: assetId!, status: 'open' } })
+        const existing = await tx.position.findFirst({ where: { userId: capture.userId, assetId: assetId!, status: 'open' } })
         const costResolution = resolveScreenshotCost(existing?.avgCost, screenshotCost)
         const avgCost = costResolution.resolvedCost
         const costBasis = valueBased ? avgCost : quantity * avgCost
         const valuationBasis = valueBased ? 'market_value_total' : 'unit_price'
         const position = existing
-          ? await prisma.position.update({
+          ? await tx.position.update({
               where: { id: existing.id },
               data: {
                 quantity,
@@ -800,7 +818,7 @@ class ScreenshotCaptureService {
                 sourcePayloadJson: JSON.stringify(fields),
               },
             })
-          : await prisma.position.create({
+          : await tx.position.create({
               data: {
                 userId: capture.userId,
                 assetId: assetId!,
@@ -816,7 +834,7 @@ class ScreenshotCaptureService {
                 sourcePayloadJson: JSON.stringify(fields),
               },
             })
-        await prisma.positionSnapshot.create({
+        await tx.positionSnapshot.create({
           data: {
             userId: capture.userId,
             positionId: position.id,
@@ -836,9 +854,9 @@ class ScreenshotCaptureService {
       } else if (row.rowType === 'trade') {
         if (isExternalFundTrade(fields)) {
           const existing = row.importKey
-            ? await prisma.externalFundLedgerEntry.findUnique({ where: { sourceImportKey: row.importKey } })
+            ? await tx.externalFundLedgerEntry.findUnique({ where: { sourceImportKey: row.importKey } })
             : null
-          const entry = existing || await prisma.externalFundLedgerEntry.create({
+          const entry = existing || await tx.externalFundLedgerEntry.create({
             data: {
               userId: capture.userId,
               accountId: String(fields.accountId || 'alipay').toLowerCase(),
@@ -856,7 +874,7 @@ class ScreenshotCaptureService {
           })
           results.push({ rowId: row.id, status: existing ? 'already_confirmed' : 'confirmed', entity: 'external_fund_ledger_entry', entityId: entry.id })
         } else {
-          const existing = row.importKey ? await prisma.transaction.findUnique({ where: { sourceImportKey: row.importKey } }) : null
+          const existing = row.importKey ? await tx.transaction.findUnique({ where: { sourceImportKey: row.importKey } }) : null
           const transaction = existing || await transactionService.createTransaction({
             userId: capture.userId,
             assetId: assetId!,
@@ -875,8 +893,9 @@ class ScreenshotCaptureService {
               : 'screenshot_confirmed',
             sourceImportKey: row.importKey || undefined,
             sourceCaptureRowId: row.id,
+            ingestionBatchId: batch.id,
             positionEffect: input.tradePositionEffectPolicy === 'included_in_latest_snapshot' ? 'record_only' : 'apply',
-          })
+          }, tx)
           results.push({
             rowId: row.id,
             status: existing ? 'already_confirmed' : 'confirmed',
@@ -886,12 +905,13 @@ class ScreenshotCaptureService {
           })
         }
       } else if (row.rowType === 'order') {
-        const order = await prisma.externalOrderObservation.upsert({
+        const order = await tx.externalOrderObservation.upsert({
           where: { captureRowId: row.id },
           create: {
             userId: capture.userId,
             assetId: assetId!,
             captureRowId: row.id,
+            ingestionBatchId: batch.id,
             side: String(fields.side).toLowerCase(),
             status: String(fields.status || 'open').toLowerCase(),
             quantity: asPositive(fields.quantity)!,
@@ -911,24 +931,59 @@ class ScreenshotCaptureService {
         })
         results.push({ rowId: row.id, status: 'confirmed', entity: 'external_order_observation', entityId: order.id })
       }
-      await prisma.screenshotCaptureRow.update({ where: { id: row.id }, data: { status: 'confirmed', confirmedAt: new Date() } })
+      const rowResult = results[results.length - 1]
+      await tx.tradeIngestionRow.update({
+        where: { batchId_rowIndex: { batchId: batch.id, rowIndex: row.rowIndex } },
+        data: {
+          status: 'confirmed',
+          transactionId: rowResult?.entity === 'transaction' ? String(rowResult.entityId) : undefined,
+          externalOrderObservationId: rowResult?.entity === 'external_order_observation' ? String(rowResult.entityId) : undefined,
+        },
+      })
+      await tx.screenshotCaptureRow.update({ where: { id: row.id }, data: { status: 'confirmed', confirmedAt: new Date() } })
     }
-    const remaining = await prisma.screenshotCaptureRow.count({ where: { captureId: capture.id, status: { notIn: ['confirmed', 'ignored'] } } })
-    await prisma.screenshotCapture.update({
+        const remaining = await tx.screenshotCaptureRow.count({ where: { captureId: capture.id, status: { notIn: ['confirmed', 'ignored'] } } })
+        const confirmedAt = new Date()
+        await tx.screenshotCapture.update({
       where: { id: capture.id },
       data: {
         status: remaining === 0 ? 'confirmed' : 'partially_confirmed',
-        confirmedAt: new Date(),
+        confirmedAt,
         confirmedBy: input.confirmedBy,
       },
     })
-    return {
+        await tx.tradeIngestionBatch.update({
+          where: { id: batch.id },
+          data: {
+            status: 'confirmed',
+            confirmedBy: input.confirmedBy,
+            confirmedAt,
+            countsJson: JSON.stringify({
+              total: selected.length,
+              confirmed: results.filter((result) => result.status === 'confirmed').length,
+              duplicate: results.filter((result) => result.status === 'already_confirmed').length,
+              failed: 0,
+            }),
+            errorJson: '{}',
+          },
+        })
+        return {
       schemaVersion: 'fams.screenshot-capture-confirmation.v1',
       captureId: capture.id,
+      ingestionBatchId: batch.id,
+      positionEffectPolicy,
       results,
       remainingRows: remaining,
       missingHoldingsClosed: 0,
       createsBrokerOrder: false,
+        }
+      }, { timeout: 30_000 })
+      const planMatchSuggestions = await planExecutionService.suggestForIngestionBatch(capture.userId, batch.id)
+        .catch((error) => ({ ingestionBatchId: batch.id, results: [], error: error instanceof Error ? error.message : String(error) }))
+      return { ...confirmation, planMatchSuggestions }
+    } catch (error) {
+      await tradeLedgerService.markBatchFailed(batch.id, error)
+      throw error
     }
   }
 

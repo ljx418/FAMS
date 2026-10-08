@@ -109,6 +109,11 @@ export interface DowntrendDefensiveBuildInput {
   currentQuantity: number
   sellableQuantity: number
   currentClose?: number | null
+  atr14?: number | null
+  livePrice?: number | null
+  quoteAsOf?: string | null
+  quoteAgeSeconds?: number | null
+  quoteFresh?: boolean
   cashBudget: number
   availablePortfolioBuyBudget: number
   portfolioValue: number
@@ -535,7 +540,15 @@ class GridStrategyService {
     const version = await prisma.strategyVersion.findUnique({ where: { id: versionId }, include: { strategy: true } })
     if (!version) throw new Error('Strategy version not found')
     if (expectedUserId && version.strategy.userId !== expectedUserId) throw new Error('Strategy version does not belong to the requested user')
-    const validation = JSON.parse(version.validationJson || '{}') as { activatable?: boolean }
+    const validation = JSON.parse(version.validationJson || '{}') as { activatable?: boolean; reanchor?: unknown }
+    if (validation.reanchor) {
+      return {
+        status: 'blocked',
+        code: 'REANCHOR_DECISION_ENDPOINT_REQUIRED',
+        message: '固定网格重锚候选只能通过逐标的重锚决定接口处理；通用策略激活入口不可绕过组合暂停和续跑复盘。',
+        notTradingAdvice: true,
+      }
+    }
     if (!version.validatedAt || validation.activatable !== true) {
       return { status: 'blocked', code: 'STRATEGY_VALIDATION_REQUIRED', notTradingAdvice: true }
     }
@@ -848,20 +861,20 @@ class GridStrategyService {
       for (const configured of config.levels) {
         const price = roundGridPrice(configured.price, tradingRules.priceTick, configured.side)
         const quantity = normalizeToLot(configured.quantity, tradingRules.lotSize)
-        let activationStatus = configured.activationStatus
+        const configuredStatus = configured.activationStatus
+        let activationStatus: string = configuredStatus
         let blocker: string | null = null
+        let effectiveDisposition: string | null = null
+        let distanceAtr: number | null = null
+        let marketableNow = false
         const parent = configured.parentOrderRef ? sourceLevels.get(configured.parentOrderRef) : null
 
         if (quantity <= 0) blocker = 'quantity_below_minimum_lot'
-        if (configured.orderRole === 'rebound_exit' && !blocker) {
-          if (remainingReboundSell < quantity) blocker = 'rebound_exit_capacity_exhausted'
-          else remainingReboundSell -= quantity
-        } else if (configured.side === 'sell' && activationStatus === 'active' && !blocker) {
-          if (remainingSatelliteSell < quantity) {
-            blocker = 'satellite_sellability_not_yet_available'
-            activationStatus = 'awaiting_sellability'
-          } else remainingSatelliteSell -= quantity
-        } else if (configured.orderRole === 'capacity_build' && configured.side === 'buy' && activationStatus === 'active' && !blocker) {
+        if (configured.orderRole === 'rebound_exit' && !blocker && remainingReboundSell < quantity) {
+          blocker = 'rebound_exit_capacity_exhausted'
+          effectiveDisposition = 'retired_for_position'
+        }
+        if (configured.orderRole === 'capacity_build' && configured.side === 'buy' && activationStatus === 'active' && !blocker) {
           if (pauseTriggered) {
             blocker = 'daily_close_pause_triggered'
             activationStatus = 'dormant'
@@ -871,11 +884,28 @@ class GridStrategyService {
           } else if (remainingBuyBudget + 1e-8 < price * quantity) {
             blocker = 'portfolio_cash_floor_gate'
             activationStatus = 'dormant'
-          } else {
-            remainingBuild -= quantity
-            remainingBuyBudget -= price * quantity
           }
-        } else if (configured.orderRole === 'conditional_buyback' && !blocker) {
+        }
+        if (configured.orderRole === 'capacity_build' && configured.side === 'buy' && activationStatus === 'active' && !blocker) {
+          const completedClose = Number(input.currentClose)
+          const atr14 = Number(input.atr14)
+          if (!Number.isFinite(completedClose) || !Number.isFinite(atr14) || atr14 <= 0) {
+            blocker = 'reachability_unknown'
+            activationStatus = 'dormant'
+          } else {
+            distanceAtr = Number(((completedClose - price) / atr14).toFixed(4))
+            if (distanceAtr > 3) {
+              blocker = 'distance_above_3_atr'
+              activationStatus = 'dormant'
+            }
+          }
+        }
+        if (configured.side === 'sell' && configured.orderRole !== 'rebound_exit' && activationStatus === 'active' && !blocker
+          && remainingSatelliteSell < quantity) {
+          blocker = 'satellite_sellability_not_yet_available'
+          activationStatus = 'awaiting_sellability'
+        }
+        if (configured.orderRole === 'conditional_buyback' && !blocker) {
           if (!parent || parent.side !== 'sell' || parent.quantity < configured.quantity) blocker = 'invalid_parent_sell_capacity'
           const buybackPaused = pauseTriggered && config.riskPolicy.pauseRule?.appliesTo === 'all_satellite_buys'
           activationStatus = buybackPaused ? 'dormant' : 'awaiting_parent_fill'
@@ -884,6 +914,29 @@ class GridStrategyService {
           if (!parent || parent.side !== 'buy' || parent.quantity < configured.quantity) blocker = 'invalid_parent_buy_capacity'
           activationStatus = 'awaiting_parent_fill'
         }
+        if (activationStatus === 'active' && !blocker) {
+          const livePrice = Number(input.livePrice)
+          if (input.quoteFresh !== true || !Number.isFinite(livePrice) || livePrice <= 0) {
+            blocker = 'fresh_quote_required'
+            activationStatus = 'manual_confirmation_required'
+          } else {
+            marketableNow = configured.side === 'buy' ? price >= livePrice : price <= livePrice
+            if (marketableNow) {
+              blocker = 'marketable_now'
+              activationStatus = 'manual_confirmation_required'
+            }
+          }
+        }
+        if (configured.orderRole === 'rebound_exit' && activationStatus === 'active' && !blocker) {
+          remainingReboundSell -= quantity
+        } else if (configured.side === 'sell' && activationStatus === 'active' && !blocker) {
+          remainingSatelliteSell -= quantity
+        } else if (configured.orderRole === 'capacity_build' && configured.side === 'buy' && activationStatus === 'active' && !blocker) {
+          remainingBuild -= quantity
+          remainingBuyBudget -= price * quantity
+        }
+
+        if (blocker && activationStatus === 'active') activationStatus = 'dormant'
 
         sideLevel[configured.side] += 1
         if (blocker) {
@@ -896,9 +949,28 @@ class GridStrategyService {
           orderRef: configured.orderRef,
           orderRole: configured.orderRole,
           parentOrderRef: configured.parentOrderRef || null,
+          configuredStatus,
           activationStatus,
+          effectiveStatus: activationStatus,
+          effectiveDisposition,
+          blockers: blocker ? [blocker] : [],
           pauseRule: orderPauseRule,
           blocker,
+          reachability: {
+            baseline: 'latest_completed_close',
+            currentClose: input.currentClose ?? null,
+            atr14: input.atr14 ?? null,
+            distanceAtr,
+            maxDistanceAtr: 3,
+          },
+          quote: {
+            livePrice: input.livePrice ?? null,
+            asOf: input.quoteAsOf ?? null,
+            ageSeconds: input.quoteAgeSeconds ?? null,
+            fresh: input.quoteFresh === true,
+            maxAgeSeconds: 120,
+          },
+          marketableNow,
           ...(configured.side === 'buy' ? { priceAtOrBelow: price } : { priceAtOrAbove: price }),
           consumesImmediateCashBeforeFill: configured.side === 'buy' && activationStatus === 'active',
         }
@@ -957,6 +1029,14 @@ class GridStrategyService {
         portfolioBudgetRemainingAfter: Number(Math.max(0, input.availablePortfolioBuyBudget - immediateCashCommitment).toFixed(2)),
       },
       pause: { rule: config.riskPolicy.pauseRule, currentClose: input.currentClose ?? null, triggered: pauseTriggered },
+      reachability: { baseline: 'latest_completed_close', atr14: input.atr14 ?? null, maxDistanceAtr: 3 },
+      quoteGate: {
+        livePrice: input.livePrice ?? null,
+        asOf: input.quoteAsOf ?? null,
+        ageSeconds: input.quoteAgeSeconds ?? null,
+        fresh: input.quoteFresh === true,
+        maxAgeSeconds: 120,
+      },
       tradingRules,
       validity: { policy: 'session_close', timeZone: 'Asia/Shanghai', generatedAt: now.toISOString(), validUntil: validUntil.toISOString() },
       gates: { global: [...new Set(globalBlockers)], buy: [...new Set(buyBlockers)], sell: [...new Set(sellBlockers)] },

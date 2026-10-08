@@ -9,9 +9,12 @@
  */
 
 import { prisma } from '../../db/prisma.js'
+import { Prisma } from '@prisma/client'
 import { priceService } from '../price/priceService.js'
 import { ensureUser } from '../../utils/user.js'
 import * as XLSX from 'xlsx'
+import { sha256, stableJson, tradeLedgerService, type PositionEffectPolicy } from '../trade-ledger/tradeLedgerService.js'
+import { planExecutionService } from '../trade-ledger/planExecutionService.js'
 
 const getOpenPositionKey = (userId: string, assetId: string) => `${userId}:${assetId}`
 
@@ -32,6 +35,8 @@ export interface CreateTransactionParams {
   source?: string
   sourceImportKey?: string
   sourceCaptureRowId?: string
+  ingestionBatchId?: string
+  supersedesTransactionId?: string
   sleeveType?: 'core' | 'volatility'
   volatilityTradeDraftId?: string
   /**
@@ -86,13 +91,39 @@ class TransactionService {
    * 创建交易
    * 使用事务确保数据一致性
    */
-  async createTransaction(params: CreateTransactionParams) {
+  async createTransaction(params: CreateTransactionParams, transactionClient?: Prisma.TransactionClient) {
     await ensureUser(prisma, params.userId)
 
     const amount = params.quantity * params.price
     const fee = params.fee || 0
 
-    return prisma.$transaction(async (tx) => {
+    const create = async (tx: Prisma.TransactionClient) => {
+      if (params.sourceImportKey || params.sourceCaptureRowId) {
+        const candidates = await tx.transaction.findMany({
+          where: {
+            OR: [
+              ...(params.sourceImportKey ? [{ sourceImportKey: params.sourceImportKey }] : []),
+              ...(params.sourceCaptureRowId ? [{ sourceCaptureRowId: params.sourceCaptureRowId }] : []),
+            ],
+          },
+          include: { asset: true },
+          take: 2,
+        })
+        if (candidates.length > 1 || (candidates[0] && (
+          candidates[0].userId !== params.userId
+          || candidates[0].assetId !== params.assetId
+          || candidates[0].type !== params.type
+          || Math.abs(candidates[0].quantity - params.quantity) > 0.000001
+          || Math.abs(candidates[0].price - params.price) > 0.000001
+          || Math.abs(candidates[0].fee - fee) > 0.000001
+        ))) {
+          const error = new Error('Existing transaction dedupe key conflicts with different economic facts') as Error & { statusCode?: number; code?: string }
+          error.statusCode = 409
+          error.code = 'TRANSACTION_DEDUPE_CONFLICT'
+          throw error
+        }
+        if (candidates[0]) return candidates[0]
+      }
       const asset = await tx.asset.findUnique({ where: { id: params.assetId } })
       if (!asset) {
         throw new Error('Asset not found')
@@ -127,6 +158,9 @@ class TransactionService {
             executedAt: params.executedAt || new Date(),
             notes: params.notes,
             source: params.source,
+            positionEffect: 'record_only',
+            ingestionBatchId: params.ingestionBatchId,
+            supersedesTransactionId: params.supersedesTransactionId,
             sleeveType: params.sleeveType,
             volatilityTradeDraftId: params.volatilityTradeDraftId,
             adviceActionId: params.adviceActionId,
@@ -169,6 +203,9 @@ class TransactionService {
           executedAt: params.executedAt || new Date(),
           notes: params.notes,
           source: params.source,
+          positionEffect: params.positionEffect || 'apply',
+          ingestionBatchId: params.ingestionBatchId,
+          supersedesTransactionId: params.supersedesTransactionId,
           sleeveType: params.sleeveType,
           volatilityTradeDraftId: params.volatilityTradeDraftId,
           adviceActionId: params.adviceActionId,
@@ -206,7 +243,8 @@ class TransactionService {
       }
 
       return transaction
-    })
+    }
+    return transactionClient ? create(transactionClient) : prisma.$transaction(create)
   }
 
   private async updateSleeveFromTransaction(
@@ -609,41 +647,52 @@ class TransactionService {
   async importTransactions(
     userId: string,
     file: Buffer,
-    mapping: ImportMapping
+    mapping: ImportMapping,
+    options: {
+      idempotencyKey?: string
+      positionEffect?: Exclude<PositionEffectPolicy, 'not_applicable'>
+      confirmedBy?: string
+    } = {},
   ): Promise<{
     success: number
     failed: number
     total: number
     errors: Array<{ row: number; message: string }>
+    ingestionBatchId: string
+    positionEffectPolicy: string
   }> {
+    if (!options.confirmedBy?.trim()) {
+      const error = new Error('confirmedBy is required for transaction import') as Error & { statusCode?: number; code?: string }
+      error.statusCode = 400
+      error.code = 'HUMAN_CONFIRMATION_REQUIRED'
+      throw error
+    }
     const workbook = XLSX.read(file)
     const sheetName = workbook.SheetNames[0]
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]) as any[]
-
-    const results = {
-      success: 0,
-      failed: 0,
-      total: rows.length,
-      errors: [] as Array<{ row: number; message: string }>,
-    }
-
+    const positionEffect = options.positionEffect || 'apply'
+    const errors: Array<{ row: number; message: string }> = []
+    const normalizedRows: Array<{
+      rowIndex: number
+      assetId: string
+      symbol: string
+      type: string
+      quantity: number
+      price: number
+      fee: number
+      broker?: string
+      confirmationNo?: string
+      executedAt: Date
+      sourceImportKey: string
+      raw: Record<string, unknown>
+    }> = []
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
-
       try {
-        // 获取标的代码
         const symbol = String(row[mapping.symbol] || '').trim()
-        if (!symbol) {
-          throw new Error('Symbol is required')
-        }
-
-        // 查找资产
+        if (!symbol) throw new Error('Symbol is required')
         const asset = await prisma.asset.findUnique({ where: { symbol } })
-        if (!asset) {
-          throw new Error(`Asset "${symbol}" not found`)
-        }
-
-        // 解析交易类型
+        if (!asset) throw new Error(`Asset "${symbol}" not found`)
         const typeValue = String(row[mapping.type] || '').toLowerCase().trim()
         const type = typeValue === 'buy' || typeValue === 'b' || typeValue === '买入'
           ? 'buy'
@@ -660,49 +709,26 @@ class TransactionService {
           : typeValue === 'split' || typeValue === 'split'
           ? 'split'
           : null
-
-        if (!type) {
-          throw new Error(`Invalid transaction type: ${typeValue}`)
-        }
-
-        // 解析数值字段
+        if (!type) throw new Error(`Invalid transaction type: ${typeValue}`)
         const quantity = parseFloat(row[mapping.quantity])
-        if (isNaN(quantity) || quantity <= 0) {
-          throw new Error(`Invalid quantity: ${row[mapping.quantity]}`)
-        }
-
+        if (isNaN(quantity) || quantity <= 0) throw new Error(`Invalid quantity: ${row[mapping.quantity]}`)
         let price = parseFloat(row[mapping.price])
-        if (isNaN(price) || price < 0) {
-          throw new Error(`Invalid price: ${row[mapping.price]}`)
-        }
-
-        // 黄金资产：根据实时金价计算克重
-        // quantity 在黄金导入时为净值（金额），需要换算为克重
+        if (isNaN(price) || price < 0) throw new Error(`Invalid price: ${row[mapping.price]}`)
         let importQuantity = quantity
         if (asset.type === 'gold' && price === 0) {
           const goldPriceResult = await priceService.getGoldPrice()
           if (goldPriceResult.isValid && goldPriceResult.price > 0) {
             importQuantity = quantity / goldPriceResult.price
-            price = goldPriceResult.price // 记录金价
-            console.log(`黄金克重计算: 净值=${quantity}, 金价=${goldPriceResult.price}, 克重=${importQuantity.toFixed(2)}g`)
+            price = goldPriceResult.price
           } else {
             throw new Error(`无法获取实时金价，请手动输入金价`)
           }
         }
-
-        const fee = mapping.fee
-          ? parseFloat(row[mapping.fee]) || 0
-          : 0
-
-        // 解析日期
+        const fee = mapping.fee ? parseFloat(row[mapping.fee]) || 0 : 0
         let executedAt: Date
         const dateValue = row[mapping.date]
-        if (!dateValue) {
-          throw new Error('Date is required')
-        }
-
+        if (!dateValue) throw new Error('Date is required')
         if (typeof dateValue === 'number') {
-          // Excel日期序列号
           executedAt = new Date((dateValue - 25569) * 86400 * 1000)
         } else if (typeof dateValue === 'string') {
           executedAt = new Date(dateValue)
@@ -710,56 +736,139 @@ class TransactionService {
           executedAt = dateValue as Date
         }
 
-        if (isNaN(executedAt.getTime())) {
-          throw new Error(`Invalid date: ${dateValue}`)
-        }
-
-        if (type === 'buy' || type === 'sell' || type === 'dividend' || type === 'fee' || type === 'deposit' || type === 'withdraw') {
-          await this.createTransaction({
-            userId,
-            assetId: asset.id,
-            type,
-            quantity: importQuantity,
-            price,
-            fee,
-            broker: mapping.broker ? String(row[mapping.broker] || '') : undefined,
-            confirmationNo: mapping.confirmationNo
-              ? String(row[mapping.confirmationNo] || '')
-              : undefined,
-            executedAt,
-          })
-        } else {
-          // 非买入/卖出交易，只创建记录
-          const amount = quantity * price
-          await prisma.transaction.create({
-            data: {
-              userId,
-              assetId: asset.id,
-              type,
-              quantity,
-              price,
-              fee,
-              amount: -amount,
-              broker: mapping.broker ? String(row[mapping.broker] || '') : undefined,
-              confirmationNo: mapping.confirmationNo
-                ? String(row[mapping.confirmationNo] || '')
-                : undefined,
-              executedAt,
-            },
-          })
-        }
-
-        results.success++
+        if (isNaN(executedAt.getTime())) throw new Error(`Invalid date: ${dateValue}`)
+        const broker = mapping.broker ? String(row[mapping.broker] || '') || undefined : undefined
+        const confirmationNo = mapping.confirmationNo ? String(row[mapping.confirmationNo] || '') || undefined : undefined
+        const economicFacts = { userId, symbol, type, quantity: importQuantity, price, fee, broker: broker || null, confirmationNo: confirmationNo || null, executedAt: executedAt.toISOString() }
+        normalizedRows.push({
+          rowIndex: i + 2,
+          assetId: asset.id,
+          symbol,
+          type,
+          quantity: importQuantity,
+          price,
+          fee,
+          broker,
+          confirmationNo,
+          executedAt,
+          sourceImportKey: confirmationNo ? `confirmation:${broker || 'unknown'}:${confirmationNo}` : `file-row:${sha256(economicFacts)}`,
+          raw: row,
+        })
       } catch (error) {
-        results.failed++
-        results.errors.push({
+        errors.push({
           row: i + 2, // Excel行号从1开始，且有表头
           message: error instanceof Error ? error.message : 'Unknown error',
         })
       }
     }
+    const normalizedByRow = new Map(normalizedRows.map((row) => [row.rowIndex, row]))
+    const errorByRow = new Map(errors.map((error) => [error.row, error.message]))
+    const idempotencyKey = options.idempotencyKey?.trim()
+      || `file-import:${sha256(file)}:${sha256(mapping)}:${positionEffect}`
+    const dates = normalizedRows.map((row) => row.executedAt.getTime())
+    const { batch, reused } = await tradeLedgerService.stageBatch({
+      userId,
+      sourceType: 'file_import',
+      idempotencyKey,
+      positionEffectPolicy: positionEffect,
+      coverageFrom: dates.length ? new Date(Math.min(...dates)) : null,
+      coverageTo: dates.length ? new Date(Math.max(...dates)) : null,
+      coverageKinds: ['trades'],
+      evidenceRefs: [`file-sha256:${sha256(file)}`],
+      rows: rows.map((raw, index) => {
+        const rowIndex = index + 2
+        const normalized = normalizedByRow.get(rowIndex)
+        return {
+          rowIndex,
+          rowType: 'trade',
+          normalized: normalized ? {
+            assetId: normalized.assetId,
+            symbol: normalized.symbol,
+            type: normalized.type,
+            quantity: normalized.quantity,
+            price: normalized.price,
+            fee: normalized.fee,
+            broker: normalized.broker || null,
+            confirmationNo: normalized.confirmationNo || null,
+            executedAt: normalized.executedAt,
+          } : {},
+          raw,
+          dedupeKey: normalized?.sourceImportKey,
+          status: normalized ? 'new' as const : 'blocked' as const,
+          conflict: normalized ? {} : { code: 'ROW_VALIDATION_FAILED', message: errorByRow.get(rowIndex) },
+        }
+      }),
+    })
+    if (errors.length > 0) {
+      return { success: 0, failed: errors.length, total: rows.length, errors, ingestionBatchId: batch.id, positionEffectPolicy: positionEffect }
+    }
+    if (reused && (batch.status === 'confirmed' || batch.status === 'reconciled')) {
+      await planExecutionService.suggestForIngestionBatch(userId, batch.id).catch(() => undefined)
+      return { success: rows.length, failed: 0, total: rows.length, errors: [], ingestionBatchId: batch.id, positionEffectPolicy: positionEffect }
+    }
 
-    return results
+    try {
+      await prisma.$transaction(async (tx) => {
+        for (const row of normalizedRows) {
+          let transaction: { id: string }
+          if (['buy', 'sell', 'dividend', 'fee', 'deposit', 'withdraw'].includes(row.type)) {
+            transaction = await this.createTransaction({
+              userId,
+              assetId: row.assetId,
+              type: row.type as CreateTransactionParams['type'],
+              quantity: row.quantity,
+              price: row.price,
+              fee: row.fee,
+              broker: row.broker,
+              confirmationNo: row.confirmationNo,
+              executedAt: row.executedAt,
+              source: 'file_import_confirmed',
+              sourceImportKey: row.sourceImportKey,
+              ingestionBatchId: batch.id,
+              positionEffect,
+            }, tx)
+          } else {
+            transaction = await tx.transaction.create({
+              data: {
+                userId,
+                assetId: row.assetId,
+                type: row.type,
+                quantity: row.quantity,
+                price: row.price,
+                fee: row.fee,
+                amount: -(row.quantity * row.price),
+                broker: row.broker,
+                confirmationNo: row.confirmationNo,
+                executedAt: row.executedAt,
+                source: 'file_import_confirmed',
+                sourceImportKey: row.sourceImportKey,
+                ingestionBatchId: batch.id,
+                positionEffect,
+              },
+            })
+          }
+          await tx.tradeIngestionRow.update({
+            where: { batchId_rowIndex: { batchId: batch.id, rowIndex: row.rowIndex } },
+            data: { status: 'confirmed', transactionId: transaction.id },
+          })
+        }
+        await tx.tradeIngestionBatch.update({
+          where: { id: batch.id },
+          data: {
+            status: 'confirmed',
+            confirmedBy: options.confirmedBy,
+            confirmedAt: new Date(),
+            countsJson: stableJson({ total: rows.length, confirmed: rows.length, duplicate: 0, failed: 0 }),
+            errorJson: '{}',
+          },
+        })
+      }, { timeout: 30_000 })
+    } catch (error) {
+      await tradeLedgerService.markBatchFailed(batch.id, error)
+      throw error
+    }
+    await planExecutionService.suggestForIngestionBatch(userId, batch.id).catch(() => undefined)
+    return { success: rows.length, failed: 0, total: rows.length, errors: [], ingestionBatchId: batch.id, positionEffectPolicy: positionEffect }
   }
 
   /**
@@ -781,7 +890,7 @@ class TransactionService {
       // 获取原交易
       const original = await tx.transaction.findUnique({
         where: { id: transactionId },
-        include: { position: true },
+        include: { position: true, planExecutionLinks: { take: 1 }, supersededByTransaction: true },
       })
 
       if (!original) {
@@ -789,6 +898,12 @@ class TransactionService {
       }
       if (original.sleeveType) {
         throw new Error('Sleeve transactions are immutable; record a correcting transaction to preserve the allocation ledger')
+      }
+      if (original.ingestionBatchId || original.planExecutionLinks.length > 0 || original.supersededByTransaction) {
+        const error = new Error('Confirmed ledger transactions are immutable; create a correcting ingestion batch') as Error & { statusCode?: number; code?: string }
+        error.statusCode = 409
+        error.code = 'IMMUTABLE_LEDGER_TRANSACTION'
+        throw error
       }
 
       // 回滚原交易对仓位的影响
@@ -936,6 +1051,7 @@ class TransactionService {
     return prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.findUnique({
         where: { id: transactionId },
+        include: { planExecutionLinks: { take: 1 }, supersededByTransaction: true },
       })
 
       if (!transaction) {
@@ -943,6 +1059,12 @@ class TransactionService {
       }
       if (transaction.sleeveType) {
         throw new Error('Sleeve transactions are immutable; record a correcting transaction to preserve the allocation ledger')
+      }
+      if (transaction.ingestionBatchId || transaction.planExecutionLinks.length > 0 || transaction.supersededByTransaction) {
+        const error = new Error('Confirmed ledger transactions are immutable; create a correcting ingestion batch') as Error & { statusCode?: number; code?: string }
+        error.statusCode = 409
+        error.code = 'IMMUTABLE_LEDGER_TRANSACTION'
+        throw error
       }
 
       // 回滚仓位影响

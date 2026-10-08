@@ -1,7 +1,7 @@
 {
   "name": "fams",
   "displayName": "FAMS 投资管理 DomainPack",
-  "version": "v2.1.0",
+  "version": "v2.2.0",
   "schemaVersion": "fams.domainpack.v1",
   "sourceOfTruth": "GET /api/v1/mcp/domain-pack",
   "connectorManifest": "mcp/harnessos-connector.json",
@@ -30,14 +30,53 @@
     }
   },
   "profiles": {
-    "default": "volatility",
+    "default": "workflow",
     "environmentVariable": "FAMS_MCP_PROFILE",
+    "workflow": {
+      "stages": ["basic_information_confirmation", "position_strategy", "backtest_review"],
+      "accountRouting": {
+        "tonghuashun": ["rotation_volatility", "dividend_low_vol"],
+        "alipay": ["portfolio"]
+      },
+      "canonicalTools": [
+        "investment_workflow.get_readiness",
+        "investment_workflow.list_strategy_assignments",
+        "investment_workflow.suggest_strategy_assignments",
+        "investment_workflow.confirm_strategy_assignment",
+        "investment_workflow.run_rotation_volatility_strategy",
+        "investment_workflow.get_dividend_low_vol_plan",
+        "investment_workflow.refresh_dividend_low_vol_research",
+        "investment_workflow.get_portfolio_state",
+        "investment_workflow.preflight_portfolio_review",
+        "investment_workflow.start_portfolio_review",
+        "investment_workflow.get_portfolio_review",
+        "investment_workflow.compare_saved_advice_scenarios",
+        "backtest.grid_replay.list_sources",
+        "backtest.grid_replay.run",
+        "backtest.grid_replay.get_result",
+        "capture.upload_screenshot",
+        "capture.apply_extraction",
+        "capture.get_preview",
+        "capture.update_row",
+        "capture.confirm_rows",
+        "market_data.get_asset_trend",
+        "operation.get"
+      ],
+      "executionBoundary": {
+        "canCreateOrder": false,
+        "orderCreateAllowed": false,
+        "autoTradeUnlocked": false,
+        "formalTradingUnlocked": false,
+        "userMustExecuteInExternalPlatform": true
+      }
+    },
     "volatility": {
       "hostVisionOnly": true,
       "canonicalTools": [
         "volatility_workflow.reconcile",
         "volatility_workflow.run",
         "volatility_workflow.get_result",
+        "volatility_workflow.decide_reanchor",
         "capture.upload_screenshot",
         "capture.apply_extraction",
         "capture.get_preview",
@@ -49,6 +88,9 @@
         "daily_review.get_latest",
         "daily_review.export_html",
         "grid_strategy.list_templates"
+        ,"backtest.grid_replay.list_sources"
+        ,"backtest.grid_replay.run"
+        ,"backtest.grid_replay.get_result"
       ],
       "executionBoundary": {
         "canCreateOrder": false,
@@ -62,12 +104,17 @@
     }
   },
   "resources": [
+    "fams://investment-workflow/contract",
+    "fams://investment-workflow/readiness",
+    "fams://investment-workflow/assignments",
+    "fams://investment-workflow/portfolio/current",
     "fams://volatility/strategy/active",
     "fams://volatility/portfolio/latest-reconciled",
     "fams://volatility/rules",
     "fams://volatility/reviews/{reviewId}"
+    ,"fams://backtest/grid-replay/rules"
   ],
-  "prompts": ["volatility-review"],
+  "prompts": ["basic-information-confirmation", "position-strategy", "backtest-review", "volatility-review"],
   "domains": [
     "market_data",
     "position",
@@ -92,9 +139,22 @@
     "callEnvelope": "所有工具调用必须返回 fams.mcp.call.v1；status 只能为 completed、blocked、failed；audit 必须包含 calledAt、transport、userId、writes 与 requiresHumanConfirmation 等可用上下文"
   },
   "canonicalTools": [
+    "investment_workflow.get_readiness",
+    "investment_workflow.list_strategy_assignments",
+    "investment_workflow.suggest_strategy_assignments",
+    "investment_workflow.confirm_strategy_assignment",
+    "investment_workflow.run_rotation_volatility_strategy",
+    "investment_workflow.get_dividend_low_vol_plan",
+    "investment_workflow.refresh_dividend_low_vol_research",
+    "investment_workflow.get_portfolio_state",
+    "investment_workflow.preflight_portfolio_review",
+    "investment_workflow.start_portfolio_review",
+    "investment_workflow.get_portfolio_review",
+    "investment_workflow.compare_saved_advice_scenarios",
     "volatility_workflow.reconcile",
     "volatility_workflow.run",
     "volatility_workflow.get_result",
+    "volatility_workflow.decide_reanchor",
     "market_data.get_real_time_price",
     "market_data.refresh_prices",
     "position.list",
@@ -106,6 +166,9 @@
     "alert.check",
     "backtest.run_strategy",
     "backtest.run_from_advice",
+    "backtest.grid_replay.list_sources",
+    "backtest.grid_replay.run",
+    "backtest.grid_replay.get_result",
     "operation.list",
     "operation.get",
     "operation.get_artifact",

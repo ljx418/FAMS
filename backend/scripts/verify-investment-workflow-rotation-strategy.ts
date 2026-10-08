@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { prisma } from '../src/db/prisma.js'
 import { investmentWorkflowService } from '../src/services/investment-workflow/investmentWorkflowService.js'
 import { rotationVolatilityStrategyService } from '../src/services/investment-workflow/rotationVolatilityStrategyService.js'
+import { tradeLedgerService } from '../src/services/trade-ledger/tradeLedgerService.js'
 
 const userId = `wf3-real-bars-${Date.now()}`
 const symbols = ['000001', '603323']
@@ -136,6 +137,19 @@ async function main() {
         }],
       },
     },
+  })
+  await tradeLedgerService.persistReconciliation({
+    userId,
+    idempotencyKey: `wf3-reconciliation:${snapshot.id}`,
+    status: 'ready',
+    asOf: new Date(snapshot.asOf),
+    coverage: { holdings: true, cash: true, trades: true, orders: true },
+    summary: { source: 'wf3_isolated_contract_fixture' },
+    differences: [],
+    inputRefs: { snapshotId: snapshot.id },
+    holdings: snapshot.input.positions,
+    transactions: [],
+    orders: [],
   })
   const reuseRun = await rotationVolatilityStrategyService.run({ userId, snapshot, positionIds: [positions[0].id], materialChange: 'none' })
   assert.equal(reuseRun.targets[0].result.previousPlanComparison?.previousPlanId, reusablePlan.id)

@@ -16,6 +16,7 @@ const FundDetail = lazy(() => import('./pages/FundDetail'))
 const StockAnalysis = lazy(() => import('./pages/StockAnalysis'))
 const DailyReviews = lazy(() => import('./pages/DailyReviews'))
 const RelativeRotation = lazy(() => import('./pages/RelativeRotation'))
+const InvestmentPolicy = lazy(() => import('./pages/InvestmentPolicy'))
 
 const PageFallback = () => (
   <div className="min-h-[50vh] flex items-center justify-center">
@@ -32,6 +33,7 @@ function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="assets" element={<Assets />} />
           <Route path="positions" element={<Positions />} />
+          <Route path="investment-policy" element={<InvestmentPolicy />} />
           <Route path="daily-reviews" element={<DailyReviews />} />
           <Route path="daily-reviews/:reviewId" element={<DailyReviews />} />
           <Route path="fund/:code" element={<FundDetail />} />

@@ -379,6 +379,9 @@ export interface PortfolioRotationGroup {
 export interface PortfolioRotationReport {
   schemaVersion: 'fams.relative_rotation.portfolio_universe.v2'
   generatedAt: string
+  sourceRevision: string
+  cacheStatus: 'computed' | 'hit'
+  observedThrough: string | null
   universe: 'all_current_holdings'
   formulaVersion: string
   frequency: 'weekly' | 'daily'
@@ -398,6 +401,12 @@ export interface PortfolioRotationReport {
   }
   dataPolicy: Record<string, string>
   notTradingAdvice: true
+}
+
+const portfolioRotationSessionCache = new Map<string, PortfolioRotationReport>()
+
+export function peekPortfolioRotation(frequency: 'weekly' | 'daily' = 'weekly', years = 8) {
+  return portfolioRotationSessionCache.get(`${frequency}:${years}`) || null
 }
 
 export interface OperationDto {
@@ -532,15 +541,17 @@ export async function getPortfolioRotation(frequency: 'weekly' | 'daily' = 'week
   const response = await axios.get<PortfolioRotationReport>('/api/v1/relative-rotation/portfolio-universe', {
     params: { userId: 'default', frequency, years },
   })
+  portfolioRotationSessionCache.set(`${frequency}:${years}`, response.data)
   return response.data
 }
 
-export async function refreshPortfolioRotation() {
+export async function refreshPortfolioRotation(targetKeys: string[] = []) {
   const response = await axios.post<{
     schemaVersion: 'fams.relative_rotation.portfolio_refresh.v1'
     requestedTargets: number
     completedTargets: number
-  }>('/api/v1/relative-rotation/portfolio-universe/refresh', { userId: 'default' })
+  }>('/api/v1/relative-rotation/portfolio-universe/refresh', { userId: 'default', targetKeys })
+  portfolioRotationSessionCache.clear()
   return response.data
 }
 

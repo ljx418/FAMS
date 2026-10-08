@@ -62,8 +62,22 @@ try {
   assert.equal(preflight.fivePartReport.proposedOrders.blocked[0].blocker, 'awaiting_parent_fill')
   assert.equal(preflight.fivePartReport.confirmedFacts.doNotReplayHistoricalFills, true)
   assert.equal(preflight.executionBoundary.canCreateOrder, false)
+  assert.match(preflight.confirmationRequest.checkHash, /^[a-f0-9]{64}$/)
 
-  const run = await volatilityWorkflowService.run({ userId: 'default', sessionType: 'pre_close' })
+  const blockedRun = await volatilityWorkflowService.run({ userId: 'default', sessionType: 'pre_close' })
+  assert.equal(blockedRun.status, 'confirmation_required')
+  assert.equal(blockedRun.operationId, null)
+  assert.equal(capturedStartInput, null)
+  const run = await volatilityWorkflowService.run({
+    userId: 'default', sessionType: 'pre_close',
+    confirmation: {
+      confirmed: true,
+      confirmedBy: 'contract-test',
+      confirmedAt: new Date().toISOString(),
+      checkHash: preflight.confirmationRequest.checkHash,
+      acknowledgedDraftOnly: true,
+    },
+  })
   assert.equal(run.operationId, 'operation-test')
   assert.equal(run.operation_id, 'operation-test')
   assert.equal(run.reviewId, 'review-test')
@@ -78,6 +92,8 @@ try {
   assert.equal(capturedStartInput.brokerWorkflow, true)
   assert.equal(capturedStartInput.executionMode, 'queued')
   assert.equal(capturedStartInput.oneClickContext.hostVisionOnly, true)
+  assert.equal(capturedStartInput.oneClickContext.singleConfirmationMode, true)
+  assert.equal(capturedStartInput.brokerReconciliationInput.singleConfirmation.confirmedBy, 'contract-test')
   assert.match(capturedStartInput.idempotencyKey, /^volatility:[a-f0-9]{32}$/)
 
   process.stdout.write(JSON.stringify({

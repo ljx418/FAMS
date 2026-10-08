@@ -104,7 +104,13 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
   })
 
   app.get('/templates', async () => {
-    const runtimeHealth = await runtimeHealthService.check({ prisma, lightweight: true })
+    const [runtimeHealth, marketDataCutoff] = await Promise.all([
+      runtimeHealthService.check({ prisma, lightweight: true }),
+      prisma.marketBarCanonical.aggregate({
+        where: { timeframe: '1d', tradeDate: { lte: new Date() }, closePrice: { gt: 0 } },
+        _max: { tradeDate: true, updatedAt: true },
+      }),
+    ])
     return {
       schemaVersion: 'portfolio.strategy_backtest.templates.v1',
       generatedAt: new Date().toISOString(),
@@ -112,6 +118,8 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
       allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'PLAN_DRAFT'],
       prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
       notTradingAdvice: true,
+      dataObservedThrough: marketDataCutoff._max.tradeDate?.toISOString().slice(0, 10) || null,
+      dataUpdatedAt: marketDataCutoff._max.updatedAt?.toISOString() || null,
       runtimeHealth: {
         status: runtimeHealth.status,
         sqliteHealthy: runtimeHealth.sqliteHealthy,
@@ -561,6 +569,60 @@ export async function portfolioBacktestRoutes(app: FastifyInstance) {
           artifactRefs: parse<string[]>(operation.artifactRefsJson, []),
         }
       }),
+      notTradingAdvice: true,
+    }
+  })
+
+  app.get('/runs/latest-compatible', async (request) => {
+    const query = request.query as { userId?: string; strategyIds?: string }
+    const userId = String(query.userId || 'default')
+    const requestedStrategyIds = Array.from(new Set(String(query.strategyIds || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)))
+      .sort()
+    if (requestedStrategyIds.length === 0) {
+      return {
+        schemaVersion: 'portfolio.strategy_backtest.latest_compatible.v1',
+        found: false,
+        reason: 'strategy_ids_required',
+        notTradingAdvice: true,
+      }
+    }
+    const candidates = await prisma.operation.findMany({
+      where: { userId, type: 'portfolio_backtest_run', status: 'completed' },
+      orderBy: { requestedAt: 'desc' },
+      take: 50,
+    })
+    for (const operation of candidates) {
+      let input: Record<string, any> = {}
+      let stored: Record<string, any> = {}
+      try { input = JSON.parse(operation.inputJson || '{}') } catch { input = {} }
+      const storedStrategyIds = Array.from(new Set((Array.isArray(input.portfolioStrategyIds) ? input.portfolioStrategyIds : []).map(String))).sort()
+      if (storedStrategyIds.length !== requestedStrategyIds.length || storedStrategyIds.some((id, index) => id !== requestedStrategyIds[index])) continue
+      try { stored = JSON.parse(operation.resultJson || '{}') } catch { stored = {} }
+      const result = stored.artifacts?.['03_backtest_results.json']?.result || null
+      if (!result) continue
+      return {
+        schemaVersion: 'portfolio.strategy_backtest.latest_compatible.v1',
+        found: true,
+        operationId: operation.id,
+        status: operation.status,
+        requestedAt: operation.requestedAt,
+        completedAt: operation.completedAt,
+        strategyIds: storedStrategyIds,
+        result,
+        artifactRefs: JSON.parse(operation.artifactRefsJson || '[]'),
+        allowedActions: ['RESEARCH', 'OBSERVE', 'COMPARE', 'PLAN_DRAFT'],
+        prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
+        notTradingAdvice: true,
+      }
+    }
+    return {
+      schemaVersion: 'portfolio.strategy_backtest.latest_compatible.v1',
+      found: false,
+      reason: 'no_compatible_saved_run',
+      requestedStrategyIds,
       notTradingAdvice: true,
     }
   })

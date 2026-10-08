@@ -11,6 +11,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popover,
   Popconfirm,
   Progress,
   Row,
@@ -52,6 +53,7 @@ import {
   getOperation,
   getRotationHoldings,
   getPortfolioRotation,
+  peekPortfolioRotation,
   getRotationTimeline,
   getRotationWatchlist,
   refreshRotationUniverse,
@@ -68,6 +70,7 @@ import {
   type PortfolioRotationGroupKey,
   type PortfolioRotationReport,
 } from '../services/relativeRotationService'
+import { PlainLanguageHelp } from '../components/common/PlainLanguageHelp'
 
 const quadrantMeta = {
   leading: { label: '领先', color: '#15803d' },
@@ -88,6 +91,13 @@ const marketOptions = [
   { label: 'A股', value: 'CN' },
   { label: '港股', value: 'HK' },
   { label: '美股', value: 'US' },
+]
+
+const universeModeOptions = [
+  { label: '全部持仓', value: 'portfolio' },
+  { label: '市场自选', value: 'watchlist' },
+  { label: '专题研究', value: 'research' },
+  { label: '板块拥挤度', value: 'industry_crowding' },
 ]
 
 const readinessMeta = {
@@ -114,6 +124,62 @@ const portfolioGroupOptions = [
   { label: '债券', value: 'bond' },
   { label: '现金', value: 'cash' },
 ]
+
+type InspectionItem = {
+  key: string
+  name: string
+  symbol: string
+  status: string
+  detail?: string
+}
+
+function InspectionStatCard({
+  title,
+  value,
+  color,
+  items,
+  onRetest,
+  retestLoading,
+}: {
+  title: React.ReactNode
+  value: number
+  color?: string
+  items: InspectionItem[]
+  onRetest?: () => void
+  retestLoading?: boolean
+}) {
+  const content = (
+    <div className="w-[min(360px,calc(100vw-48px))]">
+      <div className="mb-2 text-sm font-semibold text-slate-900">覆盖明细</div>
+      <div className="max-h-64 space-y-2 overflow-auto pr-1">
+        {items.length > 0 ? items.map((item) => (
+          <div key={item.key} className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate font-medium text-slate-900">{item.name}</span>
+              <span className="shrink-0 font-mono text-xs text-slate-500">{item.symbol}</span>
+            </div>
+            <div className="mt-1 text-xs text-slate-600">{item.status}{item.detail ? ` · ${item.detail}` : ''}</div>
+          </div>
+        )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无资产" />}
+      </div>
+      {onRetest ? (
+        <Button className="mt-3" block type="primary" icon={<ReloadOutlined />} loading={retestLoading} onClick={onRetest}>
+          仅复测这些资产
+        </Button>
+      ) : null}
+    </div>
+  )
+  return (
+    <Popover content={content} trigger={['click', 'hover']} placement="bottomLeft">
+      <Card size="small" hoverable className="h-full cursor-pointer" styles={{ body: { height: '100%' } }}>
+        <button type="button" className="flex h-full w-full items-center justify-between gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+          <Statistic title={title} value={value} suffix="个" valueStyle={color ? { color } : undefined} />
+          <span className="text-xs text-blue-700">查看明细</span>
+        </button>
+      </Card>
+    </Popover>
+  )
+}
 
 const timelineFromPortfolio = (
   report: PortfolioRotationReport,
@@ -159,9 +225,12 @@ export default function RelativeRotation() {
   const [market, setMarket] = useState<RotationMarket>('CN')
   const [universeMode, setUniverseMode] = useState<'portfolio' | 'watchlist' | 'research' | 'industry_crowding'>('portfolio')
   const [portfolioGroup, setPortfolioGroup] = useState<PortfolioRotationGroupKey>('all')
-  const [portfolioReport, setPortfolioReport] = useState<PortfolioRotationReport | null>(null)
+  const initialPortfolioSnapshot = peekPortfolioRotation('weekly', 8)
+  const [portfolioReport, setPortfolioReport] = useState<PortfolioRotationReport | null>(initialPortfolioSnapshot)
   const [report, setReport] = useState<RotationHoldingsReport | null>(null)
-  const [timeline, setTimeline] = useState<RotationTimelineReport | null>(null)
+  const [timeline, setTimeline] = useState<RotationTimelineReport | null>(
+    initialPortfolioSnapshot ? timelineFromPortfolio(initialPortfolioSnapshot, 'all') : null,
+  )
   const [watchlist, setWatchlist] = useState<RotationWatchlistReport | null>(null)
   const [watchlistMarket, setWatchlistMarket] = useState<RotationMarket>('CN')
   const [watchlistCode, setWatchlistCode] = useState('')
@@ -188,25 +257,37 @@ export default function RelativeRotation() {
   const [reducedMotion, setReducedMotion] = useState(false)
   const headDateRef = useRef('')
   const portfolioGroupRef = useRef<PortfolioRotationGroupKey>('all')
-  const automaticRefreshAttempted = useRef(new Set<string>())
   const [activationForm] = Form.useForm()
   const [transferForm] = Form.useForm()
   const [confirmForm] = Form.useForm()
 
   const load = useCallback(async () => {
-    setLoading(true)
+    const sessionSnapshot = universeMode === 'portfolio' ? peekPortfolioRotation(frequency, 8) : null
+    if (sessionSnapshot) {
+      const snapshotTimeline = timelineFromPortfolio(sessionSnapshot, portfolioGroupRef.current)
+      setPortfolioReport(sessionSnapshot)
+      setTimeline(snapshotTimeline)
+      setHeadIndex(Math.max(0, snapshotTimeline.dates.length - 1))
+    }
+    setLoading(!sessionSnapshot)
     try {
-      const [nextReport, nextTimeline, nextPortfolioReport] = await Promise.all([
-        getRotationHoldings(frequency, frequency === 'weekly' ? 12 : 20),
-        getRotationTimeline(frequency, 8, market),
-        getPortfolioRotation(frequency, 8),
-      ])
-      const nextWatchlist = await getRotationWatchlist()
-      const selectedTimeline = universeMode === 'portfolio' ? timelineFromPortfolio(nextPortfolioReport, portfolioGroupRef.current) : nextTimeline
+      if (universeMode === 'research' || universeMode === 'industry_crowding') return
+      const nextReportPromise = getRotationHoldings(frequency, frequency === 'weekly' ? 12 : 20)
+      const [nextReport, selectedTimeline] = universeMode === 'portfolio'
+        ? await Promise.all([
+          nextReportPromise,
+          getPortfolioRotation(frequency, 8).then((nextPortfolioReport) => {
+            setPortfolioReport(nextPortfolioReport)
+            return timelineFromPortfolio(nextPortfolioReport, portfolioGroupRef.current)
+          }),
+        ])
+        : await Promise.all([
+          nextReportPromise,
+          getRotationTimeline(frequency, 8, market),
+          getRotationWatchlist().then((nextWatchlist) => setWatchlist(nextWatchlist)),
+        ]).then(([holdings, nextTimeline]) => [holdings, nextTimeline] as const)
       setReport(nextReport)
-      setPortfolioReport(nextPortfolioReport)
       setTimeline(selectedTimeline)
-      setWatchlist(nextWatchlist)
       const preservedDate = headDateRef.current
       const preservedIndex = preservedDate
         ? selectedTimeline.dates.reduce((best, date, index) => date <= preservedDate ? index : best, 0)
@@ -302,7 +383,7 @@ export default function RelativeRotation() {
     setOperationProgress(15)
     try {
       const result = universeMode === 'portfolio'
-        ? await refreshPortfolioRotation()
+        ? await refreshPortfolioRotation(targetKeys)
         : await refreshRotationUniverse(market, targetKeys, 8)
       setOperationProgress(100)
       message.success(`${label}完成：${result.completedTargets}/${result.requestedTargets} 个数据标的就绪`)
@@ -314,21 +395,6 @@ export default function RelativeRotation() {
       setOperationProgress(0)
     }
   }
-
-  useEffect(() => {
-    if (universeMode === 'research' || universeMode === 'industry_crowding' || !timeline?.refreshRecommended || workingLabel) return
-    const refreshKey = `${universeMode}:${portfolioGroup}:${market}:${frequency}:${new Date().toISOString().slice(0, 10)}`
-    if (automaticRefreshAttempted.current.has(refreshKey)) return
-    const targetKeys = timeline.items
-      .filter((item) => !hiddenTargetKeys.has(item.targetKey))
-      .filter((item) => item.freshness !== 'fresh' || item.readiness === 'unavailable')
-      .map((item) => item.targetKey)
-    if (targetKeys.length === 0) return
-    automaticRefreshAttempted.current.add(refreshKey)
-    void runUniverseRefresh('刷新可见 RRG 数据', targetKeys)
-    // The automatic gate runs once per market/frequency/day.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frequency, hiddenTargetKeys, market, portfolioGroup, timeline?.generatedAt, timeline?.refreshRecommended, universeMode, workingLabel])
 
   const timelineItems = timeline?.items || []
   const visibleTimelineItems = useMemo(
@@ -343,6 +409,28 @@ export default function RelativeRotation() {
   const activePortfolioGroup = portfolioReport?.groups.find((group) => group.key === portfolioGroup)
   const activeSleeves = report?.items.filter((item) => item.allocation?.status === 'active').length || 0
   const pendingDrafts = report?.items.filter((item) => item.latestDraft?.status === 'pending').length || 0
+  const inspectionItems = visibleTimelineItems.map((item) => ({
+    key: item.targetKey,
+    name: item.name,
+    symbol: item.symbol,
+    status: readinessMeta[item.readiness].label,
+    detail: item.blockers?.[0] || `数据截至 ${item.assetAsOfDate || '--'}`,
+  }))
+  const verifiedInspectionItems = inspectionItems.filter((_, index) => visibleTimelineItems[index]?.readiness === 'verified')
+  const insufficientTimelineItems = visibleTimelineItems.filter((item) => ['limited', 'insufficient', 'unavailable'].includes(item.readiness))
+  const insufficientInspectionItems = insufficientTimelineItems.map((item) => ({
+    key: item.targetKey,
+    name: item.name,
+    symbol: item.symbol,
+    status: readinessMeta[item.readiness].label,
+    detail: item.blockers?.[0] || '需要补齐真实历史数据',
+  }))
+  const activeSleeveInspectionItems: InspectionItem[] = (report?.items || [])
+    .filter((item) => item.allocation?.status === 'active')
+    .map((item) => ({ key: item.positionId, name: item.name, symbol: item.symbol, status: '波动仓已启用' }))
+  const pendingDraftInspectionItems: InspectionItem[] = (report?.items || [])
+    .filter((item) => item.latestDraft?.status === 'pending')
+    .map((item) => ({ key: item.positionId, name: item.name, symbol: item.symbol, status: '等待人工确认' }))
 
   const togglePlayback = () => {
     if (playing) {
@@ -499,23 +587,44 @@ export default function RelativeRotation() {
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
               用共同基准识别持仓的相对趋势环境，再用价格波动条件管理同一标的内部的波动仓。核心仓不会被每日分析修改。
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500" aria-label="分析顺序与术语解释">
+              <span>检查顺序：</span>
+              <PlainLanguageHelp termId="rrg" />
+              <span>→</span>
+              <PlainLanguageHelp termId="moving_average" />
+              <span>→</span>
+              <PlainLanguageHelp termId="macd" />
+              <span>→</span>
+              <PlainLanguageHelp termId="volume_confirmation" />
+              <span>→</span>
+              <PlainLanguageHelp termId="atr" />
+            </div>
           </div>
-          <Space wrap>
-            <Segmented
+          <div className="flex min-w-0 flex-wrap gap-2 lg:justify-end">
+            <Select
+              className="w-full sm:hidden"
               value={universeMode}
-              options={[
-                { label: '全部持仓', value: 'portfolio' },
-                { label: '市场自选', value: 'watchlist' },
-                { label: '专题研究', value: 'research' },
-                { label: '板块拥挤度', value: 'industry_crowding' },
-              ]}
+              options={universeModeOptions}
+              aria-label="研究视图"
               onChange={(value) => {
                 setPlaying(false)
                 setUniverseMode(value as 'portfolio' | 'watchlist' | 'research' | 'industry_crowding')
                 setHeadIndex(0)
               }}
-              aria-label="RRG资产集合"
             />
+            <div className="hidden w-full sm:block lg:w-auto">
+              <Segmented
+                block
+                value={universeMode}
+                options={universeModeOptions}
+                onChange={(value) => {
+                  setPlaying(false)
+                  setUniverseMode(value as 'portfolio' | 'watchlist' | 'research' | 'industry_crowding')
+                  setHeadIndex(0)
+                }}
+                aria-label="RRG资产集合"
+              />
+            </div>
             {(universeMode === 'portfolio' || universeMode === 'watchlist') && (
               <>
                 <Button icon={<ExperimentOutlined />} disabled={Boolean(workingLabel)} onClick={() => void runTrackedOperation('持仓回测', () => runRotationBacktest())}>
@@ -527,7 +636,7 @@ export default function RelativeRotation() {
                 <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()} aria-label="刷新页面数据" />
               </>
             )}
-          </Space>
+          </div>
         </div>
         {workingLabel && (
           <div className="border-t border-slate-100 bg-slate-50 px-5 py-3 lg:px-7">
@@ -549,10 +658,41 @@ export default function RelativeRotation() {
       ) : (
         <>
       <Row gutter={[16, 16]}>
-        <Col xs={12} lg={6}><Card size="small"><Statistic title={universeMode === 'portfolio' ? '全部持仓覆盖' : '合格持仓'} value={universeMode === 'portfolio' ? portfolioReport?.coverage.representedCount || 0 : report?.eligibleCount || 0} suffix="个" /></Card></Col>
-        <Col xs={12} lg={6}><Card size="small"><Statistic title="当前市场验证充分" value={readyCount} suffix="个" valueStyle={{ color: '#1d4ed8' }} /></Card></Col>
-        <Col xs={12} lg={6}><Card size="small"><Statistic title="已启用波动仓" value={activeSleeves} suffix="个" valueStyle={{ color: '#0f766e' }} /></Card></Col>
-        <Col xs={12} lg={6}><Card size="small"><Statistic title="待确认草稿" value={pendingDrafts} suffix="个" valueStyle={{ color: pendingDrafts ? '#b45309' : '#334155' }} /></Card></Col>
+        <Col xs={24} sm={12} lg={6}>
+          <InspectionStatCard
+            title={universeMode === 'portfolio' ? '全部持仓覆盖' : '当前显示资产'}
+            value={universeMode === 'portfolio' ? portfolioReport?.coverage.representedCount || 0 : visibleTimelineItems.length}
+            items={inspectionItems}
+          />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <InspectionStatCard
+            title={<PlainLanguageHelp termId="validation_ready" />}
+            value={readyCount}
+            color="#1d4ed8"
+            items={verifiedInspectionItems}
+          />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <InspectionStatCard
+            title="验证不足，可复测"
+            value={insufficientTimelineItems.length}
+            color={insufficientTimelineItems.length > 0 ? '#b45309' : '#0f766e'}
+            items={insufficientInspectionItems}
+            retestLoading={Boolean(workingLabel)}
+            onRetest={insufficientTimelineItems.length > 0
+              ? () => void runUniverseRefresh('复测验证不足资产', insufficientTimelineItems.map((item) => item.targetKey))
+              : undefined}
+          />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <InspectionStatCard
+            title={`波动仓 ${activeSleeves} · 待确认 ${pendingDrafts}`}
+            value={activeSleeves + pendingDrafts}
+            color={pendingDrafts ? '#b45309' : '#0f766e'}
+            items={[...activeSleeveInspectionItems, ...pendingDraftInspectionItems]}
+          />
+        </Col>
       </Row>
 
       <Card
@@ -561,14 +701,14 @@ export default function RelativeRotation() {
       >
         <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 5 }}>
           <Descriptions.Item label="资产集合">{universeMode === 'portfolio' ? `全部开放持仓 · ${portfolioReport?.coverage.positionCount || 0}项` : '持仓 + 自选 · A股 / 港股 / 美股'}</Descriptions.Item>
-          <Descriptions.Item label="当前基准">{timeline?.benchmark.name || '沪深300'}</Descriptions.Item>
+          <Descriptions.Item label={<PlainLanguageHelp termId="benchmark" />}>{timeline?.benchmark.name || '沪深300'}</Descriptions.Item>
           <Descriptions.Item label="资产价格">{universeMode === 'portfolio' ? '交易所前复权价 / 场外基金累计净值' : market === 'CN' ? '前复权 qfq' : '复权收盘价 adjusted close'}</Descriptions.Item>
           {universeMode === 'portfolio' && (
             <Descriptions.Item label="新鲜度截止">
-              {portfolioReport?.freshnessReferenceDate || '--'} · {portfolioReport?.freshnessTimezone || 'Asia/Shanghai'} {Math.floor((portfolioReport?.freshnessAfterCloseMinutes || 1020) / 60)}:00
+              {portfolioReport?.observedThrough || portfolioReport?.freshnessReferenceDate || '--'} · {portfolioReport?.cacheStatus === 'hit' ? '快照命中' : '本地重算'}
             </Descriptions.Item>
           )}
-          <Descriptions.Item label="公式">transparent v1</Descriptions.Item>
+          <Descriptions.Item label={<PlainLanguageHelp termId="rrg" />}>transparent v1</Descriptions.Item>
           <Descriptions.Item label="历史门槛">91日 / 53周可绘制 · 756日验证充分</Descriptions.Item>
         </Descriptions>
         {universeMode === 'portfolio' && activePortfolioGroup?.benchmark.components && (
@@ -593,6 +733,9 @@ export default function RelativeRotation() {
                 : '当前为分组诊断视图；正式配置门控统一读取“全部同图”，累计净值与价格代理的口径差异会明确披露。'
             : '三地市场按各自基准分图比较；隐藏仅暂停刷新，删除自选不会删除持仓或全项目共享行情。'}
         />
+        {universeMode === 'portfolio' ? (
+          <div className="mt-2 text-xs text-slate-500">进入页面只读取本地真实快照，不会自动访问外部行情；需要补数时请在“验证不足”卡片中选择复测。</div>
+        ) : null}
       </Card>
 
       <Card

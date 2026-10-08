@@ -49,9 +49,11 @@ backend/data/private-captures/
 backend/data/overnight-lakehouse/
 backend/data/overnight-3m-*/
 backend/data/overnight-grid90-*/
+backend/data/volatility-reports/
 backend/data/**/*.zip
 backend/data/**/*.tar
 backend/data/**/*.gz
+backend/.volatility-driver*.mjs
 
 # Local-only financial evidence. The upstream repository is public.
 backend/scripts/*alipay*.ts
@@ -68,5 +70,16 @@ docs/audits/*broker*/
 docs/audits/*account*/
 docs/generated/alipay-*
 docs/generated/broker-*
-docs/workflows/
+docs/automation-audits/**/logs/
+docs/automation-audits/**/runtime/
+docs/audits/**/evidence/screenshots/
+# Local acceptance packets may include account values, symbols, and real holdings.
+docs/automation-audits/investment-policy/
+docs/automation-audits/investment-workflow/
+docs/audits/2026-09-17-frontend-usability-grid-replay/
+docs/audits/2026-10-08-volatility-draft-safety/
+docs/workflows/*
+!docs/workflows/REGISTRY.md
+!docs/workflows/WORKFLOW-trade-fact-ingestion-reconciliation.md
+!docs/workflows/WORKFLOW-trade-plan-execution-lifecycle.md
 波动交易工作流迁移-*/

@@ -9,6 +9,7 @@ import { BarChartOutlined, HistoryOutlined, LineChartOutlined, PlayCircleOutline
 import { ExperienceModeToggle, type ExperienceMode } from '../components/common/ExperienceModeToggle'
 import { PlainLanguageHelp } from '../components/common/PlainLanguageHelp'
 import { PortfolioBacktestSummaryCard } from '../components/backtest/PortfolioBacktestSummaryCard'
+import { GridReplayPanel } from '../components/backtest/GridReplayPanel'
 import { StrategyComparisonExplainer } from '../components/backtest/StrategyComparisonExplainer'
 import { InvestmentWorkflowBar } from '../components/investment-workflow/InvestmentWorkflowBar'
 
@@ -34,6 +35,10 @@ const RECOMMENDED_PORTFOLIO_STRATEGY_IDS = [
   'dividend_low_vol_basket',
   'current_holdings_buy_and_hold',
   'local_real_data_sample_60_40',
+]
+const DEFAULT_PORTFOLIO_STRATEGY_IDS = [
+  ...CLASSIC_PORTFOLIO_STRATEGY_IDS,
+  'current_holdings_buy_and_hold',
 ]
 
 const askChatBox = (messageText: string) => {
@@ -876,6 +881,7 @@ const Backtest: React.FC = () => {
   const [scenarioComparisonLoading, setScenarioComparisonLoading] = useState(false)
   const [portfolioBacktestLoading, setPortfolioBacktestLoading] = useState(false)
   const [portfolioTemplates, setPortfolioTemplates] = useState<any[]>([])
+  const [portfolioAvailableDate, setPortfolioAvailableDate] = useState(DEFAULT_PORTFOLIO_BACKTEST_END_DATE)
   const [portfolioTemplateError, setPortfolioTemplateError] = useState<string | null>(null)
   const [selectedPortfolioStrategyIds, setSelectedPortfolioStrategyIds] = useState<string[]>([])
   const [portfolioRuntimeHealth, setPortfolioRuntimeHealth] = useState<any | null>(null)
@@ -883,10 +889,12 @@ const Backtest: React.FC = () => {
   const [portfolioBacktestOperation, setPortfolioBacktestOperation] = useState<any | null>(null)
   const [portfolioRunHistory, setPortfolioRunHistory] = useState<any[]>([])
   const [portfolioHistoryLoading, setPortfolioHistoryLoading] = useState(false)
+  const [portfolioAutoRestoreStatus, setPortfolioAutoRestoreStatus] = useState<'idle' | 'loading' | 'restored' | 'empty' | 'failed'>('idle')
+  const portfolioAutoRestoreKey = useRef('')
   const [portfolioManualReview, setPortfolioManualReview] = useState<any | null>(null)
   const [portfolioManualReviewLoading, setPortfolioManualReviewLoading] = useState(false)
   const [portfolioBacktestParams, setPortfolioBacktestParams] = useState({
-    userId: 'audit_portfolio_backtest_user',
+    userId: 'default',
     gradeMode: 'formal_review',
     startDate: '2023-08-29',
     endDate: DEFAULT_PORTFOLIO_BACKTEST_END_DATE,
@@ -911,6 +919,8 @@ const Backtest: React.FC = () => {
           setPortfolioTemplates(templates)
           setSelectedPortfolioStrategyIds((previous) => {
             if (previous.length > 0) return previous
+            const defaults = DEFAULT_PORTFOLIO_STRATEGY_IDS.filter((id) => templates.some((template: any) => template.strategyId === id))
+            if (defaults.length === DEFAULT_PORTFOLIO_STRATEGY_IDS.length) return defaults
             const classic = CLASSIC_PORTFOLIO_STRATEGY_IDS.filter((id) => templates.some((template: any) => template.strategyId === id))
             if (classic.length === CLASSIC_PORTFOLIO_STRATEGY_IDS.length) return classic
             const recommended = RECOMMENDED_PORTFOLIO_STRATEGY_IDS.filter((id) => templates.some((template: any) => template.strategyId === id))
@@ -919,6 +929,15 @@ const Backtest: React.FC = () => {
               : templates.filter((template: any) => template.strategyId !== 'custom_weight_portfolio').slice(0, 3).map((template: any) => template.strategyId)
           })
           setPortfolioRuntimeHealth(response.data?.runtimeHealth || null)
+          if (response.data?.dataObservedThrough) {
+            const observedThrough = String(response.data.dataObservedThrough)
+            setPortfolioAvailableDate(observedThrough)
+            setPortfolioBacktestParams((previous) => previous.endDate === DEFAULT_PORTFOLIO_BACKTEST_END_DATE ? {
+              ...previous,
+              startDate: dayjs(observedThrough).subtract(3, 'year').add(1, 'day').format('YYYY-MM-DD'),
+              endDate: observedThrough,
+            } : previous)
+          }
           setPortfolioTemplateError(null)
         }
       } catch (error) {
@@ -949,6 +968,54 @@ const Backtest: React.FC = () => {
     void fetchHistory()
     return () => { cancelled = true }
   }, [portfolioBacktestParams.userId])
+
+  useEffect(() => {
+    if (workspaceMode !== 'portfolio' || portfolioTemplates.length === 0) return
+    const defaultIds = DEFAULT_PORTFOLIO_STRATEGY_IDS.filter((id) => portfolioTemplates.some((template) => template.strategyId === id))
+    if (defaultIds.length === 0) return
+    const restoreKey = `${portfolioBacktestParams.userId}:${defaultIds.slice().sort().join(',')}`
+    if (portfolioAutoRestoreKey.current === restoreKey) return
+    portfolioAutoRestoreKey.current = restoreKey
+    let cancelled = false
+    const restore = async () => {
+      setPortfolioAutoRestoreStatus('loading')
+      try {
+        const response = await axios.get('/api/v1/portfolio-backtest/runs/latest-compatible', {
+          params: {
+            userId: portfolioBacktestParams.userId || 'default',
+            strategyIds: defaultIds.join(','),
+          },
+        })
+        if (cancelled) return
+        if (!response.data?.found || !response.data?.result) {
+          setPortfolioAutoRestoreStatus('empty')
+          return
+        }
+        setSelectedPortfolioStrategyIds(defaultIds)
+        setPortfolioBacktestOperation({
+          operationId: response.data.operationId,
+          status: response.data.status,
+          artifactRefs: response.data.artifactRefs || [],
+        })
+        setPortfolioBacktestResult(response.data.result)
+        const request = response.data.result.request || {}
+        setPortfolioBacktestParams((previous) => ({
+          ...previous,
+          startDate: request.startDate || previous.startDate,
+          endDate: request.endDate || previous.endDate,
+          initialCapital: Number(request.initialCapital || previous.initialCapital),
+        }))
+        setPortfolioAutoRestoreStatus('restored')
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to restore latest compatible portfolio run:', error)
+          setPortfolioAutoRestoreStatus('failed')
+        }
+      }
+    }
+    void restore()
+    return () => { cancelled = true }
+  }, [portfolioBacktestParams.userId, portfolioTemplates, workspaceMode])
 
   useEffect(() => {
     let cancelled = false
@@ -1464,11 +1531,12 @@ const Backtest: React.FC = () => {
 
   const portfolioDataCutoffDate = useMemo(() => {
     const snapshotDates = [
+      portfolioAvailableDate,
       ...portfolioTemplates.map((template) => template.snapshot?.tradeDate),
       ...(portfolioBacktestResult?.strategies || []).map((strategy: any) => strategy.definition?.snapshot?.tradeDate),
     ].filter(Boolean).sort()
     return snapshotDates[snapshotDates.length - 1] || DEFAULT_PORTFOLIO_BACKTEST_END_DATE
-  }, [portfolioTemplates, portfolioBacktestResult])
+  }, [portfolioAvailableDate, portfolioTemplates, portfolioBacktestResult])
 
   const applyQuickPortfolioRange = (months: number) => {
     const end = dayjs(portfolioDataCutoffDate)
@@ -1500,7 +1568,7 @@ const Backtest: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white mb-6">策略回测</h1>
+      <h1 className="text-2xl font-bold text-slate-950 mb-6">策略回测</h1>
       <InvestmentWorkflowBar currentStep="backtest_review" />
       <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm" aria-label="策略回测视图" data-testid="backtest-workspace-switcher">
         <Segmented
@@ -1537,7 +1605,11 @@ const Backtest: React.FC = () => {
         </div>
       </Card>
       {workspaceMode === 'portfolio' && <div data-testid="portfolio-backtest-workspace">
-      <Card title={<span className="text-primary">投资组合回测</span>} className="bg-[#1a1a2e] border-surface-border">
+      <Card
+        title={<span className="text-primary">投资组合回测</span>}
+        extra={<Button icon={<HistoryOutlined />} onClick={() => handleWorkspaceModeChange('history')}>打开历史回测</Button>}
+        className="bg-[#1a1a2e] border-surface-border"
+      >
         <Alert
           className="mb-4"
           type="warning"
@@ -1545,16 +1617,23 @@ const Backtest: React.FC = () => {
           message="研究回测，不构成交易指令"
           description="当前用于真实数据组合策略比较和正式评审前置；ADD、REDUCE、ORDER_CREATE、AUTO_TRADE 仍被禁止。免费源 total-return 只能支持 formal-review-ready，不等同官方授权正式交易数据。"
         />
+        {portfolioAutoRestoreStatus === 'loading' ? (
+          <Alert className="mb-4" type="info" showIcon message="正在恢复经典组合 + 当前组合的最近兼容结果" />
+        ) : portfolioAutoRestoreStatus === 'restored' ? (
+          <Alert className="mb-4" type="success" showIcon message="已展示经典组合 + 当前组合的最近保存结果" description="页面没有自动重跑；可调整区间后手动运行并保存新结果。" />
+        ) : portfolioAutoRestoreStatus === 'empty' ? (
+          <Alert className="mb-4" type="info" showIcon message="暂无与默认组合完全匹配的历史结果" description="已默认选择经典 5 组和当前持仓；点击运行后会保存首份兼容结果。" />
+        ) : null}
 
         <div className="mb-4 rounded-lg border border-white/10 bg-[#0f172a99] p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="text-sm font-medium text-white">1. 选择要比较的组合策略</div>
-              <div className="text-xs text-gray-400">默认只选推荐组合；取消勾选后，请求体会只提交当前选中的策略。</div>
+              <div className="text-xs text-gray-400">默认选择经典 5 组 + 当前持仓；进入页面优先恢复完全匹配的最近结果，不会自动重跑。</div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(portfolioTemplates.filter((item) => item.strategyId !== 'custom_weight_portfolio').map((item) => item.strategyId))}>全选</Button>
-              <Button size="small" type="primary" ghost onClick={() => setSelectedPortfolioStrategyIds(CLASSIC_PORTFOLIO_STRATEGY_IDS.filter((id) => portfolioTemplates.some((item) => item.strategyId === id)))}>经典 5 组</Button>
+              <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(CLASSIC_PORTFOLIO_STRATEGY_IDS.filter((id) => portfolioTemplates.some((item) => item.strategyId === id)))}>经典 5 组</Button>
               <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(RECOMMENDED_PORTFOLIO_STRATEGY_IDS.filter((id) => portfolioTemplates.some((item) => item.strategyId === id)))}>推荐 3 组</Button>
               <Button size="small" onClick={() => setSelectedPortfolioStrategyIds(['dividend_low_vol_basket', 'current_holdings_buy_and_hold'].filter((id) => portfolioTemplates.some((item) => item.strategyId === id)))}>红利+当前持仓</Button>
               <Button size="small" onClick={() => setSelectedPortfolioStrategyIds([])}>清空</Button>
@@ -2154,6 +2233,7 @@ const Backtest: React.FC = () => {
       </Card>
       </div>}
       {workspaceMode === 'review' && <div className="space-y-6" data-testid="scenario-review-workspace">
+      <GridReplayPanel />
       <Card title={<span className="text-primary">选择历史建议并复盘</span>} className="bg-[#1a1a2e] border-surface-border">
         <Form form={form} layout="vertical" className="grid gap-4 lg:grid-cols-4">
           <Form.Item name="adviceId" label="选择历史建议" rules={[{ required: true, message: '请选择一条历史建议' }]} className="lg:col-span-2 mb-0">

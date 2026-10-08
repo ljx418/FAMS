@@ -6,14 +6,14 @@ import { dailyReviewWorkflowService } from '../services/review/dailyReviewWorkfl
 import { alipayOneClickReviewService } from '../services/review/alipayOneClickReviewService.js'
 import { alipayResearchWorkflowService } from '../services/review/alipayResearchWorkflowService.js'
 import { alipayResearchWorkflowScheduler } from '../services/review/alipayResearchWorkflowScheduler.js'
-import { brokerReviewReconciliationService } from '../services/review/brokerReviewReconciliationService.js'
 import { dailyReviewHtmlService } from '../services/review/dailyReviewHtmlService.js'
 import { brokerReviewReminderScheduler } from '../services/review/brokerReviewReminderScheduler.js'
+import { volatilityWorkflowService } from '../services/review/volatilityWorkflowService.js'
 
 export async function dailyReviewRoutes(app: FastifyInstance) {
   app.post('/reconcile', async (request) => {
     const body = request.body as any
-    return brokerReviewReconciliationService.reconcile({
+    return volatilityWorkflowService.reconcile({
       userId: body.userId || 'default',
       sessionType: body.sessionType || 'manual',
       holdingsCaptureId: body.holdingsCaptureId,
@@ -21,6 +21,8 @@ export async function dailyReviewRoutes(app: FastifyInstance) {
       ordinaryOrdersCaptureId: body.ordinaryOrdersCaptureId,
       conditionalOrdersCaptureId: body.conditionalOrdersCaptureId,
       zeroNewTradesConfirmed: body.zeroNewTradesConfirmed === true,
+      zeroOrdinaryOrdersConfirmed: body.zeroOrdinaryOrdersConfirmed === true,
+      zeroConditionalOrdersConfirmed: body.zeroConditionalOrdersConfirmed === true,
     })
   })
 
@@ -118,6 +120,17 @@ export async function dailyReviewRoutes(app: FastifyInstance) {
 
   app.post('/run', async (request) => {
     const body = request.body as any
+    if (body.brokerWorkflow !== false) {
+      return volatilityWorkflowService.run({
+        userId: body.userId || 'default', sessionType: body.sessionType || 'manual', idempotencyKey: body.idempotencyKey,
+        holdingsCaptureId: body.holdingsCaptureId, tradesCaptureId: body.tradesCaptureId,
+        ordinaryOrdersCaptureId: body.ordinaryOrdersCaptureId, conditionalOrdersCaptureId: body.conditionalOrdersCaptureId,
+        zeroNewTradesConfirmed: body.zeroNewTradesConfirmed === true,
+        zeroOrdinaryOrdersConfirmed: body.zeroOrdinaryOrdersConfirmed === true,
+        zeroConditionalOrdersConfirmed: body.zeroConditionalOrdersConfirmed === true,
+        confirmation: body.confirmation,
+      })
+    }
     return dailyReviewService.startReview({
       userId: body.userId || 'default',
       sessionType: body.sessionType || 'manual',
@@ -132,8 +145,26 @@ export async function dailyReviewRoutes(app: FastifyInstance) {
         ordinaryOrdersCaptureId: body.ordinaryOrdersCaptureId,
         conditionalOrdersCaptureId: body.conditionalOrdersCaptureId,
         zeroNewTradesConfirmed: body.zeroNewTradesConfirmed === true,
+        zeroOrdinaryOrdersConfirmed: body.zeroOrdinaryOrdersConfirmed === true,
+        zeroConditionalOrdersConfirmed: body.zeroConditionalOrdersConfirmed === true,
       },
     })
+  })
+
+  app.post<{ Params: { id: string } }>('/:id/reanchor-decisions', async (request, reply) => {
+    const body = request.body as any
+    const result = await volatilityWorkflowService.decideReanchor({
+      userId: body.userId || 'default',
+      reviewId: request.params.id,
+      versionId: body.versionId,
+      candidateHash: body.candidateHash,
+      decision: body.decision,
+      confirmedBy: body.confirmedBy,
+      acknowledgedNoBrokerExecution: body.acknowledgedNoBrokerExecution === true,
+      reason: body.reason,
+    })
+    if (result.decision?.status === 'blocked') reply.code(409)
+    return result
   })
 
   app.get('/latest', async (request) => {

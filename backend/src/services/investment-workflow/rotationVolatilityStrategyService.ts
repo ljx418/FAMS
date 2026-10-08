@@ -3,6 +3,8 @@ import { buildRelativeRotationSeries, type RotationInputPoint } from '../relativ
 import { gridStrategyService } from '../strategy/gridStrategyService.js'
 import { technicalIndicatorService, type TechnicalBar } from '../technical/technicalIndicatorService.js'
 import { investmentStrategyResultSchema, type InvestmentStrategyResult } from './investmentStrategyResultContract.js'
+import { investmentPolicyService } from '../investment-policy/investmentPolicyService.js'
+import { sha256, stableJson } from '../trade-ledger/tradeLedgerService.js'
 
 const STRATEGY_VERSION = 'rotation-volatility-hierarchical.v1'
 const PRECISE_QUOTE_MAX_AGE_MS = 15 * 60 * 1000
@@ -57,6 +59,11 @@ type StrategyRunInput = {
   positionIds?: string[]
   forceRecalculate?: boolean
   materialChange?: 'none' | 'watch' | 'material' | 'insufficient'
+  idempotencyKey?: string
+}
+
+function parseJson<T>(value: string, fallback: T): T {
+  try { return JSON.parse(value) as T } catch { return fallback }
 }
 
 function normalizeSymbol(value: string) {
@@ -119,6 +126,21 @@ function exactProhibitedActions(): ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE
 }
 
 export class RotationVolatilityStrategyService {
+  async getRun(userId: string, runId: string) {
+    const run = await prisma.investmentStrategyRun.findFirst({
+      where: { id: runId, userId },
+      include: { gridPlans: { include: { orders: { include: { events: true } } } } },
+    })
+    if (!run) throw new Error('Investment strategy run not found')
+    return {
+      ...run,
+      input: parseJson(run.inputJson, {}),
+      result: parseJson(run.resultJson, {}),
+      error: parseJson(run.errorJson, {}),
+      permissionState: { canCreateOrder: false, orderCreateAllowed: false, formalTradingUnlocked: false, autoTradeUnlocked: false },
+    }
+  }
+
   private async accountBudget(userId: string) {
     const positions = await prisma.position.findMany({
       where: { userId, status: 'open' },
@@ -151,6 +173,54 @@ export class RotationVolatilityStrategyService {
       throw new Error('Every requested position must exist in the confirmed immutable research snapshot')
     }
 
+    const runAsOf = new Date(input.snapshot.asOf)
+    if (Number.isNaN(runAsOf.getTime())) throw new Error('Research snapshot asOf is invalid')
+    const idempotencyKey = input.idempotencyKey?.trim() || `rotation-volatility:${sha256({
+      userId: input.userId,
+      snapshotId: input.snapshot.id,
+      snapshotHash: input.snapshot.inputHash,
+      positionIds: selected.map((position) => position.positionId).sort(),
+      forceRecalculate: input.forceRecalculate === true,
+      materialChange: input.materialChange || 'none',
+      strategyVersion: STRATEGY_VERSION,
+    })}`
+    const inputRecord = {
+      snapshotId: input.snapshot.id,
+      snapshotHash: input.snapshot.inputHash,
+      selectedPositionIds: selected.map((position) => position.positionId).sort(),
+      forceRecalculate: input.forceRecalculate === true,
+      materialChange: input.materialChange || 'none',
+    }
+    const existingRun = await prisma.investmentStrategyRun.findUnique({
+      where: { userId_idempotencyKey: { userId: input.userId, idempotencyKey } },
+    })
+    if (existingRun) {
+      if (existingRun.inputJson !== stableJson(inputRecord)) {
+        const error = new Error('The strategy run idempotency key was already used with different content') as Error & { statusCode?: number; code?: string }
+        error.statusCode = 409
+        error.code = 'STRATEGY_RUN_IDEMPOTENCY_CONFLICT'
+        throw error
+      }
+      if (existingRun.status === 'completed') {
+        return { ...parseJson<Record<string, unknown>>(existingRun.resultJson, {}), strategyRunId: existingRun.id, idempotencyKey, reused: true }
+      }
+      const error = new Error(`Strategy run ${existingRun.id} is ${existingRun.status}; use a new idempotency key only after changing the inputs`) as Error & { statusCode?: number; code?: string }
+      error.statusCode = 409
+      error.code = 'STRATEGY_RUN_NOT_REUSABLE'
+      throw error
+    }
+    const strategyRun = await prisma.investmentStrategyRun.create({
+      data: {
+        userId: input.userId,
+        inputSnapshotId: input.snapshot.id,
+        strategyFamily: 'rotation_volatility',
+        strategyVersion: STRATEGY_VERSION,
+        idempotencyKey,
+        inputJson: stableJson(inputRecord),
+      },
+    })
+
+    try {
     const barsByPosition = input.snapshot.input.positions.map((position) => ({
       position,
       bars: [...(input.snapshot.input.dailyBars[normalizeSymbol(position.symbol)] || [])].sort((left, right) => left.tradeDate.localeCompare(right.tradeDate)),
@@ -162,10 +232,24 @@ export class RotationVolatilityStrategyService {
       grouped.set(key, [...(grouped.get(key) || []), item])
     }
     const { portfolioValue, cashBudget } = await this.accountBudget(input.userId)
+    const latestReconciliation = await prisma.tradeReconciliationRun.findFirst({
+      where: { userId: input.userId, asOf: { lte: runAsOf } },
+      orderBy: { asOf: 'desc' },
+    })
+    const reconciliationReady = Boolean(latestReconciliation
+      && latestReconciliation.status !== 'blocked'
+      && runAsOf.getTime() - latestReconciliation.asOf.getTime() <= PRECISE_QUOTE_MAX_AGE_MS)
     const transactionCountBefore = await prisma.transaction.count({ where: { userId: input.userId } })
 
-    const targets = []
+    const targets: Array<{
+      positionId: string
+      assetId: string
+      symbol: string
+      name: string
+      result: InvestmentStrategyResult
+    }> = []
     for (const position of selected) {
+      const policyCapacity = await investmentPolicyService.getBuyCapacity(input.userId, position.assetId)
       const bars = barsByPosition.find((item) => item.position.positionId === position.positionId)?.bars || []
       const evidenceRefs = latestEvidenceRefs(bars)
       const classification = groupKey(position)
@@ -197,10 +281,10 @@ export class RotationVolatilityStrategyService {
       const dataBlocked = (input.snapshot.dataHealth.blockers || []).length > 0 || bars.length < 80
       const newBuyGatePassed = !dataBlocked && rrgPassed && trendPassed && macdPassed && volumePassed
       const priceAsOf = position.priceAsOf ? new Date(position.priceAsOf) : null
-      const preciseQuoteReady = Boolean(priceAsOf && !Number.isNaN(priceAsOf.getTime()) && Date.now() - priceAsOf.getTime() <= PRECISE_QUOTE_MAX_AGE_MS)
+      const preciseQuoteReady = Boolean(priceAsOf && !Number.isNaN(priceAsOf.getTime()) && runAsOf.getTime() - priceAsOf.getTime() <= PRECISE_QUOTE_MAX_AGE_MS)
       const materialChange = input.materialChange || 'none'
       const previousPlan = await this.latestGridPlan(input.userId, position.assetId)
-      const previousStillValid = Boolean(previousPlan?.validUntil && previousPlan.validUntil.getTime() > Date.now())
+      const previousStillValid = Boolean(previousPlan?.validUntil && previousPlan.validUntil.getTime() > runAsOf.getTime())
       const disposition = previousPlan
         ? materialChange === 'material' || materialChange === 'insufficient' || !previousStillValid
           ? 'invalidate' as const
@@ -220,7 +304,7 @@ export class RotationVolatilityStrategyService {
 
       let manualOrderDrafts: InvestmentStrategyResult['manualOrderDrafts'] = []
       let gridBlockers: string[] = []
-      if (previousPlan && disposition === 'reuse') {
+      if (previousPlan && disposition === 'reuse' && reconciliationReady) {
         manualOrderDrafts = previousPlan.orders.map((order) => ({
           side: order.side.toUpperCase() as 'BUY' | 'SELL',
           price: order.price,
@@ -230,16 +314,27 @@ export class RotationVolatilityStrategyService {
           invalidationConditions: ['计划到期', '波动状态变化', '出现重大事实变化', '用户明确重算'],
           createsOrder: false as const,
         }))
-      } else if (newBuyGatePassed && preciseQuoteReady && close !== null) {
+      } else if (newBuyGatePassed && preciseQuoteReady && reconciliationReady && close !== null) {
+        const baseConfig = gridStrategyService.getTemplate('trend_pullback_v1')
+        const config = policyCapacity?.rotationRiskPolicy ? {
+          ...baseConfig,
+          riskPolicy: {
+            ...baseConfig.riskPolicy,
+            maxAssetWeightPercent: policyCapacity.rotationRiskPolicy.maxAssetWeightPercent,
+            cashFloorPercent: policyCapacity.rotationRiskPolicy.cashFloorPercent,
+          },
+        } : baseConfig
         const draft = gridStrategyService.buildGridDraft({
-          config: gridStrategyService.getTemplate('trend_pullback_v1'),
+          config,
           assetType: position.type,
           market: position.exchange === 'HK' ? 'HK' : 'CN',
           currentPrice: position.currentPrice || close,
           avgCost: position.avgCost,
           quantity: position.quantity,
           cashBudget,
-          availablePortfolioBuyBudget: cashBudget,
+          availablePortfolioBuyBudget: policyCapacity
+            ? Math.min(cashBudget, policyCapacity.availableBuyBudget)
+            : cashBudget,
           portfolioValue,
           currentMarketValue: position.marketValue || position.quantity * (position.currentPrice || close),
           completedBars: bars.length,
@@ -251,8 +346,11 @@ export class RotationVolatilityStrategyService {
           atr14: numberOrNull(technical.indicators.atr14.value),
           support: technical.indicators.supportResistance20.value?.support || null,
           resistance: technical.indicators.supportResistance20.value?.resistance || null,
+          // Strategy runs are immutable replays of the research snapshot. Session
+          // validity must therefore use the snapshot clock, never wall-clock time.
+          now: runAsOf,
         })
-        gridBlockers = draft.blockers
+        gridBlockers = [...new Set([...draft.blockers, ...(policyCapacity?.blockers || [])])]
         manualOrderDrafts = draft.orders.map((order) => ({
           side: String(order.side).toUpperCase() as 'BUY' | 'SELL',
           price: Number(order.price),
@@ -265,6 +363,7 @@ export class RotationVolatilityStrategyService {
       } else {
         if (!newBuyGatePassed) gridBlockers.push('hierarchical_new_buy_gate_not_passed')
         if (!preciseQuoteReady) gridBlockers.push('precise_quote_within_15_minutes_unavailable')
+        if (!reconciliationReady) gridBlockers.push('fresh_trade_reconciliation_required')
       }
 
       const blockedReasons = [...new Set([
@@ -296,6 +395,7 @@ export class RotationVolatilityStrategyService {
           warnings: [
             ...(input.snapshot.dataHealth.warnings || []),
             ...(!preciseQuoteReady ? ['缺少 15 分钟内报价，仅展示研究结论，不新生成精确价格和数量。'] : []),
+            ...(!reconciliationReady ? ['缺少 15 分钟内 ready/warning 对账运行，仅展示研究结论，不新生成或复用精确拟单。'] : []),
           ],
         },
         conclusion: {
@@ -354,21 +454,137 @@ export class RotationVolatilityStrategyService {
 
     const transactionCountAfter = await prisma.transaction.count({ where: { userId: input.userId } })
     if (transactionCountAfter !== transactionCountBefore) throw new Error('Strategy run violated the no-transaction-side-effect invariant')
-    return {
-      schemaVersion: 'fams.investment-strategy-run.v1',
-      generatedAt: new Date().toISOString(),
-      strategyFamily: 'rotation_volatility' as const,
-      inputSnapshotId: input.snapshot.id,
-      snapshotHash: input.snapshot.inputHash,
-      targets,
-      transactionSideEffectCount: 0,
-      permissionState: {
-        formalTradingUnlocked: false,
-        autoTradeUnlocked: false,
-        canCreateOrder: false,
-        orderCreateAllowed: false,
-        prohibitedActions: exactProhibitedActions(),
-      },
+    const completedResult = await prisma.$transaction(async (tx) => {
+      const records: Array<Record<string, unknown>> = []
+      for (const target of targets) {
+        const comparison = target.result.previousPlanComparison
+        if (comparison?.disposition === 'reuse') {
+          records.push({ ...target, gridPlanId: comparison.previousPlanId, planDisposition: 'reuse' })
+          continue
+        }
+        if (comparison?.disposition === 'invalidate') {
+          const previousOrders = await tx.gridOrderDraft.findMany({
+            where: { gridPlanId: comparison.previousPlanId, status: { notIn: ['filled', 'cancelled', 'expired', 'superseded'] } },
+          })
+          for (const order of previousOrders) {
+            await tx.gridOrderDraftEvent.create({
+              data: {
+                gridOrderDraftId: order.id,
+                idempotencyKey: `superseded:${strategyRun.id}`,
+                eventType: 'superseded',
+                sourceType: 'system',
+                sourceRef: `investment_strategy_run:${strategyRun.id}`,
+                metadataJson: stableJson({ reasons: comparison.reasons }),
+              },
+            })
+            await tx.gridOrderDraft.update({ where: { id: order.id }, data: { status: 'superseded' } })
+          }
+          await tx.gridPlan.updateMany({ where: { id: comparison.previousPlanId }, data: { status: 'superseded' } })
+        }
+        const validUntilValues = target.result.manualOrderDrafts
+          .map((order) => new Date(order.validUntil))
+          .filter((value) => !Number.isNaN(value.getTime()))
+        const validUntil = validUntilValues.length > 0
+          ? new Date(Math.min(...validUntilValues.map((value) => value.getTime())))
+          : null
+        const gridPlan = await tx.gridPlan.create({
+          data: {
+            userId: input.userId,
+            investmentStrategyRunId: strategyRun.id,
+            assetId: target.assetId,
+            previousPlanId: comparison?.previousPlanId || null,
+            mode: 'rotation_volatility',
+            status: target.result.manualOrderDrafts.length > 0 ? 'draft' : 'observe_only',
+            summary: target.result.conclusion.summary,
+            constraintsJson: stableJson({
+              signalLayers: target.result.signalLayers,
+              invalidationConditions: target.result.invalidationConditions,
+              blockedReasons: target.result.blockedReasons,
+              permissionState: target.result.permissionState,
+              inputSnapshotId: input.snapshot.id,
+              snapshotHash: input.snapshot.inputHash,
+              reconciliationRunId: latestReconciliation?.id || null,
+              reconciliationStatus: latestReconciliation?.status || 'missing',
+            }),
+            changeReasonsJson: stableJson(comparison?.reasons || ['initial_strategy_plan']),
+            evidenceRefsJson: stableJson(target.result.evidenceRefs),
+            validUntil,
+            orders: {
+              create: target.result.manualOrderDrafts.map((order, index) => ({
+                side: order.side.toLowerCase(),
+                level: index + 1,
+                price: order.price,
+                quantity: order.quantity,
+                amount: order.price * order.quantity,
+                validUntil: new Date(order.validUntil),
+                triggerConditionJson: stableJson({ invalidationConditions: order.invalidationConditions, createsOrder: false }),
+                rationale: order.rationale,
+                evidenceRefsJson: stableJson(target.result.evidenceRefs),
+                status: 'proposed',
+                events: {
+                  create: {
+                    idempotencyKey: `proposed:${strategyRun.id}:${index + 1}`,
+                    eventType: 'proposed',
+                    quantity: order.quantity,
+                    price: order.price,
+                    sourceType: 'system',
+                    sourceRef: `investment_strategy_run:${strategyRun.id}`,
+                    evidenceRefsJson: stableJson(target.result.evidenceRefs),
+                    metadataJson: stableJson({ level: index + 1, createsOrder: false }),
+                    occurredAt: runAsOf,
+                  },
+                },
+              })),
+            },
+          },
+          include: { orders: { include: { events: true }, orderBy: [{ side: 'asc' }, { level: 'asc' }] } },
+        })
+        records.push({ ...target, gridPlanId: gridPlan.id, planDisposition: comparison?.disposition || 'create', gridPlan })
+      }
+      const result = {
+        schemaVersion: 'fams.investment-strategy-run.v1',
+        generatedAt: new Date().toISOString(),
+        strategyFamily: 'rotation_volatility' as const,
+        inputSnapshotId: input.snapshot.id,
+        snapshotHash: input.snapshot.inputHash,
+        strategyRunId: strategyRun.id,
+        idempotencyKey,
+        reused: false,
+        targets: records,
+        transactionSideEffectCount: 0,
+        permissionState: {
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          canCreateOrder: false,
+          orderCreateAllowed: false,
+          prohibitedActions: exactProhibitedActions(),
+        },
+      }
+      await tx.investmentStrategyRun.update({
+        where: { id: strategyRun.id },
+        data: {
+          status: 'completed',
+          resultJson: stableJson(result),
+          resultHash: sha256(result),
+          completedAt: new Date(),
+        },
+      })
+      return result
+    })
+    return completedResult
+    } catch (error) {
+      await prisma.investmentStrategyRun.update({
+        where: { id: strategyRun.id },
+        data: {
+          status: 'failed',
+          errorJson: stableJson({
+            code: (error as { code?: string }).code || 'STRATEGY_RUN_FAILED',
+            message: error instanceof Error ? error.message : String(error),
+          }),
+          completedAt: new Date(),
+        },
+      }).catch(() => undefined)
+      throw error
     }
   }
 }

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { prisma } from '../../db/prisma.js'
 import { ALIPAY_ALLOCATION_STRATEGY } from '../allocation/alipayAllocationStrategy.js'
 import { getJsonWithCurlOnly, getTextWithCurlOnly } from '../../utils/httpJson.js'
@@ -78,6 +79,8 @@ function businessDayLag(older: string | null, newer: string | null) {
 }
 
 class PortfolioRelativeRotationService {
+  private readonly reportCache = new Map<string, { sourceRevision: string; report: any }>()
+
   private async loadCanonical(symbol: string, preferredAdjustType: 'qfq' | 'none', days: number): Promise<RotationInputPoint[]> {
     const preferred = await prisma.marketBarCanonical.findMany({
       where: { symbol, timeframe: '1d', adjustType: preferredAdjustType, closePrice: { gt: 0 } },
@@ -106,7 +109,10 @@ class PortfolioRelativeRotationService {
     return rows.reverse().map((row) => ({ date: isoDate(row.timestamp), close: row.closePrice }))
   }
 
-  private async buildTargetMixBenchmark(days: number) {
+  private async buildTargetMixBenchmark(
+    days: number,
+    loadCanonical: (symbol: string, preferredAdjustType: 'qfq' | 'none', days: number) => Promise<RotationInputPoint[]> = (symbol, adjustType, requestedDays) => this.loadCanonical(symbol, adjustType, requestedDays),
+  ) {
     const components = [
       { key: 'equity', symbol: '000300.SH', name: '沪深300价格指数', weight: ALIPAY_ALLOCATION_STRATEGY.weights.equity, adjustType: 'none' as const },
       { key: 'gold', symbol: '518880', name: '华安黄金ETF', weight: ALIPAY_ALLOCATION_STRATEGY.weights.gold, adjustType: 'qfq' as const },
@@ -114,7 +120,7 @@ class PortfolioRelativeRotationService {
     ] as const
     const histories = await Promise.all(components.map(async (component) => ({
       ...component,
-      points: await this.loadCanonical(component.symbol, component.adjustType, days),
+      points: await loadCanonical(component.symbol, component.adjustType, days),
     })))
     const maps = histories.map((component) => new Map(component.points.map((point) => [point.date, point.close])))
     const commonDates = histories[0].points
@@ -283,10 +289,67 @@ class PortfolioRelativeRotationService {
     }
   }
 
-  async refresh(userId = 'default') {
+  private async buildSourceRevision(positions: Array<{
+    id: string
+    assetId: string
+    quantity: number
+    marketValue: number | null
+    updatedAt: Date
+    asset: { symbol: string }
+  }>) {
+    const assetIds = positions.map((position) => position.assetId)
+    const symbols = Array.from(new Set([
+      ...positions.map((position) => position.asset.symbol),
+      '000300.SH', '518880', '511010', '^HSI',
+    ]))
+    const [priceRevision, canonicalRevision] = await Promise.all([
+      assetIds.length > 0
+        ? prisma.priceHistory.aggregate({ where: { assetId: { in: assetIds } }, _max: { createdAt: true } })
+        : Promise.resolve({ _max: { createdAt: null as Date | null } }),
+      prisma.marketBarCanonical.aggregate({
+        where: {
+          OR: [
+            ...(assetIds.length > 0 ? [{ assetId: { in: assetIds } }] : []),
+            { symbol: { in: symbols } },
+          ],
+        },
+        _max: { updatedAt: true },
+      }),
+    ])
+    const source = {
+      positions: positions.map((position) => ({
+        id: position.id,
+        assetId: position.assetId,
+        symbol: position.asset.symbol,
+        quantity: position.quantity,
+        marketValue: position.marketValue,
+        updatedAt: position.updatedAt.toISOString(),
+      })),
+      priceHistoryUpdatedAt: priceRevision._max.createdAt?.toISOString() || null,
+      canonicalUpdatedAt: canonicalRevision._max.updatedAt?.toISOString() || null,
+    }
+    return createHash('sha256').update(JSON.stringify(source)).digest('hex')
+  }
+
+  private invalidateUserCache(userId: string) {
+    for (const key of this.reportCache.keys()) {
+      if (key.startsWith(`${userId}:`)) this.reportCache.delete(key)
+    }
+  }
+
+  async refresh(userId = 'default', targetKeys: string[] = []) {
     await ensureUser(prisma, userId)
+    const requestedAssetIds = new Set(
+      targetKeys
+        .filter((targetKey) => targetKey.startsWith('ASSET:'))
+        .map((targetKey) => targetKey.slice('ASSET:'.length)),
+    )
     const positions = await prisma.position.findMany({
-      where: { userId, status: 'open', asset: { type: { in: ['fund', 'bond', 'bond_fund', 'gold'] } } },
+      where: {
+        userId,
+        status: 'open',
+        ...(requestedAssetIds.size > 0 ? { assetId: { in: Array.from(requestedAssetIds) } } : {}),
+      },
       include: { asset: true },
       orderBy: { marketValue: 'desc' },
     })
@@ -311,14 +374,27 @@ class PortfolioRelativeRotationService {
         results.push({ symbol: benchmark.symbol, source: 'canonical_market_bar_refresh', records: 0, status: 'failed', error: error instanceof Error ? error.message : String(error) })
       }
     }
-    try {
-      results.push(await this.refreshHsiBenchmark())
-    } catch (error) {
-      results.push({ symbol: '^HSI', source: 'tencent_hk_price_index', records: 0, status: 'failed', error: error instanceof Error ? error.message : String(error) })
+    if (positions.some((position) => groupFor(position) === 'hk_equity') || requestedAssetIds.size === 0) {
+      try {
+        results.push(await this.refreshHsiBenchmark())
+      } catch (error) {
+        results.push({ symbol: '^HSI', source: 'tencent_hk_price_index', records: 0, status: 'failed', error: error instanceof Error ? error.message : String(error) })
+      }
     }
     for (const position of positions) {
       try {
-        results.push(await this.refreshFund(position.assetId, position.asset.symbol))
+        if (position.asset.type === 'stock' || position.asset.type === 'etf') {
+          const rows = await relativeRotationService.ensureQfqHistory(position.asset.symbol, { days: 2_340, refresh: true })
+          results.push({
+            symbol: position.asset.symbol,
+            source: 'canonical_adjusted_close_refresh',
+            records: rows.length,
+            lastDate: rows.at(-1)?.date || null,
+            status: rows.length > 0 ? 'completed' : 'failed',
+          })
+        } else {
+          results.push(await this.refreshFund(position.assetId, position.asset.symbol))
+        }
       } catch (error) {
         results.push({
           symbol: position.asset.symbol,
@@ -331,10 +407,12 @@ class PortfolioRelativeRotationService {
         })
       }
     }
+    this.invalidateUserCache(userId)
     return {
       schemaVersion: 'fams.relative_rotation.portfolio_refresh.v1',
       generatedAt: new Date().toISOString(),
-      requestedTargets: positions.length + 4,
+      targetKeys: targetKeys.length > 0 ? targetKeys : positions.map((position) => `ASSET:${position.assetId}`),
+      requestedTargets: results.length,
       completedTargets: results.filter((result) => result.status === 'completed').length,
       results,
     }
@@ -356,6 +434,34 @@ class PortfolioRelativeRotationService {
       include: { asset: true },
       orderBy: [{ marketValue: 'desc' }, { createdAt: 'asc' }],
     })
+    const sourceRevision = await this.buildSourceRevision(positions)
+    const cacheKey = `${userId}:${frequency}:${years}:${freshnessReferenceDate}`
+    const cached = this.reportCache.get(cacheKey)
+    if (cached?.sourceRevision === sourceRevision) {
+      return {
+        ...cached.report,
+        cacheStatus: 'hit',
+      }
+    }
+
+    const canonicalLoads = new Map<string, Promise<RotationInputPoint[]>>()
+    const fundLoads = new Map<string, Promise<RotationInputPoint[]>>()
+    const loadCanonicalOnce = (symbol: string, preferredAdjustType: 'qfq' | 'none', requestedDays: number) => {
+      const key = `${symbol}:${preferredAdjustType}:${requestedDays}`
+      const existing = canonicalLoads.get(key)
+      if (existing) return existing
+      const pending = this.loadCanonical(symbol, preferredAdjustType, requestedDays)
+      canonicalLoads.set(key, pending)
+      return pending
+    }
+    const loadFundOnce = (assetId: string, requestedDays: number) => {
+      const key = `${assetId}:${requestedDays}`
+      const existing = fundLoads.get(key)
+      if (existing) return existing
+      const pending = this.loadFundHistory(assetId, requestedDays)
+      fundLoads.set(key, pending)
+      return pending
+    }
     const positionsByGroup = new Map<PortfolioGroupKey, typeof positions>()
     for (const key of Object.keys(GROUPS) as PortfolioGroupKey[]) positionsByGroup.set(key, [])
     for (const position of positions) {
@@ -376,16 +482,16 @@ class PortfolioRelativeRotationService {
         })
         continue
       }
-      const composite = key === 'all' ? await this.buildTargetMixBenchmark(days) : null
+      const composite = key === 'all' ? await this.buildTargetMixBenchmark(days, loadCanonicalOnce) : null
       const benchmarkAdjustType = key === 'gold' || key === 'bond' ? 'qfq' : 'none'
-      const benchmark = composite?.points || await this.loadCanonical(definition.benchmarkSymbol!, benchmarkAdjustType, days)
+      const benchmark = composite?.points || await loadCanonicalOnce(definition.benchmarkSymbol!, benchmarkAdjustType, days)
       const cashPositions = key === 'all' ? groupPositions.filter((position) => groupFor(position) === 'cash') : []
       const pricePositions = groupPositions.filter((position) => groupFor(position) !== 'cash')
       const loadedAssets = await Promise.all(pricePositions.map(async (position) => ({
         position,
         history: position.asset.type === 'stock' || position.asset.type === 'etf'
-          ? await this.loadCanonical(position.asset.symbol, 'qfq', days)
-          : await this.loadFundHistory(position.assetId, days),
+          ? await loadCanonicalOnce(position.asset.symbol, 'qfq', days)
+          : await loadFundOnce(position.assetId, days),
       })))
       const groupAsOfDate = freshnessReferenceDate
       const benchmarkFreshnessLag = businessDayLag(benchmark.at(-1)?.date || null, groupAsOfDate)
@@ -458,9 +564,16 @@ class PortfolioRelativeRotationService {
       })
     }
     const items: any[] = groups.find((group) => group.key === 'all')?.items || []
-    return {
+    const report = {
       schemaVersion: 'fams.relative_rotation.portfolio_universe.v2',
       generatedAt: new Date().toISOString(),
+      sourceRevision,
+      cacheStatus: 'computed',
+      observedThrough: groups
+        .flatMap((group) => [group.benchmark?.asOfDate, ...group.items.map((item: any) => item.assetAsOfDate)])
+        .filter(Boolean)
+        .sort()
+        .at(-1) || null,
       universe: 'all_current_holdings',
       formulaVersion: RELATIVE_ROTATION_FORMULA_VERSION,
       frequency,
@@ -490,6 +603,8 @@ class PortfolioRelativeRotationService {
       },
       notTradingAdvice: true,
     }
+    this.reportCache.set(cacheKey, { sourceRevision, report })
+    return report
   }
 }
 

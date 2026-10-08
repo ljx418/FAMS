@@ -21,9 +21,12 @@ type StrategyResult = {
 }
 
 type StrategyRun = {
+  strategyRunId: string
+  idempotencyKey: string
+  reused: boolean
   inputSnapshotId: string
   snapshotHash: string
-  targets: Array<{ positionId: string; symbol: string; name: string; result: StrategyResult }>
+  targets: Array<{ positionId: string; symbol: string; name: string; gridPlanId: string; planDisposition: string; gridPlan?: { orders?: Array<{ id: string; side: string; level: number }> }; result: StrategyResult }>
   transactionSideEffectCount: number
 }
 
@@ -116,6 +119,12 @@ export function RotationStrategyDecisionPanel({ userId = 'default' }: { userId?:
         {error && <Alert className="mt-4" type="error" showIcon message="策略运行未完成" description={error} />}
         {run && (
           <div className="mt-5 space-y-4" data-testid="rotation-strategy-results">
+            <Alert
+              type="success"
+              showIcon
+              message={`策略运行已留痕：${run.strategyRunId}`}
+              description={`研究快照 ${run.inputSnapshotId}；幂等键 ${run.idempotencyKey}；${run.reused ? '本次复用了同一运行，未复制计划网格。' : '本次创建了不可变运行记录。'} 计划不等于委托。`}
+            />
             {run.targets.map((target) => {
               const meta = statusMeta[target.result.conclusion.status] || { color: 'default', label: target.result.conclusion.status }
               return (
@@ -128,6 +137,7 @@ export function RotationStrategyDecisionPanel({ userId = 'default' }: { userId?:
                     <Tag color={meta.color}>{meta.label}</Tag>
                   </div>
                   <p className="mb-0 mt-3 text-sm leading-6 text-slate-700">{target.result.conclusion.summary}</p>
+                  <div className="mt-2 break-all text-xs text-slate-500">计划 ID：{target.gridPlanId || '仅观察未生成'} · 处理：{target.planDisposition || 'unknown'} · 草案 ID：{target.gridPlan?.orders?.map((order) => order.id).join('、') || '无'}</div>
                   <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {target.result.signalLayers.map((layer) => {
                       const layerMeta = statusMeta[layer.status] || { color: 'default', label: layer.status }

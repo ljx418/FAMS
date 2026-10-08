@@ -13,6 +13,9 @@
     "verify:daily-review-cdp": "node scripts/verify-daily-review-cdp.mjs",
     "verify:fivd-r-runtime": "node scripts/verify-fivd-r-runtime.mjs",
     "verify:relative-rotation-watchlist-runtime": "node scripts/verify-relative-rotation-watchlist-runtime.mjs",
+    "verify:usability-grid-replay-runtime": "node scripts/verify-usability-grid-replay-runtime.mjs",
+    "verify:grid-replay-runtime": "node scripts/verify-grid-replay-runtime.mjs",
+    "verify:investment-policy-runtime": "node scripts/verify-investment-policy-runtime.mjs",
     "verify:v2-px-host-bridge": "node scripts/verify-v2-px-host-bridge.mjs",
     "verify:daily-review-static-report": "node scripts/verify-static-daily-review-report.mjs",
     "verify:alipay-threshold-sensitivity": "node scripts/verify-alipay-ytd-threshold-sensitivity-runtime.mjs"

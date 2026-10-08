@@ -119,9 +119,12 @@ FamsChatBox / Backtest / DividendLowVol
   -> Operations / Backtest / ChatBox explanation
 
 Assets / Positions / RelativeRotation / DividendLowVol / Backtest / DailyReviews
-  -> position.ts / investmentWorkflow.ts / backtest.ts / dailyReview.ts
+  -> position.ts / investmentWorkflow.ts / investmentPolicy.ts / backtest.ts / dailyReview.ts
+  -> InvestmentPolicyVersion / InvestmentPolicyAssetOverride / InvestmentPolicyEvaluationSnapshot
+  -> InvestmentPolicyService（草案、显式激活、真实持仓评估、新增风险容量）
   -> PositionStrategyAssignmentService
   -> RotationVolatilityStrategyService / DividendLowVolStrategyService / AlipayAllocationStrategy
+  -> InvestmentPolicyService.getBuyCapacity（轮动网格 + 红利人工草案新增风险门禁）
   -> ScenarioComparisonService
   -> Operation / WF audit artifacts
   -> ChatBox / expert pages / DailyReviews explanation
@@ -135,6 +138,11 @@ Assets / Positions / RelativeRotation / DividendLowVol / Backtest / DailyReviews
 - 前端只显示 gate 结果和可执行的恢复动作，不根据 UI 状态自行推导交易权限。
 - 任一入口都必须读取同一交易边界合同。
 - 场景比较只消费已声明的数据与 advice artifact；在 `point_in_time_simulation` 完成前，不得把静态建议外推冒充逐日历史建议。
+- 统一投资政策先识别组合外备用现金，再以首次草案 `50/30/20` 管理三类策略预算；目标与用户警示区间只产生告警，不自动再平衡。
+- 活动投资政策不可原地修改；单标的覆盖必须绑定草案版本和审计理由。单标的或行业容量耗尽时只阻断新增买入研究草案，不自动卖出现有仓位。
+- 每用户同时最多一份草案和一份活动政策；激活、旧版替换与评估快照必须在同一事务中完成。
+- 全局行业上限与红利低波专属行业上限分别计算；缺行业事实时不做“未分类行业”伪聚合，并阻断该标的的新增风险。
+- 当前支付宝高防御/永久组合合同在用户显式激活统一政策前继续生效；投资政策激活不解锁任何交易权限。
 
 ## 5. 状态演进关系
 

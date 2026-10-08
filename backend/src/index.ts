@@ -39,6 +39,8 @@ import { runtimeHealthService } from './services/runtime/runtimeHealthService.js
 import { dailyReviewRoutes } from './routes/dailyReview.js'
 import { captureRoutes } from './routes/capture.js'
 import { investmentWorkflowRoutes } from './routes/investmentWorkflow.js'
+import { investmentPolicyRoutes } from './routes/investmentPolicy.js'
+import { tradeLedgerRoutes } from './routes/tradeLedger.js'
 import { dailyReviewScheduler } from './services/review/dailyReviewScheduler.js'
 import { dailyReviewService } from './services/review/dailyReviewService.js'
 import { alipayResearchWorkflowScheduler } from './services/review/alipayResearchWorkflowScheduler.js'
@@ -164,6 +166,8 @@ async function registerRoutes() {
   await app.register(dailyReviewRoutes, { prefix: '/api/v1/daily-reviews' })
   await app.register(captureRoutes, { prefix: '/api/v1/captures' })
   await app.register(investmentWorkflowRoutes, { prefix: '/api/v1/investment-workflow' })
+  await app.register(investmentPolicyRoutes, { prefix: '/api/v1/investment-policy' })
+  await app.register(tradeLedgerRoutes, { prefix: '/api/v1/trade-ledger' })
 
   // AI Agent相关路由
   await app.register(mcpRouter, { prefix: '/api/v1/mcp' })

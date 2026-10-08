@@ -3,6 +3,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { prisma } from '../../db/prisma.js'
 import { ensureUser } from '../../utils/user.js'
+import { tradeLedgerService } from '../trade-ledger/tradeLedgerService.js'
+import { downtrendReanchorService } from '../strategy/downtrendReanchorService.js'
 
 export type BrokerReviewSession = 'open' | 'pre_close' | 'manual'
 
@@ -14,6 +16,13 @@ export interface BrokerReviewReconciliationInput {
   ordinaryOrdersCaptureId?: string
   conditionalOrdersCaptureId?: string
   zeroNewTradesConfirmed?: boolean
+  zeroOrdinaryOrdersConfirmed?: boolean
+  zeroConditionalOrdersConfirmed?: boolean
+  singleConfirmation?: { confirmedBy: string; confirmedAt: string }
+  idempotencyKey?: string
+  ingestionBatchId?: string
+  dailyReviewRunId?: string
+  persist?: boolean
   now?: Date
 }
 
@@ -116,7 +125,7 @@ class BrokerReviewReconciliationService {
     if (captureId) {
       const capture = await prisma.screenshotCapture.findFirst({
         where: { id: captureId, userId, status: { in: ['confirmed', 'partially_confirmed'] } },
-        include: { rows: { include: { externalOrderObservation: true }, orderBy: { rowIndex: 'asc' } } },
+        include: { rows: { include: { externalOrderObservation: { select: { id: true, externalOrderId: true, side: true, status: true, quantity: true, filledQuantity: true, limitPrice: true } } }, orderBy: { rowIndex: 'asc' } } },
       })
       if (!capture) throw new Error(`confirmed_${role}_capture_not_found:${captureId}`)
       if (!this.captureMatchesRole(capture, role)) throw new Error(`confirmed_${role}_capture_is_not_broker_${role}:${captureId}`)
@@ -129,7 +138,7 @@ class BrokerReviewReconciliationService {
         status: { in: ['confirmed', 'partially_confirmed'] },
         rows: { some: { rowType: { in: rowTypes }, status: 'confirmed' } },
       },
-      include: { rows: { include: { externalOrderObservation: true }, orderBy: { rowIndex: 'asc' } } },
+      include: { rows: { include: { externalOrderObservation: { select: { id: true, externalOrderId: true, side: true, status: true, quantity: true, filledQuantity: true, limitPrice: true } } }, orderBy: { rowIndex: 'asc' } } },
       orderBy: [{ confirmedAt: 'desc' }, { createdAt: 'desc' }],
       take: 20,
     })
@@ -247,20 +256,44 @@ class BrokerReviewReconciliationService {
     await ensureUser(prisma, input.userId)
     const now = input.now || new Date()
     const { state, sourcePath, error: stateError } = await this.loadStrategyState()
+    const legacyDowntrendConfigs = Object.fromEntries((state?.positions || [])
+      .filter((position: any) => position.downtrend_grid)
+      .map((position: any) => [String(position.symbol), position.downtrend_grid]))
+    const resolvedDowntrendConfigs = await downtrendReanchorService.resolveConfigs(input.userId, legacyDowntrendConfigs)
     const [holdingsCapture, tradesCapture, ordinaryCapture, conditionalCapture, positions, transactions] = await Promise.all([
       this.captureByRole(input.userId, input.holdingsCaptureId, 'holding'),
       this.captureByRole(input.userId, input.tradesCaptureId, 'trade'),
       this.captureByRole(input.userId, input.ordinaryOrdersCaptureId, 'ordinary'),
       this.captureByRole(input.userId, input.conditionalOrdersCaptureId, 'conditional'),
       prisma.position.findMany({ where: { userId: input.userId, status: 'open' }, include: { asset: true } }),
-      prisma.transaction.findMany({ where: { userId: input.userId }, include: { asset: true }, orderBy: { executedAt: 'desc' } }),
+      prisma.transaction.findMany({
+        where: { userId: input.userId },
+        select: { id: true, type: true, quantity: true, price: true, executedAt: true, sourceImportKey: true, asset: { select: { symbol: true } } },
+        orderBy: { executedAt: 'desc' },
+      }),
     ])
-    const holdingFreshness = captureFreshness(holdingsCapture, now)
-    const tradeFreshness = input.zeroNewTradesConfirmed
-      ? { status: 'explicit_zero_confirmation' as const, asOf: now.toISOString(), ageSeconds: 0, fresh: true }
-      : captureFreshness(tradesCapture, now)
-    const ordinaryFreshness = captureFreshness(ordinaryCapture, now)
-    const conditionalFreshness = captureFreshness(conditionalCapture, now)
+    const singleConfirmedAt = input.singleConfirmation?.confirmedBy?.trim()
+      ? new Date(input.singleConfirmation.confirmedAt)
+      : null
+    const singleConfirmationFresh = Boolean(singleConfirmedAt
+      && !Number.isNaN(singleConfirmedAt.getTime())
+      && singleConfirmedAt.getTime() <= now.getTime() + 60_000
+      && now.getTime() - singleConfirmedAt.getTime() <= CAPTURE_FRESHNESS_MS)
+    const confirmedFreshness = (capture: any) => singleConfirmationFresh && capture
+      ? { status: 'single_confirmation' as const, asOf: singleConfirmedAt!.toISOString(), ageSeconds: Math.max(0, Math.round((now.getTime() - singleConfirmedAt!.getTime()) / 1000)), fresh: true }
+      : captureFreshness(capture, now)
+    const holdingFreshness = confirmedFreshness(holdingsCapture)
+    const zeroFreshness = (requested: boolean | undefined) => requested && singleConfirmationFresh
+      ? { status: 'explicit_zero_confirmation' as const, asOf: singleConfirmedAt!.toISOString(), ageSeconds: Math.max(0, Math.round((now.getTime() - singleConfirmedAt!.getTime()) / 1000)), fresh: true }
+      : requested
+        ? { status: 'zero_confirmation_requested' as const, asOf: null, ageSeconds: null, fresh: false }
+        : null
+    const tradeFreshness = zeroFreshness(input.zeroNewTradesConfirmed)
+      || confirmedFreshness(tradesCapture)
+    const ordinaryFreshness = zeroFreshness(input.zeroOrdinaryOrdersConfirmed)
+      || confirmedFreshness(ordinaryCapture)
+    const conditionalFreshness = zeroFreshness(input.zeroConditionalOrdersConfirmed)
+      || confirmedFreshness(conditionalCapture)
     const ordersFullyReconciled = ordinaryFreshness.fresh && conditionalFreshness.fresh
     // A stale broker capture must not override a newer handoff snapshot. It is
     // still retained below as reconciliation evidence, while order readiness
@@ -336,15 +369,20 @@ class BrokerReviewReconciliationService {
     if (!ordinaryFreshness.fresh) differences.push({ scope: 'capture', role: 'ordinary_orders', severity: 'warning', message: '普通委托未提供或已过期；新增候选必须在同花顺人工查重。', action: 'manual_dedup' })
     if (!conditionalFreshness.fresh) differences.push({ scope: 'capture', role: 'conditional_orders', severity: 'warning', message: '条件单未提供或已过期；不能给出确定的保留或撤销结论。', action: 'manual_dedup' })
 
-    const ordinaryOrders = this.observedOrders(ordinaryCapture, 'ordinary')
-    const conditionalOrders = this.observedOrders(conditionalCapture, 'conditional')
+    const ordinaryOrders = input.zeroOrdinaryOrdersConfirmed ? [] : this.observedOrders(ordinaryCapture, 'ordinary')
+    const conditionalOrders = input.zeroConditionalOrdersConfirmed ? [] : this.observedOrders(conditionalCapture, 'conditional')
     const retained: any[] = []
     const cancelCandidates: any[] = []
     const addCandidates: any[] = []
     const blockedOrders: any[] = []
     const matchedIds = new Set<string>()
-    const downtrendLevels = state?.grid_policy?.mode === 'downtrend_defensive'
-      ? (state?.positions || []).flatMap((position: any) => (position.downtrend_grid?.levels || []).map((level: any) => ({ ...level, symbol: position.symbol })))
+    const downtrendLevels = resolvedDowntrendConfigs.size > 0
+      ? [...resolvedDowntrendConfigs.values()].flatMap((resolved) => (resolved.config.levels || []).map((level: any) => ({
+          ...level,
+          symbol: resolved.symbol,
+          effectiveSource: resolved.source,
+          sourceStrategyVersionId: resolved.sourceStrategyVersionId,
+        })))
       : []
     const pendingProposals = downtrendLevels.length > 0
       ? downtrendLevels.filter((level: any) => level.activationStatus !== 'awaiting_parent_fill').map((level: any) => ({
@@ -356,7 +394,8 @@ class BrokerReviewReconciliationService {
           purpose: level.orderRole,
           order_role: level.orderRole,
           activation_status: level.activationStatus,
-          source_id: 'A_DOWNTREND_PLAN_20260911',
+          source_id: level.sourceStrategyVersionId ? `strategy_version:${level.sourceStrategyVersionId}` : 'strategy_state:downtrend_grid',
+          strategy_source: level.effectiveSource,
         }))
       : state?.pending_order_proposals || []
     const conditionalProposals = downtrendLevels.length > 0
@@ -369,6 +408,8 @@ class BrokerReviewReconciliationService {
           max_quantity: level.quantity,
           order_role: level.orderRole,
           activation_status: level.activationStatus,
+          source_id: level.sourceStrategyVersionId ? `strategy_version:${level.sourceStrategyVersionId}` : 'strategy_state:downtrend_grid',
+          strategy_source: level.effectiveSource,
         }))
       : state?.conditional_followup_proposals || []
     for (const proposal of pendingProposals) {
@@ -378,7 +419,9 @@ class BrokerReviewReconciliationService {
         symbol: String(proposal.symbol), side: String(proposal.side).toUpperCase(),
         price: decimal(proposal.limit_price, 4), quantity: decimal(proposal.quantity, 4),
         purpose: proposal.purpose, orderRole: proposal.order_role || proposal.purpose,
-        activationStatus: proposal.activation_status || 'active', authority: 'assistant_proposal', approved: false,
+        activationStatus: proposal.activation_status || 'active',
+        authority: proposal.strategy_source === 'active_strategy_version' ? 'active_strategy_version' : 'assistant_proposal',
+        approved: false,
         sourceRef: proposal.source_id, existingOrderId: match?.externalOrderId || match?.id || null,
       }
       if (proposal.activation_status && proposal.activation_status !== 'active') {
@@ -400,7 +443,8 @@ class BrokerReviewReconciliationService {
         proposalId: proposal.id, parentProposalId: proposal.parent_plan_id,
         symbol: String(proposal.symbol), side: String(proposal.side).toUpperCase(),
         price: decimal(proposal.price, 4), quantity: decimal(proposal.max_quantity, 4),
-        authority: 'assistant_proposal', approved: false, orderKind: 'conditional',
+        authority: proposal.strategy_source === 'active_strategy_version' ? 'active_strategy_version' : 'assistant_proposal',
+        approved: false, orderKind: 'conditional', sourceRef: proposal.source_id,
         orderRole: proposal.order_role || 'conditional_buyback', activationStatus: proposal.activation_status || 'awaiting_parent_fill',
         existingOrderId: match?.externalOrderId || match?.id || null,
       }
@@ -456,12 +500,15 @@ class BrokerReviewReconciliationService {
         },
         authority: 'user_confirmed', sourceRef: position.user_policy.source_id,
       })
-      if (position.downtrend_grid) rows.push({
+      const resolvedDowntrend = resolvedDowntrendConfigs.get(String(position.symbol))
+      if (resolvedDowntrend) rows.push({
         symbol: position.symbol,
         rule: 'downtrend_defensive_grid',
-        value: position.downtrend_grid,
-        authority: position.downtrend_grid.status === 'active_user_requested_draft' ? 'user_requested_assistant_draft' : 'assistant_proposal',
-        sourceRef: position.downtrend_grid.source_id || 'strategy_state:downtrend_grid',
+        value: resolvedDowntrend.config,
+        authority: resolvedDowntrend.source === 'active_strategy_version' ? 'active_strategy_version' : 'legacy_strategy_state',
+        sourceRef: resolvedDowntrend.sourceStrategyVersionId
+          ? `strategy_version:${resolvedDowntrend.sourceStrategyVersionId}`
+          : resolvedDowntrend.config.source_id || 'strategy_state:downtrend_grid',
       })
       return rows
     })
@@ -469,6 +516,19 @@ class BrokerReviewReconciliationService {
       ...(state?.unresolved_items || []).map((message: string) => ({ message, authority: 'pending_confirmation', status: 'blocked_until_confirmed' })),
       ...(stateError ? [{ message: `策略交接文件读取失败：${stateError}`, authority: 'pending_confirmation', status: 'blocking' }] : []),
     ]
+    const gridPairEvents = new Map((state?.historical_fill_ledger?.events || []).map((event: any) => [String(event.local_event_id), event]))
+    const completedGridCycles = (state?.grid_pair_ledger || [])
+      .filter((pair: any) => String(pair.status).includes('closed'))
+      .map((pair: any) => {
+        const closingEvent: any = gridPairEvents.get(String(pair.buy_event || pair.closing_event || ''))
+        return {
+          pairId: pair.pair_id,
+          symbol: String(pair.symbol),
+          completedAt: closingEvent?.date ? `${closingEvent.date}T${closingEvent.time || '15:00:00'}+08:00` : null,
+          status: pair.status,
+          sourceRef: `strategy_state:grid_pair_ledger:${pair.pair_id}`,
+        }
+      })
     const openPairs = (state?.grid_pair_ledger || []).filter((pair: any) => String(pair.status).includes('waiting_rebuy')).map((pair: any) => ({
       pairId: pair.pair_id, symbol: pair.symbol, soldQuantity: decimal(pair.sold_quantity, 4),
       remainingRebuyQuantity: decimal(pair.remaining_rebuy_quantity_at_snapshot, 4), sellPrice: decimal(pair.sell_price, 4),
@@ -476,7 +536,7 @@ class BrokerReviewReconciliationService {
       status: pair.status, sourceRef: `strategy_state:grid_pair_ledger:${pair.pair_id}`,
     }))
 
-    return {
+    const report = {
       schemaVersion: 'fams.daily-review-reconciliation.v1',
       generatedAt: now.toISOString(),
       sessionType: input.sessionType || 'manual',
@@ -495,9 +555,9 @@ class BrokerReviewReconciliationService {
         draftStatus: requiredReady ? ordersFullyReconciled ? 'reconciled_draft' : 'manual_dedup_required' : 'blocked',
         captures: {
           holdings: { captureId: holdingsCapture?.id || null, ...holdingFreshness },
-          trades: { captureId: tradesCapture?.id || null, ...tradeFreshness, explicitZeroConfirmation: input.zeroNewTradesConfirmed === true },
-          ordinaryOrders: { captureId: ordinaryCapture?.id || null, ...ordinaryFreshness, required: false },
-          conditionalOrders: { captureId: conditionalCapture?.id || null, ...conditionalFreshness, required: false },
+          trades: { captureId: tradesCapture?.id || null, ...tradeFreshness, explicitZeroConfirmation: input.zeroNewTradesConfirmed === true, explicitZeroConfirmationAccepted: input.zeroNewTradesConfirmed === true && singleConfirmationFresh },
+          ordinaryOrders: { captureId: ordinaryCapture?.id || null, ...ordinaryFreshness, required: false, explicitZeroConfirmation: input.zeroOrdinaryOrdersConfirmed === true, explicitZeroConfirmationAccepted: input.zeroOrdinaryOrdersConfirmed === true && singleConfirmationFresh },
+          conditionalOrders: { captureId: conditionalCapture?.id || null, ...conditionalFreshness, required: false, explicitZeroConfirmation: input.zeroConditionalOrdersConfirmed === true, explicitZeroConfirmationAccepted: input.zeroConditionalOrdersConfirmed === true && singleConfirmationFresh },
         },
       },
       confirmedFacts: {
@@ -507,10 +567,14 @@ class BrokerReviewReconciliationService {
         positions: facts.positions,
         userRules,
         cashPolicy: state?.cash_policy || null,
-        downtrendGrids: Object.fromEntries((state?.positions || [])
-          .filter((position: any) => position.downtrend_grid)
-          .map((position: any) => [String(position.symbol), position.downtrend_grid])),
+        downtrendGrids: Object.fromEntries([...resolvedDowntrendConfigs.entries()].map(([symbol, resolved]) => [symbol, resolved.config])),
+        downtrendGridSources: Object.fromEntries([...resolvedDowntrendConfigs.entries()].map(([symbol, resolved]) => [symbol, {
+          source: resolved.source,
+          strategyVersionId: resolved.sourceStrategyVersionId,
+        }])),
         openGridPairs: openPairs,
+        completedGridCycles,
+        completedGridCyclesEvidenceAvailable: Array.isArray(state?.grid_pair_ledger),
         historicalFillsAlreadyIncludedInSnapshot: true,
         doNotReplayHistoricalFills: true,
       },
@@ -536,6 +600,78 @@ class BrokerReviewReconciliationService {
         brokerConnectionAvailable: false,
         userMustExecuteInBroker: true,
       },
+    }
+    const zeroCoverageKinds = [
+      ...(input.zeroNewTradesConfirmed && singleConfirmationFresh ? ['trades'] : []),
+      ...(input.zeroOrdinaryOrdersConfirmed && singleConfirmationFresh ? ['ordinary_orders'] : []),
+      ...(input.zeroConditionalOrdersConfirmed && singleConfirmationFresh ? ['conditional_orders'] : []),
+    ]
+    const zeroBatch = input.persist !== false && zeroCoverageKinds.length && input.singleConfirmation && singleConfirmedAt
+      ? await tradeLedgerService.confirmZeroAttestation({
+          userId: input.userId,
+          accountSource: holdingsCapture?.accountSource || tradesCapture?.accountSource || null,
+          coverageKinds: zeroCoverageKinds,
+          confirmedBy: input.singleConfirmation.confirmedBy,
+          confirmedAt: singleConfirmedAt,
+        })
+      : null
+    const hasBlockingDifference = differences.some((item) => item.severity === 'blocking')
+      || pendingRules.some((item: any) => item.status === 'blocking')
+    const reconciliationStatus = !requiredReady || hasBlockingDifference
+      ? 'blocked' as const
+      : !ordersFullyReconciled || differences.some((item) => item.severity === 'warning')
+        ? 'warning' as const
+        : 'ready' as const
+    const inputRefs = {
+      holdingsCaptureId: holdingsCapture?.id || null,
+      tradesCaptureId: tradesCapture?.id || null,
+      ordinaryOrdersCaptureId: ordinaryCapture?.id || null,
+      conditionalOrdersCaptureId: conditionalCapture?.id || null,
+      zeroAttestationBatchId: zeroBatch?.id || null,
+      strategyStatePath: sourcePath,
+      strategyVersion: state?.strategy_version || null,
+      singleConfirmation: input.singleConfirmation
+        ? { confirmedBy: input.singleConfirmation.confirmedBy.trim(), confirmedAt: input.singleConfirmation.confirmedAt }
+        : null,
+    }
+    if (input.persist === false) return {
+      ...report,
+      reconciliationRunId: null,
+      reconciliationStatus,
+      reconciliationReused: false,
+      ingestionBatchId: input.ingestionBatchId || null,
+    }
+    const persisted = await tradeLedgerService.persistReconciliation({
+      userId: input.userId,
+      idempotencyKey: input.idempotencyKey,
+      ingestionBatchId: input.ingestionBatchId || zeroBatch?.id || null,
+      dailyReviewRunId: input.dailyReviewRunId || null,
+      accountSource: holdingsCapture?.accountSource || tradesCapture?.accountSource || null,
+      status: reconciliationStatus,
+      asOf: now,
+      coverage: report.readiness.captures,
+      summary: report,
+      differences,
+      inputRefs,
+      holdings: { account: facts.account, positions: facts.positions },
+      transactions: transactions.map((transaction) => ({
+        id: transaction.id,
+        symbol: transaction.asset.symbol,
+        type: transaction.type,
+        quantity: transaction.quantity,
+        price: transaction.price,
+        executedAt: transaction.executedAt,
+        positionEffect: 'apply',
+        sourceImportKey: transaction.sourceImportKey,
+      })),
+      orders: { ordinary: ordinaryOrders, conditional: conditionalOrders },
+    })
+    return {
+      ...report,
+      reconciliationRunId: persisted.reconciliation.id,
+      reconciliationStatus,
+      reconciliationReused: persisted.reused,
+      ingestionBatchId: input.ingestionBatchId || zeroBatch?.id || null,
     }
   }
 }

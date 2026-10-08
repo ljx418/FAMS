@@ -450,6 +450,7 @@ export function RelativeRotationResearchWorkbench({ reducedMotion }: { reducedMo
   const timelineDates = activeTimeline?.dates || []
   const presetIndustryMarket = industryRotationMarketForKey(activeKey)
   const activeIndustryMarket = presetIndustryMarket === draft.market ? presetIndustryMarket : null
+  const isEmergingIndustryEtfPreset = activeKey === 'preset-industry-cn-emerging-etf'
   const autoSeresItem = timelineItems.find((item) => item.targetKey === 'HK:equity:09927.HK')
   const aiSupplyChainItems = useMemo(() => timelineItems
     .filter((item) => item.taxonomy?.key === 'cn_ai_supply_chain')
@@ -582,10 +583,32 @@ export function RelativeRotationResearchWorkbench({ reducedMotion }: { reducedMo
             className="mt-3"
             type="info"
             showIcon
-            message={`${activeIndustryMarket === 'CN' ? 'A股' : '港股'}行业轮动采用独立的同市场 ETF 样本池`}
-            description={activeIndustryMarket === 'CN'
+            message={isEmergingIndustryEtfPreset
+              ? 'A股科技产业ETF轮动：以 159851 为参照的同市场样本池'
+              : `${activeIndustryMarket === 'CN' ? 'A股' : '港股'}行业轮动采用独立的同市场 ETF 样本池`}
+            description={isEmergingIndustryEtfPreset
+              ? '覆盖金融科技、半导体、人工智能、新能源、光伏、有色金属、机器人、电网设备、特高压代理与商业航天代理共10只A股行业ETF；以沪深300为共同市场基准，研究历史设为近3年、默认观察最近52周。RRG计算会额外读取预热行情，不以预热期替代观察区间。'
+              : activeIndustryMarket === 'CN'
               ? '覆盖15个A股行业与主题ETF，以沪深300为共同市场基准；行情预载范围最多8年，面板默认统计当前选定的104周。'
               : '覆盖7个港股上市行业与主题ETF，以恒生指数为共同市场基准；行情预载范围最多8年，面板默认统计当前选定的104周。不会拼接A股ETF或个股历史。'}
+          />
+        )}
+        {isEmergingIndustryEtfPreset && (
+          <Alert
+            className="mt-3"
+            type="warning"
+            showIcon
+            message="商业航天采用卫星ETF（159206）作透明代理，不等同于完整商业航天产业链"
+            description="159206聚焦商用卫星通信且上市时间较晚。若历史不足，系统会标记为“有限历史”或“样本不足”，不会用其他指数、个股或虚构历史补齐；请在研究标的数据状态中单独核对。"
+          />
+        )}
+        {isEmergingIndustryEtfPreset && (
+          <Alert
+            className="mt-3"
+            type="warning"
+            showIcon
+            message="特高压以电网设备主题ETF（159326）作透明代理，与电网设备ETF（561380）存在成分重叠"
+            description="当前样本没有单独验证为“纯特高压ETF”的独立标的。159326跟踪的电网设备主题覆盖特高压与智能电网；561380用于观察更广义的电网设备。两条轨迹用于比较细分与广义口径，不应被解读为两个独立板块的资金流。"
           />
         )}
       </Card>
@@ -612,7 +635,7 @@ export function RelativeRotationResearchWorkbench({ reducedMotion }: { reducedMo
                 <Select
                   className="mt-1 w-full"
                   value={draft.historyYears || 8}
-                  options={[{ label: '近 8 年', value: 8 }, { label: '近 10 年', value: 10 }]}
+                  options={[{ label: '近 3 年', value: 3 }, { label: '近 8 年', value: 8 }, { label: '近 10 年', value: 10 }]}
                   onChange={(historyYears) => setDraft((current) => ({ ...current, historyYears: Number(historyYears) }))}
                   aria-label="专题研究行情历史"
                 />

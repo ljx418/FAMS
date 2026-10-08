@@ -129,6 +129,22 @@ a:hover {
   border-color: var(--primary-hover) !important;
 }
 
+.ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ant-segmented-item-selected {
+  color: #0f172a !important;
+  font-weight: 600;
+}
+
+.ant-segmented-item-selected :is(span, svg) {
+  color: #0f172a !important;
+}
+
 /* 输入框 */
 .ant-input,
 .ant-input-affix-wrapper,
@@ -858,6 +874,45 @@ a:hover {
   justify-content: flex-start;
   padding: 7px 10px;
   border: 1px solid transparent;
+}
+
+.fams-workflow-step.ant-btn > span.min-w-0 {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+
+.fams-workflow-step.ant-btn > .anticon-right {
+  display: inline-flex;
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.fams-grid-replay-source .ant-select-selection-item {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fams-workflow-step.ant-btn.is-active,
+.fams-workflow-step.ant-btn.is-active:hover,
+.fams-workflow-step.ant-btn.is-active:focus-visible {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #ffffff !important;
+}
+
+.fams-workflow-step.ant-btn.is-active :is(span, svg) {
+  color: #ffffff !important;
+}
+
+.fams-workflow-step-description {
+  color: #64748b;
+}
+
+.fams-workflow-step.is-active .fams-workflow-step-description {
+  color: #dbeafe !important;
 }
 
 .fams-workflow-step.ant-btn:not(.is-active) {

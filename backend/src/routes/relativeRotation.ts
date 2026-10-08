@@ -60,7 +60,10 @@ export async function relativeRotationRoutes(app: FastifyInstance) {
 
   app.post('/portfolio-universe/refresh', async (request) => {
     const body = request.body as Record<string, unknown>
-    return portfolioRelativeRotationService.refresh(typeof body.userId === 'string' ? body.userId : 'default')
+    return portfolioRelativeRotationService.refresh(
+      typeof body.userId === 'string' ? body.userId : 'default',
+      Array.isArray(body.targetKeys) ? body.targetKeys.map(String) : [],
+    )
   })
 
   app.get('/research/studies', async (request) => {

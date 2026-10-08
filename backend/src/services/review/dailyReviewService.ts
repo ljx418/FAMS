@@ -4,10 +4,12 @@ import { ensureUser } from '../../utils/user.js'
 import { assetTrendService, type AssetTrendSnapshot } from '../market-data/assetTrendService.js'
 import { positionAdviceService, type PositionAdviceResult } from '../position/positionAdviceService.js'
 import { gridStrategyService, type DowntrendDefensiveConfig, type GridStrategyConfig } from '../strategy/gridStrategyService.js'
+import { downtrendReanchorService } from '../strategy/downtrendReanchorService.js'
 import { valueAssessmentService, type ValueAssessmentFactSet } from '../valuation/valueAssessmentService.js'
 import { dailyReviewSynthesisService } from './dailyReviewSynthesisService.js'
 import { brokerReviewReconciliationService, type BrokerReviewReconciliationInput } from './brokerReviewReconciliationService.js'
 import { portfolioRelativeRotationService } from '../relative-rotation/portfolioRelativeRotationService.js'
+import { compileVolatilityPortfolioBudget, finalizeVolatilityDraftSafety } from './volatilityDraftSafetyService.js'
 
 export type DailyReviewSession = 'open' | 'pre_close' | 'manual'
 
@@ -20,6 +22,7 @@ export interface StartDailyReviewInput {
   executionMode?: 'inline' | 'queued'
   requireLlmSuccess?: boolean
   oneClickContext?: Record<string, unknown>
+  previousRunId?: string
   brokerWorkflow?: boolean
   brokerReconciliationInput?: Omit<BrokerReviewReconciliationInput, 'userId' | 'sessionType' | 'now'>
 }
@@ -151,11 +154,22 @@ function gridChange(previous: any, next: any) {
   if (!previous) return { changed: true, reasons: ['首次生成网格草案。'], previousPlanId: null }
   const previousOrders = Array.isArray(previous.orders) ? previous.orders : []
   const nextOrders = Array.isArray(next.orders) ? next.orders : []
-  const previousSignature = previousOrders.map((order: any) => [order.side, order.level, order.price, order.quantity])
-  const nextSignature = nextOrders.map((order: any) => [order.side, order.level, order.price, order.quantity])
+  const previousSignature = previousOrders.map((order: any) => {
+    const trigger = parseJson<any>(order.triggerConditionJson, {})
+    return [order.side, order.level, order.price, order.quantity, order.status, trigger.effectiveDisposition || null, trigger.blocker || null]
+  })
+  const nextSignature = nextOrders.map((order: any) => [
+    order.side,
+    order.level,
+    order.price,
+    order.quantity,
+    order.activationStatus || order.status,
+    order.triggerCondition?.effectiveDisposition || null,
+    order.triggerCondition?.blocker || null,
+  ])
   const changed = previous.mode !== next.mode || stableHash(previousSignature) !== stableHash(nextSignature)
   const reasons = changed
-    ? ['价格、风险门槛或策略证据变化导致网格草案更新。']
+    ? ['价格、生命周期、风险门槛或策略证据变化导致网格草案更新。']
     : ['网格关键价位与数量未发生实质变化。']
   return { changed, reasons, previousPlanId: previous.id }
 }
@@ -186,6 +200,12 @@ function applyBrokerOrderGates(gridDraft: any, reconciliation: any, symbol: stri
         conflictStatus: order.activationStatus === 'active' ? 'manual_dedup_required' : order.conflictStatus,
       }))
       blockers.add('ordinary_and_conditional_orders_require_manual_dedup')
+    } else if (reconciliation.readiness?.captures?.ordinaryOrders?.explicitZeroConfirmation === true
+      && reconciliation.readiness?.captures?.conditionalOrders?.explicitZeroConfirmation === true) {
+      draft.orders = (draft.orders || []).map((order: any) => ({
+        ...order,
+        conflictStatus: order.activationStatus === 'active' ? 'none' : 'not_active',
+      }))
     }
     draft.blockers = [...blockers]
     draft.derivation = {
@@ -264,8 +284,11 @@ function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
   const assets = assetReviews.map((item) => {
     const orders = Array.isArray(item.grid?.orders) ? item.grid.orders : []
     const conditionalBuybackOrders = Array.isArray(item.buybackGrid?.orders) ? item.buybackGrid.orders : []
-    const buyOrders = orders.filter((order: any) => order.side === 'buy')
-    const sellOrders = orders.filter((order: any) => order.side === 'sell')
+    const actionable = (order: any) => order.actionability
+      ? order.actionability === 'actionable'
+      : ['active', 'proposed'].includes(order.activationStatus || order.status || 'proposed')
+    const buyOrders = orders.filter((order: any) => order.side === 'buy' && actionable(order))
+    const sellOrders = orders.filter((order: any) => order.side === 'sell' && actionable(order))
     const action = buyOrders.length > 0 && sellOrders.length > 0
       ? 'manual_two_sided_grid'
       : buyOrders.length > 0
@@ -293,6 +316,7 @@ function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
       quoteAsOf: item.trend?.quote?.asOf ?? null,
       valuationContext: item.valuationContext,
       gridDerivation: item.grid?.derivation || null,
+      strategyFreshness: item.grid?.strategyFreshness || null,
       adjustment: item.grid?.adjustment || { changed: false, reasons: [] },
       blockers: item.grid?.blockers || [],
       orders: orders.map((order: any) => ({
@@ -307,6 +331,13 @@ function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
         orderRole: order.orderRole || null,
         parentOrderRef: order.parentOrderRef || null,
         activationStatus: order.activationStatus || order.status || 'proposed',
+        effectiveStatus: order.effectiveStatus || order.activationStatus || order.status || 'proposed',
+        effectiveDisposition: order.effectiveDisposition || null,
+        blockers: order.blockers || [],
+        distanceAtr: order.distanceAtr ?? null,
+        marketableNow: order.marketableNow === true,
+        quoteGate: order.quoteGate || null,
+        actionability: order.actionability || (actionable(order) ? 'actionable' : 'conditional'),
         pauseRule: order.pauseRule || null,
         rationale: order.rationale,
       })),
@@ -326,6 +357,7 @@ function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
           validUntil: order.validUntil,
           status: order.status,
           conflictStatus: order.conflictStatus,
+          actionability: order.actionability || 'conditional_after_parent_fill',
           triggerCondition: parseJson(order.triggerConditionJson, {}),
           rationale: order.rationale,
         })),
@@ -343,10 +375,10 @@ function buildDecisionSummary(assetReviews: any[], strategyAssessment: any) {
     highPrioritySymbols: assets.filter((item) => item.priority === 'high').map((item) => item.symbol),
     counts: {
       assets: assets.length,
-      buyDrafts: assets.reduce((sum, item) => sum + item.orders.filter((order: any) => order.side === 'buy').length, 0),
-      sellDrafts: assets.reduce((sum, item) => sum + item.orders.filter((order: any) => order.side === 'sell').length, 0),
-      conditionalBuybackDrafts: assets.reduce((sum, item) => sum + item.conditionalBuyback.orders.length, 0),
-      observeAssets: assets.filter((item) => item.orders.length === 0).length,
+      buyDrafts: assets.reduce((sum, item) => sum + item.orders.filter((order: any) => order.side === 'buy' && order.actionability === 'actionable').length, 0),
+      sellDrafts: assets.reduce((sum, item) => sum + item.orders.filter((order: any) => order.side === 'sell' && order.actionability === 'actionable').length, 0),
+      conditionalBuybackDrafts: assets.reduce((sum, item) => sum + item.conditionalBuyback.orders.filter((order: any) => !String(order.actionability || '').startsWith('blocked')).length, 0),
+      observeAssets: assets.filter((item) => item.orders.every((order: any) => order.actionability !== 'actionable')).length,
     },
     assets,
     executionMode: 'manual_plan_draft_only',
@@ -370,8 +402,12 @@ class DailyReviewService {
         return { operation: existing, review: existing.dailyReviewRun, reused: true }
       }
     }
-    const previous = await prisma.dailyReviewRun.findFirst({
-      where: { userId: input.userId, status: { in: ['completed', 'partial'] } },
+    const explicitPrevious = input.previousRunId
+      ? await prisma.dailyReviewRun.findFirst({ where: { id: input.previousRunId, userId: input.userId } })
+      : null
+    if (input.previousRunId && !explicitPrevious) throw new Error('daily_review_previous_run_not_found')
+    const previous = explicitPrevious || await prisma.dailyReviewRun.findFirst({
+      where: { userId: input.userId, status: { in: ['completed', 'partial', 'reanchor_resolved'] } },
       orderBy: { generatedAt: 'desc' },
     })
     const operation = await prisma.operation.create({
@@ -387,6 +423,7 @@ class DailyReviewService {
           scheduledFor: scheduledFor?.toISOString() || null,
           requireLlmSuccess: input.requireLlmSuccess === true,
           oneClickContext: input.oneClickContext || null,
+          previousRunId: input.previousRunId || null,
           brokerWorkflow: input.brokerWorkflow === true,
           brokerReconciliationInput: input.brokerReconciliationInput || null,
         }),
@@ -420,19 +457,24 @@ class DailyReviewService {
       include: { previousRun: true, operation: true },
     })
     if (!review) throw new Error('Daily review run not found')
-    if (['completed', 'partial', 'failed'].includes(review.status)) return this.getReview(reviewId, review.userId)
+    if (['completed', 'partial', 'failed', 'awaiting_reanchor_confirmation', 'reanchor_resolved'].includes(review.status)) {
+      return this.getReview(reviewId, review.userId)
+    }
     const startedAt = new Date()
     const operationInput = parseJson<any>(review.operation?.inputJson, {})
     const requireLlmSuccess = operationInput.requireLlmSuccess === true
     const oneClickContext = operationInput.oneClickContext && typeof operationInput.oneClickContext === 'object'
       ? operationInput.oneClickContext
       : null
+    const singleConfirmationMode = (oneClickContext as any)?.singleConfirmationMode === true
     const brokerWorkflow = operationInput.brokerWorkflow === true
     const reconciliation = brokerWorkflow
       ? await brokerReviewReconciliationService.reconcile({
           userId: review.userId,
           sessionType: review.sessionType as DailyReviewSession,
           ...(operationInput.brokerReconciliationInput || {}),
+          idempotencyKey: `daily-review:${review.id}`,
+          dailyReviewRunId: review.id,
           now: startedAt,
         })
       : null
@@ -463,6 +505,10 @@ class DailyReviewService {
       : loadedPositions
     const previousReport = parseJson<any>(review.previousRun?.reportJson, {})
     const activeConfigs = await gridStrategyService.getActiveConfigs(review.userId)
+    const legacyDowntrendConfigs = (reconciliation?.confirmedFacts?.downtrendGrids || {}) as Record<string, DowntrendDefensiveConfig | undefined>
+    const resolvedDowntrendConfigs = brokerWorkflow
+      ? await downtrendReanchorService.resolveConfigs(review.userId, legacyDowntrendConfigs)
+      : new Map()
     const investablePositions = positions.filter((position) => position.asset.type !== 'cash')
     const assetTimeoutMs = Math.max(5_000, Number(process.env.FAMS_DAILY_REVIEW_ASSET_TIMEOUT_MS || 45_000))
     const trendResults = await Promise.allSettled(investablePositions.map((position) => withTimeout(
@@ -514,10 +560,22 @@ class DailyReviewService {
       : investablePositions.length > 0
         ? Math.max(...investablePositions.map((position) => gridConfigFor(position).riskPolicy.cashFloorPercent))
         : 0
-    const initialImmediateBuyBudget = Math.max(0, cashBudget - totalValue * portfolioCashFloorPercent / 100)
+    const cashSpendLimit = Math.max(0, cashBudget - totalValue * portfolioCashFloorPercent / 100)
+    const confirmedNetBuildBudget = brokerWorkflow
+      && reconciliation?.confirmedFacts?.cashPolicy?.status === 'user_confirmed'
+      && reconciliation?.confirmedFacts?.cashPolicy?.new_net_position_build_enabled !== false
+      ? finite(reconciliation.confirmedFacts.cashPolicy.new_net_position_build_budget)
+      : null
+    const initialImmediateBuyBudget = confirmedNetBuildBudget === null
+      ? cashSpendLimit
+      : Math.min(cashSpendLimit, Math.max(0, confirmedNetBuildBudget))
     let remainingImmediateBuyBudget = initialImmediateBuyBudget
     const errors: Array<{ assetId: string; symbol: string; message: string }> = []
     const assetReviews: any[] = []
+    const reanchorCandidates: any[] = []
+    const rejectedReanchorSymbols = new Set<string>(Array.isArray((oneClickContext as any)?.reanchorDecisionContext?.rejectedSymbols)
+      ? (oneClickContext as any).reanchorDecisionContext.rejectedSymbols.map(String)
+      : [])
 
     for (let index = 0; index < positions.length; index += 1) {
       const position = positions[index]
@@ -582,9 +640,67 @@ class DailyReviewService {
           positionAdvice.factSet.market.confidence,
           trend.quote.fallbackUsed ? 0.4 : trend.dataQuality.status === 'ok' ? 0.8 : 0.6,
         )
-        const downtrendConfig = brokerWorkflow
-          ? reconciliation?.confirmedFacts?.downtrendGrids?.[position.asset.symbol] as DowntrendDefensiveConfig | undefined
-          : undefined
+        const resolvedDowntrend = brokerWorkflow ? resolvedDowntrendConfigs.get(position.asset.symbol) : undefined
+        const downtrendConfig = resolvedDowntrend?.config
+        const atr14 = finite((indicators as any).atr14 ?? (indicators as any).atr)
+        const completedGridCycles = reconciliation?.confirmedFacts?.completedGridCycles
+        const completedFillCycle = reconciliation?.confirmedFacts?.completedGridCyclesEvidenceAvailable === true && Array.isArray(completedGridCycles)
+          ? completedGridCycles.some((cycle: any) => cycle.symbol === position.asset.symbol
+            && cycle.completedAt
+            && String(cycle.completedAt).slice(0, 10) > String(downtrendConfig?.fixedAnchor.asOf || '').slice(0, 10))
+          : null
+        const reanchorEvaluation = downtrendConfig?.schemaVersion === 'fams.grid-strategy.v2'
+          ? downtrendReanchorService.evaluate({
+              symbol: position.asset.symbol,
+              assetType: gridAssetType(position.asset.type),
+              market: gridMarket(position.asset.exchange),
+              config: downtrendConfig,
+              latestCompletedDate: trend.latestClose.date,
+              latestCompletedClose: trend.latestClose.price,
+              livePrice: trend.quote.price,
+              atr14,
+              chart: trend.chart.map((point) => ({ date: point.date, close: point.close, ma5: point.ma5 })),
+              completedFillCycle,
+            })
+          : null
+        if (reanchorEvaluation?.required
+          && reconciliation?.readiness?.requiredInputsReady
+          && !rejectedReanchorSymbols.has(position.asset.symbol)
+          && resolvedDowntrend) {
+          const candidate = downtrendReanchorService.buildCandidate({
+            config: downtrendConfig,
+            evaluation: reanchorEvaluation,
+            assetType: gridAssetType(position.asset.type),
+            market: gridMarket(position.asset.exchange),
+          })
+          const persisted = await downtrendReanchorService.createCandidate({
+            userId: review.userId,
+            reviewId: review.id,
+            symbol: position.asset.symbol,
+            name: position.asset.name,
+            market: gridMarket(position.asset.exchange),
+            assetType: gridAssetType(position.asset.type),
+            source: resolvedDowntrend.source,
+            sourceStrategyVersionId: resolvedDowntrend.sourceStrategyVersionId,
+            sourceConfig: downtrendConfig,
+            candidateConfig: candidate.config,
+            evaluation: reanchorEvaluation,
+            levelDiffs: candidate.levelDiffs,
+            formula: candidate.formula,
+            suggestionOnly: singleConfirmationMode,
+          })
+          reanchorCandidates.push({
+            ...persisted,
+            symbol: position.asset.symbol,
+            name: position.asset.name,
+            source: resolvedDowntrend.source,
+            activeStrategyVersionId: resolvedDowntrend.sourceStrategyVersionId,
+            activeAnchor: downtrendConfig.fixedAnchor,
+            latestCompletedClose: trend.latestClose,
+            livePrice: trend.quote.price,
+            atr14,
+          })
+        }
         const rawGridDraft = downtrendConfig?.schemaVersion === 'fams.grid-strategy.v2'
           ? gridStrategyService.buildDowntrendDefensiveDraft({
               config: downtrendConfig,
@@ -593,8 +709,15 @@ class DailyReviewService {
               currentQuantity: position.quantity,
               sellableQuantity: finite(reconciliation?.confirmedFacts?.positions?.find((item: any) => item.symbol === position.asset.symbol)?.sellableQuantity) ?? position.quantity,
               currentClose: trend.latestClose?.price ?? null,
+              atr14,
+              livePrice: trend.quote.price,
+              quoteAsOf: trend.quote.asOf,
+              quoteAgeSeconds: trend.quote.ageSeconds,
+              quoteFresh: trend.quote.freshnessStatus === 'fresh'
+                && trend.quote.ageSeconds !== null
+                && trend.quote.ageSeconds <= 120,
               cashBudget,
-              availablePortfolioBuyBudget: remainingImmediateBuyBudget,
+              availablePortfolioBuyBudget: initialImmediateBuyBudget,
               portfolioValue: totalValue,
               externalOrders: externalOrders.map((order) => ({ side: order.side, price: order.limitPrice, status: order.status })),
               ignoreFrozenForCapacity: downtrendConfig?.capacityOverride?.ignoreFrozenForCapacity === true,
@@ -619,15 +742,16 @@ class DailyReviewService {
           ma5: trend.indicators.ma5,
           ma10: trend.indicators.ma10,
           ma30: trend.indicators.ma30,
-          atr14: finite((indicators as any).atr14 ?? (indicators as any).atr),
+          atr14,
           support,
           resistance,
           externalOrders: externalOrders.map((order) => ({ side: order.side, price: order.limitPrice, status: order.status })),
           now: startedAt,
         })
-        const gridDraft = brokerWorkflow
+        const brokerGatedGridDraft = brokerWorkflow
           ? applyBrokerOrderGates(rawGridDraft, reconciliation, position.asset.symbol, position.quantity)
           : rawGridDraft
+        const gridDraft = finalizeVolatilityDraftSafety(brokerGatedGridDraft, { singleConfirmationMode })
         const previousPlan = await prisma.gridPlan.findFirst({
           where: { userId: review.userId, assetId: position.assetId, mode: { not: 'conditional_buyback' } },
           include: { orders: { orderBy: [{ side: 'asc' }, { level: 'asc' }] } },
@@ -640,7 +764,7 @@ class DailyReviewService {
             userId: review.userId,
             dailyReviewRunId: review.id,
             assetId: position.assetId,
-            strategyVersionId: applicable?.version.id || null,
+            strategyVersionId: resolvedDowntrend?.sourceStrategyVersionId || applicable?.version.id || null,
             previousPlanId: previousPlan?.id || null,
             mode: gridDraft.mode,
             status: gridDraft.orders.length > 0 ? 'draft' : 'observe_only',
@@ -666,6 +790,19 @@ class DailyReviewService {
                 conflictStatus: order.conflictStatus || 'none',
                 evidenceRefsJson: JSON.stringify(materialChange.evidenceRefs),
                 status: order.activationStatus || order.status || 'proposed',
+                events: {
+                  create: {
+                    idempotencyKey: `proposed:${review.id}:${order.side}:${order.level}`,
+                    eventType: 'proposed',
+                    quantity: order.quantity,
+                    price: order.price,
+                    sourceType: 'system',
+                    sourceRef: `daily_review:${review.id}`,
+                    evidenceRefsJson: JSON.stringify(materialChange.evidenceRefs),
+                    metadataJson: JSON.stringify({ initialStatus: order.activationStatus || order.status || 'proposed' }),
+                    occurredAt: startedAt,
+                  },
+                },
               })),
             },
           },
@@ -677,7 +814,9 @@ class DailyReviewService {
         const immediateCashCommitment = downtrendConfig?.schemaVersion === 'fams.grid-strategy.v2'
           ? immediateBuyPrincipal > 0 ? immediateBuyPrincipal + downtrendConfig.riskPolicy.feeReserve : 0
           : immediateBuyPrincipal
-        remainingImmediateBuyBudget = Math.max(0, remainingImmediateBuyBudget - immediateCashCommitment)
+        if (downtrendConfig?.schemaVersion !== 'fams.grid-strategy.v2') {
+          remainingImmediateBuyBudget = Math.max(0, remainingImmediateBuyBudget - immediateCashCommitment)
+        }
 
         const previousBuybackPlan = await prisma.gridPlan.findFirst({
           where: { userId: review.userId, assetId: position.assetId, mode: 'conditional_buyback' },
@@ -713,7 +852,7 @@ class DailyReviewService {
             userId: review.userId,
             dailyReviewRunId: review.id,
             assetId: position.assetId,
-            strategyVersionId: applicable?.version.id || null,
+            strategyVersionId: resolvedDowntrend?.sourceStrategyVersionId || applicable?.version.id || null,
             previousPlanId: previousBuybackPlan?.id || null,
             mode: buybackDraft.mode,
             status: buybackDraft.status,
@@ -735,6 +874,19 @@ class DailyReviewService {
                 conflictStatus: order.conflictStatus,
                 evidenceRefsJson: JSON.stringify(materialChange.evidenceRefs),
                 status: order.status,
+                events: {
+                  create: {
+                    idempotencyKey: `proposed:${review.id}:conditional:${order.side}:${order.level}`,
+                    eventType: 'proposed',
+                    quantity: order.quantity,
+                    price: order.price,
+                    sourceType: 'system',
+                    sourceRef: `daily_review:${review.id}`,
+                    evidenceRefsJson: JSON.stringify(materialChange.evidenceRefs),
+                    metadataJson: JSON.stringify({ initialStatus: order.status, conditional: true }),
+                    occurredAt: startedAt,
+                  },
+                },
               })),
             },
           },
@@ -788,8 +940,10 @@ class DailyReviewService {
           valuationContext: valueContext,
           grid: {
             id: gridPlan.id,
-            strategyVersionId: applicable?.version.id || null,
-            strategySource: downtrendConfig ? 'user_confirmed_downtrend_defensive_state' : strategySource,
+            strategyVersionId: resolvedDowntrend?.sourceStrategyVersionId || applicable?.version.id || null,
+            strategySource: downtrendConfig
+              ? resolvedDowntrend?.source === 'active_strategy_version' ? 'active_downtrend_strategy_version' : 'legacy_strategy_state_compatibility'
+              : strategySource,
             templateId: downtrendConfig?.templateId || config.templateId,
             mode: gridPlan.mode,
             status: gridPlan.status,
@@ -801,6 +955,13 @@ class DailyReviewService {
                 orderRole: trigger.orderRole || null,
                 parentOrderRef: trigger.parentOrderRef || null,
                 activationStatus: trigger.activationStatus || order.status,
+                effectiveStatus: trigger.effectiveStatus || trigger.activationStatus || order.status,
+                effectiveDisposition: trigger.effectiveDisposition || null,
+                blockers: trigger.blockers || (trigger.blocker ? [trigger.blocker] : []),
+                distanceAtr: trigger.reachability?.distanceAtr ?? null,
+                marketableNow: trigger.marketableNow === true,
+                quoteGate: trigger.quote || null,
+                triggerCondition: trigger,
                 pauseRule: trigger.pauseRule || null,
               }
             }),
@@ -808,6 +969,14 @@ class DailyReviewService {
             derivation: gridDraft.derivation,
             sideBlockers: gridDraft.sideBlockers,
             blockers: gridDraft.blockers,
+            strategyFreshness: downtrendConfig ? {
+              status: resolvedDowntrend?.source === 'legacy_strategy_state' ? 'runtime_reconciled' : 'fresh',
+              source: resolvedDowntrend?.source || null,
+              currentQuantity: position.quantity,
+              derivedAllocation: (gridDraft.derivation as any)?.allocation || null,
+              candidateAutoActivationAllowed: false,
+            } : null,
+            reanchorEvaluation,
             adjustment: change,
           },
           buybackGrid: {
@@ -834,6 +1003,163 @@ class DailyReviewService {
         await prisma.operation.update({ where: { id: review.operationId }, data: { progressPct: progress, progressMessage: `已分析 ${index + 1}/${positions.length} 个持仓` } })
       }
     }
+
+    const portfolioBudgetCompilation = compileVolatilityPortfolioBudget(assetReviews, {
+      principalLimit: initialImmediateBuyBudget,
+      cashSpendLimit,
+    })
+    assetReviews.splice(0, assetReviews.length, ...portfolioBudgetCompilation.assets)
+    remainingImmediateBuyBudget = portfolioBudgetCompilation.summary.remainingPrincipalBudget
+    const safetyPersistenceUpdates = assetReviews
+      .filter((asset) => asset.grid?.mode === 'downtrend_defensive')
+      .flatMap((asset) => {
+        asset.grid.derivation = {
+          ...(asset.grid.derivation || {}),
+          portfolioBudgetCompilation: portfolioBudgetCompilation.summary,
+        }
+        const planUpdate = prisma.gridPlan.update({
+          where: { id: asset.grid.id },
+          data: {
+            constraintsJson: JSON.stringify({
+              ...(asset.grid.constraints || {}),
+              derivation: asset.grid.derivation,
+              sideBlockers: asset.grid.sideBlockers,
+              portfolioBudgetCompilation: portfolioBudgetCompilation.summary,
+            }),
+          },
+        })
+        const orderUpdates = (asset.grid.orders || []).map((order: any) => prisma.gridOrderDraft.update({
+          where: { id: order.id },
+          data: {
+            status: order.activationStatus || order.status,
+            conflictStatus: order.conflictStatus || 'none',
+            triggerConditionJson: JSON.stringify(order.triggerCondition || {}),
+          },
+        }))
+        return [planUpdate, ...orderUpdates]
+      })
+    if (safetyPersistenceUpdates.length > 0) await prisma.$transaction(safetyPersistenceUpdates)
+
+    const reanchorSuggestionSymbols = new Set<string>(singleConfirmationMode ? reanchorCandidates.map((candidate: any) => String(candidate.symbol)) : [])
+    const portfolioReanchorBlocked = reanchorCandidates.length > 0 && !singleConfirmationMode
+    if (portfolioReanchorBlocked) {
+      for (const asset of assetReviews) {
+        asset.grid.status = 'blocked_reanchor'
+        asset.grid.blockers = [...new Set([...(asset.grid.blockers || []), 'portfolio_reanchor_confirmation_required'])]
+        asset.grid.orders = (asset.grid.orders || []).map((order: any) => ({
+          ...order,
+          actionability: 'blocked_reanchor',
+          conflictStatus: 'portfolio_reanchor_gate',
+        }))
+        asset.buybackGrid.status = 'blocked_reanchor'
+        asset.buybackGrid.blockers = [...new Set([...(asset.buybackGrid.blockers || []), 'portfolio_reanchor_confirmation_required'])]
+        asset.buybackGrid.orders = (asset.buybackGrid.orders || []).map((order: any) => ({
+          ...order,
+          actionability: 'blocked_reanchor',
+          conflictStatus: 'portfolio_reanchor_gate',
+        }))
+      }
+      await prisma.$transaction([
+        prisma.gridPlan.updateMany({ where: { dailyReviewRunId: review.id }, data: { status: 'blocked_reanchor' } }),
+        prisma.gridOrderDraft.updateMany({
+          where: { gridPlan: { dailyReviewRunId: review.id } },
+          data: { status: 'blocked_reanchor', conflictStatus: 'portfolio_reanchor_gate' },
+        }),
+      ])
+    } else {
+      for (const asset of assetReviews) {
+        const rejected = rejectedReanchorSymbols.has(asset.symbol)
+        const suggested = reanchorSuggestionSymbols.has(asset.symbol)
+        if (suggested) {
+          asset.grid.status = 'observe_only_reanchor_suggestion'
+          asset.grid.blockers = [...new Set([...(asset.grid.blockers || []), 'reanchor_suggestion_not_auto_activated'])]
+          asset.grid.orders = (asset.grid.orders || []).map((order: any) => ({ ...order, status: 'dormant', activationStatus: 'dormant', actionability: 'conditional_reanchor_suggestion', conflictStatus: 'reanchor_suggestion' }))
+          asset.buybackGrid.status = 'observe_only_reanchor_suggestion'
+          asset.buybackGrid.blockers = [...new Set([...(asset.buybackGrid.blockers || []), 'reanchor_suggestion_not_auto_activated'])]
+          asset.buybackGrid.orders = (asset.buybackGrid.orders || []).map((order: any) => ({ ...order, status: 'dormant', activationStatus: 'dormant', actionability: 'conditional_reanchor_suggestion', conflictStatus: 'reanchor_suggestion' }))
+        } else if (rejected) {
+          asset.grid.status = 'observe_only_reanchor_rejected'
+          asset.grid.blockers = [...new Set([...(asset.grid.blockers || []), 'reanchor_candidate_rejected_for_this_continuation'])]
+          asset.grid.orders = (asset.grid.orders || []).map((order: any) => ({ ...order, actionability: 'blocked_reanchor_rejected' }))
+          asset.buybackGrid.status = 'observe_only_reanchor_rejected'
+          asset.buybackGrid.blockers = [...new Set([...(asset.buybackGrid.blockers || []), 'reanchor_candidate_rejected_for_this_continuation'])]
+          asset.buybackGrid.orders = (asset.buybackGrid.orders || []).map((order: any) => ({ ...order, actionability: 'blocked_reanchor_rejected' }))
+        } else {
+          asset.grid.orders = (asset.grid.orders || []).map((order: any) => ({
+            ...order,
+            actionability: (order.activationStatus || order.status) === 'manual_confirmation_required'
+              ? 'manual_confirmation_required'
+              : ['active', 'proposed'].includes(order.activationStatus || order.status || 'proposed')
+                ? 'actionable'
+                : 'conditional',
+          }))
+        }
+      }
+      if (rejectedReanchorSymbols.size > 0) {
+        await prisma.$transaction([
+          prisma.gridPlan.updateMany({
+            where: { dailyReviewRunId: review.id, asset: { symbol: { in: [...rejectedReanchorSymbols] } } },
+            data: { status: 'observe_only_reanchor_rejected' },
+          }),
+          prisma.gridOrderDraft.updateMany({
+            where: { gridPlan: { dailyReviewRunId: review.id, asset: { symbol: { in: [...rejectedReanchorSymbols] } } } },
+            data: { status: 'blocked_reanchor_rejected', conflictStatus: 'reanchor_candidate_rejected' },
+          }),
+        ])
+      }
+      if (reanchorSuggestionSymbols.size > 0) {
+        await prisma.$transaction([
+          prisma.gridPlan.updateMany({
+            where: { dailyReviewRunId: review.id, asset: { symbol: { in: [...reanchorSuggestionSymbols] } } },
+            data: { status: 'observe_only_reanchor_suggestion' },
+          }),
+          prisma.gridOrderDraft.updateMany({
+            where: { gridPlan: { dailyReviewRunId: review.id, asset: { symbol: { in: [...reanchorSuggestionSymbols] } } } },
+            data: { status: 'dormant', conflictStatus: 'reanchor_suggestion' },
+          }),
+        ])
+      }
+    }
+
+    const reconciliationForReport = portfolioReanchorBlocked && reconciliation
+      ? (() => {
+          const next = structuredClone(reconciliation)
+          const symbols = new Set(reanchorCandidates.map((candidate: any) => String(candidate.symbol)))
+          const proposed = next.proposedOrders || { retained: [], cancelCandidates: [], addCandidates: [], blocked: [] }
+          const staleRetained = (proposed.retained || []).filter((order: any) => symbols.has(String(order.symbol)))
+          const staleAdds = (proposed.addCandidates || []).filter((order: any) => symbols.has(String(order.symbol)))
+          proposed.retained = (proposed.retained || []).filter((order: any) => !symbols.has(String(order.symbol)))
+          proposed.addCandidates = (proposed.addCandidates || []).filter((order: any) => !symbols.has(String(order.symbol)))
+          proposed.cancelCandidates = [
+            ...(proposed.cancelCandidates || []),
+            ...staleRetained.map((order: any) => ({
+              ...order,
+              reason: 'fixed_anchor_reanchor_required_existing_order_must_be_manually_cancelled_or_replaced',
+              sourceStatus: 'stale_auditable_not_copyable',
+            })),
+          ]
+          proposed.blocked = [
+            ...(proposed.blocked || []),
+            ...staleAdds.map((order: any) => ({
+              ...order,
+              reason: 'fixed_anchor_reanchor_required_old_proposal_blocked',
+              sourceStatus: 'stale_auditable_not_copyable',
+            })),
+          ]
+          next.proposedOrders = proposed
+          next.reconciliationDifferences = [
+            ...(next.reconciliationDifferences || []),
+            {
+              scope: 'fixed_anchor_reanchor',
+              severity: 'blocking',
+              symbols: [...symbols],
+              message: '固定网格已触发重锚门禁：旧价格仅供审计，现存匹配委托列入人工撤销/替换候选，旧新增方案不得复制。',
+              action: 'decide_every_reanchor_candidate_then_rerun',
+            },
+          ]
+          return next
+        })()
+      : reconciliation
 
     const latestPoolDate = await prisma.dividendLowVolDaily.findFirst({
       where: { userId: review.userId },
@@ -977,7 +1303,11 @@ class DailyReviewService {
     }
     const llmRequiredFailure = requireLlmSuccess && !llmGate.passed
     const comparisonIncomplete = Boolean(oneClickContext && oneClickContext.portfolioComparison?.status !== 'completed')
-    const status = llmRequiredFailure ? 'failed' : comparisonIncomplete && deterministicStatus === 'completed' ? 'partial' : deterministicStatus
+    const status = llmRequiredFailure
+      ? 'failed'
+      : portfolioReanchorBlocked && deterministicStatus !== 'failed'
+        ? 'awaiting_reanchor_confirmation'
+        : comparisonIncomplete && deterministicStatus === 'completed' ? 'partial' : deterministicStatus
     const finalOneClickContext = oneClickContext ? {
       ...oneClickContext,
       readyForHumanReview: !llmRequiredFailure,
@@ -990,6 +1320,42 @@ class DailyReviewService {
         : [],
     } : null
     const completedAt = new Date()
+    const downgradedRiskItems: any[] = assetReviews.flatMap((asset: any) => (asset.grid?.orders || []).flatMap((order: any) => {
+      const state = order.activationStatus || order.status
+      if (['active', 'proposed'].includes(state)) return []
+      const blockers = [...new Set([
+        ...(Array.isArray(order.triggerCondition?.blockers) ? order.triggerCondition.blockers : []),
+        order.triggerCondition?.blocker,
+        order.conflictStatus && order.conflictStatus !== 'none' ? order.conflictStatus : null,
+      ].filter(Boolean))]
+      return [{
+        symbol: asset.symbol,
+        name: asset.name,
+        originalAction: order.side,
+        level: order.level,
+        price: order.price,
+        currentState: state || 'dormant',
+        actionable: false,
+        reasons: blockers.length > 0 ? blockers : ['non_active_strategy_condition'],
+      }]
+    }))
+    for (const candidate of reanchorCandidates) downgradedRiskItems.push({
+      symbol: candidate.symbol,
+      name: candidate.name,
+      originalAction: 'reanchor',
+      level: null,
+      price: candidate.latestCompletedClose?.price ?? null,
+      currentState: singleConfirmationMode ? 'suggestion_only' : 'awaiting_confirmation',
+      actionable: false,
+      reasons: [singleConfirmationMode ? 'reanchor_suggestion_not_auto_activated' : 'portfolio_reanchor_confirmation_required'],
+    })
+    const riskConclusion = {
+      status: downgradedRiskItems.length > 0 ? 'attention_required' : 'clear',
+      summary: downgradedRiskItems.length > 0
+        ? `共有 ${downgradedRiskItems.length} 项风险已降级为不可执行，详见 items；本次不会静默激活。`
+        : '无已降级风险项。',
+      items: downgradedRiskItems,
+    }
     let report = {
       schemaVersion: brokerWorkflow ? 'fams.daily-portfolio-review.v3' : 'fams.daily-portfolio-review.v2',
       reviewId: review.id,
@@ -1006,13 +1372,20 @@ class DailyReviewService {
         immediateBuyBudget: {
           cashFloorPercent: portfolioCashFloorPercent,
           initial: Number(initialImmediateBuyBudget.toFixed(2)),
-          used: Number((initialImmediateBuyBudget - remainingImmediateBuyBudget).toFixed(2)),
+          used: portfolioBudgetCompilation.summary.activeBuyPrincipal,
           remaining: Number(remainingImmediateBuyBudget.toFixed(2)),
+          cashSpendLimit: Number(cashSpendLimit.toFixed(2)),
+          feeReserve: portfolioBudgetCompilation.summary.feeReserve,
+          immediateCashCommitment: portfolioBudgetCompilation.summary.immediateCashCommitment,
+          compilation: portfolioBudgetCompilation.summary,
           conditionalBuybackExcludedUntilParentFill: true,
         },
       },
       strategy: {
-        activeStrategyVersionIds: activeConfigs.map((item) => item.version.id),
+        activeStrategyVersionIds: [
+          ...activeConfigs.map((item) => item.version.id),
+          ...[...resolvedDowntrendConfigs.values()].flatMap((item: any) => item.sourceStrategyVersionId ? [item.sourceStrategyVersionId] : []),
+        ],
         fallback: activeConfigs.length === 0
           ? brokerWorkflow ? ['observe_only_v1'] : ['mean_reversion_atr_v1', 'cost_support_v1']
           : null,
@@ -1021,10 +1394,22 @@ class DailyReviewService {
       assets: assetReviews,
       attentionCandidates: candidates,
       decisionSummary,
+      riskConclusion,
+      reanchorGate: {
+        schemaVersion: 'fams.reanchor-gate.v1',
+        state: portfolioReanchorBlocked ? 'awaiting_confirmation' : reanchorCandidates.length > 0 ? 'suggestions_only' : 'clear',
+        scope: 'portfolio',
+        rulesVersion: 'fams.reanchor-policy.v1',
+        ordersActionable: !portfolioReanchorBlocked && reanchorCandidates.length === 0,
+        requiresAdditionalConfirmation: portfolioReanchorBlocked,
+        candidateAutoActivationAllowed: false,
+        candidates: reanchorCandidates,
+        rejectedSymbols: [...rejectedReanchorSymbols],
+      },
       llmSynthesis,
       llmGate,
       oneClickWorkflow: finalOneClickContext,
-      reconciliation,
+      reconciliation: reconciliationForReport,
       relativeRotation,
       errors,
       executionBoundary: {
@@ -1058,7 +1443,7 @@ class DailyReviewService {
         inputSnapshotJson: JSON.stringify({ reviewId: review.id, previousRunId: review.previousRunId }),
         recommendationJson: JSON.stringify({ assets: assetReviews.map((item) => ({ assetId: item.assetId, recommendation: item.recommendation, grid: item.grid, buybackGrid: item.buybackGrid })), candidates, oneClickWorkflow: finalOneClickContext }),
         rationaleText: '基于当前持仓、最近30个完整交易日收盘价、MA5/MA10/MA30、已有基本面与消息面证据及已激活策略版本生成。',
-        status: llmRequiredFailure ? 'blocked' : 'proposed',
+        status: llmRequiredFailure || portfolioReanchorBlocked ? 'blocked' : 'proposed',
       },
     })
     const oneClickDrafts = Array.isArray(report.oneClickWorkflow?.tradeDrafts) ? report.oneClickWorkflow.tradeDrafts : []
@@ -1100,6 +1485,8 @@ class DailyReviewService {
         title: `${review.sessionType === 'open' ? '开盘后' : review.sessionType === 'pre_close' ? '收盘前' : '手动'}持仓复盘已生成`,
         message: llmRequiredFailure
           ? `确定性复盘已保存，但要求的真实 LLM 汇总未通过：${llmSynthesis.failureCode || llmSynthesis.status}。`
+          : portfolioReanchorBlocked
+            ? `检测到 ${reanchorCandidates.length} 个固定网格需要重锚决定；全部旧拟单保持阻断，确认或拒绝每个候选后续跑。`
           : status === 'completed' ? `已完成 ${assetReviews.length} 个持仓资产复盘。` : `复盘状态为 ${status}，${errors.length} 个资产需要补充数据。`,
         severity: status === 'completed' ? 'info' : 'warning',
         triggeredAt: completedAt,
@@ -1111,8 +1498,11 @@ class DailyReviewService {
         data: {
           adviceId: advice.id,
           status,
-          completedAt,
-          strategyVersionIdsJson: JSON.stringify(activeConfigs.map((item) => item.version.id)),
+          completedAt: portfolioReanchorBlocked ? null : completedAt,
+          strategyVersionIdsJson: JSON.stringify([
+            ...activeConfigs.map((item) => item.version.id),
+            ...[...resolvedDowntrendConfigs.values()].flatMap((item: any) => item.sourceStrategyVersionId ? [item.sourceStrategyVersionId] : []),
+          ]),
           reportJson: JSON.stringify(report),
           dataQualityJson: JSON.stringify({ status, deterministicStatus, reviewedAssets: assetReviews.length, failedAssets: errors.length, errors, llmGate }),
         },
@@ -1121,14 +1511,16 @@ class DailyReviewService {
         where: { id: review.operationId },
         data: {
           status,
-          completedAt,
-          progressPct: 100,
+          completedAt: portfolioReanchorBlocked ? null : completedAt,
+          progressPct: portfolioReanchorBlocked ? 90 : 100,
           progressCurrent: assetReviews.length,
           progressTotal: positions.filter((item) => item.asset.type !== 'cash').length,
-          progressMessage: llmRequiredFailure
+          progressMessage: portfolioReanchorBlocked
+            ? `检测到 ${reanchorCandidates.length} 个固定网格需要用户逐项确认，整批拟单已暂停`
+            : llmRequiredFailure
             ? '确定性复盘已保存，但要求的真实 LLM 汇总未通过'
             : status === 'completed' ? '每日持仓复盘已完成' : `复盘完成，但有 ${errors.length} 个资产数据不足`,
-          resultJson: JSON.stringify({ reviewId: review.id, adviceId: advice.id, status, attentionCandidates: candidates, llmGate, portfolioComparison: finalOneClickContext?.portfolioComparison || null }),
+          resultJson: JSON.stringify({ reviewId: review.id, adviceId: advice.id, status, attentionCandidates: candidates, llmGate, reanchorGate: report.reanchorGate, portfolioComparison: finalOneClickContext?.portfolioComparison || null }),
           errorJson: JSON.stringify({ assetErrors: errors, llmGate }),
           errorSummary: llmRequiredFailure
             ? `要求的真实 LLM 汇总未通过：${llmSynthesis.failureCode || llmSynthesis.status}`
@@ -1145,7 +1537,12 @@ class DailyReviewService {
       include: {
         operation: true,
         advice: { include: { actions: { include: { asset: true, execution: true }, orderBy: { createdAt: 'asc' } } } },
-        gridPlans: { include: { asset: true, orders: { orderBy: [{ side: 'asc' }, { level: 'asc' }] } } },
+        gridPlans: { select: {
+          id: true, userId: true, dailyReviewRunId: true, assetId: true, strategyVersionId: true, previousPlanId: true,
+          mode: true, status: true, summary: true, constraintsJson: true, changeReasonsJson: true, evidenceRefsJson: true,
+          validUntil: true, createdAt: true, updatedAt: true, asset: true,
+          orders: { orderBy: [{ side: 'asc' }, { level: 'asc' }] },
+        } },
       },
     })
     if (!review) throw new Error('Daily review run not found')

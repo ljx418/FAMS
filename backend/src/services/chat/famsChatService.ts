@@ -220,6 +220,8 @@ class FamsChatService {
             ordinaryOrdersCaptureId: args.ordinaryOrdersCaptureId ? String(args.ordinaryOrdersCaptureId) : undefined,
             conditionalOrdersCaptureId: args.conditionalOrdersCaptureId ? String(args.conditionalOrdersCaptureId) : undefined,
             zeroNewTradesConfirmed: args.zeroNewTradesConfirmed === true,
+            zeroOrdinaryOrdersConfirmed: args.zeroOrdinaryOrdersConfirmed === true,
+            zeroConditionalOrdersConfirmed: args.zeroConditionalOrdersConfirmed === true,
           },
         })
         const completedReview = result.review?.id

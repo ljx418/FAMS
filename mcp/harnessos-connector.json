@@ -3,16 +3,18 @@
   "id": "fams",
   "name": "FAMS Investment Management",
   "displayName": "FAMS 投资管理连接器",
-  "version": "v2.1.0",
+  "version": "v2.2.0",
   "domainPack": "mcp/fams-domain-pack.json",
   "domainPackName": "fams",
   "domain": "financial_asset_management",
-  "description": "Expose FAMS DomainPack tools to harnessOS through HTTP MCP and stdio MCP transports.",
+  "description": "Expose the FAMS three-stage investment workflow through official stdio and Streamable HTTP MCP transports; retain the REST bridge for compatibility only.",
   "connectors": [
     {
       "id": "fams_mcp_http",
       "type": "http_mcp",
-      "status": "ready",
+      "status": "deprecated_compatibility_only",
+      "recommendedReplacement": "fams_mcp_streamable_http",
+      "warning": "This legacy REST bridge exposes the full registry and is not the canonical external workflow surface.",
       "baseUrl": "http://localhost:4000",
       "paths": {
         "domainPack": "/api/v1/mcp/domain-pack",
@@ -39,7 +41,7 @@
       "configPath": "mcp/financial-mcp.json",
       "env": {
         "FAMS_MCP_DEFAULT_USER_ID": "default",
-        "FAMS_MCP_PROFILE": "full"
+        "FAMS_MCP_PROFILE": "workflow"
       },
       "context": {
         "userId": {
@@ -60,7 +62,7 @@
       "sourceEntrypoint": "backend/src/mcp/streamableHttp.ts",
       "env": {
         "FAMS_MCP_DEFAULT_USER_ID": "default",
-        "FAMS_MCP_PROFILE": "volatility"
+        "FAMS_MCP_PROFILE": "workflow"
       },
       "context": {
         "userId": {
@@ -85,85 +87,61 @@
     "streamableHttp": true
   },
   "toolContract": {
-    "sourceOfTruth": "GET /api/v1/mcp/domain-pack",
+    "sourceOfTruth": "Official MCP tools/list for the workflow profile",
+    "legacyRegistryDiscovery": "GET /api/v1/mcp/domain-pack",
     "toolsPath": "GET /api/v1/mcp/tools",
     "callEnvelope": "fams.mcp.call.v1",
     "batchEnvelope": "fams.mcp.batch.v1",
     "statuses": ["completed", "blocked", "failed"]
   },
   "safety": {
-    "tradeProtection": "transaction.* tools require human confirmation before writes",
+    "tradeProtection": "The workflow profile does not expose transaction or broker-order tools; all four trading capability flags remain false",
     "writePolicy": "writes_must_be_explicitly_scoped_to_user_context",
     "confirmationPolicy": "tools with requiresHumanConfirmation=true must return blocked status until confirmation is supplied",
+    "workflowProfile": "basic_information_confirmation -> position_strategy -> backtest_review; account routing is tonghuashun to rotation/dividend and alipay to portfolio",
     "volatilityProfile": "broker order creation and strategy activation are not exposed; canCreateOrder=false and autoTradeUnlocked=false",
     "hostVision": "the host submits structured screenshot facts; the server does not invoke OCR or a vision model in the volatility profile"
   },
   "canonicalTools": [
-    "volatility_workflow.reconcile",
-    "volatility_workflow.run",
-    "volatility_workflow.get_result",
-    "market_data.get_real_time_price",
-    "market_data.refresh_prices",
-    "position.list",
-    "portfolio.get_analysis",
-    "portfolio.get_daily_snapshot",
-    "advice.get_suggestions",
-    "advice.generate_daily",
-    "alert.list",
-    "alert.check",
-    "backtest.run_strategy",
-    "backtest.run_from_advice",
-    "operation.list",
+    "investment_workflow.get_readiness",
+    "investment_workflow.list_strategy_assignments",
+    "investment_workflow.suggest_strategy_assignments",
+    "investment_workflow.confirm_strategy_assignment",
+    "investment_workflow.run_rotation_volatility_strategy",
+    "investment_workflow.get_dividend_low_vol_plan",
+    "investment_workflow.refresh_dividend_low_vol_research",
+    "investment_workflow.get_portfolio_state",
+    "investment_workflow.preflight_portfolio_review",
+    "investment_workflow.start_portfolio_review",
+    "investment_workflow.get_portfolio_review",
+    "investment_workflow.compare_saved_advice_scenarios",
+    "backtest.grid_replay.list_sources",
+    "backtest.grid_replay.run",
+    "backtest.grid_replay.get_result",
     "operation.get",
-    "operation.get_artifact",
-    "transaction.create_manual_record",
     "market_data.get_asset_trend",
-    "daily_review.run",
-    "daily_review.get_latest",
-    "daily_review.get",
-    "daily_review.list",
-    "grid_strategy.list_templates",
-    "grid_strategy.create_draft",
-    "grid_strategy.validate_draft",
-    "grid_strategy.activate",
     "capture.upload_screenshot",
     "capture.apply_extraction",
     "capture.get_preview",
-    "capture.vision_status",
     "capture.update_row",
-    "capture.confirm_rows",
-    "relative_rotation.get_industry_crowding",
-    "relative_rotation.get_market_flow",
-    "relative_rotation.refresh_industry_crowding",
-    "relative_rotation.get_holdings_timeline",
-    "relative_rotation.refresh_holdings_timeline",
-    "relative_rotation.list_watchlist",
-    "relative_rotation.add_watchlist_item",
-    "relative_rotation.delete_watchlist_item",
-    "relative_rotation.get_watchlist_timeline",
-    "relative_rotation.refresh_watchlist_timeline",
-    "relative_rotation.list_research_studies",
-    "relative_rotation.create_research_study",
-    "relative_rotation.update_research_study",
-    "relative_rotation.delete_research_study",
-    "relative_rotation.get_research_timeline",
-    "relative_rotation.refresh_research_timeline"
+    "capture.confirm_rows"
   ],
   "validation": {
     "httpSmoke": {
       "headers": { "x-fams-user-id": "default" },
-      "tool": "operation.list",
+      "tool": "investment_workflow.get_readiness",
       "expectedStatus": "completed"
     },
     "stdioSmoke": {
       "context": { "userId": "default" },
-      "tool": "operation.list",
+      "tool": "investment_workflow.get_readiness",
       "expectedStatus": "completed"
     },
     "tradeProtectionSmoke": {
-      "tool": "create_transaction",
-      "expectedStatus": "blocked",
-      "expectedCode": "HUMAN_CONFIRMATION_REQUIRED"
+      "tool": "investment_workflow.start_portfolio_review",
+      "expectedStatusWithoutConfirmation": "blocked",
+      "expectedCode": "HUMAN_CONFIRMATION_REQUIRED",
+      "forbiddenTools": ["create_transaction", "grid_strategy.activate"]
     }
   }
 }

@@ -67,7 +67,7 @@ const value = (label: string, raw: unknown, evidenceRef?: string): DailyReviewWo
 
 function reviewNodeStatus(status: string): DailyReviewWorkflowNodeStatus {
   if (status === 'completed') return 'complete'
-  if (status === 'partial' || status === 'running' || status === 'queued') return 'partial'
+  if (['partial', 'running', 'queued', 'awaiting_reanchor_confirmation', 'reanchor_resolved'].includes(status)) return 'partial'
   return 'blocked'
 }
 
@@ -241,7 +241,9 @@ class DailyReviewWorkflowService {
       },
       {
         id: 'grid', sequence: 8, title: '系统网格',
-        status: assets.length === 0 ? 'empty' : review.gridPlans.length >= assets.length * (dualGridExpected ? 2 : 1) ? 'complete' : review.gridPlans.length > 0 ? 'partial' : 'blocked',
+        status: ['awaiting_confirmation', 'blocked', 'resolved'].includes(report.reanchorGate?.state)
+          ? 'blocked'
+          : assets.length === 0 ? 'empty' : review.gridPlans.length >= assets.length * (dualGridExpected ? 2 : 1) ? 'complete' : review.gridPlans.length > 0 ? 'partial' : 'blocked',
         provenance: 'runtime_record',
         inputs: [value('成功资产', assets.length), value('激活策略版本', report.strategy?.activeStrategyVersionIds || [])],
         outputs: [
@@ -250,9 +252,10 @@ class DailyReviewWorkflowService {
           value('现在可设置草案', immediateOrderDraftCount),
           value('待父卖单成交草案', conditionalBuybackDraftCount),
           value('观察计划', review.gridPlans.filter((plan) => plan.status === 'observe_only').length),
+          value('重锚门禁', report.reanchorGate?.state || 'clear'),
         ],
         evidenceRefs: review.gridPlans.map((plan) => `grid-plan:${plan.id}`),
-        blockerCodes: gridBlockers,
+        blockerCodes: report.reanchorGate?.state === 'clear' ? gridBlockers : unique([...gridBlockers, 'portfolio_reanchor_confirmation_required']),
       },
       {
         id: 'history', sequence: 9, title: '历史比较',

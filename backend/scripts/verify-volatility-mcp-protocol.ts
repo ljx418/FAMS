@@ -21,9 +21,17 @@ async function main() {
     'volatility_workflow.reconcile',
     'volatility_workflow.run',
     'volatility_workflow.get_result',
+    'volatility_workflow.decide_reanchor',
     'capture.apply_extraction',
     'capture.confirm_rows',
     'market_data.get_asset_trend',
+    'trade_ledger.get_ingestion_batch',
+    'trade_ledger.run_reconciliation',
+    'trade_ledger.get_reconciliation',
+    'trade_ledger.list_pending_matches',
+    'trade_ledger.confirm_execution_match',
+    'trade_ledger.get_plan_lifecycle',
+    'investment_workflow.get_strategy_run',
   ]) assert(names.has(required), `missing volatility MCP tool: ${required}`)
   for (const forbidden of [
     'transaction.create_manual_record',
@@ -49,6 +57,9 @@ async function main() {
   const promptText = prompt.messages.map((message) => message.content.type === 'text' ? message.content.text : '').join('\n')
   assert.match(promptText, /volatility_workflow\.reconcile/)
   assert.match(promptText, /capture\.apply_extraction/)
+  assert.match(promptText, /checkHash/)
+  assert.match(promptText, /仅确认一次/)
+  assert.match(promptText, /已降级风险项/)
 
   const reconciliation = await client.callTool({
     name: 'volatility_workflow.reconcile',
@@ -60,6 +71,7 @@ async function main() {
   assert.equal(structured.result.schemaVersion, 'fams.volatility-workflow.v1')
   assert.equal(structured.result.fivePartReport.executionPermission.canCreateOrder, false)
   assert.equal(structured.result.fivePartReport.confirmedFacts.doNotReplayHistoricalFills, true)
+  assert.match(structured.result.confirmationRequest.checkHash, /^[a-f0-9]{64}$/)
 
   const latestReview = await prisma.dailyReviewRun.findFirst({
     where: { userId: 'default' },

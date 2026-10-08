@@ -51,6 +51,8 @@ const blockerLabel = (value: string) => ({
   completed_history_insufficient: '完整历史行情不足',
   market_data_confidence_low: '行情置信度不足',
   observe_only_strategy: '当前策略仅观察',
+  portfolio_reanchor_confirmation_required: '组合存在待确认的固定网格重锚候选',
+  reanchor_candidate_rejected_for_this_continuation: '本次已拒绝重锚，该标的续跑仅观察',
 }[value] || value)
 
 const blockerText = (values: unknown) => {
@@ -164,17 +166,27 @@ export function DailyReviewDecisionPanel({
   decisionSummary,
   llmSynthesis,
   attentionCandidates,
+  reanchorGate,
+  reanchorDecisionLoadingId,
+  onReanchorDecision,
   onOpenAttentionAudit,
 }: {
   decisionSummary?: any
   llmSynthesis?: any
   attentionCandidates: any[]
+  reanchorGate?: any
+  reanchorDecisionLoadingId?: string
+  onReanchorDecision: (candidate: any, decision: 'confirm' | 'reject') => void
   onOpenAttentionAudit: (symbol: string, evidenceRefs: string[]) => void
 }) {
   if (!decisionSummary) return <Alert type="info" showIcon message="该历史复盘生成于结论摘要功能上线前" description="原始行情和网格仍可审查，但没有保存 v2 可复算推导链。" />
   const assets = decisionSummary.assets || []
-  const orderRows = assets.flatMap((asset: any) => (asset.orders || []).map((order: any) => ({ ...order, symbol: asset.symbol, name: asset.name, key: order.id || `${asset.symbol}:${order.side}:${order.level}` })))
-  const conditionalRows = assets.flatMap((asset: any) => (asset.conditionalBuyback?.orders || []).map((order: any) => {
+  const gateActive = reanchorGate?.state === 'awaiting_confirmation' || reanchorGate?.state === 'blocked'
+  const allOrderRows = assets.flatMap((asset: any) => (asset.orders || []).map((order: any) => ({ ...order, symbol: asset.symbol, name: asset.name, key: order.id || `${asset.symbol}:${order.side}:${order.level}` })))
+  const orderRows = allOrderRows.filter((order: any) => order.actionability === 'actionable')
+  const conditionalRows = gateActive ? [] : assets.flatMap((asset: any) => (asset.conditionalBuyback?.orders || [])
+    .filter((order: any) => !String(order.actionability || '').startsWith('blocked'))
+    .map((order: any) => {
     const trigger = parseObject(order.triggerCondition)
     return { ...order, trigger, symbol: asset.symbol, name: asset.name, key: order.id || `${asset.symbol}:conditional:${order.level}` }
   }))
@@ -216,6 +228,54 @@ export function DailyReviewDecisionPanel({
 
   return (
     <div className="space-y-5">
+      {reanchorGate && reanchorGate.state !== 'clear' ? (
+        <Card className="fams-card border-red-200 bg-red-50/40" data-testid="reanchor-gate">
+          <Alert
+            type={reanchorGate.state === 'resolved' ? 'success' : 'error'}
+            showIcon
+            message={reanchorGate.state === 'resolved' ? '重锚决定已完成；旧拟单仍不可执行' : reanchorGate.state === 'blocked' ? '重锚候选已过期，需要用最新证据重新运行' : '固定网格触发组合级重锚暂停'}
+            description={reanchorGate.state === 'resolved'
+              ? '确认的新策略版本已写入，拒绝的标的在续跑中仅观察。请只使用续跑复盘生成的新草案。'
+              : reanchorGate.state === 'blocked'
+                ? `阻断原因：${reanchorGate.lastDecisionResult?.staleReason || reanchorGate.lastDecisionResult?.code || '候选事实已经变化'}。旧拟单继续不可复制，请补充最新完整日线或券商截图后重跑。`
+                : '任一标的触发时，全部持仓的旧拟单都仅供审计、不可复制。必须逐标的确认或拒绝，全部处理后系统才会生成续跑复盘；不会向券商下单。'}
+          />
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
+            <strong>统一规则：</strong>锚点满 5 个完整交易日且价格偏移达到 2 ATR，或任意时点达到 3 ATR；ATR 不可用时个股用 5%、ETF 用 3%。新锚固定取最新完整交易日收盘价。候选档位 = 新锚 ×（旧档价 ÷ 旧锚）；买价按最小价位向下取整，卖价向上取整。只平移价格，订单角色、数量、父子关系、仓位划分和暂停线不变。
+          </div>
+          <div className="mt-4 space-y-4">
+            {(reanchorGate.candidates || []).map((candidate: any) => {
+              const evaluation = candidate.evaluation || {}
+              const decision = candidate.decision?.value
+              return (
+                <div key={candidate.candidateStrategyVersionId} className="rounded-xl border border-slate-200 bg-white p-4" data-testid={`reanchor-candidate-${candidate.symbol}`}>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2"><strong className="text-lg">{candidate.symbol} · {candidate.name}</strong><Tag color={decision === 'confirm' ? 'success' : decision === 'reject' ? 'default' : 'warning'}>{decision === 'confirm' ? '已确认' : decision === 'reject' ? '已拒绝' : '待决定'}</Tag></div>
+                      <div className="mt-2 text-sm text-slate-600">旧锚 {formatNumber(candidate.activeAnchor?.price, 4)}（{candidate.activeAnchor?.asOf || '未记录'}）→ 新锚 {formatNumber(candidate.candidateConfig?.fixedAnchor?.price, 4)}（最新完整收盘 {candidate.latestCompletedClose?.date || '未记录'}）</div>
+                      <div className="mt-1 text-sm text-slate-600">锚龄 {formatNumber(evaluation.anchor?.ageCompletedSessions, 0)} 个完整交易日 · 偏移 {formatNumber(evaluation.drift?.percent, 2)}% · {evaluation.drift?.atrMultiple == null ? 'ATR 不可用，采用百分比回退门槛' : `${formatNumber(evaluation.drift.atrMultiple, 2)} ATR`}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="primary" disabled={Boolean(decision) || reanchorGate.state === 'resolved'} loading={reanchorDecisionLoadingId === candidate.candidateStrategyVersionId} onClick={() => onReanchorDecision(candidate, 'confirm')}>确认新锚</Button>
+                      <Button danger disabled={Boolean(decision) || reanchorGate.state === 'resolved'} loading={reanchorDecisionLoadingId === candidate.candidateStrategyVersionId} onClick={() => onReanchorDecision(candidate, 'reject')}>拒绝并仅观察</Button>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1">{(evaluation.triggers || []).map((trigger: any) => <Tag key={trigger.code} color={trigger.state === 'true' ? 'red' : trigger.state === 'unknown' ? 'warning' : 'default'}>{trigger.label || trigger.code}：{trigger.state === 'true' ? '触发' : trigger.state === 'unknown' ? '证据不足' : '未触发'}</Tag>)}</div>
+                  <div className="mt-3 overflow-auto"><Table<any> size="small" pagination={false} rowKey={(row) => row.orderRef} dataSource={candidate.levelDiffs || []} columns={[
+                    { title: '订单角色', dataIndex: 'orderRole', width: 150 },
+                    { title: '方向', dataIndex: 'side', width: 80, render: (side) => side === 'buy' ? '买入' : '卖出' },
+                    { title: '数量', dataIndex: 'quantity', width: 90, align: 'right', render: (value) => formatNumber(value, 0) },
+                    { title: '旧价（仅审计）', dataIndex: 'oldPrice', width: 130, align: 'right', render: (value) => formatNumber(value, 4) },
+                    { title: '候选新价', dataIndex: 'newPrice', width: 120, align: 'right', render: (value) => <strong>{formatNumber(value, 4)}</strong> },
+                    { title: '相对锚偏移', dataIndex: 'relativeOffsetPercent', width: 120, align: 'right', render: (value) => `${formatNumber(value, 2)}%` },
+                  ]} scroll={{ x: 760 }} /></div>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="overflow-hidden border-blue-100 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-white" styles={{ body: { padding: 24 } }} data-testid="daily-review-decision-summary">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-4xl">
@@ -241,8 +301,8 @@ export function DailyReviewDecisionPanel({
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {focusAssets.map((focus) => {
             const asset = assets.find((item: any) => item.symbol === focus.symbol)
-            const immediate = asset?.orders || []
-            const conditional = asset?.conditionalBuyback?.orders || []
+            const immediate = (asset?.orders || []).filter((order: any) => order.actionability === 'actionable')
+            const conditional = gateActive ? [] : (asset?.conditionalBuyback?.orders || []).filter((order: any) => !String(order.actionability || '').startsWith('blocked'))
             const blockers = [...(asset?.blockers || []), ...(asset?.conditionalBuyback?.blockers || [])]
             return (
               <div key={focus.symbol} className="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4" data-testid={`focus-asset-${focus.symbol}`}>
@@ -264,9 +324,9 @@ export function DailyReviewDecisionPanel({
       <Card className="fams-card" data-testid="manual-order-plan">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div><div className="text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">IMMEDIATE MANUAL PLAN</div><h2 className="mb-0 mt-1 text-xl font-semibold text-slate-950">现在可人工核对的买卖单</h2><p className="mb-0 mt-1 text-sm leading-6 text-slate-500">只包含本轮已保存的即时 GridOrderDraft；复制后仍需在券商端人工核对，不会自动提交。</p></div>
-          <Button icon={<CopyOutlined />} disabled={!orderRows.length} onClick={() => void copyOrders()}>复制设置清单</Button>
+          <Button icon={<CopyOutlined />} disabled={!orderRows.length || gateActive} onClick={() => void copyOrders()}>复制设置清单</Button>
         </div>
-        {orderRows.length ? <Table columns={columns} dataSource={orderRows} pagination={false} size="small" scroll={{ x: 1050 }} /> : <Alert type="warning" showIcon icon={<ClockCircleOutlined />} message="本轮没有当前有效的即时草案" description={blockerText(assets.flatMap((asset: any) => asset.blockers || []))} />}
+        {orderRows.length ? <Table columns={columns} dataSource={orderRows} pagination={false} size="small" scroll={{ x: 1050 }} /> : <Alert type="warning" showIcon icon={<ClockCircleOutlined />} message={gateActive ? '组合级重锚暂停：旧拟单不可复制' : '本轮没有当前有效的即时草案'} description={gateActive ? `当前保留 ${allOrderRows.length} 条旧草案用于审计；逐项处理重锚候选并等待续跑结果。` : blockerText(assets.flatMap((asset: any) => asset.blockers || []))} />}
       </Card>
 
       <Card className="fams-card border-amber-200 bg-amber-50/30" data-testid="conditional-buyback-plan">

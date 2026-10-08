@@ -13,7 +13,6 @@ import { alertService } from '../services/alert/alertService.js'
 import { operationService } from '../services/operation/operationService.js'
 import { assetTrendService } from '../services/market-data/assetTrendService.js'
 import { dailyReviewService } from '../services/review/dailyReviewService.js'
-import { brokerReviewReconciliationService } from '../services/review/brokerReviewReconciliationService.js'
 import { volatilityWorkflowService } from '../services/review/volatilityWorkflowService.js'
 import { gridStrategyService } from '../services/strategy/gridStrategyService.js'
 import { screenshotCaptureService } from '../services/capture/screenshotCaptureService.js'
@@ -22,6 +21,20 @@ import { industryCrowdingService } from '../services/relative-rotation/industryC
 import { relativeRotationService } from '../services/relative-rotation/relativeRotationService.js'
 import { relativeRotationUniverseService } from '../services/relative-rotation/relativeRotationUniverseService.js'
 import { relativeRotationResearchStudyService, type ResearchStudyInput } from '../services/relative-rotation/relativeRotationResearchStudyService.js'
+import { investmentWorkflowService } from '../services/investment-workflow/investmentWorkflowService.js'
+import { rotationVolatilityStrategyService } from '../services/investment-workflow/rotationVolatilityStrategyService.js'
+import { dividendLowVolStrategyService } from '../services/dividend-low-vol/dividendLowVolStrategyService.js'
+import { dividendLowVolTradingZoneService } from '../services/dividend-low-vol/dividendLowVolTradingZoneService.js'
+import { portfolioWorkflowFacade } from '../services/mcp/portfolioWorkflowFacade.js'
+import { brokerReviewReconciliationService } from '../services/review/brokerReviewReconciliationService.js'
+import { tradeLedgerService } from '../services/trade-ledger/tradeLedgerService.js'
+import { planExecutionService } from '../services/trade-ledger/planExecutionService.js'
+import { scenarioComparisonService } from '../services/backtest/scenarioComparisonService.js'
+import {
+  gridReplayOperationSchema,
+  gridReplayResultQuerySchema,
+  gridReplayService,
+} from '../services/backtest/gridReplayService.js'
 import { z } from 'zod'
 
 export type PermissionMetadata = {
@@ -120,10 +133,10 @@ const successEnvelopeSchema = {
 const operationOutputSchema = {
   type: 'object',
   properties: {
-    id: { type: 'string' },
-    operationId: { type: 'string' },
-    operation_id: { type: 'string' },
-    status: { type: 'string', enum: ['queued', 'running', 'completed', 'succeeded', 'partial', 'failed', 'cancelling', 'cancelled'] },
+    id: { type: ['string', 'null'] },
+    operationId: { type: ['string', 'null'] },
+    operation_id: { type: ['string', 'null'] },
+    status: { type: 'string', enum: ['confirmation_required', 'queued', 'running', 'completed', 'succeeded', 'partial', 'failed', 'cancelling', 'cancelled'] },
     progressPct: { type: 'number' },
     artifactRefs: { type: 'array', items: { type: 'string' } },
     nextActions: { type: 'array', items: { type: 'object' } },
@@ -244,6 +257,22 @@ const hasHumanConfirmation = (confirmation?: HumanConfirmation) => (
   confirmation?.confirmed === true && typeof confirmation.confirmedBy === 'string' && confirmation.confirmedBy.trim().length > 0
 )
 
+const buildWorkflowConfirmationBlock = (toolName: string, message: string) => ({
+  blocked: true,
+  requiresHumanConfirmation: true,
+  code: 'HUMAN_CONFIRMATION_REQUIRED',
+  message,
+  confirmationRequired: {
+    tool: toolName,
+    requiredFields: ['confirmation.confirmed=true', 'confirmation.confirmedBy'],
+  },
+  nextActions: [{
+    type: 'confirm_workflow_action',
+    label: '取得用户明确确认后，使用相同参数和 confirmation 重试',
+    tool: toolName,
+  }],
+})
+
 const deletionConfirmationSchema = z.object({
   confirmed: z.literal(true),
   confirmedBy: z.string().trim().min(1).max(120),
@@ -315,12 +344,22 @@ const volatilityCaptureFields = {
   ordinaryOrdersCaptureId: z.string().trim().min(1).optional(),
   conditionalOrdersCaptureId: z.string().trim().min(1).optional(),
   zeroNewTradesConfirmed: z.boolean().optional(),
+  zeroOrdinaryOrdersConfirmed: z.boolean().optional(),
+  zeroConditionalOrdersConfirmed: z.boolean().optional(),
 }
 
 const volatilityReconcileSchema = z.object(volatilityCaptureFields).strict()
+const volatilitySingleConfirmationSchema = z.object({
+  confirmed: z.literal(true),
+  confirmedBy: z.string().trim().min(1),
+  confirmedAt: z.string().datetime(),
+  checkHash: z.string().regex(/^[a-f0-9]{64}$/),
+  acknowledgedDraftOnly: z.literal(true),
+}).strict()
 const volatilityRunSchema = z.object({
   ...volatilityCaptureFields,
   idempotencyKey: z.string().trim().min(1).max(160).optional(),
+  confirmation: volatilitySingleConfirmationSchema.optional(),
 }).strict()
 const volatilityResultSchema = z.object({
   userId: z.string().trim().min(1),
@@ -331,6 +370,97 @@ const volatilityResultSchema = z.object({
   message: 'Exactly one of operationId or reviewId is required',
   path: ['operationId'],
 })
+const volatilityReanchorDecisionSchema = z.object({
+  userId: z.string().trim().min(1),
+  reviewId: z.string().trim().min(1),
+  versionId: z.string().trim().min(1),
+  candidateHash: z.string().trim().min(1),
+  decision: z.enum(['confirm', 'reject']),
+  confirmedBy: z.string().trim().min(1),
+  acknowledgedNoBrokerExecution: z.literal(true),
+  reason: z.string().trim().max(500).optional(),
+}).strict()
+
+const workflowUserSchema = z.object({ userId: z.string().trim().min(1) }).strict()
+const workflowAssignmentConfirmationSchema = z.object({
+  userId: z.string().trim().min(1),
+  positionId: z.string().trim().min(1),
+  strategyFamily: z.enum(['rotation_volatility', 'dividend_low_vol', 'portfolio', 'unclassified']),
+  confirmation: deletionConfirmationSchema.optional(),
+}).strict()
+const workflowRotationRunSchema = z.object({
+  userId: z.string().trim().min(1),
+  positionIds: z.array(z.string().trim().min(1)).max(100).optional(),
+  idempotencyKey: z.string().trim().min(8).max(180).optional(),
+  forceRecalculate: z.boolean().default(false),
+  materialChange: z.enum(['none', 'watch', 'material', 'insufficient']).default('none'),
+}).strict()
+const tradeLedgerIdSchema = z.object({
+  userId: z.string().trim().min(1),
+  id: z.string().trim().min(1),
+}).strict()
+const tradeLedgerPendingSchema = z.object({
+  userId: z.string().trim().min(1),
+  limit: z.number().int().min(1).max(500).default(100),
+}).strict()
+const tradeLedgerReconciliationSchema = z.object({
+  ...volatilityCaptureFields,
+  idempotencyKey: z.string().trim().min(8).max(180).optional(),
+  ingestionBatchId: z.string().trim().min(1).optional(),
+  asOf: z.string().datetime().optional(),
+  confirmation: z.object({
+    confirmed: z.literal(true),
+    confirmedBy: z.string().trim().min(1),
+    confirmedAt: z.string().datetime(),
+  }).strict().optional(),
+}).strict()
+const executionMatchDecisionSchema = z.object({
+  userId: z.string().trim().min(1),
+  linkId: z.string().trim().min(1),
+  decision: z.enum(['confirmed', 'rejected']),
+  idempotencyKey: z.string().trim().min(8).max(180),
+  reason: z.string().trim().max(500).optional(),
+  confirmation: deletionConfirmationSchema.optional(),
+}).strict()
+const workflowDividendPlanSchema = z.object({
+  userId: z.string().trim().min(1),
+  symbols: z.array(z.string().trim().min(1)).max(100).optional(),
+  limit: z.number().int().min(1).max(100).default(10),
+}).strict()
+const workflowDividendRefreshSchema = z.object({
+  userId: z.string().trim().min(1),
+  symbols: z.array(z.string().trim().min(1)).max(500).optional(),
+  limit: z.number().int().min(10).max(6000).default(120),
+  universe: z.enum(['provided_symbols', 'all_a']).default('provided_symbols'),
+  idempotencyKey: z.string().trim().min(8).max(180),
+  confirmation: deletionConfirmationSchema.optional(),
+}).strict()
+const workflowPortfolioPreflightSchema = z.object({
+  userId: z.string().trim().min(1),
+  portfolioChangedSinceLastCapture: z.boolean(),
+}).strict()
+const workflowPortfolioStartSchema = z.object({
+  userId: z.string().trim().min(1),
+  sessionType: z.enum(['open', 'pre_close', 'manual']).default('manual'),
+  portfolioChangedSinceLastCapture: z.boolean(),
+  idempotencyKey: z.string().trim().min(8).max(160),
+  confirmation: deletionConfirmationSchema.optional(),
+}).strict()
+const workflowPortfolioResultSchema = z.object({
+  userId: z.string().trim().min(1),
+  operationId: z.string().trim().min(1),
+}).strict()
+const workflowScenarioComparisonSchema = z.object({
+  userId: z.string().trim().min(1),
+  sourceType: z.enum(['advice', 'grid_plan']),
+  sourceId: z.string().trim().min(1),
+  replayMode: z.enum(['saved_advice_replay', 'point_in_time_simulation']).default('saved_advice_replay'),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  initialCapital: z.number().positive().optional(),
+  commissionRate: z.number().min(0).max(0.02).default(0.0003),
+  slippageRate: z.number().min(0).max(0.02).default(0.0005),
+}).strict()
 
 const compactRotationPoints = (points: unknown, tail: number) => (
   Array.isArray(points) ? points.slice(-tail) : []
@@ -521,6 +651,390 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     handler: async (params: { userId: string; status?: 'open' | 'closed' | 'pending'; tags?: string[] }) => (
       positionService.getPositions(params.userId, { status: params.status, tags: params.tags })
     ),
+  },
+
+  'investment_workflow.get_readiness': {
+    name: 'investment_workflow.get_readiness',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '进入任何投资工作流前调用。返回基本信息确认、仓位策略、回测复盘三段进度，三类资产的数据健康、阻断原因和下一步。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { userId: { type: 'string' } },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['investment_workflow:read']),
+    safety: readSafety,
+    parameterSchema: workflowUserSchema,
+    handler: async (params: { userId: string }) => investmentWorkflowService.getReadiness(params.userId),
+  },
+
+  'investment_workflow.list_strategy_assignments': {
+    name: 'investment_workflow.list_strategy_assignments',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '读取当前持仓在行业轮动与波动仓、红利低波、投资组合三类策略中的建议归属和确认状态。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { userId: { type: 'string' } },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['investment_workflow:read']),
+    safety: readSafety,
+    parameterSchema: workflowUserSchema,
+    handler: async (params: { userId: string }) => investmentWorkflowService.listAssignments(params.userId),
+  },
+
+  'investment_workflow.suggest_strategy_assignments': {
+    name: 'investment_workflow.suggest_strategy_assignments',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '根据账户来源和资产标记生成三类策略归属建议。只保存 suggested 状态，不能替代用户确认，也不会运行策略或创建订单。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { userId: { type: 'string' } },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['investment_workflow:write']),
+    safety: directWriteSafety,
+    parameterSchema: workflowUserSchema,
+    handler: async (params: { userId: string }) => investmentWorkflowService.suggestAssignments(params.userId),
+  },
+
+  'investment_workflow.confirm_strategy_assignment': {
+    name: 'investment_workflow.confirm_strategy_assignment',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '用户核对后确认单个持仓的策略归属。缺少明确人工确认时只返回阻断，不改写归属。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        positionId: { type: 'string' },
+        strategyFamily: { type: 'string', enum: ['rotation_volatility', 'dividend_low_vol', 'portfolio', 'unclassified'] },
+        confirmation: humanConfirmationSchema,
+      },
+      required: ['userId', 'positionId', 'strategyFamily'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: confirmedWritePermission(['investment_workflow:confirm']),
+    safety: confirmedWriteSafety,
+    parameterSchema: workflowAssignmentConfirmationSchema,
+    handler: async (params: z.infer<typeof workflowAssignmentConfirmationSchema>) => {
+      if (!hasHumanConfirmation(params.confirmation)) {
+        return buildWorkflowConfirmationBlock(
+          'investment_workflow.confirm_strategy_assignment',
+          '策略归属会改变后续使用的研究工作流，必须先由用户明确确认。',
+        )
+      }
+      return investmentWorkflowService.confirmAssignment({
+        userId: params.userId,
+        positionId: params.positionId,
+        strategyFamily: params.strategyFamily,
+        confirmedBy: params.confirmation!.confirmedBy!,
+      })
+    },
+  },
+
+  'investment_workflow.run_rotation_volatility_strategy': {
+    name: 'investment_workflow.run_rotation_volatility_strategy',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '对已确认属于同花顺行业轮动或波动仓的持仓运行 RRG、MACD、均线、成交量和网格研究。只输出人工计划草案。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        positionIds: { type: 'array', items: { type: 'string' }, maxItems: 100 },
+        idempotencyKey: { type: 'string', minLength: 8, maxLength: 180 },
+        forceRecalculate: { type: 'boolean', default: false },
+        materialChange: { type: 'string', enum: ['none', 'watch', 'material', 'insufficient'], default: 'none' },
+      },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['investment_workflow:run']),
+    safety: directWriteSafety,
+    parameterSchema: workflowRotationRunSchema,
+    handler: async (params: z.infer<typeof workflowRotationRunSchema>) => {
+      const snapshot = await investmentWorkflowService.createResearchSnapshot({
+        userId: params.userId,
+        strategyFamily: 'rotation_volatility',
+        accountSource: 'tonghuashun',
+        positionIds: params.positionIds,
+      })
+      return rotationVolatilityStrategyService.run({
+        userId: params.userId,
+        snapshot,
+        positionIds: params.positionIds,
+        idempotencyKey: params.idempotencyKey,
+        forceRecalculate: params.forceRecalculate,
+        materialChange: params.materialChange,
+      })
+    },
+  },
+
+  'investment_workflow.get_dividend_low_vol_plan': {
+    name: 'investment_workflow.get_dividend_low_vol_plan',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '读取最近一次真实红利低波候选池并计算买卖观察区间、证据质量和失效条件；不会刷新全市场数据或创建交易。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        symbols: { type: 'array', items: { type: 'string' }, maxItems: 100 },
+        limit: { type: 'number', minimum: 1, maximum: 100, default: 10 },
+      },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['investment_workflow:read', 'dividend_low_vol:read']),
+    safety: readSafety,
+    parameterSchema: workflowDividendPlanSchema,
+    handler: async (params: z.infer<typeof workflowDividendPlanSchema>) => {
+      const pool = await dividendLowVolStrategyService.getLatestCandidatePool(params.userId, {
+        limit: Math.max(params.limit, params.symbols?.length || 0),
+        symbols: params.symbols,
+        scope: 'all_latest_by_symbol',
+      })
+      const candidates = pool.candidates.slice(0, params.limit)
+      return {
+        schemaVersion: 'fams.investment-workflow.dividend-low-vol-plan.v1',
+        generatedAt: new Date().toISOString(),
+        candidatePool: { ...pool, candidates },
+        tradingZones: dividendLowVolTradingZoneService.buildTradingZonesFromFactSets(candidates, { limit: params.limit }),
+        permissionState: {
+          formalTradingUnlocked: false,
+          autoTradeUnlocked: false,
+          canCreateOrder: false,
+          orderCreateAllowed: false,
+          prohibitedActions: ['ADD', 'REDUCE', 'ORDER_CREATE', 'AUTO_TRADE'],
+        },
+      }
+    },
+  },
+
+  'investment_workflow.refresh_dividend_low_vol_research': {
+    name: 'investment_workflow.refresh_dividend_low_vol_research',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '经用户确认后提交红利低波候选刷新任务。返回 Operation 供轮询；不会生成或提交真实订单。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        symbols: { type: 'array', items: { type: 'string' }, maxItems: 500 },
+        limit: { type: 'number', minimum: 10, maximum: 6000, default: 120 },
+        universe: { type: 'string', enum: ['provided_symbols', 'all_a'], default: 'provided_symbols' },
+        idempotencyKey: { type: 'string', minLength: 8, maxLength: 180 },
+        confirmation: humanConfirmationSchema,
+      },
+      required: ['userId', 'idempotencyKey'],
+    },
+    outputSchema: operationOutputSchema,
+    permissions: confirmedWritePermission(['investment_workflow:run', 'operation:write']),
+    safety: confirmedWriteSafety,
+    parameterSchema: workflowDividendRefreshSchema,
+    handler: async (params: z.infer<typeof workflowDividendRefreshSchema>) => {
+      if (!hasHumanConfirmation(params.confirmation)) {
+        return buildWorkflowConfirmationBlock(
+          'investment_workflow.refresh_dividend_low_vol_research',
+          '全市场或指定标的刷新会创建长任务并访问外部数据源，必须先由用户明确确认。',
+        )
+      }
+      return operationService.startDividendLowVolDailyScanOperation({
+        userId: params.userId,
+        symbols: params.symbols,
+        limit: params.limit,
+        universe: params.universe,
+        executionMode: 'queued',
+        createdBy: 'mcp_investment_workflow',
+        idempotencyKey: params.idempotencyKey,
+      })
+    },
+  },
+
+  'investment_workflow.get_portfolio_state': {
+    name: 'investment_workflow.get_portfolio_state',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '读取支付宝投资组合持仓、当前年度配置策略、目标偏差、证据时间和数据健康状态。',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { userId: { type: 'string' } }, required: ['userId'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['investment_workflow:read', 'portfolio:read']),
+    safety: readSafety,
+    parameterSchema: workflowUserSchema,
+    handler: async (params: { userId: string }) => portfolioWorkflowFacade.getCurrentState(params.userId, 'alipay'),
+  },
+
+  'investment_workflow.preflight_portfolio_review': {
+    name: 'investment_workflow.preflight_portfolio_review',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '启动支付宝投资组合复盘前必须调用。检查截图、台账、行情、年度配置策略和模型是否足以支持人工计划。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { userId: { type: 'string' }, portfolioChangedSinceLastCapture: { type: 'boolean' } },
+      required: ['userId', 'portfolioChangedSinceLastCapture'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['investment_workflow:read', 'portfolio:read']),
+    safety: readSafety,
+    parameterSchema: workflowPortfolioPreflightSchema,
+    handler: async (params: z.infer<typeof workflowPortfolioPreflightSchema>) => portfolioWorkflowFacade.preflightReview(params.userId, params.portfolioChangedSinceLastCapture),
+  },
+
+  'investment_workflow.start_portfolio_review': {
+    name: 'investment_workflow.start_portfolio_review',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '预检通过且用户确认后启动支付宝固定复盘，生成研究结果和人工计划草案。只创建 Operation，不创建订单。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        sessionType: { type: 'string', enum: ['open', 'pre_close', 'manual'], default: 'manual' },
+        portfolioChangedSinceLastCapture: { type: 'boolean' },
+        idempotencyKey: { type: 'string', minLength: 8, maxLength: 160 },
+        confirmation: humanConfirmationSchema,
+      },
+      required: ['userId', 'portfolioChangedSinceLastCapture', 'idempotencyKey'],
+    },
+    outputSchema: operationOutputSchema,
+    permissions: confirmedWritePermission(['investment_workflow:run', 'operation:write']),
+    safety: confirmedWriteSafety,
+    parameterSchema: workflowPortfolioStartSchema,
+    handler: async (params: z.infer<typeof workflowPortfolioStartSchema>) => {
+      if (!hasHumanConfirmation(params.confirmation)) {
+        return buildWorkflowConfirmationBlock(
+          'investment_workflow.start_portfolio_review',
+          '支付宝固定复盘会创建持久化研究任务，必须先由用户明确确认。',
+        )
+      }
+      return portfolioWorkflowFacade.startReview({
+        userId: params.userId,
+        sessionType: params.sessionType,
+        portfolioChangedSinceLastCapture: params.portfolioChangedSinceLastCapture,
+        idempotencyKey: params.idempotencyKey,
+      })
+    },
+  },
+
+  'investment_workflow.get_portfolio_review': {
+    name: 'investment_workflow.get_portfolio_review',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '按 Operation ID 查询支付宝复盘进度、结果、人工计划、证据与数据质量，不会重新运行任务。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { userId: { type: 'string' }, operationId: { type: 'string' } },
+      required: ['userId', 'operationId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['investment_workflow:read', 'portfolio:read', 'operation:read']),
+    safety: readSafety,
+    parameterSchema: workflowPortfolioResultSchema,
+    handler: async (params: z.infer<typeof workflowPortfolioResultSchema>) => portfolioWorkflowFacade.getReview(params.userId, params.operationId),
+  },
+
+  'investment_workflow.compare_saved_advice_scenarios': {
+    name: 'investment_workflow.compare_saved_advice_scenarios',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '在回测复盘阶段比较按已保存建议、不执行建议和实际交易三条曲线。point_in_time_simulation 未实现时必须诚实返回 insufficient。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        sourceType: { type: 'string', enum: ['advice', 'grid_plan'] },
+        sourceId: { type: 'string' },
+        replayMode: { type: 'string', enum: ['saved_advice_replay', 'point_in_time_simulation'], default: 'saved_advice_replay' },
+        startDate: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        endDate: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        initialCapital: { type: 'number', exclusiveMinimum: 0 },
+        commissionRate: { type: 'number', minimum: 0, maximum: 0.02, default: 0.0003 },
+        slippageRate: { type: 'number', minimum: 0, maximum: 0.02, default: 0.0005 },
+      },
+      required: ['userId', 'sourceType', 'sourceId', 'startDate', 'endDate'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['investment_workflow:read', 'backtest:run']),
+    safety: readSafety,
+    parameterSchema: workflowScenarioComparisonSchema,
+    handler: async (params: z.infer<typeof workflowScenarioComparisonSchema>) => scenarioComparisonService.compare(params),
+  },
+
+  'backtest.grid_replay.list_sources': {
+    name: 'backtest.grid_replay.list_sources',
+    domain: 'backtest',
+    version: 'v2',
+    description: '列出有持仓或保存网格计划的资产、可用真实日线范围和回放阻断项；只读且不会创建交易。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { userId: { type: 'string' } },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['backtest:read']),
+    safety: readSafety,
+    parameterSchema: workflowUserSchema,
+    handler: async (params: z.infer<typeof workflowUserSchema>) => gridReplayService.listSources(params.userId),
+  },
+
+  'backtest.grid_replay.run': {
+    name: 'backtest.grid_replay.run',
+    domain: 'backtest',
+    version: 'v3',
+    aliases: ['backtest.run_trade_plan_quality_replay'],
+    description: '按计划触发模拟、不执行建议、已确认归因真实成交三种口径回放网格建议。未人工确认归因的成交只报告、不计入实际执行收益。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        userId: { type: 'string' }, assetId: { type: 'string' },
+        startDate: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        endDate: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        initialCapital: { type: 'number', exclusiveMinimum: 0 }, initialCash: { type: 'number', minimum: 0 },
+        commissionRate: { type: 'number', minimum: 0, maximum: 0.02 }, minimumCommission: { type: 'number', minimum: 0, maximum: 100 },
+        stampDutyRate: { type: 'number', minimum: 0, maximum: 0.02 }, transferFeeRate: { type: 'number', minimum: 0, maximum: 0.02 },
+        slippageRate: { type: 'number', minimum: 0, maximum: 0.02 },
+        dataResolution: { type: 'string', enum: ['minute_preferred_daily_conservative', 'daily_conservative'] },
+        idempotencyKey: { type: 'string', minLength: 8, maxLength: 180 },
+      },
+      required: ['userId', 'assetId', 'startDate', 'endDate'],
+    },
+    outputSchema: operationOutputSchema,
+    permissions: asyncPermission(['backtest:run', 'operation:write']),
+    safety: asyncOperationSafety,
+    parameterSchema: gridReplayOperationSchema,
+    handler: async (params: z.infer<typeof gridReplayOperationSchema>) => gridReplayService.startReplayOperation(params),
+  },
+
+  'backtest.grid_replay.get_result': {
+    name: 'backtest.grid_replay.get_result',
+    domain: 'backtest',
+    version: 'v3',
+    description: '按 operationId 获取已运行的网格回放、质量指标、证据状态和可复核输入哈希；不会重新运行。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { userId: { type: 'string' }, operationId: { type: 'string', format: 'uuid' } },
+      required: ['userId', 'operationId'],
+    },
+    outputSchema: operationOutputSchema,
+    permissions: readPermission(['backtest:read', 'operation:read']),
+    safety: readSafety,
+    parameterSchema: gridReplayResultQuerySchema,
+    handler: async (params: z.infer<typeof gridReplayResultQuerySchema>) => gridReplayService.getReplayOperation(params.userId, params.operationId),
   },
 
   get_investment_suggestions: {
@@ -1263,6 +1777,8 @@ export const mcpTools: Record<string, McpToolDefinition> = {
         ordinaryOrdersCaptureId: { type: 'string' },
         conditionalOrdersCaptureId: { type: 'string' },
         zeroNewTradesConfirmed: { type: 'boolean' },
+        zeroOrdinaryOrdersConfirmed: { type: 'boolean' },
+        zeroConditionalOrdersConfirmed: { type: 'boolean' },
       },
       required: ['userId'],
     },
@@ -1277,7 +1793,7 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     name: 'volatility_workflow.run',
     domain: 'volatility_workflow',
     version: 'v1',
-    description: '启动对账、30日收盘与MA、日频RRG、基本面/消息、策略差异、人工拟单和HTML报告的一键波动仓工作流。',
+    description: '根据先前对账的 checkHash 接受一次整包确认，启动波动仓工作流；只生成草案，不会下单。',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -1289,7 +1805,18 @@ export const mcpTools: Record<string, McpToolDefinition> = {
         ordinaryOrdersCaptureId: { type: 'string' },
         conditionalOrdersCaptureId: { type: 'string' },
         zeroNewTradesConfirmed: { type: 'boolean' },
+        zeroOrdinaryOrdersConfirmed: { type: 'boolean' },
+        zeroConditionalOrdersConfirmed: { type: 'boolean' },
         idempotencyKey: { type: 'string' },
+        confirmation: {
+          type: 'object', additionalProperties: false,
+          properties: {
+            confirmed: { type: 'boolean', const: true }, confirmedBy: { type: 'string' },
+            confirmedAt: { type: 'string', format: 'date-time' }, checkHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+            acknowledgedDraftOnly: { type: 'boolean', const: true },
+          },
+          required: ['confirmed', 'confirmedBy', 'confirmedAt', 'checkHash', 'acknowledgedDraftOnly'],
+        },
       },
       required: ['userId'],
     },
@@ -1324,6 +1851,33 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     handler: async (params: any) => volatilityWorkflowService.getResult(params),
   },
 
+  'volatility_workflow.decide_reanchor': {
+    name: 'volatility_workflow.decide_reanchor',
+    domain: 'volatility_workflow',
+    version: 'v1',
+    description: '逐标的确认或拒绝固定网格重锚候选；全部候选处理后激活确认版本并生成续跑复盘。只写策略状态，不创建券商订单。',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        userId: { type: 'string' },
+        reviewId: { type: 'string' },
+        versionId: { type: 'string' },
+        candidateHash: { type: 'string' },
+        decision: { type: 'string', enum: ['confirm', 'reject'] },
+        confirmedBy: { type: 'string' },
+        acknowledgedNoBrokerExecution: { type: 'boolean', const: true },
+        reason: { type: 'string' },
+      },
+      required: ['userId', 'reviewId', 'versionId', 'candidateHash', 'decision', 'confirmedBy', 'acknowledgedNoBrokerExecution'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: confirmedWritePermission(['volatility_workflow:write', 'strategy:write', 'daily_review:write']),
+    safety: confirmedWriteSafety,
+    parameterSchema: volatilityReanchorDecisionSchema,
+    handler: async (params: any) => volatilityWorkflowService.decideReanchor(params),
+  },
+
   'daily_review.run': {
     name: 'daily_review.run',
     domain: 'daily_review',
@@ -1340,40 +1894,24 @@ export const mcpTools: Record<string, McpToolDefinition> = {
         ordinaryOrdersCaptureId: { type: 'string' },
         conditionalOrdersCaptureId: { type: 'string' },
         zeroNewTradesConfirmed: { type: 'boolean' },
+        zeroOrdinaryOrdersConfirmed: { type: 'boolean' },
+        zeroConditionalOrdersConfirmed: { type: 'boolean' },
+        confirmation: {
+          type: 'object', additionalProperties: false,
+          properties: {
+            confirmed: { type: 'boolean', const: true }, confirmedBy: { type: 'string' },
+            confirmedAt: { type: 'string', format: 'date-time' }, checkHash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+            acknowledgedDraftOnly: { type: 'boolean', const: true },
+          },
+          required: ['confirmed', 'confirmedBy', 'confirmedAt', 'checkHash', 'acknowledgedDraftOnly'],
+        },
       },
       required: ['userId'],
     },
     outputSchema: operationOutputSchema,
     permissions: asyncPermission(['daily_review:write', 'operation:write']),
     safety: asyncOperationSafety,
-    handler: async (params: { userId: string; sessionType?: 'open' | 'pre_close' | 'manual'; idempotencyKey?: string; holdingsCaptureId?: string; tradesCaptureId?: string; ordinaryOrdersCaptureId?: string; conditionalOrdersCaptureId?: string; zeroNewTradesConfirmed?: boolean }) => {
-      const started = await dailyReviewService.startReview({
-        userId: params.userId,
-        sessionType: params.sessionType,
-        idempotencyKey: params.idempotencyKey,
-        triggerSource: 'agent',
-        executionMode: 'queued',
-        brokerWorkflow: true,
-        brokerReconciliationInput: {
-          holdingsCaptureId: params.holdingsCaptureId,
-          tradesCaptureId: params.tradesCaptureId,
-          ordinaryOrdersCaptureId: params.ordinaryOrdersCaptureId,
-          conditionalOrdersCaptureId: params.conditionalOrdersCaptureId,
-          zeroNewTradesConfirmed: params.zeroNewTradesConfirmed === true,
-        },
-      })
-      return {
-        id: started.operation?.id,
-        operationId: started.operation?.id,
-        operation_id: started.operation?.id,
-        status: started.operation?.status,
-        progressPct: started.operation?.progressPct,
-        reviewId: started.review?.id,
-        artifactRefs: started.review?.id ? [`daily-review:${started.review.id}`] : [],
-        nextActions: [{ tool: 'operation.get', operation_id: started.operation?.id }, { tool: 'daily_review.get', reviewId: started.review?.id }],
-        reused: started.reused,
-      }
-    },
+    handler: async (params: any) => volatilityWorkflowService.run(params),
   },
 
   'daily_review.reconcile': {
@@ -1391,13 +1929,15 @@ export const mcpTools: Record<string, McpToolDefinition> = {
         ordinaryOrdersCaptureId: { type: 'string' },
         conditionalOrdersCaptureId: { type: 'string' },
         zeroNewTradesConfirmed: { type: 'boolean' },
+        zeroOrdinaryOrdersConfirmed: { type: 'boolean' },
+        zeroConditionalOrdersConfirmed: { type: 'boolean' },
       },
       required: ['userId'],
     },
     outputSchema: successEnvelopeSchema,
     permissions: readPermission(['daily_review:read']),
     safety: readSafety,
-    handler: async (params: any) => brokerReviewReconciliationService.reconcile(params),
+    handler: async (params: any) => volatilityWorkflowService.reconcile(params),
   },
 
   'daily_review.export_html': {
@@ -1616,6 +2156,146 @@ export const mcpTools: Record<string, McpToolDefinition> = {
     }),
   },
 
+  'trade_ledger.get_ingestion_batch': {
+    name: 'trade_ledger.get_ingestion_batch',
+    domain: 'trade_ledger',
+    version: 'v1',
+    description: '读取一次已暂存或已确认的交易事实采集批次、逐行去重状态、覆盖窗口及 position-effect 口径。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { userId: { type: 'string' }, id: { type: 'string' } },
+      required: ['userId', 'id'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['trade_ledger:read']),
+    safety: readSafety,
+    parameterSchema: tradeLedgerIdSchema,
+    handler: (params: z.infer<typeof tradeLedgerIdSchema>) => tradeLedgerService.getBatch(params.userId, params.id),
+  },
+
+  'trade_ledger.run_reconciliation': {
+    name: 'trade_ledger.run_reconciliation',
+    domain: 'trade_ledger',
+    version: 'v1',
+    description: '按截图与明确零记录确认运行并保存独立对账。未带人工确认的零记录声明不会被视为已覆盖。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        userId: { type: 'string' }, sessionType: { type: 'string', enum: ['open', 'pre_close', 'manual'] },
+        holdingsCaptureId: { type: 'string' }, tradesCaptureId: { type: 'string' }, ordinaryOrdersCaptureId: { type: 'string' }, conditionalOrdersCaptureId: { type: 'string' },
+        zeroNewTradesConfirmed: { type: 'boolean' }, zeroOrdinaryOrdersConfirmed: { type: 'boolean' }, zeroConditionalOrdersConfirmed: { type: 'boolean' },
+        idempotencyKey: { type: 'string' }, ingestionBatchId: { type: 'string' }, asOf: { type: 'string', format: 'date-time' },
+        confirmation: { type: 'object', properties: { confirmed: { type: 'boolean' }, confirmedBy: { type: 'string' }, confirmedAt: { type: 'string', format: 'date-time' } }, required: ['confirmed', 'confirmedBy', 'confirmedAt'] },
+      },
+      required: ['userId'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: asyncPermission(['trade_ledger:reconcile']),
+    safety: directWriteSafety,
+    parameterSchema: tradeLedgerReconciliationSchema,
+    handler: (params: z.infer<typeof tradeLedgerReconciliationSchema>) => brokerReviewReconciliationService.reconcile({
+      userId: params.userId,
+      sessionType: params.sessionType,
+      holdingsCaptureId: params.holdingsCaptureId,
+      tradesCaptureId: params.tradesCaptureId,
+      ordinaryOrdersCaptureId: params.ordinaryOrdersCaptureId,
+      conditionalOrdersCaptureId: params.conditionalOrdersCaptureId,
+      zeroNewTradesConfirmed: params.zeroNewTradesConfirmed,
+      zeroOrdinaryOrdersConfirmed: params.zeroOrdinaryOrdersConfirmed,
+      zeroConditionalOrdersConfirmed: params.zeroConditionalOrdersConfirmed,
+      singleConfirmation: params.confirmation ? { confirmedBy: params.confirmation.confirmedBy, confirmedAt: params.confirmation.confirmedAt } : undefined,
+      idempotencyKey: params.idempotencyKey,
+      ingestionBatchId: params.ingestionBatchId,
+      now: params.asOf ? new Date(params.asOf) : undefined,
+    }),
+  },
+
+  'trade_ledger.get_reconciliation': {
+    name: 'trade_ledger.get_reconciliation',
+    domain: 'trade_ledger',
+    version: 'v1',
+    description: '读取不可变对账运行、覆盖证明、输入哈希及差异。',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { userId: { type: 'string' }, id: { type: 'string' } }, required: ['userId', 'id'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['trade_ledger:read']),
+    safety: readSafety,
+    parameterSchema: tradeLedgerIdSchema,
+    handler: (params: z.infer<typeof tradeLedgerIdSchema>) => tradeLedgerService.getReconciliation(params.userId, params.id),
+  },
+
+  'trade_ledger.list_pending_matches': {
+    name: 'trade_ledger.list_pending_matches',
+    domain: 'trade_ledger',
+    version: 'v1',
+    description: '列出人工计划与委托观察/成交之间尚未人工确认的 suggested、unmatched、blocked 关系。',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { userId: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 500 } }, required: ['userId'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['trade_ledger:read']),
+    safety: readSafety,
+    parameterSchema: tradeLedgerPendingSchema,
+    handler: async (params: z.infer<typeof tradeLedgerPendingSchema>) => ({
+      suggested: await planExecutionService.listLinks(params.userId, { status: 'suggested', limit: params.limit }),
+      unmatched: await planExecutionService.listLinks(params.userId, { status: 'unmatched', limit: params.limit }),
+      blocked: await planExecutionService.listLinks(params.userId, { status: 'blocked', limit: params.limit }),
+      warning: '自动匹配不是执行事实；只有人工确认关系才进入实际执行回放。',
+    }),
+  },
+
+  'trade_ledger.confirm_execution_match': {
+    name: 'trade_ledger.confirm_execution_match',
+    domain: 'trade_ledger',
+    version: 'v1',
+    description: '人工确认或拒绝一条计划执行候选关系；只写审计关系，不创建、修改或撤销券商订单。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { userId: { type: 'string' }, linkId: { type: 'string' }, decision: { type: 'string', enum: ['confirmed', 'rejected'] }, idempotencyKey: { type: 'string' }, reason: { type: 'string' }, confirmation: humanConfirmationSchema },
+      required: ['userId', 'linkId', 'decision', 'idempotencyKey', 'confirmation'],
+    },
+    outputSchema: successEnvelopeSchema,
+    permissions: confirmedWritePermission(['trade_ledger:confirm']),
+    safety: confirmedWriteSafety,
+    parameterSchema: executionMatchDecisionSchema,
+    handler: async (params: z.infer<typeof executionMatchDecisionSchema>) => {
+      if (!hasHumanConfirmation(params.confirmation)) {
+        return { blocked: true, code: 'HUMAN_CONFIRMATION_REQUIRED', message: '计划执行关系必须由用户明确确认或拒绝。', nextActions: ['核对标的、方向、数量、价格和时间后重试'] }
+      }
+      return planExecutionService.decide({
+        userId: params.userId,
+        linkId: params.linkId,
+        decision: params.decision,
+        confirmedBy: params.confirmation!.confirmedBy!,
+        reason: params.reason,
+        idempotencyKey: params.idempotencyKey,
+      })
+    },
+  },
+
+  'trade_ledger.get_plan_lifecycle': {
+    name: 'trade_ledger.get_plan_lifecycle',
+    domain: 'trade_ledger',
+    version: 'v1',
+    description: '读取人工计划、草案事件、委托观察和已确认成交归因的完整生命周期。',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { userId: { type: 'string' }, id: { type: 'string', description: 'gridPlanId' } }, required: ['userId', 'id'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['trade_ledger:read']),
+    safety: readSafety,
+    parameterSchema: tradeLedgerIdSchema,
+    handler: (params: z.infer<typeof tradeLedgerIdSchema>) => planExecutionService.getPlanLifecycle(params.userId, params.id),
+  },
+
+  'investment_workflow.get_strategy_run': {
+    name: 'investment_workflow.get_strategy_run',
+    domain: 'investment_workflow',
+    version: 'v1',
+    description: '按 ID 读取不可变轮动波动策略运行及其计划网格和草案事件。',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { userId: { type: 'string' }, id: { type: 'string' } }, required: ['userId', 'id'] },
+    outputSchema: successEnvelopeSchema,
+    permissions: readPermission(['investment_workflow:read']),
+    safety: readSafety,
+    parameterSchema: tradeLedgerIdSchema,
+    handler: (params: z.infer<typeof tradeLedgerIdSchema>) => rotationVolatilityStrategyService.getRun(params.userId, params.id),
+  },
+
   'capture.confirm_rows': {
     name: 'capture.confirm_rows',
     domain: 'capture',
@@ -1674,7 +2354,7 @@ export const buildDomainPackManifest = () => {
   return {
     name: 'fams',
     displayName: 'FAMS 投资管理 DomainPack',
-    version: 'v2.1.0',
+    version: 'v2.2.0',
     schemaVersion: 'fams.domainpack.v1',
     transport: {
       http: {
@@ -1701,8 +2381,22 @@ export const buildDomainPackManifest = () => {
       },
     },
     profiles: {
-      default: 'volatility',
+      default: 'workflow',
       environmentVariable: 'FAMS_MCP_PROFILE',
+      workflow: {
+        stages: ['basic_information_confirmation', 'position_strategy', 'backtest_review'],
+        accountRouting: {
+          tonghuashun: ['rotation_volatility', 'dividend_low_vol'],
+          alipay: ['portfolio'],
+        },
+        excludesBrokerOrderCreation: true,
+        executionBoundary: {
+          canCreateOrder: false,
+          orderCreateAllowed: false,
+          autoTradeUnlocked: false,
+          formalTradingUnlocked: false,
+        },
+      },
       volatility: {
         hostVisionOnly: true,
         excludesBrokerOrderCreation: true,
@@ -1715,12 +2409,16 @@ export const buildDomainPackManifest = () => {
       full: { legacyRegistryToolsAvailable: true },
     },
     resources: [
+      'fams://investment-workflow/contract',
+      'fams://investment-workflow/readiness',
+      'fams://investment-workflow/assignments',
+      'fams://investment-workflow/portfolio/current',
       'fams://volatility/strategy/active',
       'fams://volatility/portfolio/latest-reconciled',
       'fams://volatility/rules',
       'fams://volatility/reviews/{reviewId}',
     ],
-    prompts: ['volatility-review'],
+    prompts: ['basic-information-confirmation', 'position-strategy', 'backtest-review', 'volatility-review'],
     envelope: {
       schemaVersion: 'fams.mcp.call.v1',
       statuses: ['completed', 'blocked', 'failed'],

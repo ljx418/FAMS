@@ -21,6 +21,7 @@ async function main() {
   await client.connect(transport)
   const tools = await client.listTools()
   assert(tools.tools.some((tool) => tool.name === 'volatility_workflow.reconcile'))
+  assert(tools.tools.some((tool) => tool.name === 'trade_ledger.get_plan_lifecycle'))
   assert(!tools.tools.some((tool) => tool.name === 'grid_strategy.activate'))
   const prompt = await client.getPrompt({ name: 'volatility-review', arguments: { sessionType: 'open' } })
   assert(prompt.messages.length > 0)

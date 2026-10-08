@@ -128,8 +128,22 @@ interface PersistedBacktestReviewReport {
   windowReview: AdviceExecutionWindowReview
 }
 
+const extractCashBalance = (value: unknown): number | null => {
+  const keys = new Set(['availablecash', 'cashbalance', 'cashbudget', 'availableamount', 'availablefunds', '可用金额', '资金余额'])
+  const queue: unknown[] = [value]
+  while (queue.length > 0) {
+    const current = queue.shift()
+    if (!current || typeof current !== 'object') continue
+    for (const [key, child] of Object.entries(current as Record<string, unknown>)) {
+      if (keys.has(key.replace(/[_\s-]/g, '').toLowerCase()) && typeof child === 'number' && Number.isFinite(child) && child >= 0) return child
+      if (child && typeof child === 'object') queue.push(child)
+    }
+  }
+  return null
+}
+
 class BacktestService {
-  private async getHistoricalOrLatestPrice(assetId: string, endDate: Date, fallbackPrice?: number | null) {
+  private async getHistoricalOrLatestPrice(assetId: string, endDate: Date) {
     const historyPoint = await prisma.priceHistory.findFirst({
       where: {
         assetId,
@@ -141,10 +155,6 @@ class BacktestService {
 
     if (historyPoint?.closePrice && historyPoint.closePrice > 0) {
       return historyPoint.closePrice
-    }
-
-    if (fallbackPrice && fallbackPrice > 0) {
-      return fallbackPrice
     }
 
     return 0
@@ -213,6 +223,14 @@ class BacktestService {
    * 运行回测
    */
   async runBacktest(params: BacktestParams) {
+    const startDate = new Date(params.startDate)
+    const endDate = new Date(params.endDate)
+    if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || startDate > endDate) {
+      throw new Error('Invalid backtest date range')
+    }
+    if (!Number.isFinite(params.initialCapital) || params.initialCapital <= 0) {
+      throw new Error('initialCapital must be a positive number')
+    }
     const strategy = await prisma.strategy.findUnique({
       where: { id: params.strategyId },
     })
@@ -234,11 +252,11 @@ class BacktestService {
     })
 
     // 异步执行回测
-    this.executeBacktest(backtest.id, strategy, params).catch((error) => {
+    this.executeBacktest(backtest.id, strategy, params).catch(async (error) => {
       console.error('Backtest failed:', error)
-      prisma.backtest.update({
+      await prisma.backtest.update({
         where: { id: backtest.id },
-        data: { status: 'failed' },
+        data: { status: 'failed', progress: 100, completedAt: new Date() },
       })
     })
 
@@ -249,6 +267,7 @@ class BacktestService {
     const advice = await prisma.advice.findFirst({
       where: { id: params.adviceId, userId: params.userId },
       include: {
+        adviceInputSnapshot: true,
         actions: {
           include: { asset: true },
           orderBy: { createdAt: 'asc' },
@@ -294,9 +313,16 @@ class BacktestService {
       },
     })
 
-    const startDate = params.startDate || advice.generatedAt.toISOString().split('T')[0]
+    const nextCalendarDay = new Date(advice.generatedAt.getTime() + 86_400_000).toISOString().split('T')[0]
+    const startDate = params.startDate || nextCalendarDay
     const endDate = params.endDate || new Date().toISOString().split('T')[0]
-    const initialCapital = params.initialCapital || 100000
+    const snapshotCash = advice.adviceInputSnapshot
+      ? extractCashBalance(JSON.parse(advice.adviceInputSnapshot.portfolioSnapshotJson || '{}'))
+      : null
+    const initialCapital = params.initialCapital ?? snapshotCash
+    if (!initialCapital || initialCapital <= 0) {
+      throw new Error('initialCapital is required because the saved advice has no confirmed cash snapshot')
+    }
 
     const runResult = await this.runBacktest({
       strategyId: strategy.id,
@@ -392,7 +418,7 @@ class BacktestService {
 
     for (const action of executableActions) {
       const symbolEndPrice = action.assetId
-        ? await this.getHistoricalOrLatestPrice(action.assetId, endDate, action.asset?.lastPrice)
+        ? await this.getHistoricalOrLatestPrice(action.assetId, endDate)
         : 0
       const suggestedPrice = action.suggestedPrice || symbolEndPrice || 0
       const suggestedQuantity = action.suggestedQuantity
@@ -479,11 +505,16 @@ class BacktestService {
     const parameters = JSON.parse(strategy.parameters || '{}')
     const symbols = params.symbols || parameters.symbols || ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA']
 
-    // 获取回测期间的所有交易日
-    const tradingDays = this.getTradingDays(startDate, endDate)
-
     // 获取所有资产的价格历史
     const assetPrices = await this.fetchAssetPrices(symbols, startDate, endDate)
+    const missingSymbols = symbols.filter((symbol: string) => !assetPrices.has(symbol))
+    if (missingSymbols.length > 0) {
+      throw new Error(`Real historical price data missing for: ${missingSymbols.join(', ')}`)
+    }
+    const tradingDays = Array.from(new Set(
+      Array.from(assetPrices.values()).flatMap((points) => points.map((point) => point.date.toISOString().slice(0, 10)))
+    )).sort().map((date) => new Date(`${date}T00:00:00.000Z`))
+    if (tradingDays.length < 2) throw new Error('Real historical price timeline is insufficient for backtest')
 
     let capital = params.initialCapital
     let positions: Map<string, { quantity: number; avgCost: number }> = new Map()
@@ -635,24 +666,6 @@ class BacktestService {
   }
 
   /**
-   * 获取交易日列表
-   */
-  private getTradingDays(startDate: Date, endDate: Date): Date[] {
-    const days: Date[] = []
-    const current = new Date(startDate)
-
-    while (current <= endDate) {
-      const dayOfWeek = current.getDay()
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        days.push(new Date(current))
-      }
-      current.setDate(current.getDate() + 1)
-    }
-
-    return days
-  }
-
-  /**
    * 获取指定日期的价格数据
    */
   private getDayPrices(day: Date, assetPrices: Map<string, PricePoint[]>): Map<string, PricePoint> {
@@ -681,21 +694,12 @@ class BacktestService {
   private async fetchAssetPrices(symbols: string[], startDate: Date, endDate: Date): Promise<Map<string, PricePoint[]>> {
     const assetPrices = new Map<string, PricePoint[]>()
 
-    // 查找或创建资产
+    // 只使用已有资产与真实历史数据；回测不得创建伪资产或随机行情。
     for (const symbol of symbols) {
-      let asset = await prisma.asset.findUnique({
+      const asset = await prisma.asset.findUnique({
         where: { symbol },
       })
-
-      if (!asset) {
-        asset = await prisma.asset.create({
-          data: {
-            symbol,
-            name: symbol,
-            type: 'stock',
-          },
-        })
-      }
+      if (!asset) continue
 
       // 获取价格历史
       const priceHistory = await priceService.getPriceHistory(asset.id, startDate, endDate)
@@ -709,36 +713,6 @@ class BacktestService {
           close: h.closePrice,
           volume: h.volume || 0,
         }))
-        assetPrices.set(symbol, points)
-      }
-    }
-
-    // 如果没有历史数据，生成模拟数据用于测试
-    if (assetPrices.size === 0) {
-      const tradingDays = this.getTradingDays(startDate, endDate)
-      for (const symbol of symbols) {
-        const points: PricePoint[] = []
-        let price = 100 + Math.random() * 100
-
-        for (const day of tradingDays) {
-          const change = (Math.random() - 0.5) * 0.04 * price
-          const open = price
-          const close = price + change
-          const high = Math.max(open, close) * (1 + Math.random() * 0.02)
-          const low = Math.min(open, close) * (1 - Math.random() * 0.02)
-
-          points.push({
-            date: new Date(day),
-            open,
-            high,
-            low,
-            close,
-            volume: Math.random() * 10000000,
-          })
-
-          price = close
-        }
-
         assetPrices.set(symbol, points)
       }
     }

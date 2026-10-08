@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { backtestService } from '../services/backtest/backtestService.js'
 import { scenarioComparisonService } from '../services/backtest/scenarioComparisonService.js'
+import { gridReplayService } from '../services/backtest/gridReplayService.js'
 
 export async function backtestRoutes(app: FastifyInstance) {
   // 获取策略列表
@@ -32,6 +33,27 @@ export async function backtestRoutes(app: FastifyInstance) {
       return reply.code(statusCode).send({
         code: 'SCENARIO_COMPARISON_FAILED',
         message: error instanceof Error ? error.message : '三场景回放失败',
+        formalTradingUnlocked: false,
+        autoTradeUnlocked: false,
+        canCreateOrder: false,
+        orderCreateAllowed: false,
+      })
+    }
+  })
+
+  app.get('/grid-replay/sources', async (request) => {
+    const { userId } = request.query as { userId?: string }
+    return gridReplayService.listSources(userId || 'default')
+  })
+
+  app.post('/grid-replay', async (request, reply) => {
+    try {
+      return await gridReplayService.replay(request.body)
+    } catch (error) {
+      const statusCode = Number((error as Error & { statusCode?: number }).statusCode || 400)
+      return reply.code(statusCode).send({
+        code: 'GRID_REPLAY_FAILED',
+        message: error instanceof Error ? error.message : '网格复盘失败',
         formalTradingUnlocked: false,
         autoTradeUnlocked: false,
         canCreateOrder: false,

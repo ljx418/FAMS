@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  cnEmergingIndustryEtfRotationPreset,
   cnIndustryRotationPreset,
   hkIndustryRotationPreset,
   industryRotationPresetChoices,
@@ -64,17 +65,33 @@ const timelineItem = (targetKey: string, name: string, series: RotationPoint[]):
 })
 
 function verifyPresetIsolation() {
-  assert.equal(industryRotationPresetChoices.length, 2)
+  assert.equal(industryRotationPresetChoices.length, 3)
+  assert.equal(cnEmergingIndustryEtfRotationPreset.market, 'CN')
   assert.equal(cnIndustryRotationPreset.market, 'CN')
   assert.equal(hkIndustryRotationPreset.market, 'HK')
+  assert.equal(cnEmergingIndustryEtfRotationPreset.targets.length, 10)
   assert.equal(cnIndustryRotationPreset.targets.length, 15)
   assert.equal(hkIndustryRotationPreset.targets.length, 7)
+  assert.ok(cnEmergingIndustryEtfRotationPreset.targets.length <= 16)
   assert.ok(cnIndustryRotationPreset.targets.length <= 16)
   assert.ok(hkIndustryRotationPreset.targets.length <= 16)
+  assert.ok(cnEmergingIndustryEtfRotationPreset.targets.every((target) => target.targetKey?.startsWith('CN:equity:')))
   assert.ok(cnIndustryRotationPreset.targets.every((target) => target.targetKey?.startsWith('CN:equity:')))
   assert.ok(hkIndustryRotationPreset.targets.every((target) => target.targetKey?.startsWith('HK:equity:')))
+  assert.equal(new Set(cnEmergingIndustryEtfRotationPreset.targets.map((target) => target.targetKey)).size, cnEmergingIndustryEtfRotationPreset.targets.length)
   assert.equal(new Set(cnIndustryRotationPreset.targets.map((target) => target.targetKey)).size, cnIndustryRotationPreset.targets.length)
   assert.equal(new Set(hkIndustryRotationPreset.targets.map((target) => target.targetKey)).size, hkIndustryRotationPreset.targets.length)
+  assert.deepEqual(cnEmergingIndustryEtfRotationPreset.period, { mode: 'rolling', rollingWeeks: 52 })
+  assert.equal(cnEmergingIndustryEtfRotationPreset.historyYears, 3)
+  assert.deepEqual(cnEmergingIndustryEtfRotationPreset.benchmark, { mode: 'market_default', targetKeys: [] })
+  assert.deepEqual(
+    cnEmergingIndustryEtfRotationPreset.targets.map((target) => target.code),
+    ['159851', '512480', '515070', '516160', '515790', '512400', '562500', '561380', '159326', '159206'],
+  )
+  assert.equal(cnEmergingIndustryEtfRotationPreset.targets.find((target) => target.code === '561380')?.name, '电网设备ETF')
+  assert.equal(cnEmergingIndustryEtfRotationPreset.targets.find((target) => target.code === '159326')?.name, '特高压代理（电网设备主题ETF）')
+  assert.equal(cnEmergingIndustryEtfRotationPreset.targets.at(-1)?.name, '卫星ETF（商业航天代理）')
+  assert.deepEqual(cnEmergingIndustryEtfRotationPreset.comparisonTargetKeys, ['CN:equity:159851', 'CN:equity:512480'])
   for (const preset of [cnIndustryRotationPreset, hkIndustryRotationPreset]) {
     assert.equal(preset.frequency, 'weekly')
     assert.equal(preset.historyYears, 8)
@@ -113,6 +130,7 @@ console.log(JSON.stringify({
   ok: true,
   checks: [
     'A-share and Hong Kong industry presets remain isolated by market',
+    'the 159851 technology-industry ETF basket uses explicit, unique A-share proxies',
     'preset sizes, benchmark modes, history windows, and comparison keys',
     'historical analysis is clipped to the playback head date',
     'quadrant persistence, historical leader frequency, and pair relationships',

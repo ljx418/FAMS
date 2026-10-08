@@ -62,7 +62,7 @@ export function InvestmentWorkflowBar({ currentStep, userId = 'default' }: { cur
             >
               <span className="min-w-0 text-left">
                 <span className="block truncate font-medium">{index + 1}. {step.title}</span>
-                <span className={`block truncate text-xs ${active ? 'text-blue-100' : 'text-slate-500'}`}>{step.short}</span>
+                <span className="fams-workflow-step-description block truncate text-xs">{step.short}</span>
               </span>
               <RightOutlined className="ml-auto text-xs" />
             </Button>

@@ -1034,15 +1034,8 @@ const Assets: React.FC = () => {
 
   return (
     <div className="fams-page space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="fams-eyebrow">本地资产台账</div>
-          <h1 className="fams-page-title mb-0">资产管理</h1>
-          <p className="fams-muted mb-0 mt-2 max-w-3xl">
-            用 Excel 导入维护本地持仓，系统会保留解析预览和人工确认步骤；导出文件仅用于离线核对，不构成交易建议。
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <h1 className="sr-only">资产管理</h1>
+      <div className="flex flex-wrap justify-end gap-2" aria-label="资产文件操作">
           <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
             下载模板
           </Button>
@@ -1052,7 +1045,6 @@ const Assets: React.FC = () => {
           <Button icon={<FileExcelOutlined />} onClick={handleExportAssets} loading={exporting}>
             导出资产
           </Button>
-        </div>
       </div>
 
       <InvestmentWorkflowBar currentStep="basic_information_confirmation" userId={USER_ID} />
@@ -1078,15 +1070,10 @@ const Assets: React.FC = () => {
       ) : null}
 
       <Card className="fams-card" data-testid="asset-screenshot-primary-entry">
-        <div className="grid gap-5 xl:grid-cols-[minmax(240px,0.7fr)_minmax(0,1.3fr)]">
-          <div>
-            <div className="fams-eyebrow">基本信息确认</div>
-            <h2 className="mb-0 mt-1 text-xl font-semibold text-slate-950">从账户截图刷新资产事实</h2>
-            <p className="fams-muted mb-4 mt-2 text-sm leading-6">
-              同花顺用于行业轮动、波动个股与红利低波资产；支付宝用于投资组合资产。系统先识别并展示逐行差异，只有你确认的行才会写入台账。
-            </p>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <h2 className="m-0 text-lg font-semibold text-slate-950">截图录入</h2>
             <Segmented
-              block
               aria-label="选择资产截图账户"
               value={captureAccountSource}
               onChange={(value) => setCaptureAccountSource(value as 'tonghuashun' | 'alipay')}
@@ -1094,13 +1081,6 @@ const Assets: React.FC = () => {
                 { label: '同花顺资产', value: 'tonghuashun' },
                 { label: '支付宝资产', value: 'alipay' },
               ]}
-            />
-            <Alert
-              className="mt-3"
-              type="info"
-              showIcon
-              message="上传和识别不等于交易"
-              description="本入口只更新本地资产、成交与外部委托观察；不会创建、修改或提交券商订单。"
             />
           </div>
           <ScreenshotCapturePanel

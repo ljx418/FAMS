@@ -85,7 +85,16 @@ function rrgChart(group: any) {
 function orderRows(rows: any[], label: string) {
   return rows.map((row: any) => {
     const pause = row.pauseRule || row.triggerCondition?.pauseRule || null
-    return `<tr><td>${esc(label)}</td><td>${esc(row.symbol)}</td><td>${esc(row.side)}</td><td>${esc(row.orderRole || row.purpose || '—')}</td><td>${esc(row.activationStatus || row.status || '—')}</td><td>${esc(row.parentOrderRef || row.parentProposalId || '—')}</td><td>${esc(row.price || '—')}</td><td>${esc(row.quantity || '—')}</td><td>${pause ? `收盘${esc(pause.operator)} ${esc(pause.threshold)} 暂停` : '—'}</td><td>${esc(row.message || row.blocker || row.rationale || '')}</td></tr>`
+    const trigger = row.triggerCondition || {}
+    const blockers = row.blockers || trigger.blockers || (trigger.blocker ? [trigger.blocker] : [])
+    const safety = [
+      row.effectiveDisposition || trigger.effectiveDisposition,
+      (row.distanceAtr ?? trigger.reachability?.distanceAtr) !== null && (row.distanceAtr ?? trigger.reachability?.distanceAtr) !== undefined
+        ? `${row.distanceAtr ?? trigger.reachability?.distanceAtr} ATR`
+        : null,
+      ...blockers,
+    ].filter(Boolean).join(' · ') || '通过'
+    return `<tr><td>${esc(label)}</td><td>${esc(row.symbol)}</td><td>${esc(row.side)}</td><td>${esc(row.orderRole || row.purpose || '—')}</td><td>${esc(row.actionability || row.effectiveStatus || row.activationStatus || row.status || '—')}</td><td>${esc(row.parentOrderRef || row.parentProposalId || '—')}</td><td>${esc(row.price || '—')}</td><td>${esc(row.quantity || '—')}</td><td>${pause ? `收盘${esc(pause.operator)} ${esc(pause.threshold)} 暂停` : '—'}</td><td>${esc(safety)}</td><td>${esc(row.message || row.blocker || row.rationale || '')}</td></tr>`
   }).join('')
 }
 
@@ -97,6 +106,7 @@ class DailyReviewHtmlService {
     const reconciliation = report.reconciliation || null
     const facts = reconciliation?.confirmedFacts || { positions: [], userRules: [], openGridPairs: [] }
     const proposed = reconciliation?.proposedOrders || { retained: [], cancelCandidates: [], addCandidates: [], blocked: [] }
+    const reanchorGate = report.reanchorGate || { state: 'clear', candidates: [] }
     const assets = Array.isArray(report.assets) ? report.assets : []
     const gridOrders = assets.flatMap((asset: any) => (asset.grid?.orders || []).map((order: any) => ({ ...order, symbol: asset.symbol, name: asset.name })))
     const allocationRules = (facts.userRules || []).filter((rule: any) => rule.rule === 'core_satellite_capacity')
@@ -117,6 +127,17 @@ class DailyReviewHtmlService {
       orderRows(gridOrders, '当日策略草案'),
     ].join('') || '<tr><td colspan="10">本轮没有订单草案。</td></tr>'
     const evidenceRefs = [...new Set(assets.flatMap((asset: any) => asset.fundamentalAndNews?.evidenceRefs || []))] as string[]
+    const reanchorMessage = reanchorGate.state === 'suggestions_only'
+      ? '候选已降级为不可执行建议，不会自动激活，也不要求本工作流再次确认。'
+      : '整批旧拟单均不可复制；必须逐标的确认或拒绝，全部处理后才用新策略版本续跑。'
+    const reanchorSection = reanchorGate.state === 'clear' ? '' : `<section class="card permission"><h2>固定网格重锚门禁</h2><p><strong>状态：</strong>${esc(reanchorGate.state)}。${esc(reanchorMessage)}此动作不会创建券商订单。</p><p class="muted">规则：锚点满 5 个完整交易日且偏移 ≥ 2 ATR，或任意时点偏移 ≥ 3 ATR；ATR 缺失时个股 5%、ETF 3%。新锚采用最新完整日收盘，档位按 candidate_price = latest_completed_close × (old_level_price / old_fixed_anchor) 平移，买价向下、卖价向上按最小价位取整。</p>${(reanchorGate.candidates || []).map((candidate: any) => {
+      const evaluation = candidate.evaluation || {}
+      const activeAnchor = candidate.activeAnchor || evaluation.anchor || {}
+      const nextAnchor = candidate.candidateConfig?.fixedAnchor || {}
+      const triggers = (evaluation.triggers || []).map((trigger: any) => `${trigger.label || trigger.code}=${trigger.state}`).join('；')
+      const diffs = (candidate.levelDiffs || []).map((diff: any) => `<tr><td>${esc(diff.orderRef)}</td><td>${esc(diff.side)}</td><td>${esc(diff.orderRole)}</td><td>${esc(diff.quantity)}</td><td>${number(diff.oldPrice)}</td><td>${number(diff.newPrice)}</td><td>${number(diff.relativeOffsetPercent, 2)}%</td></tr>`).join('')
+      return `<article class="mini"><h3>${esc(candidate.symbol)} · ${esc(candidate.name)}</h3><p>旧锚 ${number(activeAnchor.price)}（${esc(activeAnchor.asOf)}）→ 候选新锚 ${number(nextAnchor.price)}（${esc(nextAnchor.asOf)}）；锚龄 ${esc(evaluation.anchor?.ageCompletedSessions ?? '—')} 个完整交易日；偏移 ${number(evaluation.drift?.percent, 2)}%，${evaluation.drift?.atrMultiple == null ? 'ATR不可用' : `${number(evaluation.drift.atrMultiple, 2)} ATR`}。</p><p><strong>触发证据：</strong>${esc(triggers || '未记录')}。</p><p><strong>用户决定：</strong>${esc(candidate.decision?.value || candidate.state || '待确认')}。</p><div class="scroll"><table><thead><tr><th>订单引用</th><th>方向</th><th>角色</th><th>数量</th><th>旧价</th><th>候选价</th><th>相对锚偏移</th></tr></thead><tbody>${diffs || '<tr><td colspan="7">没有档位差异。</td></tr>'}</tbody></table></div></article>`
+    }).join('')}</section>`
     const sourceLinks = evidenceRefs.map((ref) => /^https?:\/\//.test(ref)
       ? `<li><a href="${esc(ref)}" target="_blank" rel="noreferrer">${esc(ref)}</a></li>`
       : `<li>${esc(ref)}</li>`).join('')
@@ -130,8 +151,10 @@ class DailyReviewHtmlService {
 <section class="card"><h2>已确认事实</h2><div class="scroll"><table><thead><tr><th>代码</th><th>名称</th><th>持仓</th><th>可卖</th><th>T+1暂不可卖</th><th>冻结</th><th>成本</th><th>截图价</th><th>来源</th></tr></thead><tbody>${(facts.positions || []).map((item: any) => `<tr><td>${esc(item.symbol)}</td><td>${esc(item.name)}</td><td>${esc(item.quantity)}</td><td>${esc(item.sellableQuantity)}</td><td>${esc(item.unavailableQuantity || '0')}</td><td>${esc(item.frozenQuantity)}</td><td>${esc(item.avgCost)}</td><td>${esc(item.screenshotPrice)}</td><td>${esc(item.sourceRef)}</td></tr>`).join('') || '<tr><td colspan="9">未找到已确认持仓事实。</td></tr>'}</tbody></table></div></section>
 <section class="card"><h2>对账差异</h2>${list(reconciliation?.reconciliationDifferences || [], '没有记录到对账差异。')}</section>
 <section class="card"><h2>待确认规则</h2>${list(reconciliation?.pendingRules || [], '没有待确认规则。')}</section>
+<section class="card permission"><h2>结论中的已降级风险项</h2><p><strong>${esc(report.riskConclusion?.summary || '无已降级风险项。')}</strong></p><div class="scroll"><table><thead><tr><th>标的</th><th>原动作</th><th>价格</th><th>当前状态</th><th>是否可执行</th><th>原因</th></tr></thead><tbody>${(report.riskConclusion?.items || []).map((item: any) => `<tr><td>${esc(item.symbol)} ${esc(item.name || '')}</td><td>${esc(item.originalAction)}</td><td>${esc(item.price ?? '—')}</td><td>${esc(item.currentState)}</td><td>否</td><td>${esc((item.reasons || []).join('；'))}</td></tr>`).join('') || '<tr><td colspan="6">无已降级风险项。</td></tr>'}</tbody></table></div></section>
 <section class="card"><h2>仓位目标、已部署与暂停线</h2><p class="muted">核心仓不参与网格；“剩余”是容量，不代表应立即买满。赛力斯反弹减仓成交后永久退出。</p><div class="scroll"><table><thead><tr><th>代码</th><th>核心目标</th><th>卫星目标</th><th>反弹退出目标</th><th>核心已部署</th><th>卫星已部署</th><th>反弹退出已部署</th><th>卫星剩余容量</th><th>暂停规则</th></tr></thead><tbody>${allocationRows || '<tr><td colspan="9">没有已确认的仓位分层规则。</td></tr>'}</tbody></table></div></section>
-<section class="card"><h2>拟保留／撤销／新增订单</h2><p class="muted">委托截图不完整时，“新增”只能是需人工查重的候选；等待父单成交、等待可卖和休眠档位不得提前挂入。</p><div class="scroll"><table><thead><tr><th>分类</th><th>代码</th><th>方向</th><th>角色</th><th>激活状态</th><th>父单</th><th>价格</th><th>数量</th><th>暂停线</th><th>理由/阻断</th></tr></thead><tbody>${allOrderRows}</tbody></table></div></section>
+${reanchorSection}
+<section class="card"><h2>拟保留／撤销／新增订单</h2><p class="muted">委托截图不完整时，“新增”只能是需人工查重的候选；等待父单成交、等待可卖和休眠档位不得提前挂入。</p><div class="scroll"><table><thead><tr><th>分类</th><th>代码</th><th>方向</th><th>角色</th><th>激活状态</th><th>父单</th><th>价格</th><th>数量</th><th>暂停线</th><th>安全校验</th><th>理由/阻断</th></tr></thead><tbody>${allOrderRows}</tbody></table></div></section>
 <section class="card permission"><h2>执行权限</h2><p>模式：${esc(reconciliation?.executionPermission?.mode || 'monitor_and_draft_only')}。formalTradingUnlocked=false，autoTradeUnlocked=false，canCreateOrder=false，orderCreateAllowed=false。用户必须在同花顺核对并手工执行。</p></section>
 <section class="card"><h2>最新价、最近30个完整交易日与MA</h2><div class="scroll"><table><thead><tr><th>代码</th><th>最新价/时点</th><th>最后收盘</th><th>MA5</th><th>MA10</th><th>MA30</th><th>复权/质量</th></tr></thead><tbody>${assets.map((asset: any) => `<tr><td>${esc(asset.symbol)} ${esc(asset.name)}</td><td>${number(asset.trend?.quote?.price)}<br><small>${esc(dateTime(asset.trend?.quote?.asOf))} · ${esc(asset.trend?.quote?.freshnessStatus || 'unknown')}</small></td><td>${number(asset.trend?.latestClose?.price)}<br><small>${esc(asset.trend?.latestClose?.date)}</small></td><td>${number(asset.trend?.indicators?.ma5)}</td><td>${number(asset.trend?.indicators?.ma10)}</td><td>${number(asset.trend?.indicators?.ma30)}</td><td>${esc(asset.trend?.dataQuality?.historyAdjustment || '未记录')} / ${esc(asset.trend?.dataQuality?.status || 'unknown')}</td></tr>`).join('')}</tbody></table></div>${assets.map((asset: any) => `<article class="asset"><h3>${esc(asset.symbol)} · ${esc(asset.name)}</h3>${trendChart(asset)}</article>`).join('')}</section>
 <section class="card"><h2>日频分组RRG</h2><p class="muted">仅使用完整交易日数据；透明相对轮动代理，不是官方JdK RRG，也不单独构成买卖信号。</p><div class="grid">${(report.relativeRotation?.groups || []).filter((group: any) => group.key !== 'cash').map((group: any) => `<article class="mini"><h3>${esc(group.label)}</h3><p class="muted">基准 ${esc(group.benchmark?.symbol || '—')} ${esc(group.benchmark?.name || '')}</p>${rrgChart(group)}</article>`).join('') || '<p class="muted">RRG数据不可用。</p>'}</div></section>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, App as AntApp, Button, Card, Checkbox, Descriptions, Input, Modal, Segmented, Space, Tag } from 'antd'
+import { Alert, App as AntApp, Button, Card, Checkbox, Descriptions, Input, Modal, Segmented, Space, Tag, Tooltip } from 'antd'
 import { EditOutlined, SafetyCertificateOutlined, UploadOutlined } from '@ant-design/icons'
 import { API_BASE } from '../../config/api'
 
@@ -8,6 +8,8 @@ export type ScreenshotCaptureEvent = {
   captureId: string
   filename?: string
   rowCount?: number
+  ingestionBatchId?: string
+  positionEffectPolicy?: 'apply' | 'record_only'
 }
 
 type ScreenshotCapturePanelProps = {
@@ -125,6 +127,12 @@ export function ScreenshotCapturePanel({
   const [draftFields, setDraftFields] = useState<Record<string, Record<string, unknown>>>({})
   const [visionStatus, setVisionStatus] = useState<VisionCaptureStatus>()
   const [accountSource, setAccountSource] = useState<'tonghuashun' | 'alipay'>(defaultAccountSource)
+  const [lastConfirmation, setLastConfirmation] = useState<{
+    ingestionBatchId: string
+    positionEffectPolicy: 'apply' | 'record_only'
+    confirmedRows: number
+    suggestedMatches: number
+  }>()
 
   useEffect(() => {
     setAccountSource(defaultAccountSource)
@@ -249,7 +257,13 @@ export function ScreenshotCapturePanel({
     setLoading(true)
     try {
       const readyRows = preview.rows.filter((row) => row.status === 'ready')
-      const result = await jsonRequest<{ results: unknown[]; missingHoldingsClosed: number }>(
+      const result = await jsonRequest<{
+        results: unknown[]
+        missingHoldingsClosed: number
+        ingestionBatchId: string
+        positionEffectPolicy: 'apply' | 'record_only'
+        planMatchSuggestions?: { results?: Array<{ links?: unknown[] }> }
+      }>(
         `/api/v1/captures/screenshots/${encodeURIComponent(preview.capture.id)}/confirm`,
         {
           method: 'POST',
@@ -262,7 +276,9 @@ export function ScreenshotCapturePanel({
           }),
         },
       )
-      const event = { type: 'confirmed' as const, captureId: preview.capture.id, filename: file?.name, rowCount: result.results.length }
+      const suggestedMatches = (result.planMatchSuggestions?.results || []).reduce((sum, item) => sum + (item.links?.length || 0), 0)
+      setLastConfirmation({ ingestionBatchId: result.ingestionBatchId, positionEffectPolicy: result.positionEffectPolicy, confirmedRows: result.results.length, suggestedMatches })
+      const event = { type: 'confirmed' as const, captureId: preview.capture.id, filename: file?.name, rowCount: result.results.length, ingestionBatchId: result.ingestionBatchId, positionEffectPolicy: result.positionEffectPolicy }
       message.success(`已确认 ${result.results.length} 行；未自动关闭任何缺失持仓。`)
       onEvent?.(event)
       onConfirmed?.(event)
@@ -276,15 +292,6 @@ export function ScreenshotCapturePanel({
 
   return (
     <section className={compact ? 'text-xs text-slate-600' : 'space-y-4'} data-testid="screenshot-capture-panel" aria-label="截图台账导入">
-      {!compact ? (
-        <Alert
-          type="info"
-          showIcon
-          icon={<SafetyCertificateOutlined />}
-          message="先私有保存，再由你决定是否识别"
-          description="视觉同意只对当前选中的这一份文件有效；确认前不写入持仓、成交或委托台账。"
-        />
-      ) : null}
       <input
         ref={inputRef}
         type="file"
@@ -317,8 +324,20 @@ export function ScreenshotCapturePanel({
             ]}
           />
         )}
-        <span className="text-slate-500">账户来源会写入审计记录，识别冲突时禁止确认。</span>
+        <Tooltip title="账户来源会写入审计记录；确认前不写入台账，识别冲突时禁止确认，也不会创建券商订单。">
+          <button type="button" className="inline-flex items-center gap-1 rounded text-sm text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+            <SafetyCertificateOutlined /> 识别边界
+          </button>
+        </Tooltip>
       </div>
+      {lastConfirmation ? (
+        <Alert
+          type="success"
+          showIcon
+          message={`事实批次已确认：${lastConfirmation.ingestionBatchId}`}
+          description={`确认 ${lastConfirmation.confirmedRows} 行；仓位影响口径 ${lastConfirmation.positionEffectPolicy === 'record_only' ? 'record_only（只记审计，不重放仓位/现金）' : 'apply（同事务更新仓位）'}；生成 ${lastConfirmation.suggestedMatches} 条计划匹配候选，候选未经人工确认不等于已执行。`}
+        />
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <Button size={compact ? 'small' : 'middle'} icon={<UploadOutlined />} onClick={() => inputRef.current?.click()} disabled={loading}>
           选择持仓/成交/委托截图

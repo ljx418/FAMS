@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { prisma } from '../../db/prisma.js'
 import { ensureUser } from '../../utils/user.js'
+import { gridReplayService } from './gridReplayService.js'
 
 const requestSchema = z.object({
   userId: z.string().min(1),
@@ -60,6 +61,7 @@ type SourceBundle = {
   positions: SnapshotPosition[]
   actions: SourceAction[]
   evidenceRefs: string[]
+  confirmedCash: number | null
 }
 
 const round = (value: number, digits = 6) => Number(value.toFixed(digits))
@@ -71,6 +73,27 @@ const parseArray = (value: string | null | undefined) => {
   } catch {
     return []
   }
+}
+const parseObject = (value: string | null | undefined) => {
+  try {
+    const parsed = JSON.parse(value || '{}')
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}
+  } catch {
+    return {}
+  }
+}
+const findCash = (value: unknown): number | null => {
+  const keys = new Set(['availablecash', 'cashbalance', 'cashbudget', 'availableamount', 'availablefunds', '可用金额', '资金余额'])
+  const queue: unknown[] = [value]
+  while (queue.length > 0) {
+    const current = queue.shift()
+    if (!current || typeof current !== 'object') continue
+    for (const [key, child] of Object.entries(current as Record<string, unknown>)) {
+      if (keys.has(key.replace(/[_\s-]/g, '').toLowerCase()) && typeof child === 'number' && Number.isFinite(child) && child >= 0) return child
+      if (child && typeof child === 'object') queue.push(child)
+    }
+  }
+  return null
 }
 const stableStringify = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
@@ -182,6 +205,7 @@ class ScenarioComparisonService {
           }]
         }),
         evidenceRefs: [`advice:${advice.id}`, `advice-input-snapshot:${advice.adviceInputSnapshot.id}`],
+        confirmedCash: findCash(parseObject(advice.adviceInputSnapshot.portfolioSnapshotJson)),
       }
     }
 
@@ -191,23 +215,36 @@ class ScenarioComparisonService {
         asset: true,
         orders: { orderBy: [{ side: 'asc' }, { level: 'asc' }] },
         dailyReviewRun: { include: { positionSnapshots: { include: { asset: true } } } },
+        investmentStrategyRun: { include: { inputSnapshot: true } },
       },
     })
     if (!plan) throw Object.assign(new Error('Grid plan not found'), { statusCode: 404 })
+    const strategyInput = plan.investmentStrategyRun
+      ? parseObject(plan.investmentStrategyRun.inputSnapshot.inputJson)
+      : {}
+    const strategyPositions = Array.isArray(strategyInput.positions) ? strategyInput.positions : []
+    const sourcePositions = plan.dailyReviewRun
+      ? plan.dailyReviewRun.positionSnapshots.map((row) => ({
+          assetId: row.assetId,
+          symbol: row.asset.symbol.replace(/\.(SH|SZ|BJ|SS)$/i, ''),
+          assetType: row.asset.type,
+          quantity: row.quantity,
+          currentPrice: Number(row.currentPrice || row.avgCost || 0),
+          marketValue: Number(row.marketValue || row.quantity * (row.currentPrice || row.avgCost || 0)),
+        }))
+      : strategyPositions.flatMap((row: any) => {
+          const normalized = normalizeSnapshotPosition(row, new Map([[plan.asset.id, plan.asset]]))
+          return normalized ? [normalized] : []
+        })
+    const sourceKind = plan.dailyReviewRunId ? 'daily-review-run' : 'investment-strategy-run'
+    const sourceRunId = plan.dailyReviewRunId || plan.investmentStrategyRunId
     return {
       sourceType: 'grid_plan',
       sourceId: plan.id,
       generatedAt: plan.createdAt,
       strategyVersionId: plan.strategyVersionId,
-      snapshotRef: `daily-review-run:${plan.dailyReviewRunId}`,
-      positions: plan.dailyReviewRun.positionSnapshots.map((row) => ({
-        assetId: row.assetId,
-        symbol: row.asset.symbol.replace(/\.(SH|SZ|BJ|SS)$/i, ''),
-        assetType: row.asset.type,
-        quantity: row.quantity,
-        currentPrice: Number(row.currentPrice || row.avgCost || 0),
-        marketValue: Number(row.marketValue || row.quantity * (row.currentPrice || row.avgCost || 0)),
-      })),
+      snapshotRef: `${sourceKind}:${sourceRunId}`,
+      positions: sourcePositions,
       actions: plan.orders.map((order) => ({
         id: order.id,
         symbol: plan.asset.symbol.replace(/\.(SH|SZ|BJ|SS)$/i, ''),
@@ -219,7 +256,10 @@ class ScenarioComparisonService {
         suggestedPrice: order.price,
         status: order.status,
       })),
-      evidenceRefs: [`grid-plan:${plan.id}`, `daily-review-run:${plan.dailyReviewRunId}`],
+      evidenceRefs: [`grid-plan:${plan.id}`, `${sourceKind}:${sourceRunId}`],
+      confirmedCash: plan.dailyReviewRun
+        ? findCash(parseObject(plan.dailyReviewRun.reportJson))
+        : findCash(strategyInput),
     }
   }
 
@@ -387,6 +427,47 @@ class ScenarioComparisonService {
     const input = requestSchema.parse(request)
     await ensureUser(prisma, input.userId)
     if (input.startDate > input.endDate) throw Object.assign(new Error('startDate must not be after endDate'), { statusCode: 400 })
+    if (input.sourceType === 'grid_plan') {
+      const plan = await prisma.gridPlan.findFirst({ where: { id: input.sourceId, userId: input.userId }, select: { id: true, assetId: true, strategyVersionId: true } })
+      if (!plan) throw Object.assign(new Error('Grid plan not found'), { statusCode: 404 })
+      if (input.replayMode === 'point_in_time_simulation') {
+        return {
+          schemaVersion: 'fams.backtest.scenario-comparison.v2',
+          status: 'insufficient' as const,
+          replayMode: input.replayMode,
+          source: { type: 'grid_plan', id: plan.id, strategyVersionId: plan.strategyVersionId },
+          scenarios: [],
+          blockedReasons: [pointInTimeSimulationBlocker(plan.strategyVersionId)],
+          permissionState: { formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false },
+        }
+      }
+      const grid = await gridReplayService.replay({
+        userId: input.userId,
+        assetId: plan.assetId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        initialCapital: input.initialCapital,
+        commissionRate: input.commissionRate,
+        slippageRate: input.slippageRate,
+      }) as any
+      return {
+        schemaVersion: 'fams.backtest.scenario-comparison.v2',
+        status: grid.status,
+        replayMode: input.replayMode,
+        source: { type: 'grid_plan', id: plan.id, assetId: plan.assetId, strategyVersionId: plan.strategyVersionId },
+        inputSnapshot: grid.inputSnapshot,
+        executionAssumptions: grid.executionRules,
+        dataHealth: grid.dataHealth,
+        qualityAssessment: grid.qualityAssessment,
+        scenarios: grid.scenarios,
+        markers: grid.markers,
+        evidenceRefs: grid.evidenceRefs,
+        blockedReasons: grid.blockedReasons,
+        warnings: grid.warnings,
+        permissionState: grid.permissionState,
+        notTradingAdvice: true,
+      }
+    }
     const bundle = await this.loadSource(input)
     const blockers: string[] = []
     if (input.replayMode === 'point_in_time_simulation') {
@@ -404,11 +485,15 @@ class ScenarioComparisonService {
     }
 
     const assetIds = Array.from(new Set([...bundle.positions.map((item) => item.assetId), ...bundle.actions.map((item) => item.assetId)]))
+    const transactionStart = new Date(Math.max(
+      new Date(`${input.startDate}T00:00:00.000Z`).getTime(),
+      bundle.generatedAt.getTime(),
+    ))
     const transactions = await prisma.transaction.findMany({
       where: {
         userId: input.userId,
         assetId: { in: assetIds },
-        executedAt: { gte: new Date(`${input.startDate}T00:00:00.000Z`), lte: new Date(`${input.endDate}T23:59:59.999Z`) },
+        executedAt: { gt: transactionStart, lte: new Date(`${input.endDate}T23:59:59.999Z`) },
       },
       include: { asset: true },
       orderBy: { executedAt: 'asc' },
@@ -473,7 +558,21 @@ class ScenarioComparisonService {
       }
     }
 
-    const initialCapital = input.initialCapital || Math.max(100_000, bundle.positions.reduce((sum, item) => sum + item.marketValue, 0))
+    const initialCapital = input.initialCapital ?? (bundle.positions.reduce((sum, item) => sum + item.marketValue, 0) + (bundle.confirmedCash || 0))
+    if (initialCapital <= 0) {
+      return {
+        schemaVersion: 'fams.backtest.scenario-comparison.v1',
+        status: 'insufficient' as const,
+        replayMode: input.replayMode,
+        source: { type: bundle.sourceType, id: bundle.sourceId, snapshotRef: bundle.snapshotRef, strategyVersionId: bundle.strategyVersionId },
+        inputSnapshot: { snapshotHash, startDate: input.startDate, endDate: input.endDate, observedThrough: dates.at(-1) || null },
+        dataHealth: { status: 'insufficient', providers: priceMatrix.providers, actualTransactionReconciliation: reconciliation.status },
+        scenarios: [],
+        evidenceRefs: bundle.evidenceRefs,
+        blockedReasons: ['confirmed_initial_capital_missing'],
+        permissionState: { formalTradingUnlocked: false, autoTradeUnlocked: false, canCreateOrder: false, orderCreateAllowed: false },
+      }
+    }
     const adviceEvents: ReplayEvent[] = bundle.actions.filter((action) => action.side !== 'hold').map((action) => ({
       id: action.id,
       date: firstDateAfterSource || input.startDate,

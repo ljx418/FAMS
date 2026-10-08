@@ -12,6 +12,7 @@ import { dividendLowVolUniverseService } from '../services/dividend-low-vol/divi
 import { dividendLowVolDataReadinessService } from '../services/dividend-low-vol/dividendLowVolDataReadinessService.js'
 import { dividendLowVolTotalReturnAuditService } from '../services/dividend-low-vol/dividendTotalReturnAuditService.js'
 import { dividendLowVolTradingZoneService } from '../services/dividend-low-vol/dividendLowVolTradingZoneService.js'
+import { investmentPolicyService } from '../services/investment-policy/investmentPolicyService.js'
 import { prisma } from '../db/prisma.js'
 import type { DividendLowVolInput } from '../services/dividend-low-vol/dividendLowVolTypes.js'
 
@@ -307,7 +308,7 @@ async function loadLatestDividendLowVolPoolOrBlocked(
   }
 }
 
-function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: number, options: { selectedSymbols?: string[]; selectionSource?: string } = {}) {
+async function buildDividendLowVolManualTradeDraft(userId: string, pool: any, readiness: any, topN: number, options: { selectedSymbols?: string[]; selectionSource?: string } = {}) {
   const ready = readiness.readyForManualTradeDraft === true
   const candidates = Array.isArray(pool?.candidates) ? pool.candidates : []
   const selectedSymbols = Array.isArray(options.selectedSymbols)
@@ -347,22 +348,38 @@ function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: nu
     rationale: string[]
     guardrails: string[]
     evidenceRefs: string[]
+    investmentPolicy: {
+      policyVersionId: string
+      availableBuyBudget: number
+      blockers: string[]
+    } | null
   }
+  const capacities = await Promise.all(eligible.map((candidate: any) => investmentPolicyService.getBuyCapacityBySymbol(
+    userId,
+    String(candidate.identity?.symbol || ''),
+    'dividend_low_vol',
+    candidate.identity?.industry,
+  )))
   let actions: DraftAction[] = eligible.map((candidate: any, index: number) => {
     const position = candidate.positionContext || {}
     const currentWeight = Number(position.portfolioWeightPercent || 0)
     const researchTarget = Number(position.researchTargetWeightPercent || 0)
-    const cap = Number(candidate.tradingDiscipline?.positionGuidance?.singleStockCapPercent || 5)
+    const policyCapacity = capacities[index]
+    const policyBlocked = Boolean(policyCapacity && policyCapacity.blockers.length > 0)
+    const cap = Math.min(
+      Number(candidate.tradingDiscipline?.positionGuidance?.singleStockCapPercent || 5),
+      Number(policyCapacity?.capPercent || Number.POSITIVE_INFINITY),
+    )
     const remainingResearchRoom = Math.max(Math.min(researchTarget, cap) - currentWeight, 0)
-    const suggestedDraftWeight = ready
+    const suggestedDraftWeight = ready && !policyBlocked
       ? position.isHolding
         ? round(Math.min(remainingResearchRoom, Math.max(researchTarget * 0.3, 0.5)))
         : round(Math.min(Math.max(researchTarget * 0.3, 0.5), cap))
       : 0
-    const draftType = !ready
+    const draftType = !ready || (policyBlocked && !position.isHolding)
       ? 'OBSERVE_ONLY'
       : position.isHolding
-        ? remainingResearchRoom > 0.25 ? 'ADD_REVIEW_DRAFT' : 'HOLD_REVIEW'
+        ? remainingResearchRoom > 0.25 && !policyBlocked ? 'ADD_REVIEW_DRAFT' : 'HOLD_REVIEW'
         : 'BUILD_REVIEW_DRAFT'
     return {
       rank: index + 1,
@@ -406,9 +423,15 @@ function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: nu
         '不是正式 ADD / REDUCE 指令。',
         'AUTO_TRADE 禁止。',
         'formalTargetWeightPercent 固定为 0，实际执行需人工审批。',
+        ...(policyCapacity?.blockers || []).map((reason: string) => `统一投资政策阻断新增风险: ${reason}`),
         ...(candidate.blockedReasons || []).map((reason: string) => `复核 blockedReason: ${reason}`),
       ],
       evidenceRefs: (candidate.evidenceRefs || []).slice(0, 20),
+      investmentPolicy: policyCapacity ? {
+        policyVersionId: policyCapacity.policyVersionId,
+        availableBuyBudget: policyCapacity.availableBuyBudget,
+        blockers: policyCapacity.blockers,
+      } : null,
     }
   })
   if (actions.length === 0 && pool?.dataQualitySummary?.status === 'blocked') {
@@ -454,6 +477,7 @@ function buildDividendLowVolManualTradeDraft(pool: any, readiness: any, topN: nu
         '不得把该数据健康阻断项解释为股票候选。',
       ],
       evidenceRefs: ['runtime_health:sqlite_integrity_check:critical'],
+      investmentPolicy: null,
     }]
   }
   return {
@@ -1077,7 +1101,7 @@ export async function strategyRoutes(app: FastifyInstance) {
         scope: 'all_latest_by_symbol',
       }),
     ])
-    return buildDividendLowVolManualTradeDraft(pool, readiness, topN)
+    return buildDividendLowVolManualTradeDraft(userId, pool, readiness, topN)
   })
 
   app.post('/dividend-low-vol/manual-trade-draft', async (request) => {
@@ -1094,7 +1118,7 @@ export async function strategyRoutes(app: FastifyInstance) {
     ])
     const selectedSymbols = Array.isArray(body?.selectedSymbols) ? body.selectedSymbols.map((symbol: unknown) => String(symbol)).filter(Boolean).slice(0, topN) : []
     const selectionSource = typeof body?.selectionSource === 'string' ? body.selectionSource : undefined
-    const draft = buildDividendLowVolManualTradeDraft(pool, readiness, topN, { selectedSymbols, selectionSource })
+    const draft = await buildDividendLowVolManualTradeDraft(userId, pool, readiness, topN, { selectedSymbols, selectionSource })
     return persistDividendLowVolManualTradeDraft({
       ...draft,
       userId,

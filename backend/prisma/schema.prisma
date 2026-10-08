@@ -9,14 +9,14 @@ datasource db {
 
 // 用户
 model User {
-  id                              String                          @id @default(uuid())
-  email                           String                          @unique
+  id                              String                               @id @default(uuid())
+  email                           String                               @unique
   passwordHash                    String
   name                            String
-  riskLevel                       Int                             @default(3) // 1-5 风险等级
-  settings                        String                          @default("{}") // JSON设置
-  createdAt                       DateTime                        @default(now())
-  updatedAt                       DateTime                        @updatedAt
+  riskLevel                       Int                                  @default(3) // 1-5 风险等级
+  settings                        String                               @default("{}") // JSON设置
+  createdAt                       DateTime                             @default(now())
+  updatedAt                       DateTime                             @updatedAt
   positions                       Position[]
   transactions                    Transaction[]
   portfolios                      Portfolio[]
@@ -33,7 +33,14 @@ model User {
   screenshotCaptures              ScreenshotCapture[]
   positionStrategyAssignments     PositionStrategyAssignment[]
   investmentResearchSnapshots     InvestmentResearchSnapshot[]
+  investmentStrategyRuns         InvestmentStrategyRun[]
+  investmentPolicyVersions        InvestmentPolicyVersion[]
+  investmentPolicyOverrides       InvestmentPolicyAssetOverride[]
+  investmentPolicyEvaluations     InvestmentPolicyEvaluationSnapshot[]
   externalOrderObservations       ExternalOrderObservation[]
+  tradeIngestionBatches           TradeIngestionBatch[]
+  tradeReconciliationRuns         TradeReconciliationRun[]
+  planExecutionLinks              PlanExecutionLink[]
   externalFundLedgerEntries       ExternalFundLedgerEntry[]
   positionSleeveAllocations       PositionSleeveAllocation[]
   positionSleeveLedgerEntries     PositionSleeveLedgerEntry[]
@@ -93,6 +100,7 @@ model Asset {
   screenshotCaptureRows     ScreenshotCaptureRow[]
   externalOrderObservations ExternalOrderObservation[]
   externalFundLedgerEntries ExternalFundLedgerEntry[]
+  investmentPolicyOverrides InvestmentPolicyAssetOverride[]
 }
 
 // 仓位
@@ -172,7 +180,101 @@ model InvestmentResearchSnapshot {
   inputHash           String   @unique
   createdAt           DateTime @default(now())
 
+  strategyRuns InvestmentStrategyRun[]
+
   @@index([userId, strategyFamily, asOf])
+}
+
+// 轻量投资策略的不可变运行记录。运行只生成研究和人工计划，不创建券商订单。
+model InvestmentStrategyRun {
+  id              String                     @id @default(uuid())
+  schemaVersion   String                     @default("fams.investment-strategy-run.v2")
+  userId          String
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inputSnapshotId String
+  inputSnapshot   InvestmentResearchSnapshot @relation(fields: [inputSnapshotId], references: [id], onDelete: Restrict)
+  strategyFamily  String
+  strategyVersion String
+  status          String                     @default("running") // running, completed, blocked, failed
+  idempotencyKey  String
+  inputJson       String                     @default("{}")
+  resultJson      String                     @default("{}")
+  resultHash      String?
+  errorJson       String                     @default("{}")
+  startedAt       DateTime                   @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  gridPlans GridPlan[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, strategyFamily, startedAt])
+  @@index([inputSnapshotId])
+}
+
+// 用户级总投资政策。活动版本不可原地修改，只能由新版本替代。
+model InvestmentPolicyVersion {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schemaVersion String    @default("fams.investment-policy.v1")
+  version       Int
+  name          String
+  status        String    @default("draft") // draft, active, superseded
+  contractJson  String
+  contractHash  String
+  createdBy     String
+  activatedBy   String?
+  activatedAt   DateTime?
+  supersededAt  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  overrides   InvestmentPolicyAssetOverride[]
+  evaluations InvestmentPolicyEvaluationSnapshot[]
+
+  @@unique([userId, version])
+  @@index([userId, contractHash])
+  @@index([userId, status, updatedAt])
+}
+
+// 单标的风险覆盖。覆盖只能收紧或显式记录例外，不会创建交易动作。
+model InvestmentPolicyAssetOverride {
+  id              String                  @id @default(uuid())
+  policyVersionId String
+  policyVersion   InvestmentPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assetId         String
+  asset           Asset                   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  overrideJson    String
+  reason          String
+  createdBy       String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@unique([policyVersionId, assetId])
+  @@index([userId, assetId])
+}
+
+// 真实持仓在某个政策版本下的不可变评估证据。
+model InvestmentPolicyEvaluationSnapshot {
+  id               String                  @id @default(uuid())
+  policyVersionId  String
+  policyVersion    InvestmentPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schemaVersion    String                  @default("fams.investment-policy-evaluation.v1")
+  snapshotHash     String                  @unique
+  evaluatedAt      DateTime
+  inputAsOf        DateTime
+  evaluationJson   String
+  evidenceRefsJson String                  @default("[]")
+  createdAt        DateTime                @default(now())
+
+  @@index([userId, evaluatedAt])
+  @@index([policyVersionId, evaluatedAt])
 }
 
 // 交易记录
@@ -195,6 +297,12 @@ model Transaction {
   executedAt             DateTime
   notes                  String?
   source                 String? // manual, imported, advice_confirmed
+  positionEffect         String                     @default("apply") // apply, record_only
+  ingestionBatchId       String?
+  ingestionBatch         TradeIngestionBatch?       @relation(fields: [ingestionBatchId], references: [id], onDelete: SetNull)
+  supersedesTransactionId String?                    @unique
+  supersedesTransaction   Transaction?               @relation("TransactionCorrection", fields: [supersedesTransactionId], references: [id], onDelete: Restrict)
+  supersededByTransaction Transaction?               @relation("TransactionCorrection")
   adviceActionId         String?
   adviceAction           AdviceAction?              @relation(fields: [adviceActionId], references: [id], onDelete: SetNull)
   sourceImportKey        String?                    @unique
@@ -204,11 +312,14 @@ model Transaction {
   volatilityTradeDraftId String?                    @unique
   volatilityTradeDraft   VolatilityTradeDraft?      @relation(fields: [volatilityTradeDraftId], references: [id], onDelete: SetNull)
   sleeveLedgerEntry      PositionSleeveLedgerEntry?
+  planExecutionLinks     PlanExecutionLink[]         @relation("PlanExecutionTransaction")
+  ingestionRow           TradeIngestionRow?
   createdAt              DateTime                   @default(now())
   updatedAt              DateTime                   @updatedAt
 
   @@index([userId, executedAt])
   @@index([assetId, executedAt])
+  @@index([ingestionBatchId])
 }
 
 // 建议批次
@@ -1559,6 +1670,7 @@ model DailyReviewRun {
   positionSnapshots PositionSnapshot[]
   marketSnapshots   MarketSnapshot[]
   gridPlans         GridPlan[]
+  tradeReconciliationRuns TradeReconciliationRun[]
 
   @@index([userId, generatedAt])
   @@index([userId, sessionType, status, generatedAt])
@@ -1570,8 +1682,10 @@ model GridPlan {
   id                String           @id @default(uuid())
   userId            String
   user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dailyReviewRunId  String
-  dailyReviewRun    DailyReviewRun   @relation(fields: [dailyReviewRunId], references: [id], onDelete: Cascade)
+  dailyReviewRunId  String?
+  dailyReviewRun    DailyReviewRun?  @relation(fields: [dailyReviewRunId], references: [id], onDelete: Cascade)
+  investmentStrategyRunId String?
+  investmentStrategyRun   InvestmentStrategyRun? @relation(fields: [investmentStrategyRunId], references: [id], onDelete: Cascade)
   assetId           String
   asset             Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
   strategyVersionId String?
@@ -1593,6 +1707,7 @@ model GridPlan {
 
   @@index([userId, assetId, createdAt])
   @@index([dailyReviewRunId])
+  @@index([investmentStrategyRunId])
   @@index([strategyVersionId])
   @@index([previousPlanId])
 }
@@ -1615,8 +1730,32 @@ model GridOrderDraft {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
+  events         GridOrderDraftEvent[]
+  executionLinks PlanExecutionLink[]
+
   @@unique([gridPlanId, side, level])
   @@index([gridPlanId, status])
+}
+
+// 人工网格草案的追加式生命周期事件；状态历史不通过覆盖旧事件表达。
+model GridOrderDraftEvent {
+  id               String         @id @default(uuid())
+  gridOrderDraftId String
+  gridOrderDraft   GridOrderDraft @relation(fields: [gridOrderDraftId], references: [id], onDelete: Cascade)
+  idempotencyKey   String
+  eventType        String // proposed, accepted, submitted, partially_filled, filled, cancelled, expired, superseded
+  quantity         Float?
+  price            Float?
+  sourceType       String         @default("system") // system, user, broker_observation, transaction
+  sourceRef        String?
+  evidenceRefsJson String         @default("[]")
+  metadataJson     String         @default("{}")
+  occurredAt       DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+
+  @@index([gridOrderDraftId, occurredAt])
+  @@index([eventType, occurredAt])
+  @@unique([gridOrderDraftId, idempotencyKey])
 }
 
 model ScreenshotCapture {
@@ -1645,6 +1784,7 @@ model ScreenshotCapture {
 
   rows              ScreenshotCaptureRow[]
   positionSnapshots PositionSnapshot[]
+  ingestionBatches  TradeIngestionBatch[]
 
   @@unique([userId, sha256])
   @@index([userId, accountSource, status, createdAt])
@@ -1688,6 +1828,8 @@ model ExternalOrderObservation {
   asset           Asset?               @relation(fields: [assetId], references: [id], onDelete: SetNull)
   captureRowId    String               @unique
   captureRow      ScreenshotCaptureRow @relation(fields: [captureRowId], references: [id], onDelete: Cascade)
+  ingestionBatchId String?
+  ingestionBatch   TradeIngestionBatch? @relation(fields: [ingestionBatchId], references: [id], onDelete: SetNull)
   side            String
   status          String
   quantity        Float
@@ -1701,8 +1843,133 @@ model ExternalOrderObservation {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
+  planExecutionLinks PlanExecutionLink[] @relation("PlanExecutionOrderObservation")
+  ingestionRow       TradeIngestionRow?
+
   @@index([userId, assetId, status, observedAt])
   @@index([externalOrderId])
+  @@index([ingestionBatchId])
+}
+
+// 一次结构化交易/委托输入的审计批次。confirmed 后输入哈希和事实行不可改写。
+model TradeIngestionBatch {
+  id                   String    @id @default(uuid())
+  schemaVersion        String    @default("fams.trade-ingestion-batch.v1")
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  captureId            String?
+  capture              ScreenshotCapture? @relation(fields: [captureId], references: [id], onDelete: SetNull)
+  accountSource        String?
+  sourceType           String // screenshot, file_import, host_structured, manual
+  idempotencyKey       String
+  inputHash            String
+  coverageFrom         DateTime?
+  coverageTo           DateTime?
+  coverageKindsJson    String    @default("[]") // trades, orders, holdings, cash; confirmed empty coverage is explicit evidence
+  positionEffectPolicy String    @default("record_only") // apply, record_only, not_applicable
+  status               String    @default("staged") // staged, preview_ready, confirmed, reconciled, blocked, failed
+  countsJson           String    @default("{}")
+  evidenceRefsJson     String    @default("[]")
+  errorJson            String    @default("{}")
+  confirmedBy          String?
+  confirmedAt          DateTime?
+  reconciledAt         DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  transactions              Transaction[]
+  externalOrderObservations ExternalOrderObservation[]
+  reconciliationRuns        TradeReconciliationRun[]
+  rows                      TradeIngestionRow[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, accountSource, createdAt])
+  @@index([captureId])
+}
+
+// 统一保存截图、CSV、宿主结构化输入和人工补录的行级审计状态。
+model TradeIngestionRow {
+  id                         String                    @id @default(uuid())
+  batchId                    String
+  batch                      TradeIngestionBatch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  rowIndex                   Int
+  rowHash                    String
+  sourceRef                  String?
+  rowType                    String // trade, order, holding, cash, zero_attestation
+  normalizedJson             String                    @default("{}")
+  rawJson                    String                    @default("{}")
+  status                     String                    @default("staged") // staged, new, duplicate, conflict, blocked, confirmed, failed
+  dedupeKey                  String?
+  conflictJson               String                    @default("{}")
+  transactionId              String?                   @unique
+  transaction                Transaction?              @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  externalOrderObservationId String?                   @unique
+  externalOrderObservation   ExternalOrderObservation? @relation(fields: [externalOrderObservationId], references: [id], onDelete: SetNull)
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+
+  @@unique([batchId, rowIndex])
+  @@index([batchId, status])
+  @@index([rowHash])
+  @@index([dedupeKey])
+}
+
+// 每次持仓、成交、资金及委托核对的不可变结果，可脱离日报单独查询和复跑。
+model TradeReconciliationRun {
+  id               String    @id @default(uuid())
+  schemaVersion    String    @default("fams.trade-reconciliation-run.v1")
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idempotencyKey   String
+  ingestionBatchId String?
+  ingestionBatch   TradeIngestionBatch? @relation(fields: [ingestionBatchId], references: [id], onDelete: SetNull)
+  dailyReviewRunId String?
+  dailyReviewRun   DailyReviewRun? @relation(fields: [dailyReviewRunId], references: [id], onDelete: SetNull)
+  accountSource    String?
+  status           String // ready, warning, blocked
+  asOf             DateTime
+  inputHash        String
+  coverageJson     String    @default("{}")
+  summaryJson      String    @default("{}")
+  differencesJson  String    @default("[]")
+  inputRefsJson    String    @default("{}")
+  holdingsHash     String?
+  transactionsHash String?
+  ordersHash       String?
+  createdAt        DateTime  @default(now())
+
+  @@index([userId, asOf])
+  @@unique([userId, idempotencyKey])
+  @@index([ingestionBatchId])
+  @@index([dailyReviewRunId])
+}
+
+// 人工计划网格与券商委托观察/真实成交之间的可审计关系。
+model PlanExecutionLink {
+  id                         String                    @id @default(uuid())
+  linkKey                    String                    @unique
+  userId                     String
+  user                       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gridOrderDraftId           String?
+  gridOrderDraft             GridOrderDraft?           @relation(fields: [gridOrderDraftId], references: [id], onDelete: SetNull)
+  externalOrderObservationId String?
+  externalOrderObservation   ExternalOrderObservation? @relation("PlanExecutionOrderObservation", fields: [externalOrderObservationId], references: [id], onDelete: SetNull)
+  transactionId              String?
+  transaction                Transaction?              @relation("PlanExecutionTransaction", fields: [transactionId], references: [id], onDelete: SetNull)
+  matchStatus                String                    @default("suggested") // suggested, confirmed, rejected, unmatched, blocked
+  matchMethod                String // explicit_draft_id, external_id, exact_composite, heuristic, manual
+  confidence                 Float
+  reason                     String?
+  evidenceRefsJson           String                    @default("[]")
+  confirmedBy                String?
+  confirmedAt                DateTime?
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+
+  @@index([gridOrderDraftId, matchStatus])
+  @@index([userId, matchStatus, createdAt])
+  @@index([transactionId, matchStatus])
+  @@index([externalOrderObservationId, matchStatus])
 }
 
 // 支付宝等场外基金平台展示的金额型流水。该表只保存外部事实，绝不回放修改当前仓位。

@@ -98,10 +98,16 @@ export async function investmentWorkflowRoutes(app: FastifyInstance) {
       userId,
       snapshot,
       positionIds: requestedPositionIds,
+      idempotencyKey: typeof body.idempotencyKey === 'string' ? body.idempotencyKey : undefined,
       forceRecalculate: body.forceRecalculate === true,
       materialChange: ['none', 'watch', 'material', 'insufficient'].includes(String(body.materialChange))
         ? body.materialChange as 'none' | 'watch' | 'material' | 'insufficient'
         : 'none',
     })
+  })
+
+  app.get<{ Params: { runId: string } }>('/strategy-runs/:runId', async (request) => {
+    const query = request.query as Record<string, string | undefined>
+    return rotationVolatilityStrategyService.getRun(query.userId || 'default', request.params.runId)
   })
 }

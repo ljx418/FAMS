@@ -28,6 +28,11 @@ function build(symbol: string, close: number) {
     currentQuantity: position.snapshot.quantity,
     sellableQuantity: position.snapshot.sellable_quantity,
     currentClose: close,
+    atr14: 100,
+    livePrice: close,
+    quoteAsOf: now.toISOString(),
+    quoteAgeSeconds: 0,
+    quoteFresh: true,
     cashBudget: availableCash,
     availablePortfolioBuyBudget: remainingBudget,
     portfolioValue: totalAssets,
@@ -64,6 +69,18 @@ assert.equal(seres.orders.filter((order: any) => order.orderRole === 'conditiona
 assert.equal(seres.orders.some((order: any) => order.parentOrderRef === 'S_EXIT_4740' || order.parentOrderRef === 'S_EXIT_4870'), false)
 assert.equal(seres.orders.some((order: any) => order.orderRole === 'capacity_build'), false)
 
+const completedSeresExit = gridStrategyService.buildDowntrendDefensiveDraft({
+  config: (positions.get('601127') as any).downtrend_grid,
+  assetType: 'stock', market: 'CN', currentQuantity: 900, sellableQuantity: 900,
+  currentClose: 46.94, cashBudget: availableCash, availablePortfolioBuyBudget: remainingBudget,
+  atr14: 1.2, livePrice: 46.94, quoteAsOf: now.toISOString(), quoteAgeSeconds: 0, quoteFresh: true,
+  portfolioValue: totalAssets, now,
+})
+assert.equal(completedSeresExit.orders.filter((order: any) => order.orderRole === 'rebound_exit').every((order: any) => order.activationStatus === 'dormant'), true)
+assert.deepEqual(active(completedSeresExit).map((order: any) => [order.orderRole, order.price, order.quantity]), [
+  ['satellite_cycle', 50, 100],
+])
+
 assert.equal(active(fintech).filter((order: any) => order.side === 'sell').reduce((sum: number, order: any) => sum + order.quantity, 0), 15_000)
 assert.equal(byRef(fintech, 'F_SELL_655').activationStatus, 'awaiting_sellability')
 assert.equal((fintech.derivation as any).allocation.nonCoreSellable, 17_100)
@@ -86,6 +103,7 @@ const pausedHengrui = gridStrategyService.buildDowntrendDefensiveDraft({
   config: (positions.get('600276') as any).downtrend_grid,
   assetType: 'stock', market: 'CN', currentQuantity: 800, sellableQuantity: 800,
   currentClose: 37.49, cashBudget: availableCash, availablePortfolioBuyBudget: availableCash - cashFloor,
+  atr14: 1.1, livePrice: 37.49, quoteAsOf: now.toISOString(), quoteAgeSeconds: 0, quoteFresh: true,
   portfolioValue: totalAssets, now,
 })
 assert.equal(pausedHengrui.orders.filter((order: any) => order.orderRole === 'capacity_build').every((order: any) => order.activationStatus === 'dormant'), true)
@@ -94,6 +112,7 @@ const pausedFintech = gridStrategyService.buildDowntrendDefensiveDraft({
   config: (positions.get('159851') as any).downtrend_grid,
   assetType: 'etf', market: 'CN', currentQuantity: 60_000, sellableQuantity: 60_000,
   currentClose: .534, cashBudget: availableCash, availablePortfolioBuyBudget: availableCash - cashFloor,
+  atr14: .03, livePrice: .534, quoteAsOf: now.toISOString(), quoteAgeSeconds: 0, quoteFresh: true,
   portfolioValue: totalAssets, now,
 })
 assert.equal(pausedFintech.orders.filter((order: any) => order.orderRole === 'capacity_build').every((order: any) => order.activationStatus === 'dormant'), true)

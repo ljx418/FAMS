@@ -15,10 +15,13 @@ import {
   AuditOutlined,
   ReadOutlined,
   RadarChartOutlined,
+  QuestionCircleOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { FamsChatBox } from '../chat/FamsChatBox'
 import { API_BASE } from '../../config/api'
+import { businessGlossary } from '../../content/businessGlossary'
 
 const { Sider, Content } = AntLayout
 
@@ -32,6 +35,7 @@ const menuItems = [
     children: [
       { key: 'assets', icon: <BankOutlined />, label: '资产管理' },
       { key: 'positions', icon: <WalletOutlined />, label: '仓位管理' },
+      { key: 'investment-policy', icon: <SettingOutlined />, label: '投资政策' },
       { key: 'daily-reviews', icon: <AuditOutlined />, label: '每日复盘' },
       { key: 'transactions', icon: <SwapOutlined />, label: '交易记录' },
     ],
@@ -60,6 +64,7 @@ const menuItems = [
 
 export function Layout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [glossaryOpen, setGlossaryOpen] = useState(false)
   const [notificationApi, notificationContext] = notification.useNotification()
   const notifiedReminderIds = useRef(new Set<string>())
   const navigate = useNavigate()
@@ -149,6 +154,11 @@ export function Layout() {
           <span className="text-lg font-bold text-slate-950">FAMS</span>
         </div>
         {navigationMenu}
+        <div className="border-t border-slate-200 p-3">
+          <Button block icon={<QuestionCircleOutlined />} onClick={() => setGlossaryOpen(true)}>
+            业务术语表
+          </Button>
+        </div>
       </Sider>
       <AntLayout className="min-w-0 bg-[#f4f7fb]">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-200 bg-white/95 px-4 md:hidden">
@@ -163,7 +173,13 @@ export function Layout() {
             <div className="text-sm font-semibold text-slate-950">{currentLabel}</div>
             <div className="text-[11px] text-slate-500">研究与组合管理</div>
           </div>
-          <span className="w-8" aria-hidden />
+          <Button
+            type="text"
+            icon={<QuestionCircleOutlined />}
+            aria-label="打开业务术语表"
+            onClick={() => setGlossaryOpen(true)}
+            className="text-slate-950"
+          />
         </header>
         <Drawer
           title="FAMS 导航"
@@ -174,6 +190,22 @@ export function Layout() {
           styles={{ body: { padding: 0, background: '#ffffff' }, header: { background: '#ffffff', borderBottomColor: '#e2e8f0' } }}
         >
           {navigationMenu}
+        </Drawer>
+        <Drawer
+          title="业务术语表"
+          placement="right"
+          open={glossaryOpen}
+          onClose={() => setGlossaryOpen(false)}
+          width={380}
+        >
+          <div className="space-y-3">
+            {Object.entries(businessGlossary).map(([id, item]) => (
+              <section key={id} className="border-b border-slate-200 pb-3">
+                <h2 className="m-0 text-sm font-semibold text-slate-950">{item.label}</h2>
+                <p className="mb-0 mt-1 text-sm leading-6 text-slate-600">{item.explanation}</p>
+              </section>
+            ))}
+          </div>
         </Drawer>
         <Content className="fams-content min-w-0 overflow-x-hidden p-4 md:p-6">
           <Outlet />

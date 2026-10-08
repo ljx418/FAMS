@@ -73,8 +73,8 @@ export async function transactionRoutes(app: FastifyInstance) {
   })
 
   // 批量导入交易
-  app.post('/import', async (request: FastifyRequest<{ Body: { userId: string; file: unknown; mapping: Record<string, string> } }>) => {
-    const { userId, file, mapping } = request.body as { userId: string; file: unknown; mapping: Record<string, string> }
+  app.post('/import', async (request: FastifyRequest<{ Body: { userId: string; file: unknown; mapping: Record<string, string>; idempotencyKey?: string; positionEffect?: 'apply' | 'record_only'; confirmedBy?: string } }>) => {
+    const { userId, file, mapping, idempotencyKey, positionEffect, confirmedBy } = request.body
 
     if (!userId) {
       throw new Error('userId is required')
@@ -102,6 +102,10 @@ export async function transactionRoutes(app: FastifyInstance) {
       throw new Error('Unsupported file format')
     }
 
-    return transactionService.importTransactions(userId, fileBuffer, mapping as unknown as ImportMapping)
+    return transactionService.importTransactions(userId, fileBuffer, mapping as unknown as ImportMapping, {
+      idempotencyKey,
+      positionEffect,
+      confirmedBy,
+    })
   })
 }

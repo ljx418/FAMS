@@ -3,13 +3,61 @@
     "financial-asset-manager": {
       "command": "node",
       "args": [
+        "/mnt/c/workspace/financial-asset-manager/backend/dist/mcp/stdio.js"
+      ],
+      "env": {
+        "DATABASE_URL": "file:/mnt/c/workspace/financial-asset-manager/backend/prisma/dev.db",
+        "FAMS_MCP_DEFAULT_USER_ID": "default",
+        "FAMS_MCP_PROFILE": "workflow"
+      },
+      "description": "FAMS 对外主工作流：基本信息确认 → 仓位策略 → 回测复盘；按同花顺轮动/红利低波和支付宝投资组合路由，不创建交易或券商订单。",
+      "capabilities": [
+        "investment_workflow.get_readiness",
+        "investment_workflow.list_strategy_assignments",
+        "investment_workflow.suggest_strategy_assignments",
+        "investment_workflow.confirm_strategy_assignment",
+        "investment_workflow.run_rotation_volatility_strategy",
+        "investment_workflow.get_dividend_low_vol_plan",
+        "investment_workflow.refresh_dividend_low_vol_research",
+        "investment_workflow.get_portfolio_state",
+        "investment_workflow.preflight_portfolio_review",
+        "investment_workflow.start_portfolio_review",
+        "investment_workflow.get_portfolio_review",
+        "investment_workflow.compare_saved_advice_scenarios",
+        "backtest.grid_replay.list_sources",
+        "backtest.grid_replay.run",
+        "backtest.grid_replay.get_result",
+        "capture.upload_screenshot",
+        "capture.apply_extraction",
+        "capture.get_preview",
+        "capture.update_row",
+        "capture.confirm_rows",
+        "market_data.get_asset_trend",
+        "operation.get"
+      ],
+      "resources": [
+        "fams://investment-workflow/contract",
+        "fams://investment-workflow/readiness",
+        "fams://investment-workflow/assignments",
+        "fams://investment-workflow/portfolio/current"
+        ,"fams://backtest/grid-replay/rules"
+      ],
+      "prompts": [
+        "basic-information-confirmation",
+        "position-strategy",
+        "backtest-review"
+      ]
+    },
+    "financial-asset-manager-portfolio": {
+      "command": "node",
+      "args": [
         "/mnt/c/workspace/financial-asset-manager/backend/dist/mcp/portfolioStdio.js"
       ],
       "env": {
         "DATABASE_URL": "file:/mnt/c/workspace/financial-asset-manager/backend/prisma/dev.db",
         "FAMS_MCP_USER_ID": "default"
       },
-      "description": "FAMS 仓位管理 MCP：读取仓位、导入支付宝持仓截图、运行复盘并保存人工计划；不会创建交易或券商订单。",
+      "description": "FAMS 支付宝投资组合专家 MCP：读取仓位、导入持仓截图、运行固定复盘并保存人工计划；作为主工作流的兼容专家入口。",
       "capabilities": [
         "portfolio_get_current_state",
         "portfolio_review_preflight",
@@ -69,6 +117,7 @@
         "volatility_workflow.reconcile",
         "volatility_workflow.run",
         "volatility_workflow.get_result",
+        "volatility_workflow.decide_reanchor",
         "capture.upload_screenshot",
         "capture.apply_extraction",
         "capture.get_preview",
@@ -80,12 +129,16 @@
         "daily_review.get_latest",
         "daily_review.export_html",
         "grid_strategy.list_templates"
+        ,"backtest.grid_replay.list_sources"
+        ,"backtest.grid_replay.run"
+        ,"backtest.grid_replay.get_result"
       ],
       "resources": [
         "fams://volatility/strategy/active",
         "fams://volatility/portfolio/latest-reconciled",
         "fams://volatility/rules",
         "fams://volatility/reviews/{reviewId}"
+        ,"fams://backtest/grid-replay/rules"
       ],
       "prompts": ["volatility-review"],
       "executionBoundary": {
