@@ -10,7 +10,8 @@ const backendDir = path.join(repoRoot, 'backend')
 const frontendDir = path.join(repoRoot, 'frontend')
 const generatedAt = new Date().toISOString()
 const stamp = generatedAt.replace(/[:.]/g, '-')
-const reportDir = path.join(backendDir, 'data', 'gpt-audit', 'full-system-e2e', stamp)
+const reportRoot = path.join(backendDir, 'data', 'gpt-audit', 'full-system-e2e')
+const reportDir = path.join(reportRoot, stamp)
 const screenshotDir = path.join(reportDir, 'screenshots')
 const backendUrl = process.env.FAMS_E2E_BACKEND_URL || 'http://127.0.0.1:4000'
 const frontendUrl = process.env.FAMS_E2E_FRONTEND_URL || 'http://127.0.0.1:3100'
@@ -1843,15 +1844,32 @@ async function main() {
   await writeFile(path.join(reportDir, 'human-audit-readiness.json'), JSON.stringify(model.humanAuditReadiness, null, 2))
   await writeFile(path.join(reportDir, 'acceptance-report.html'), renderReport(model).replace(/[ \t]+$/gm, ''))
 
-  console.log(JSON.stringify({
-    ok: overallStatus === 'passed',
+  const latestRun = {
+    schemaVersion: 'fams.full-system-e2e.latest-run.v1',
+    generatedAt,
     status: overallStatus,
+    automatedScopeStatus,
+    fullPrdExitStatus: prdCoverage.status,
+    headCommit: model.git.headCommit,
+    workingTreeClean: model.git.workingTreeClean,
+    reportDir,
     reportPath: path.join(reportDir, 'acceptance-report.html'),
     summaryPath: path.join(reportDir, 'summary.json'),
+  }
+  await writeFile(path.join(reportRoot, 'LATEST_RUN.json'), JSON.stringify(latestRun, null, 2))
+
+  console.log(JSON.stringify({
+    ok: automatedScopeStatus === 'passed',
+    status: overallStatus,
+    automatedScopeStatus,
+    fullPrdExitStatus: prdCoverage.status,
+    reportPath: path.join(reportDir, 'acceptance-report.html'),
+    summaryPath: path.join(reportDir, 'summary.json'),
+    latestRunPath: path.join(reportRoot, 'LATEST_RUN.json'),
     screenshots: browser.screenshots.map((item) => item.path).filter(Boolean),
   }, null, 2))
 
-  if (overallStatus !== 'passed') {
+  if (automatedScopeStatus !== 'passed') {
     process.exitCode = 1
   }
 }

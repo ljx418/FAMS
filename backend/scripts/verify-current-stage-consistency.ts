@@ -60,6 +60,8 @@ assert.equal(investmentTrack?.pointInTimeDynamicRecomputeReady, true)
 assert.equal(investmentTrack?.defaultAccountConfirmedStrategyAssignmentCount, 16)
 assert.equal(investmentTrack?.defaultAccountPendingStrategyAssignmentCount, 0)
 assert.equal(investmentTrack?.remainingHumanRequirement, 'verify_confirmed_assignment_correctness_screenshot_corrections_curve_semantics_and_mobile_experience')
+assert.equal(investmentTrack?.acceptanceReportLocator, 'backend/data/gpt-audit/full-system-e2e/LATEST_RUN.json')
+assert.equal(investmentTrack?.acceptanceReportPolicy, 'resolve_latest_run_pointer_and_require_head_commit_match_with_clean_worktree')
 assert.equal(investmentTrack?.humanAcceptanceStatus, 'pending_batch_review')
 for (const source of [investmentPlan, architecture, targetGap, drawioOutput]) {
   assert.match(source, /19\/20/, '投资工作流当前文档必须统一声明 19/20')
