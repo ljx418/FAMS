@@ -74,6 +74,7 @@
     "test:operation-worker-readiness": "node node_modules/tsx/dist/cli.mjs scripts/verify-operation-worker-readiness.ts",
     "test:screener-factset-preheat": "node node_modules/tsx/dist/cli.mjs scripts/verify-screener-factset-preheat.ts",
     "test:quote-list-cache": "node node_modules/tsx/dist/cli.mjs scripts/verify-quote-list-cache.ts",
+    "test:quote-list-readonly-contract": "node node_modules/tsx/dist/cli.mjs scripts/verify-quote-list-readonly-contract.ts",
     "test:quote-list-canonical": "node node_modules/tsx/dist/cli.mjs scripts/verify-quote-list-canonical.ts",
     "test:quote-list-market-cap-worker": "node node_modules/tsx/dist/cli.mjs scripts/verify-quote-list-market-cap-worker.ts",
     "test:market-bar-cache-preheat-worker": "node node_modules/tsx/dist/cli.mjs scripts/verify-market-bar-cache-preheat-worker.ts",

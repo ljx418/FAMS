@@ -1629,6 +1629,7 @@ async function main() {
     ['trade action readiness', ['npm', 'run', 'test:trade-action-readiness'], backendDir, 240000],
     ['llm dotenv config', ['npm', 'run', 'test:llm-dotenv-config'], backendDir, 180000],
     ['market data reliability snapshot', ['npm', 'run', 'test:market-data-reliability-snapshot'], backendDir, 240000],
+    ['quote list read-only contract', ['npm', 'run', 'test:quote-list-readonly-contract'], backendDir, 120000],
     ['llm runtime observability', ['npm', 'run', 'test:llm-runtime-observability'], backendDir, 240000],
     ['chat llm planner', ['npm', 'run', 'test:chat-llm-planner'], backendDir, 240000],
     ['chat agent core', ['npm', 'run', 'test:chat-agent-core'], backendDir, 180000],

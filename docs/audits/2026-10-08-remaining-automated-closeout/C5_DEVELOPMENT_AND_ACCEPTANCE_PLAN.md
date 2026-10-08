@@ -50,6 +50,18 @@
 - 保留 120 秒真实数据等待预算和三视口取证，不降低浏览器门槛。
 - 修复后重新执行生产构建和完整 full-system E2E；第二轮失败报告不得作为通过证据。
 
+## 第三轮失败与重规划（2026-10-08）
+
+桌面每日复盘修复后，浏览器 39 张截图、console/HTTP 5xx、API 与其余自动化命令均通过；全量 E2E 仍诚实返回 `failed`，唯一非预期失败为 `investment workflow foundation` 达到 600 秒超时。独立诊断证明真实账户、行情定位、来源冲突和分类确认总计不足 1 秒，阻塞发生在研究快照读取 quote-list 数据时。
+
+根因为 `FundamentalDataProvider` 优先读取估值覆盖不足的 canonical 文件，忽略估值覆盖更高的本地真实缓存，并在 E2E 明确设置只读模式后仍尝试外部刷新。网络请求偶发等待使确定性合同被外部 provider 拖住。重规划如下：
+
+- 合并 canonical 与 legacy 两份真实缓存，canonical 身份/行业字段与 legacy 估值字段互补，禁止用 fixture 或 mock 替换。
+- `FAMS_QUOTE_LIST_CACHE_READ_ONLY=1` 时只要本地缓存存在就禁止外部刷新；正常运行模式仍保留显式刷新能力。
+- 新增 quote-list 只读合同，验证互补估值保留、缓存规模和 5 秒内本地完成；纳入 full-system E2E。
+- 投资工作流 foundation 增加阶段耗时日志，任何再次超时都能定位到具体真实数据步骤。
+- 修复后必须重跑 foundation、TypeScript 和完整 full-system E2E；第三轮失败报告不得作为通过证据。
+
 ## 产物
 
 - 新版 `acceptance-report.html` 与 `LATEST_RUN.json`。

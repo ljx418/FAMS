@@ -432,9 +432,10 @@ class FundamentalDataProvider {
       const cached = await this.readQuoteListCache()
       const valuationRows = Array.from(cached.values()).filter((item) => item.peDynamic !== undefined || item.pb !== undefined).length
       const valuationCoverage = cached.size > 0 ? valuationRows / cached.size : 0
+      const cacheReadOnly = /^(1|true|yes)$/i.test(process.env.FAMS_QUOTE_LIST_CACHE_READ_ONLY || '')
       if (
         cached.size > 0 &&
-        valuationCoverage >= 0.5 &&
+        (cacheReadOnly || valuationCoverage >= 0.5) &&
         !/^(1|true|yes)$/i.test(process.env.FAMS_REFRESH_QUOTE_LIST_CACHE || '')
       ) {
         this.quoteListSnapshotPromise = Promise.resolve(cached)
@@ -458,9 +459,29 @@ class FundamentalDataProvider {
   }
 
   async readQuoteListCache() {
-    const canonical = await this.readQuoteListCacheFile(canonicalQuoteListCachePath, 'fams.a_share_quote_list_canonical.v1')
-    if (canonical.size > 0) return canonical
-    return this.readQuoteListCacheFile(quoteListCachePath, 'fams.a_share_quote_list_cache.v1')
+    const [canonical, legacy] = await Promise.all([
+      this.readQuoteListCacheFile(canonicalQuoteListCachePath, 'fams.a_share_quote_list_canonical.v1'),
+      this.readQuoteListCacheFile(quoteListCachePath, 'fams.a_share_quote_list_cache.v1'),
+    ])
+    if (canonical.size === 0) return legacy
+    if (legacy.size === 0) return canonical
+
+    const merged = new Map(legacy)
+    for (const [code, current] of canonical) {
+      const fallback = legacy.get(code)
+      merged.set(code, {
+        code,
+        name: current.name || fallback?.name || code,
+        totalMarketCap: current.totalMarketCap ?? fallback?.totalMarketCap,
+        floatMarketCap: current.floatMarketCap ?? fallback?.floatMarketCap,
+        peDynamic: current.peDynamic ?? fallback?.peDynamic,
+        pb: current.pb ?? fallback?.pb,
+        industryName: current.industryName || fallback?.industryName,
+        source: fallback ? 'fams_quote_list_canonical+eastmoney_quote_list_cache' : current.source,
+        fetchedAt: current.fetchedAt || fallback?.fetchedAt,
+      })
+    }
+    return merged
   }
 
   private async readQuoteListCacheFile(path: string, schemaVersion: string) {

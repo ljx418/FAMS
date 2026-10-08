@@ -6,8 +6,14 @@ import { investmentWorkflowService } from '../src/services/investment-workflow/i
 
 const userId = `wf1-contract-${Date.now()}`
 let capturePath: string | null = null
+const verificationStartedAt = Date.now()
+
+function trace(step: string) {
+  console.error(`[wf-foundation] ${step} +${Date.now() - verificationStartedAt}ms`)
+}
 
 async function main() {
+  trace('load-real-account-baseline:start')
   const [currentPositions, fallbackAssets] = await Promise.all([
     prisma.position.findMany({
       where: {
@@ -25,6 +31,7 @@ async function main() {
       take: 200,
     }),
   ])
+  trace('load-real-account-baseline:done')
   const assets = [
     ...currentPositions.map((position) => position.asset),
     ...fallbackAssets.filter((asset) => !currentPositions.some((position) => position.assetId === asset.id)),
@@ -42,6 +49,7 @@ async function main() {
     },
     _count: { _all: true },
   })
+  trace('locate-real-canonical-series:done')
   const barCountBySymbol = new Map(barCounts.map((row) => [row.symbol, row._count._all]))
   const realAsset = assets.find((asset) => (barCountBySymbol.get(asset.symbol.replace(/\.(SH|SZ|BJ|SS)$/i, '')) || 0) >= 30) || null
   const realBarCount = realAsset
@@ -66,6 +74,7 @@ async function main() {
       source: 'wf1_real_data_contract',
     },
   })
+  trace('create-isolated-account:done')
 
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5ZQAAAABJRU5ErkJggg==', 'base64')
   const uploaded = await screenshotCaptureService.upload({
@@ -75,6 +84,7 @@ async function main() {
     mimeType: 'image/png',
     originalFilename: 'wf1-account-source-contract.png',
   })
+  trace('capture-account-source:done')
   capturePath = uploaded.capture.storagePath
   assert.equal(uploaded.capture.accountSource, 'tonghuashun')
 
@@ -94,12 +104,14 @@ async function main() {
       confidence: 0.99,
     }],
   })
+  trace('capture-source-conflict:done')
   assert.equal(sourceConflictPreview.rows[0].status, 'blocked')
   assert.ok(sourceConflictPreview.rows[0].diff.issues.includes('account_source_conflict'))
   assert.equal(sourceConflictPreview.rows[0].fields.accountId, 'tonghuashun')
 
   const transactionCountBefore = await prisma.transaction.count({ where: { userId } })
   const suggested = await investmentWorkflowService.suggestAssignments(userId)
+  trace('assignment-suggestion:done')
   assert.equal(suggested.assignments.length, 1)
   assert.equal(suggested.assignments[0].strategyFamily, 'rotation_volatility')
   assert.equal(suggested.assignments[0].status, 'suggested')
@@ -109,6 +121,7 @@ async function main() {
     strategyFamily: 'rotation_volatility',
     confirmedBy: 'wf1_contract_test',
   })
+  trace('assignment-confirmation:done')
   assert.equal(confirmed.status, 'confirmed')
 
   const firstSnapshot = await investmentWorkflowService.createResearchSnapshot({
@@ -117,12 +130,14 @@ async function main() {
     accountSource: 'tonghuashun',
     positionIds: [position.id],
   })
+  trace('first-research-snapshot:done')
   const secondSnapshot = await investmentWorkflowService.createResearchSnapshot({
     userId,
     strategyFamily: 'rotation_volatility',
     accountSource: 'tonghuashun',
     positionIds: [position.id],
   })
+  trace('second-research-snapshot:done')
   assert.equal(firstSnapshot.id, secondSnapshot.id, 'identical real inputs must reuse the immutable snapshot')
   assert.match(firstSnapshot.inputHash, /^[a-f0-9]{64}$/)
   assert.equal(firstSnapshot.immutable, true)
@@ -155,13 +170,16 @@ async function main() {
       orderCreateAllowed: false,
     },
   }, null, 2))
+  trace('verification:passed')
 }
 
 main()
   .finally(async () => {
+    trace('cleanup:start')
     await prisma.user.delete({ where: { id: userId } }).catch(() => undefined)
     if (capturePath) await unlink(capturePath).catch(() => undefined)
     await prisma.$disconnect()
+    trace('cleanup:done')
   })
   .catch((error) => {
     console.error(error)
