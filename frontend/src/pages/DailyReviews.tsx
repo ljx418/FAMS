@@ -653,8 +653,6 @@ export default function DailyReviews() {
     { title: '理由/阻断', dataIndex: 'rationale', width: 320, render: (reason) => <span className="text-sm text-slate-600">{reason || '未记录'}</span> },
   ]
 
-  if (loading && !detail) return <Skeleton active paragraph={{ rows: 12 }} />
-
   return (
     <div className="mx-auto max-w-[1600px] space-y-5" data-testid="daily-review-workbench">
       <section className="overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-white via-blue-50/70 to-slate-100 p-5 shadow-sm md:p-7">
@@ -767,7 +765,12 @@ export default function DailyReviews() {
 
       {error ? <Alert type="error" showIcon message="读取复盘失败" description={error} action={<Button onClick={() => void refresh()}>重试</Button>} /> : null}
 
-      {!detail || !workflow ? (
+      {loading && !detail ? (
+        <Card className="fams-card" aria-busy="true" data-testid="daily-review-loading">
+          <div className="mb-4 text-sm font-medium text-slate-700">正在加载最近一次复盘与审计链</div>
+          <Skeleton active paragraph={{ rows: 8 }} />
+        </Card>
+      ) : !detail || !workflow ? (
         <Card><Empty description="还没有每日持仓复盘"><Button type="primary" disabled={!preflight?.canRun} onClick={confirmRun}>生成第一轮一键复盘</Button></Empty></Card>
       ) : (
         <>
