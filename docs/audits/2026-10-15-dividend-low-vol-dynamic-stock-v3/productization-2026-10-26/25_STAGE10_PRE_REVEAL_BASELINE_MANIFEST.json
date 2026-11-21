@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "dlv3.stage10-pre-reveal-baseline.v1",
+  "stageId": "DLV3-STAGE10",
+  "attempt": "C0",
+  "status": "FROZEN_BEFORE_FIRST_HOLDOUT_VALUE_OPEN",
+  "authorizedBy": "user",
+  "authorizedAt": "2026-10-28",
+  "authorizationText": "同意按方案A做揭盲、但是我期望你做好失败时的策略版本回退和研究基线保存，避免大规模推倒重来",
+  "implementationOwner": "Codex",
+  "contract": {
+    "path": "docs/audits/2026-10-15-dividend-low-vol-dynamic-stock-v3/productization-2026-10-26/24_STAGE10_PLAN_A_HOLDOUT_AND_ROLLBACK_CONTRACT.md",
+    "sha256": "0216ad2d8790c2e8aca74c13c708bf25bf06f9046cc6acd0c66d83a3dd515d8a"
+  },
+  "holdout": {
+    "start": "2025-10-01",
+    "end": "2026-09-30",
+    "statisticalAttemptBudget": 1,
+    "attemptConsumed": false,
+    "holdoutReadsAtFreeze": 0,
+    "firstValueOpenMustAtomicallyWriteReceipt": true,
+    "resumeRequiresIdenticalHashes": true
+  },
+  "release": {
+    "strategyType": "dividend_low_vol_stock_v3",
+    "version": "3.0.0-research",
+    "auditHash": "c4feebed2d5512942fce748f1bca7da5204846cb70a0b902879b9330cf42e689",
+    "protocolHash": "5b9e690c63b5972097401f0ee2c16c9f5af9e114188015a776e824a57f6ad9bd",
+    "researchContractHash": "d2ac07a186d4c9cf11ae1306f7fc909f9a2296f099835bb88e0c39f99bd2090e",
+    "strategyReleasePath": "backend/data/gpt-audit/dividend-low-vol-stock-v3/scratch/DLV3-STAGE7B-C0-20261027T160000Z-CODEX/studies/DLV3-STAGE7B-C0-GEN2-FINAL-20261027T160000Z/generation-0002/strategy-release.json",
+    "strategyReleaseSha256": "f5c45c616751a78cd48ab9e7ddabc657d88c7321466ac83e02a70d96a758d47a",
+    "inputSnapshotPath": "backend/data/gpt-audit/dividend-low-vol-stock-v3/scratch/DLV3-STAGE7B-C0-20261027T160000Z-CODEX/studies/DLV3-STAGE7B-C0-GEN2-FINAL-20261027T160000Z/generation-0002/input-snapshot.json",
+    "inputSnapshotSha256": "195e59b9ef62928a9dd3e8c0c605baa9058a86e530d4a3e14dd0255e414fdba6"
+  },
+  "acceptedInputs": {
+    "gate6": {
+      "runId": "P4-RUN-G6-CODEX-20261026T080500Z",
+      "payloadTreeDigest": "35ff4380dc95dcd9eca89ab6e055bd44c345cb3b6ff5c547e2feb9c11fd90018"
+    },
+    "gate7a": {
+      "runId": "DLV3-STAGE7A-R1-CODEX-20261027T090841Z",
+      "treeDigest": "7854d56aabe2b857856ab6af21ed3fae820751dceacdff4440bab4c84f6a52df"
+    },
+    "stage7a1": {
+      "runId": "DLV3-STAGE7A1-CODEX-20261027T112056Z",
+      "sealSha256": "ebcf4c07adbb7eeacead38bffdd014aa2f8052b4f8c55911e77a3728d47c2e46"
+    },
+    "gate7b": {
+      "candidateId": "DLV3-STAGE7B-C0-GEN2-FINAL-20261027T160000Z",
+      "artifactHash": "c7d043ee9a9a95f82b8a04922e426479d4e1d18d6bd2e453bdf21e812c0790ec",
+      "denominatorSha256": "03e0d7b767bab392aacc15db5a67cf6ba4c06967a10416716036ece6b35bd76b",
+      "acceptanceReceiptSha256": "920dddb3c5d1fa0daf91877c0a26fa906572d4048e66f8669a698c763273d8dd"
+    },
+    "gate8": {
+      "candidateId": "DLV3-STAGE8-C0-CODEX-20261027T131600Z",
+      "payloadTreeDigest": "c683029ee7e8f0a1685846daedb7ec21767a8c33e20408d64ecccf715f071e1e",
+      "acceptanceReceiptSha256": "d9485b3afcc38d26ba6c61949a519f9f8a2abd77f2ba9318c14bf20f0c304345"
+    },
+    "gate9a": {
+      "candidateId": "DLV3-STAGE9A-CODEX-FIX-CODEX-20261027T150000Z",
+      "candidateSealSha256": "7659d70bee75b9165623142c1c82adf6fecc7c93d6d67bcf1c61a351372b73d1",
+      "acceptanceReceiptSha256": "93bf1ee17dde25e739f030b91bed62f31dac2ace7c59266acb9d491ff91b6f33"
+    }
+  },
+  "frozenCenter": {
+    "ttmDividendYieldPct": 4,
+    "average3yDividendYieldPct": 3.5,
+    "corePct": 70,
+    "satelliteSell": 0.55,
+    "riskFreePolicy": "zero_risk_free_research_convention.v1",
+    "parameterResearchIsDiagnosticOnly": true
+  },
+  "arms": ["R0", "R1", "R2"],
+  "formalBenchmarks": ["B0:H00300:total_return", "B1:H20269:total_return"],
+  "proxyOnly": "P0:512890:price_proxy",
+  "decisionTiers": {
+    "STRONG_TARGET": "sharpe>=1.0 && maxDrawdown<=0.08 && excessB0>=0 && excessB1>=0",
+    "RESEARCH_TARGET_MET": "sharpe>=0.8 && maxDrawdown<=0.08 && excessB0>=0",
+    "MINIMUM_VIABLE": "totalReturn>0 && sharpe>=0.5 && maxDrawdown<=0.10",
+    "RESEARCH_REJECTED": "not MINIMUM_VIABLE or frozen risk condition violated",
+    "INCONCLUSIVE": "identity, coverage, conservation, benchmark or independent-recompute invalid"
+  },
+  "rollback": {
+    "productionPointerMutationAllowed": false,
+    "inPlaceReleaseMutationAllowed": false,
+    "baselineDeletionAllowed": false,
+    "failedResultDeletionAllowed": false,
+    "fallbackState": "retain_3.0.0_research_and_keep_gate9b_disabled",
+    "nextResearchMustUseNewReleaseIdentity": true,
+    "revealedWindowMayBeReusedAsHoldout": false
+  },
+  "forbiddenActions": {
+    "productionDatabaseWrites": 0,
+    "productionServiceStarts": 0,
+    "schedulerEnables": 0,
+    "networkAcquisitions": 0,
+    "schemaMigrations": 0,
+    "mcpTouches": 0,
+    "brokerTouches": 0,
+    "orderCreates": 0,
+    "parameterChangesAfterReveal": 0
+  }
+}

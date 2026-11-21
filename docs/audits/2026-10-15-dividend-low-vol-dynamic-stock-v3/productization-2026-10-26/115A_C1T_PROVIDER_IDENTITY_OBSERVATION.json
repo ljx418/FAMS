@@ -1,0 +1,313 @@
+{
+  "captureMode": "read_only_no_network",
+  "capturedAt": "2026-11-01",
+  "declaration": "read-only observation; not an authorization and not a network activation",
+  "distInfo": {
+    "INSTALLER": {
+      "bytes": 4,
+      "sha256": "ceebae7b8927a3227e5303cf5e0f1f7b34bb542ad7250ac03fbcde36ec2f1508"
+    },
+    "METADATA": {
+      "bytes": 3499,
+      "sha256": "de9dc78a08da61d11a5abf1b84b590451fb71d625352b1d7b5c8d24d539d0883"
+    },
+    "RECORD": {
+      "bytes": 8546,
+      "sha256": "846633dd73a374ffb086809de3d82fa32457b06c20ce6502965d9d2814a631d3"
+    },
+    "WHEEL": {
+      "bytes": 92,
+      "sha256": "b59a1e1a3b56c5645f769944ec4ddde3954f94b3509ef6ca8989f1ee0c00cbc0"
+    },
+    "top_level.txt": {
+      "bytes": 9,
+      "sha256": "3df7dfdf845264dabf1543f70d524f04f40b24a75373bf5d5e859ac4a62a8e44"
+    }
+  },
+  "distInfoRoot": "/home/administrator/.local/lib/python3.12/site-packages/baostock-0.9.1.dist-info",
+  "distribution": "baostock",
+  "fileCount": 53,
+  "files": [
+    {
+      "bytes": 1664,
+      "path": "__init__.py",
+      "sha256": "8929a883ac0c881af367b5354d51aca04e9efaa86203d05289abcf088a5408b1"
+    },
+    {
+      "bytes": 0,
+      "path": "common/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 10675,
+      "path": "common/contants.py",
+      "sha256": "f6709165fecc044e5a30b5b378070c25d8da8413c07fd3979c4ecdc334d537f0"
+    },
+    {
+      "bytes": 43,
+      "path": "common/context.py",
+      "sha256": "1a76fe38c5ba69de779d791f7c277b9fc0e84f7e9701965c9fb5dd3f2af67d12"
+    },
+    {
+      "bytes": 0,
+      "path": "corpreport/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 8289,
+      "path": "corpreport/corp_performance.py",
+      "sha256": "fc68a032768477af812f33899c5d7ad034cd8c9f18eb800b3046228db7639b05"
+    },
+    {
+      "bytes": 0,
+      "path": "data/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 489,
+      "path": "data/messageheader.py",
+      "sha256": "9dfe8c19a68b29d0422fe64fe7470a6d0575555a3c95bd861722ac0cfd1a106e"
+    },
+    {
+      "bytes": 567,
+      "path": "data/msg.py",
+      "sha256": "9d56a4bed06d65100b6cc2cbe2490f65a008b221c2dfdb0de2fa3a1de436269f"
+    },
+    {
+      "bytes": 7195,
+      "path": "data/resultset.py",
+      "sha256": "ccdbd31b975754f15c8082e4dcfa9f58f42bf70126d8f6e020001dc9d361854d"
+    },
+    {
+      "bytes": 0,
+      "path": "demo/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 1319,
+      "path": "demo/demo_A_stock_5mk-data.py",
+      "sha256": "5c5a842ab31697f43574eea3971da9cc36099faabff993d3f0d5a371f84ed824"
+    },
+    {
+      "bytes": 1191,
+      "path": "demo/demo_A_stock_k_data.py",
+      "sha256": "2ff8fb859f510731eb997fd68480b74adf716b3febb40d5c709e1cec2559c188"
+    },
+    {
+      "bytes": 711,
+      "path": "demo/demo_Adjust_factor_data.py",
+      "sha256": "03918e2ec4088690cd4890cbf69823f8eb51f5aca447fe98902c576e020e6552"
+    },
+    {
+      "bytes": 806,
+      "path": "demo/demo_AllStock.py",
+      "sha256": "29e271074848aa1165e4a03315526153c0d2a2f25107b47981f3debf7ce461f6"
+    },
+    {
+      "bytes": 679,
+      "path": "demo/demo_Balance_data.py",
+      "sha256": "4f909f93c46281f339171cd631a8b0c770ee5bffa1aba11e60b1eb76b4071af2"
+    },
+    {
+      "bytes": 711,
+      "path": "demo/demo_CashFlow_data.py",
+      "sha256": "02a70068e178b8e0448f4c065037a6fd20a1f1d77a37b9a2001332c94b495a1e"
+    },
+    {
+      "bytes": 1309,
+      "path": "demo/demo_Dividend_data.py",
+      "sha256": "3f197930b9425e2d8031b692bf7933f9df48cb87ff66dd05106a1cfbd3740743"
+    },
+    {
+      "bytes": 710,
+      "path": "demo/demo_Dupont_data.py",
+      "sha256": "b1d7d33bc96fd26fee044932daa17b1789a9567ae47e716f891cc64c629161b8"
+    },
+    {
+      "bytes": 956,
+      "path": "demo/demo_Forecast_report.py",
+      "sha256": "95120f17a2bde0af4a39f7f854c64b877e3d90ebb0ce47f8440242c70f3211ad"
+    },
+    {
+      "bytes": 666,
+      "path": "demo/demo_Growth_data.py",
+      "sha256": "7c228165e42af969c6c2f7792bf199133a84cd009df024a93231de1f2e6bfba7"
+    },
+    {
+      "bytes": 1824,
+      "path": "demo/demo_Index_k_data.py",
+      "sha256": "304384e64b7268b3ed21e2c32755e012cfc3a16a49d962e09212b208c43467c1"
+    },
+    {
+      "bytes": 705,
+      "path": "demo/demo_Operation_data.py",
+      "sha256": "252b1d0cfebf590b8c1ef7860f350e5aca7ed7efc1eec0a788e49d4ebb390e31"
+    },
+    {
+      "bytes": 897,
+      "path": "demo/demo_PerformanceExpress_report.py",
+      "sha256": "7cbb8dd6ccdfa94d1f641133f325a29c4a3ce091f2353e82dc6818fd5dfc7529"
+    },
+    {
+      "bytes": 690,
+      "path": "demo/demo_Profit_data.py",
+      "sha256": "75d6128d24b79edfcb427f1ca34fddbcbd6c3ed2ec42442e06515e26c8fabfdb"
+    },
+    {
+      "bytes": 847,
+      "path": "demo/demo_TradeDates.py",
+      "sha256": "4bda5aac9a3e0079bd6cbdacac7f38e159e45c33fc4f7ccb7d51e288c40784ff"
+    },
+    {
+      "bytes": 705,
+      "path": "demo/demo_assignDayData.py",
+      "sha256": "07aeaa9ffc082a8652ce2cb2b3823c16d4cb86e132a4755373bebf5507e68011"
+    },
+    {
+      "bytes": 817,
+      "path": "demo/demo_depositRate_data.py",
+      "sha256": "ac1a7490ad7004f514bbfc9b8e91ec3dee5107a08816a49b5cea3044d4da5c6d"
+    },
+    {
+      "bytes": 741,
+      "path": "demo/demo_hs300_stocks.py",
+      "sha256": "069fd426c4a294959ac7ef507e0e614ae8520347fa58e71796ed2762505e900b"
+    },
+    {
+      "bytes": 805,
+      "path": "demo/demo_loanRate_data.py",
+      "sha256": "c0f576e0e6813b1f065cdd933bc6c11bdc227f60c1191a3fe0c7635e06580ed7"
+    },
+    {
+      "bytes": 843,
+      "path": "demo/demo_moneySupplyDataMonth_data.py",
+      "sha256": "ebb4a2d74b9d40ed579bcbffd9c9cada081d69e182b6a73f887b8bfebff4f44d"
+    },
+    {
+      "bytes": 847,
+      "path": "demo/demo_moneySupplyDataYear_data.py",
+      "sha256": "4c802b16474da0c8c6d436e63d5c45f0130b3dbf9fb266b8bb980ac3cb2d61c0"
+    },
+    {
+      "bytes": 863,
+      "path": "demo/demo_requiredReserveRatio_data.py",
+      "sha256": "77e071db28ab2b50c682d6867f0d61aa92be01f8c90fb89b23283f0ad69110a2"
+    },
+    {
+      "bytes": 1294,
+      "path": "demo/demo_set_API_key.py",
+      "sha256": "2de5e2acfdaa30314abbf528ced1b1528758cb52570dbc6fa93b00fc095ded8f"
+    },
+    {
+      "bytes": 829,
+      "path": "demo/demo_stockBasic_data.py",
+      "sha256": "19e16b428d4a6e16a8636191b9f9dd2bdd85379aefabafda73d2b110745b2009"
+    },
+    {
+      "bytes": 1128,
+      "path": "demo/demo_stock_Valuation_indicator_data.py",
+      "sha256": "42357983ed4534628fe66d255219b895889f879ff514243b442a7e370df6d61e"
+    },
+    {
+      "bytes": 799,
+      "path": "demo/demo_stock_industry.py",
+      "sha256": "53cd7f70524271c5ae1dcc577d65b279981e3f7531968c136e5259a67dbcfcd1"
+    },
+    {
+      "bytes": 750,
+      "path": "demo/demo_sz50stocks.py",
+      "sha256": "d1f271a9fd500a9bc8277740a86c732aacba7ea5a027e9690764c652f6802e9d"
+    },
+    {
+      "bytes": 741,
+      "path": "demo/demo_zz500_stock.py",
+      "sha256": "068ffd5ab41f2230fe4e12ca02e0f1b95642abd9ddd61a33f91189d13aa7d4b0"
+    },
+    {
+      "bytes": 0,
+      "path": "evaluation/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 28149,
+      "path": "evaluation/season_index.py",
+      "sha256": "d5a96d956c5f44823740ad8e216257158dc9214dcaaf36541c8f8c6503014421"
+    },
+    {
+      "bytes": 0,
+      "path": "login/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 4666,
+      "path": "login/loginout.py",
+      "sha256": "91b27a6d0cbce5c41550371c4b336727a8e67ecf81bebbcd6302a37264a7624f"
+    },
+    {
+      "bytes": 0,
+      "path": "macroscopic/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 27189,
+      "path": "macroscopic/economic_data.py",
+      "sha256": "df4596ce222057d7d8815e101a39d039710a6ae60fcde637b28421f97cdf35cf"
+    },
+    {
+      "bytes": 0,
+      "path": "metadata/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 7237,
+      "path": "metadata/stock_metadata.py",
+      "sha256": "f24ff4fd6586d1063ac5feeb0ebf8210705a0f139eb15dba1d871e8dd585a5da"
+    },
+    {
+      "bytes": 0,
+      "path": "security/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 5577,
+      "path": "security/history.py",
+      "sha256": "be9682598557c969db5d99788076e16e734db2ba52eb95199468ee4212f3a709"
+    },
+    {
+      "bytes": 36261,
+      "path": "security/sectorinfo.py",
+      "sha256": "b20fdbde427fd14278013c91edd97f20d4fdf21e37a0419f2b19f227c0f5da8e"
+    },
+    {
+      "bytes": 0,
+      "path": "util/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 3551,
+      "path": "util/socketutil.py",
+      "sha256": "248591168ad087fb9c91b64e8c909608082528ecbecf25541dcbce0fe9cfcd25"
+    },
+    {
+      "bytes": 2207,
+      "path": "util/stringutil.py",
+      "sha256": "98a9cf30f44d405d4549cbf044fddc5a4b38a5d07d5dea917caa05e341782765"
+    }
+  ],
+  "host": "public-api.baostock.com",
+  "moduleVersion": "00.9.10",
+  "packageRoot": "/home/administrator/.local/lib/python3.12/site-packages/baostock",
+  "pipVersion": "0.9.1",
+  "port": 10030,
+  "pythonExecutable": {
+    "path": "/usr/bin/python3",
+    "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+  },
+  "recordVerification": {
+    "checked": 53,
+    "mismatches": []
+  },
+  "schemaVersion": "dlv3.c1t-provider-identity-observation.v1",
+  "sourceTreeDigestAlgorithm": "sha256(canonical-json(sorted relative-path -> file-sha256)); exclude __pycache__ and .pyc",
+  "sourceTreeSha256": "3d8608941fad987098b1dd0e18e0136ac31732e76b858cf31cdfff40c4bde40f"
+}
